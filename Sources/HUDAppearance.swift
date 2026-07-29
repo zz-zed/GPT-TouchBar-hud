@@ -39,7 +39,17 @@ struct HUDAppearance: Equatable {
         }
     }
 
-    static let opacityChoices: [Double] = [0.60, 0.75, 0.86, 1.0]
+    static let opacityChoices: [Double] = [
+        0.10,
+        0.20,
+        0.30,
+        0.40,
+        0.50,
+        0.60,
+        0.75,
+        0.86,
+        1.0
+    ]
 
     private enum DefaultsKey {
         static let color = "hud.color"
@@ -62,7 +72,7 @@ struct HUDAppearance: Equatable {
 
         return HUDAppearance(
             colorChoice: color,
-            opacity: max(0.45, min(1.0, opacity))
+            opacity: max(0.10, min(1.0, opacity))
         )
     }
 
