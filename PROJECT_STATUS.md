@@ -1,14 +1,14 @@
 # PROJECT_STATUS
 
-最后更新：2026-07-29
+最后更新：2026-07-30
 
 ## 项目概况
 
 TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch Bar 小工具。应用通过本机 ChatGPT/Codex 包内的 `codex app-server` 调用 `account/rateLimits/read`，显示额度窗口、可用重置次数和本地 token 用量。
 
 - 当前分支：`main`
-- 当前版本：`0.1.7`，Build `8`
-- GitHub `main` 版本：`0.1.7`（2026-07-29）
+- 当前版本：`0.1.8`，Build `9`
+- GitHub `main` 版本：`0.1.8`（2026-07-30）
 - 最近正式标签：`v0.1.4`
 
 ## 已完成
@@ -50,7 +50,13 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 
 - HUD 透明度最低支持从 `45%` 放宽到 `10%`。
 - 设置菜单新增 `10% / 20% / 30% / 40% / 50%`，并保留原有较高透明度档位。
-- 背景透明度调整不会降低 HUD 文字、状态点和操作按钮的可读性。
+- 该版本的透明度只影响 HUD 背景，文字、状态点和操作按钮保持完全不透明。
+- 已完成 Release 构建和本机重启验证，并推送到 `main`。
+
+## 0.1.8 更新
+
+- HUD 胶囊背景、额度文字、状态点、刷新和退出按钮改为使用统一透明度。
+- 修复低透明度下背景与前景视觉不统一的问题。
 - 已完成 Release 构建和本机重启验证，并推送到 `main`。
 
 ## 验证状态
@@ -64,7 +70,7 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 
 ## 未解决和注意事项
 
-- `0.1.7` 尚未创建 Git 标签、DMG 或 GitHub Release。
+- `0.1.8` 尚未创建 Git 标签、DMG 或 GitHub Release。
 - 项目目前没有自动化测试，额度接口结构变化主要依赖本机 app-server 和实体 Touch Bar 验证。
 - App 尚未使用 Apple Developer 证书签名和公证，公开分发时仍可能出现 macOS 安全提示。
 - 以下 Marketing 文件是未跟踪草稿，除非明确要求，否则不要加入提交：
@@ -76,7 +82,7 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 ## 建议下一步
 
 1. 在实体 Touch Bar 上继续观察白底 Codex 图标、重置券行和两行 `|` 分隔线在不同额度值下的对齐情况。
-2. 按需要创建 `v0.1.7` 标签、DMG 和 GitHub Release。
+2. 按需要创建 `v0.1.8` 标签、DMG 和 GitHub Release。
 3. 后续 app-server 返回结构变化时，优先检查额度窗口时长和重置券字段。
 
 ## 常用命令
