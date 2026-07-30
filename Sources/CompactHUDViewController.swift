@@ -98,6 +98,7 @@ final class CompactQuotaHUDView: NSView {
     private let onQuit: () -> Void
     private var hudAppearance: HUDAppearance
     private var widthConstraint: NSLayoutConstraint?
+    private var contentStack: NSStackView?
 
     init(initialAppearance: HUDAppearance, onRefresh: @escaping () -> Void, onQuit: @escaping () -> Void) {
         self.onRefresh = onRefresh
@@ -172,6 +173,7 @@ final class CompactQuotaHUDView: NSView {
     func updateAppearance(_ appearance: HUDAppearance) {
         self.hudAppearance = appearance
         layer?.backgroundColor = appearance.backgroundColor.cgColor
+        contentStack?.alphaValue = appearance.opacity
     }
 
     private func configure() {
@@ -187,11 +189,13 @@ final class CompactQuotaHUDView: NSView {
         quitButton.action = #selector(quitClicked)
 
         let stack = NSStackView(views: [firstItem, secondItem, refreshButton, quitButton])
+        contentStack = stack
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.distribution = .fill
         stack.spacing = 8
+        stack.alphaValue = hudAppearance.opacity
 
         addSubview(stack)
 
