@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         },
         onQuit: { [weak self] in
             self?.quitFromHUD()
+        },
+        contextMenuProvider: { [weak self] in
+            self?.makeHUDContextMenu() ?? NSMenu()
         }
     )
     private lazy var hudWindow = CompactHUDPanel(contentViewController: hudController)
@@ -82,6 +85,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         menu.addItem(refreshItem)
 
         let settingsItem = NSMenuItem(title: "设置", action: nil, keyEquivalent: "")
+        menu.setSubmenu(makeAppearanceSettingsMenu(registerItems: true), for: settingsItem)
+        menu.addItem(settingsItem)
+        menu.addItem(.separator())
+
+        let quitItem = NSMenuItem(
+            title: "退出",
+            action: #selector(quitFromMenu(_:)),
+            keyEquivalent: "q"
+        )
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        return menu
+    }
+
+    private func makeHUDContextMenu() -> NSMenu {
+        let menu = NSMenu()
+
+        let hideItem = NSMenuItem(
+            title: "隐藏浮窗",
+            action: #selector(hideHUDFromContextMenu(_:)),
+            keyEquivalent: ""
+        )
+        hideItem.target = self
+        menu.addItem(hideItem)
+
+        let refreshItem = NSMenuItem(
+            title: "刷新额度",
+            action: #selector(refreshQuotaFromMenu(_:)),
+            keyEquivalent: "r"
+        )
+        refreshItem.target = self
+        menu.addItem(refreshItem)
+
+        let settingsItem = NSMenuItem(title: "设置", action: nil, keyEquivalent: "")
+        menu.setSubmenu(makeAppearanceSettingsMenu(registerItems: false), for: settingsItem)
+        menu.addItem(settingsItem)
+        menu.addItem(.separator())
+
+        let quitItem = NSMenuItem(
+            title: "退出",
+            action: #selector(quitFromMenu(_:)),
+            keyEquivalent: "q"
+        )
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        return menu
+    }
+
+    private func makeAppearanceSettingsMenu(registerItems: Bool) -> NSMenu {
         let settingsMenu = NSMenu(title: "设置")
 
         let colorHeader = NSMenuItem(title: "浮窗颜色", action: nil, keyEquivalent: "")
@@ -96,8 +150,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
             )
             item.target = self
             item.representedObject = colorChoice.rawValue
+            item.state = colorChoice == hudAppearance.colorChoice ? .on : .off
             settingsMenu.addItem(item)
-            colorMenuItems[colorChoice] = item
+            if registerItems {
+                colorMenuItems[colorChoice] = item
+            }
         }
 
         settingsMenu.addItem(.separator())
@@ -114,23 +171,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
             )
             item.target = self
             item.representedObject = NSNumber(value: opacity)
+            item.state = abs(opacity - hudAppearance.opacity) < 0.001 ? .on : .off
             settingsMenu.addItem(item)
-            opacityMenuItems[opacity] = item
+            if registerItems {
+                opacityMenuItems[opacity] = item
+            }
         }
 
-        menu.setSubmenu(settingsMenu, for: settingsItem)
-        menu.addItem(settingsItem)
-        menu.addItem(.separator())
-
-        let quitItem = NSMenuItem(
-            title: "退出",
-            action: #selector(quitFromMenu(_:)),
-            keyEquivalent: "q"
-        )
-        quitItem.target = self
-        menu.addItem(quitItem)
-
-        return menu
+        return settingsMenu
     }
 
     private func configureLifecycleMonitor() {
@@ -213,6 +261,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
 
     @objc private func refreshQuotaFromMenu(_ sender: AnyObject?) {
         refreshQuotaNow()
+    }
+
+    @objc private func hideHUDFromContextMenu(_ sender: AnyObject?) {
+        hudWindow.orderOut(sender)
+        updateMenuState()
     }
 
     @objc private func quitFromMenu(_ sender: AnyObject?) {

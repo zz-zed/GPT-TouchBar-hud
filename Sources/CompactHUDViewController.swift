@@ -12,13 +12,19 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     private let onRefresh: () -> Void
     private let onQuit: () -> Void
 
-    init(initialAppearance: HUDAppearance, onRefresh: @escaping () -> Void, onQuit: @escaping () -> Void) {
+    init(
+        initialAppearance: HUDAppearance,
+        onRefresh: @escaping () -> Void,
+        onQuit: @escaping () -> Void,
+        contextMenuProvider: @escaping () -> NSMenu
+    ) {
         self.onRefresh = onRefresh
         self.onQuit = onQuit
         self.hudView = CompactQuotaHUDView(
             initialAppearance: initialAppearance,
             onRefresh: onRefresh,
-            onQuit: onQuit
+            onQuit: onQuit,
+            contextMenuProvider: contextMenuProvider
         )
         super.init(nibName: nil, bundle: nil)
         self.hudView.touchBarProvider = self
@@ -96,13 +102,20 @@ final class CompactQuotaHUDView: NSView {
     )
     private let onRefresh: () -> Void
     private let onQuit: () -> Void
+    private let contextMenuProvider: () -> NSMenu
     private var hudAppearance: HUDAppearance
     private var widthConstraint: NSLayoutConstraint?
     private var contentStack: NSStackView?
 
-    init(initialAppearance: HUDAppearance, onRefresh: @escaping () -> Void, onQuit: @escaping () -> Void) {
+    init(
+        initialAppearance: HUDAppearance,
+        onRefresh: @escaping () -> Void,
+        onQuit: @escaping () -> Void,
+        contextMenuProvider: @escaping () -> NSMenu
+    ) {
         self.onRefresh = onRefresh
         self.onQuit = onQuit
+        self.contextMenuProvider = contextMenuProvider
         self.hudAppearance = initialAppearance
         super.init(frame: .zero)
         configure()
@@ -127,6 +140,10 @@ final class CompactQuotaHUDView: NSView {
     override func mouseDown(with event: NSEvent) {
         activateTouchBar()
         super.mouseDown(with: event)
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        contextMenuProvider()
     }
 
     override func makeTouchBar() -> NSTouchBar? {
