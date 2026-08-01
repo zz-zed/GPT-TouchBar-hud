@@ -1,13 +1,19 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate {
+    private enum OpacitySetting {
+        case background
+        case content
+    }
+
     private let statusItem = NSStatusBar.system.statusItem(withLength: 118)
     private let store = RateLimitStore()
     private let lifecycleMonitor = CodexLifecycleMonitor()
     private var hudAppearance = HUDAppearance.load()
     private var hudVisibilityMenuItem: NSMenuItem?
     private var colorMenuItems: [HUDAppearance.ColorChoice: NSMenuItem] = [:]
-    private var opacityMenuItems: [Double: NSMenuItem] = [:]
+    private var backgroundOpacityMenuItems: [Double: NSMenuItem] = [:]
+    private var contentOpacityMenuItems: [Double: NSMenuItem] = [:]
     private lazy var hudController = CompactHUDViewController(
         initialAppearance: hudAppearance,
         onRefresh: { [weak self] in
@@ -159,26 +165,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
 
         settingsMenu.addItem(.separator())
 
-        let opacityHeader = NSMenuItem(title: "透明度", action: nil, keyEquivalent: "")
-        opacityHeader.isEnabled = false
-        settingsMenu.addItem(opacityHeader)
+        let backgroundOpacityItem = NSMenuItem(title: "背景透明度", action: nil, keyEquivalent: "")
+        settingsMenu.setSubmenu(
+            makeOpacityMenu(for: .background, registerItems: registerItems),
+            for: backgroundOpacityItem
+        )
+        settingsMenu.addItem(backgroundOpacityItem)
+
+        let contentOpacityItem = NSMenuItem(title: "文字透明度", action: nil, keyEquivalent: "")
+        settingsMenu.setSubmenu(
+            makeOpacityMenu(for: .content, registerItems: registerItems),
+            for: contentOpacityItem
+        )
+        settingsMenu.addItem(contentOpacityItem)
+
+        return settingsMenu
+    }
+
+    private func makeOpacityMenu(for setting: OpacitySetting, registerItems: Bool) -> NSMenu {
+        let menu = NSMenu(title: setting == .background ? "背景透明度" : "文字透明度")
+        let currentOpacity: Double
+        let action: Selector
+
+        switch setting {
+        case .background:
+            currentOpacity = hudAppearance.backgroundOpacity
+            action = #selector(selectHUDBackgroundOpacity(_:))
+        case .content:
+            currentOpacity = hudAppearance.contentOpacity
+            action = #selector(selectHUDContentOpacity(_:))
+        }
 
         for opacity in HUDAppearance.opacityChoices {
             let item = NSMenuItem(
                 title: "\(Int((opacity * 100).rounded()))%",
-                action: #selector(selectHUDOpacity(_:)),
+                action: action,
                 keyEquivalent: ""
             )
             item.target = self
             item.representedObject = NSNumber(value: opacity)
-            item.state = abs(opacity - hudAppearance.opacity) < 0.001 ? .on : .off
-            settingsMenu.addItem(item)
+            item.state = abs(opacity - currentOpacity) < 0.001 ? .on : .off
+            menu.addItem(item)
             if registerItems {
-                opacityMenuItems[opacity] = item
+                switch setting {
+                case .background:
+                    backgroundOpacityMenuItems[opacity] = item
+                case .content:
+                    contentOpacityMenuItems[opacity] = item
+                }
             }
         }
 
-        return settingsMenu
+        return menu
     }
 
     private func configureLifecycleMonitor() {
@@ -282,12 +320,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         applyHUDAppearance()
     }
 
-    @objc private func selectHUDOpacity(_ sender: NSMenuItem) {
+    @objc private func selectHUDBackgroundOpacity(_ sender: NSMenuItem) {
         guard let number = sender.representedObject as? NSNumber else {
             return
         }
 
-        hudAppearance.opacity = number.doubleValue
+        hudAppearance.backgroundOpacity = number.doubleValue
+        applyHUDAppearance()
+    }
+
+    @objc private func selectHUDContentOpacity(_ sender: NSMenuItem) {
+        guard let number = sender.representedObject as? NSNumber else {
+            return
+        }
+
+        hudAppearance.contentOpacity = number.doubleValue
         applyHUDAppearance()
     }
 
@@ -304,8 +351,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
             item.state = colorChoice == hudAppearance.colorChoice ? .on : .off
         }
 
-        for (opacity, item) in opacityMenuItems {
-            item.state = abs(opacity - hudAppearance.opacity) < 0.001 ? .on : .off
+        for (opacity, item) in backgroundOpacityMenuItems {
+            item.state = abs(opacity - hudAppearance.backgroundOpacity) < 0.001 ? .on : .off
+        }
+
+        for (opacity, item) in contentOpacityMenuItems {
+            item.state = abs(opacity - hudAppearance.contentOpacity) < 0.001 ? .on : .off
         }
     }
 

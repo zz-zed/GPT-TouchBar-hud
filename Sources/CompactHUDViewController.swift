@@ -190,7 +190,7 @@ final class CompactQuotaHUDView: NSView {
     func updateAppearance(_ appearance: HUDAppearance) {
         self.hudAppearance = appearance
         layer?.backgroundColor = appearance.backgroundColor.cgColor
-        contentStack?.alphaValue = appearance.opacity
+        contentStack?.alphaValue = appearance.contentOpacity
     }
 
     private func configure() {
@@ -212,7 +212,7 @@ final class CompactQuotaHUDView: NSView {
         stack.alignment = .centerY
         stack.distribution = .fill
         stack.spacing = 8
-        stack.alphaValue = hudAppearance.opacity
+        stack.alphaValue = hudAppearance.contentOpacity
 
         addSubview(stack)
 

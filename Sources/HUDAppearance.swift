@@ -53,32 +53,43 @@ struct HUDAppearance: Equatable {
 
     private enum DefaultsKey {
         static let color = "hud.color"
-        static let opacity = "hud.opacity"
+        static let backgroundOpacity = "hud.backgroundOpacity"
+        static let contentOpacity = "hud.contentOpacity"
+        static let legacyOpacity = "hud.opacity"
     }
 
     var colorChoice: ColorChoice
-    var opacity: Double
+    var backgroundOpacity: Double
+    var contentOpacity: Double
 
     var backgroundColor: NSColor {
-        colorChoice.color.withAlphaComponent(opacity)
+        colorChoice.color.withAlphaComponent(backgroundOpacity)
     }
 
     static func load() -> HUDAppearance {
         let defaults = UserDefaults.standard
         let colorName = defaults.string(forKey: DefaultsKey.color) ?? ColorChoice.black.rawValue
         let color = ColorChoice(rawValue: colorName) ?? .black
-        let storedOpacity = defaults.object(forKey: DefaultsKey.opacity) as? Double
-        let opacity = storedOpacity ?? 0.86
+        let legacyOpacity = defaults.object(forKey: DefaultsKey.legacyOpacity) as? Double ?? 0.86
+        let backgroundOpacity = defaults.object(forKey: DefaultsKey.backgroundOpacity) as? Double ?? legacyOpacity
+        let contentOpacity = defaults.object(forKey: DefaultsKey.contentOpacity) as? Double ?? legacyOpacity
 
         return HUDAppearance(
             colorChoice: color,
-            opacity: max(0.10, min(1.0, opacity))
+            backgroundOpacity: clamped(backgroundOpacity),
+            contentOpacity: clamped(contentOpacity)
         )
     }
 
     func save() {
         let defaults = UserDefaults.standard
         defaults.set(colorChoice.rawValue, forKey: DefaultsKey.color)
-        defaults.set(opacity, forKey: DefaultsKey.opacity)
+        defaults.set(backgroundOpacity, forKey: DefaultsKey.backgroundOpacity)
+        defaults.set(contentOpacity, forKey: DefaultsKey.contentOpacity)
+        defaults.set(backgroundOpacity, forKey: DefaultsKey.legacyOpacity)
+    }
+
+    private static func clamped(_ opacity: Double) -> Double {
+        max(0.10, min(1.0, opacity))
     }
 }
