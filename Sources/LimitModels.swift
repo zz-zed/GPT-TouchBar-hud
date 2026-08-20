@@ -11,6 +11,13 @@ struct RateLimitSnapshot: Codable {
     let limitName: String?
     let primary: RateLimitWindow?
     let secondary: RateLimitWindow?
+    let credits: CreditsSnapshot?
+}
+
+struct CreditsSnapshot: Codable {
+    let hasCredits: Bool
+    let unlimited: Bool
+    let balance: String?
 }
 
 struct RateLimitWindow: Codable {
@@ -78,6 +85,7 @@ struct RateLimitDisplayState: Equatable {
     var fiveHour: LimitMeter?
     var weekly: LimitMeter?
     var resetCredits: ResetCreditSummary?
+    var creditBalance: CreditBalanceSummary?
     var tokenUsage: TokenUsageSummary?
     var isRefreshing: Bool
     var lastUpdated: Date?
@@ -87,6 +95,7 @@ struct RateLimitDisplayState: Equatable {
         fiveHour: nil,
         weekly: nil,
         resetCredits: nil,
+        creditBalance: nil,
         tokenUsage: nil,
         isRefreshing: false,
         lastUpdated: nil,
@@ -109,6 +118,36 @@ struct RateLimitDisplayState: Equatable {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
         return "上次更新 \(formatter.string(from: lastUpdated))"
+    }
+}
+
+struct CreditBalanceSummary: Equatable {
+    let balance: Decimal
+
+    var displayText: String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+
+        let value = formatter.string(from: NSDecimalNumber(decimal: balance)) ?? "0.00"
+        return "还剩点数：US$\(value)"
+    }
+
+    init?(response: CreditsSnapshot) {
+        guard
+            response.hasCredits,
+            !response.unlimited,
+            let rawBalance = response.balance,
+            let balance = Decimal(string: rawBalance, locale: Locale(identifier: "en_US_POSIX")),
+            balance > 0
+        else {
+            return nil
+        }
+
+        self.balance = balance
     }
 }
 
