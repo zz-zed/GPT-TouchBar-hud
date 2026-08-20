@@ -92,6 +92,7 @@ final class RateLimitStore {
         state.fiveHour = windows.fiveHour
         state.weekly = windows.weekly
         state.resetCredits = response.rateLimitResetCredits.map(ResetCreditSummary.init)
+        state.creditBalance = snapshot.credits.flatMap(CreditBalanceSummary.init)
         state.isRefreshing = false
         state.lastUpdated = Date()
         state.errorMessage = nil

@@ -5,6 +5,7 @@ final class TouchBarRateLimitsView: NSView {
     private let codexIconView = NSImageView()
     private let fiveHourRow = TouchBarLimitRow(title: "5 小时")
     private let weeklyRow = TouchBarLimitRow(title: "周限额")
+    private let creditBalanceRow = TouchBarCreditBalanceRow()
 
     init(closeTarget: AnyObject, closeAction: Selector) {
         super.init(frame: .zero)
@@ -18,8 +19,11 @@ final class TouchBarRateLimitsView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
+        var hasLeadingLimitRow = false
+
         if let fiveHour = state.fiveHour {
             fiveHourRow.isHidden = false
+            hasLeadingLimitRow = true
             fiveHourRow.updateLimit(
                 title: "5 小时",
                 meter: fiveHour,
@@ -27,6 +31,7 @@ final class TouchBarRateLimitsView: NSView {
             )
         } else if let resetCredits = state.resetCredits, resetCredits.availableCount > 0 {
             fiveHourRow.isHidden = false
+            hasLeadingLimitRow = true
             fiveHourRow.updateResetCredits(
                 resetCredits,
                 usageText: state.tokenUsage?.yesterdayText ?? "昨日 --"
@@ -38,15 +43,27 @@ final class TouchBarRateLimitsView: NSView {
             fiveHourRow.updatePlaceholder(title: "5 小时", usageText: "昨日 --")
         }
 
+        creditBalanceRow.isHidden = true
+
         if let weekly = state.weekly {
             weeklyRow.isHidden = false
             weeklyRow.updateLimit(
                 title: "周限额",
                 meter: weekly,
-                usageText: state.tokenUsage?.cumulativeText ?? "累计 --"
+                usageText: state.tokenUsage?.cumulativeText ?? "累计 --",
+                creditBalanceText: hasLeadingLimitRow ? state.creditBalance?.displayText : nil
             )
+
+            if !hasLeadingLimitRow, let balanceText = state.creditBalance?.displayText {
+                creditBalanceRow.update(text: balanceText)
+                creditBalanceRow.isHidden = false
+            }
         } else if state.lastUpdated != nil {
             weeklyRow.isHidden = true
+            if let balanceText = state.creditBalance?.displayText {
+                creditBalanceRow.update(text: balanceText)
+                creditBalanceRow.isHidden = false
+            }
         } else {
             weeklyRow.isHidden = false
             weeklyRow.updatePlaceholder(title: "周限额", usageText: "累计 --")
@@ -67,11 +84,13 @@ final class TouchBarRateLimitsView: NSView {
         codexIconView.translatesAutoresizingMaskIntoConstraints = false
         codexIconView.toolTip = "Codex"
 
-        let rows = NSStackView(views: [fiveHourRow, weeklyRow])
+        let rows = NSStackView(views: [fiveHourRow, weeklyRow, creditBalanceRow])
         rows.translatesAutoresizingMaskIntoConstraints = false
         rows.orientation = .vertical
         rows.alignment = .leading
+        rows.distribution = .fill
         rows.spacing = 1
+        creditBalanceRow.isHidden = true
 
         let content = NSStackView(views: [closeButton, codexIconView, rows])
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -83,14 +102,15 @@ final class TouchBarRateLimitsView: NSView {
         addSubview(content)
 
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: 620),
+            widthAnchor.constraint(equalToConstant: 750),
             heightAnchor.constraint(equalToConstant: 30),
             closeButton.widthAnchor.constraint(equalToConstant: 34),
             closeButton.heightAnchor.constraint(equalToConstant: 28),
             codexIconView.widthAnchor.constraint(equalToConstant: 34),
             codexIconView.heightAnchor.constraint(equalToConstant: 30),
-            fiveHourRow.widthAnchor.constraint(equalToConstant: 502),
-            weeklyRow.widthAnchor.constraint(equalToConstant: 502),
+            fiveHourRow.widthAnchor.constraint(equalToConstant: 632),
+            weeklyRow.widthAnchor.constraint(equalToConstant: 632),
+            creditBalanceRow.widthAnchor.constraint(equalToConstant: 632),
             content.leadingAnchor.constraint(equalTo: leadingAnchor),
             content.trailingAnchor.constraint(equalTo: trailingAnchor),
             content.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -127,6 +147,43 @@ final class TouchBarRateLimitsView: NSView {
     }
 }
 
+private final class TouchBarCreditBalanceRow: NSView {
+    private let label = NSTextField(labelWithString: "")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        configure()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(text: String) {
+        label.stringValue = text
+    }
+
+    private func configure() {
+        translatesAutoresizingMaskIntoConstraints = false
+
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+        label.textColor = .labelColor
+        label.lineBreakMode = .byClipping
+        addSubview(label)
+
+        let preferredHeight = heightAnchor.constraint(equalToConstant: 13)
+        preferredHeight.priority = .defaultHigh
+
+        NSLayoutConstraint.activate([
+            preferredHeight,
+            label.leadingAnchor.constraint(equalTo: leadingAnchor),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+    }
+}
+
 private final class TouchBarLimitRow: NSView {
     private let titleLabel: NSTextField
     private let batteryBar = SegmentedBatteryBar()
@@ -135,6 +192,8 @@ private final class TouchBarLimitRow: NSView {
     private let resetLabel = NSTextField(labelWithString: "-- 重置")
     private let separatorLabel = NSTextField(labelWithString: "|")
     private let usageLabel = NSTextField(labelWithString: "--")
+    private let creditSeparatorLabel = NSTextField(labelWithString: "|")
+    private let creditBalanceLabel = NSTextField(labelWithString: "")
 
     init(title: String) {
         self.titleLabel = NSTextField(labelWithString: title)
@@ -146,7 +205,12 @@ private final class TouchBarLimitRow: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func updateLimit(title: String, meter: LimitMeter, usageText: String) {
+    func updateLimit(
+        title: String,
+        meter: LimitMeter,
+        usageText: String,
+        creditBalanceText: String? = nil
+    ) {
         titleLabel.stringValue = title
         batteryBar.isHidden = false
         creditsIndicatorLabel.isHidden = true
@@ -155,6 +219,7 @@ private final class TouchBarLimitRow: NSView {
         remainingLabel.stringValue = "剩余 \(meter.remainingText)"
         resetLabel.stringValue = meter.resetText
         usageLabel.stringValue = usageText
+        updateCreditBalance(creditBalanceText)
     }
 
     func updateResetCredits(_ resetCredits: ResetCreditSummary, usageText: String) {
@@ -165,6 +230,7 @@ private final class TouchBarLimitRow: NSView {
         remainingLabel.stringValue = resetCredits.availableText
         resetLabel.stringValue = resetCredits.expirationText
         usageLabel.stringValue = usageText
+        updateCreditBalance(nil)
     }
 
     func updatePlaceholder(title: String, usageText: String) {
@@ -176,6 +242,7 @@ private final class TouchBarLimitRow: NSView {
         remainingLabel.stringValue = "剩余 --"
         resetLabel.stringValue = "-- 重置"
         usageLabel.stringValue = usageText
+        updateCreditBalance(nil)
     }
 
     private func configure() {
@@ -207,6 +274,17 @@ private final class TouchBarLimitRow: NSView {
         usageLabel.textColor = .labelColor
         usageLabel.lineBreakMode = .byTruncatingTail
 
+        creditSeparatorLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+        creditSeparatorLabel.textColor = .labelColor
+        creditSeparatorLabel.alignment = .center
+        creditSeparatorLabel.isHidden = true
+
+        creditBalanceLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+        creditBalanceLabel.textColor = .labelColor
+        creditBalanceLabel.lineBreakMode = .byClipping
+        creditBalanceLabel.isHidden = true
+        creditBalanceLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+
         let statusContainer = NSView()
         statusContainer.translatesAutoresizingMaskIntoConstraints = false
         batteryBar.translatesAutoresizingMaskIntoConstraints = false
@@ -220,7 +298,9 @@ private final class TouchBarLimitRow: NSView {
             remainingLabel,
             resetLabel,
             separatorLabel,
-            usageLabel
+            usageLabel,
+            creditSeparatorLabel,
+            creditBalanceLabel
         ])
         row.translatesAutoresizingMaskIntoConstraints = false
         row.orientation = .horizontal
@@ -231,11 +311,16 @@ private final class TouchBarLimitRow: NSView {
         row.setCustomSpacing(0, after: remainingLabel)
         row.setCustomSpacing(4, after: resetLabel)
         row.setCustomSpacing(4, after: separatorLabel)
+        row.setCustomSpacing(4, after: usageLabel)
+        row.setCustomSpacing(4, after: creditSeparatorLabel)
 
         addSubview(row)
 
+        let preferredHeight = heightAnchor.constraint(equalToConstant: 13)
+        preferredHeight.priority = .defaultHigh
+
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 13),
+            preferredHeight,
             titleLabel.widthAnchor.constraint(equalToConstant: 42),
             statusContainer.widthAnchor.constraint(equalToConstant: 175),
             statusContainer.heightAnchor.constraint(equalToConstant: 11),
@@ -262,5 +347,12 @@ private final class TouchBarLimitRow: NSView {
             return Array(repeating: "●", count: max(0, count)).joined(separator: "  ")
         }
         return "●  × \(count)"
+    }
+
+    private func updateCreditBalance(_ text: String?) {
+        let shouldShow = text?.isEmpty == false
+        creditSeparatorLabel.isHidden = !shouldShow
+        creditBalanceLabel.isHidden = !shouldShow
+        creditBalanceLabel.stringValue = text ?? ""
     }
 }
