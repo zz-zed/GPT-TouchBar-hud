@@ -52,8 +52,8 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         return touchBar
     }
 
-    func activateTouchBar() {
-        hudView.activateTouchBar()
+    func activateTouchBar(bringAppForward: Bool = false) {
+        hudView.activateTouchBar(bringAppForward: bringAppForward)
     }
 
     func touchBar(_ touchBar: NSTouchBar, makeItemForIdentifier identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem? {
@@ -138,7 +138,7 @@ final class CompactQuotaHUDView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        activateTouchBar()
+        activateTouchBar(bringAppForward: true)
         super.mouseDown(with: event)
     }
 
@@ -150,10 +150,16 @@ final class CompactQuotaHUDView: NSView {
         touchBarProvider?.makeQuotaTouchBar()
     }
 
-    func activateTouchBar() {
-        window?.makeFirstResponder(self)
+    func activateTouchBar(bringAppForward: Bool = false) {
+        if bringAppForward {
+            NSApp.activate(ignoringOtherApps: true)
+            window?.makeKeyAndOrderFront(nil)
+        }
+
         touchBar = nil
         touchBar = makeTouchBar()
+        window?.makeFirstResponder(nil)
+        window?.makeFirstResponder(self)
     }
 
     func update(with state: RateLimitDisplayState) {
