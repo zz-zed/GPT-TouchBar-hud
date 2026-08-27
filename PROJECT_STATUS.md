@@ -1,14 +1,14 @@
 # PROJECT_STATUS
 
-最后更新：2026-08-20
+最后更新：2026-08-26
 
 ## 项目概况
 
 TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch Bar 小工具。应用通过本机 ChatGPT/Codex 包内的 `codex app-server` 调用 `account/rateLimits/read`，显示额度窗口、可用重置次数、额度点数和本地 token 用量。
 
 - 当前分支：`main`
-- 当前版本：`0.1.11`，Build `12`
-- GitHub `main` 版本：`0.1.11`（2026-08-20）
+- 当前版本：`0.1.12`，Build `13`
+- GitHub `main` 版本：`0.1.12`（2026-08-26）
 - 最近正式标签：`v0.1.4`
 
 ## 已完成
@@ -19,7 +19,7 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 - 菜单栏、HUD 和 Touch Bar 共用同一份 `RateLimitDisplayState`。
 - 刷新失败时保留旧额度数据，本地 token 用量在后台读取。
 - 重置时间使用双位 `MM月dd日 HH:mm` 格式。
-- HUD 已从 `226px` 加宽到 `238px`，避免两个 `100%` 同时显示时百分号被遮挡。
+- HUD 双额度宽度已从 `238px` 调整为 `250px`，单个额度项从 `70px` 调整为 `76px`，避免 `5h 100%` 的百分号被裁切。
 
 ## 0.1.6 更新
 
@@ -83,6 +83,13 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 - 降低额度行固定高度约束优先级，使隐藏行真正折叠并修复单行内容垂直偏移。
 - 已用本机 app-server 实际响应验证点数字段，并完成 Release 构建和本机重启验证后推送到 `main`。
 
+## 0.1.12 更新
+
+- HUD 单个额度区域从 `70px` 加宽到 `76px`，修复 `5h 100%` 和 `7d 100%` 百分号被裁切的问题。
+- 双额度 HUD 宽度从 `238px` 调整为 `250px`，单额度 HUD 从 `160px` 调整为 `166px`。
+- 胶囊高度、操作按钮尺寸和内部间距保持不变。
+- 已完成 Release 构建和本机重启验证，并推送到 `main`。
+
 ## 验证状态
 
 - `git diff --check`：通过。
@@ -94,7 +101,7 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 
 ## 未解决和注意事项
 
-- `0.1.11` 尚未创建 Git 标签、DMG 或 GitHub Release。
+- `0.1.12` 尚未创建 Git 标签、DMG 或 GitHub Release。
 - 项目目前没有自动化测试，额度接口结构变化主要依赖本机 app-server 和实体 Touch Bar 验证。
 - App 尚未使用 Apple Developer 证书签名和公证，公开分发时仍可能出现 macOS 安全提示。
 - 以下 Marketing 文件是未跟踪草稿，除非明确要求，否则不要加入提交：
@@ -106,7 +113,7 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 ## 建议下一步
 
 1. 在实体 Touch Bar 上继续观察白底 Codex 图标、重置券行和两行 `|` 分隔线在不同额度值下的对齐情况。
-2. 按需要创建 `v0.1.11` 标签、DMG 和 GitHub Release。
+2. 按需要创建 `v0.1.12` 标签、DMG 和 GitHub Release。
 3. 后续 app-server 返回结构变化时，优先检查额度窗口时长和重置券字段。
 
 ## 常用命令

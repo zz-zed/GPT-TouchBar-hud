@@ -36,7 +36,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
 
     override func loadView() {
         view = hudView
-        view.frame = NSRect(x: 0, y: 0, width: 238, height: 34)
+        view.frame = NSRect(x: 0, y: 0, width: 250, height: 34)
         update(with: currentState)
     }
 
@@ -216,14 +216,14 @@ final class CompactQuotaHUDView: NSView {
 
         addSubview(stack)
 
-        let widthConstraint = widthAnchor.constraint(equalToConstant: 238)
+        let widthConstraint = widthAnchor.constraint(equalToConstant: 250)
         self.widthConstraint = widthConstraint
 
         NSLayoutConstraint.activate([
             widthConstraint,
             heightAnchor.constraint(equalToConstant: 34),
-            firstItem.widthAnchor.constraint(equalToConstant: 70),
-            secondItem.widthAnchor.constraint(equalToConstant: 70),
+            firstItem.widthAnchor.constraint(equalToConstant: 76),
+            secondItem.widthAnchor.constraint(equalToConstant: 76),
             refreshButton.widthAnchor.constraint(equalToConstant: 20),
             refreshButton.heightAnchor.constraint(equalToConstant: 20),
             quitButton.widthAnchor.constraint(equalToConstant: 20),
@@ -238,7 +238,7 @@ final class CompactQuotaHUDView: NSView {
         let showsSecondItem = count > 1
         secondItem.isHidden = !showsSecondItem
 
-        let targetWidth: CGFloat = showsSecondItem ? 238 : 160
+        let targetWidth: CGFloat = showsSecondItem ? 250 : 166
         guard widthConstraint?.constant != targetWidth else {
             return
         }
