@@ -15,6 +15,14 @@ enum TaskStatusTests {
         let now = ISO8601DateFormatter().date(from: "2026-09-16T10:00:10Z")!
         var cursor = TaskLogCursor()
         check(cursor.summary(now: now).unknownCount == 1, "Missing evidence is unknown")
+        var inferred = TaskLogCursor()
+        inferred.consume(event("item_completed"))
+        check(inferred.summary(now: now).runningCount == 1, "Recent work event infers running when start fell outside tail")
+        inferred.consume(event("task_complete", "2026-09-16T10:00:05Z"))
+        check(inferred.summary(now: now).recentlyCompletedCount == 1, "Completion ends inferred running state")
+        var settingsOnly = TaskLogCursor()
+        settingsOnly.consume(event("thread_settings_applied"))
+        check(settingsOnly.summary(now: now).unknownCount == 1, "Settings event alone does not infer execution")
         let start = event("task_started")
         cursor.consume(start.prefix(20))
         check(cursor.phase == nil, "Partial records are not parsed")
@@ -30,7 +38,9 @@ enum TaskStatusTests {
         check(cursor.summary(now: now.addingTimeInterval(25)).isIdle, "Completion expires at exactly 30 seconds")
         cursor.consume(event("task_started", "2026-09-16T10:00:06.000Z", id: "b"))
         check(cursor.summary(now: now).runningCount == 1, "New turn resumes")
-        check(cursor.summary(now: now.addingTimeInterval(301)).unknownCount == 1, "Stale running becomes unknown")
+        check(cursor.summary(now: now.addingTimeInterval(301)).runningCount == 1, "Silent long-running task remains running after five minutes")
+        check(cursor.summary(now: now.addingTimeInterval(TaskLogCursor.runningStaleInterval + 1)).unknownCount == 1,
+              "Running becomes unknown only after the stale interval")
         cursor.consume(event("turn_aborted", "2026-09-16T10:00:07.000Z", id: "b"))
         check(cursor.summary(now: now).isIdle, "Explicit abort ends execution without reporting success")
         var display = RateLimitDisplayState.initial
@@ -43,6 +53,8 @@ enum TaskStatusTests {
         check(historical.monitoredSummary(now: now).isIdle, "Old incomplete history does not hold unknown indicator")
         historical.fileModifiedAt = now
         check(historical.monitoredSummary(now: now).unknownCount == 1, "Recent incomplete log remains unknown")
+        historical.fileModifiedAt = now.addingTimeInterval(-600)
+        check(historical.monitoredSummary(now: now).unknownCount == 1, "Recently silent task remains in monitoring scope")
         historical.observedLiveChange = true
         historical.fileModifiedAt = now.addingTimeInterval(-86400)
         check(historical.monitoredSummary(now: now).unknownCount == 1, "Observed live task is not silently discarded after becoming stale")
