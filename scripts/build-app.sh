@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="$ROOT_DIR/build/TouchBarCodexToken.app"
+APP_DIR="$ROOT_DIR/build/GPT TouchBar HUD.app"
 MACOS_DIR="$APP_DIR/Contents/MacOS"
 RESOURCES_DIR="$APP_DIR/Contents/Resources"
-EXECUTABLE_PATH="$ROOT_DIR/.build/release/TouchBarCodexToken"
-MODULE_CACHE="${TMPDIR:-/tmp}/touchbar-codex-token-module-cache"
+EXECUTABLE_PATH="$ROOT_DIR/.build/release/GPTTouchBarHUD"
+MODULE_CACHE="${TMPDIR:-/tmp}/gpt-touchbar-hud-module-cache"
 
 cd "$ROOT_DIR"
 
@@ -21,7 +21,7 @@ fi
 
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
-cp "$EXECUTABLE_PATH" "$MACOS_DIR/TouchBarCodexToken"
+cp "$EXECUTABLE_PATH" "$MACOS_DIR/GPTTouchBarHUD"
 cp "Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
 cp "Resources/codex-token-launcher.sh" "$RESOURCES_DIR/codex-token-launcher.sh"

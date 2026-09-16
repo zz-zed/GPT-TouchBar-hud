@@ -80,8 +80,8 @@ jobs:
           scripts/package-dmg.sh
           VERSION="${{ steps.metadata.outputs.version }}"
           ARCH="${{ steps.metadata.outputs.arch }}"
-          SOURCE_PATH="dist/TouchBarCodexToken-$VERSION.dmg"
-          ASSET_PATH="dist/TouchBarCodexToken-$VERSION-$ARCH.dmg"
+          SOURCE_PATH="dist/GPT-TouchBar-HUD-$VERSION.dmg"
+          ASSET_PATH="dist/GPT-TouchBar-HUD-$VERSION-$ARCH.dmg"
           mv "$SOURCE_PATH" "$ASSET_PATH"
           echo "dmg=$ASSET_PATH" >> "$GITHUB_OUTPUT"
 
@@ -90,15 +90,15 @@ jobs:
         run: |
           DMG_PATH="${{ steps.package.outputs.dmg }}"
           test -f "$DMG_PATH"
-          codesign --verify --deep --strict build/TouchBarCodexToken.app
+          codesign --verify --deep --strict "build/GPT TouchBar HUD.app"
           hdiutil verify "$DMG_PATH"
-          lipo build/TouchBarCodexToken.app/Contents/MacOS/TouchBarCodexToken \
+          lipo "build/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD" \
             -verify_arch "${{ steps.metadata.outputs.arch }}"
 
       - name: Upload DMG
         uses: actions/upload-artifact@v7
         with:
-          name: TouchBarCodexToken-${{ steps.metadata.outputs.version }}-${{ steps.metadata.outputs.arch }}
+          name: GPT-TouchBar-HUD-${{ steps.metadata.outputs.version }}-${{ steps.metadata.outputs.arch }}
           path: ${{ steps.package.outputs.dmg }}
           if-no-files-found: error
           retention-days: 30
@@ -115,7 +115,7 @@ jobs:
       - name: Download architecture-specific DMGs
         uses: actions/download-artifact@v8
         with:
-          pattern: TouchBarCodexToken-*
+          pattern: GPT-TouchBar-HUD-*
           path: release-assets
           merge-multiple: true
 
@@ -124,8 +124,8 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
-          test -f "release-assets/TouchBarCodexToken-$VERSION-arm64.dmg"
-          test -f "release-assets/TouchBarCodexToken-$VERSION-x86_64.dmg"
+          test -f "release-assets/GPT-TouchBar-HUD-$VERSION-arm64.dmg"
+          test -f "release-assets/GPT-TouchBar-HUD-$VERSION-x86_64.dmg"
           cd release-assets
           sha256sum *.dmg > SHA256SUMS.txt
 

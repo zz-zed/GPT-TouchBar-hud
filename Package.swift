@@ -3,16 +3,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "TouchBarCodexToken",
+    name: "GPTTouchBarHUD",
     platforms: [
         .macOS(.v11)
     ],
     products: [
-        .executable(name: "TouchBarCodexToken", targets: ["TouchBarCodexToken"])
+        .executable(name: "GPTTouchBarHUD", targets: ["GPTTouchBarHUD"])
     ],
     targets: [
         .executableTarget(
-            name: "TouchBarCodexToken",
+            name: "GPTTouchBarHUD",
             path: "Sources"
         )
     ]

@@ -2,8 +2,8 @@ import AppKit
 
 final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     private enum TouchBarIdentifiers {
-        static let touchBar = NSTouchBar.CustomizationIdentifier("com.jackchen.TouchBarCodexToken.compactHUD.touchBar")
-        static let limits = NSTouchBarItem.Identifier("com.jackchen.TouchBarCodexToken.compactHUD.limits")
+        static let touchBar = NSTouchBar.CustomizationIdentifier("io.github.zz-zed.GPTTouchBarHUD.compactHUD.touchBar")
+        static let limits = NSTouchBarItem.Identifier("io.github.zz-zed.GPTTouchBarHUD.compactHUD.limits")
     }
 
     private let hudView: CompactQuotaHUDView

@@ -36,7 +36,7 @@ final class CodexAppServerClient: AccountUsageClient {
         "/Applications/Codex.app/Contents/Resources/codex",
         "/Applications/GPT.app/Contents/Resources/codex"
     ].map(URL.init(fileURLWithPath:))
-    private let queue = DispatchQueue(label: "TouchBarCodexToken.CodexAppServerClient")
+    private let queue = DispatchQueue(label: "GPTTouchBarHUD.CodexAppServerClient")
 
     private var process: Process?
     private var inputPipe: Pipe?
@@ -187,9 +187,9 @@ final class CodexAppServerClient: AccountUsageClient {
 
         let params: JSONDictionary = [
             "clientInfo": [
-                "name": "touchbar-codex-token",
-                "title": "Touch Bar Codex Token",
-                "version": "0.1.0"
+                "name": "gpt-touchbar-hud",
+                "title": "GPT TouchBar HUD",
+                "version": "0.1.21"
             ],
             "capabilities": capabilities
         ]

@@ -1,12 +1,12 @@
-# TouchBarCodexToken
+# GPT TouchBar HUD
 
 支持 Touch Bar 跨 App 常驻，在 Mac 的 Touch Bar、菜单栏和可选桌面浮窗中持续查看 ChatGPT / Codex 的额度与 Token 使用情况。
 
-![TouchBarCodexToken 宣传图](Marketing/promo-style-d-tech-board.png)
+![GPT TouchBar HUD 宣传图](Marketing/promo-style-d-tech-board.png)
 
 ## 这是什么
 
-TouchBarCodexToken 是一个支持跨 App 常驻 Touch Bar 的轻量 macOS 状态工具。它读取 ChatGPT / Codex 自带的本机 `codex app-server`，把以下信息整理成随时可见的状态：
+GPT TouchBar HUD 是一个支持跨 App 常驻 Touch Bar 的轻量 macOS 状态工具。它读取 ChatGPT / Codex 自带的本机 `codex app-server`，把以下信息整理成随时可见的状态：
 
 - 5 小时额度、周额度及各自的重置时间。
 - 可用完整重置次数及最早到期日期。
@@ -50,7 +50,7 @@ account/rateLimits/read  account/usage/read
    │                     │
    └──────────┬──────────┘
               ▼
-     TouchBarCodexToken
+      GPT TouchBar HUD
        ├─ Touch Bar
        ├─ macOS 菜单栏
        └─ 桌面 HUD（可选）
@@ -83,9 +83,9 @@ account/rateLimits/read  account/usage/read
 ### 2. 下载安装
 
 1. 打开当前仓库的 [Releases](https://github.com/zz-zed/GPT-TouchBar-hud/releases) 页面。
-2. 根据 Mac 处理器下载 `arm64.dmg` 或 `x86_64.dmg`。
-3. 打开 DMG，把 `TouchBarCodexToken.app` 拖入 `Applications`。
-4. 先启动并登录 ChatGPT / Codex，再打开 `TouchBarCodexToken.app`。
+2. 根据 Mac 处理器下载 `GPT-TouchBar-HUD-<版本号>-arm64.dmg` 或 `GPT-TouchBar-HUD-<版本号>-x86_64.dmg`。
+3. 打开 DMG，把 `GPT TouchBar HUD.app` 拖入 `Applications`。
+4. 先启动并登录 ChatGPT / Codex，再打开 `GPT TouchBar HUD.app`。
 
 当前安装包没有 Apple Developer 证书签名和公证。首次打开若 macOS 提示无法验证开发者，请在 Finder 中右键点击应用，选择“打开”，然后再次确认。不要关闭系统整体安全保护。
 
@@ -99,10 +99,12 @@ account/rateLimits/read  account/usage/read
 - 注册当前用户的 LaunchAgent：
 
 ```text
-~/Library/LaunchAgents/com.jackchen.TouchBarCodexToken.CodexLauncher.plist
+~/Library/LaunchAgents/io.github.zz-zed.GPTTouchBarHUD.CodexLauncher.plist
 ```
 
 之后 ChatGPT / Codex 启动时，LaunchAgent 会自动打开额度工具。若你在宿主仍运行时手动退出，本轮宿主会话内不会再次自动拉起；宿主完全退出后会解除这次手动退出状态。
+
+从旧版升级时，新应用会迁移原有的 HUD 外观与 Touch Bar 常驻设置，停用旧 LaunchAgent，并兼容旧版的手动退出状态，避免两个版本同时自动启动。
 
 ## 日常使用
 
@@ -197,9 +199,9 @@ HUD 需要从菜单栏手动显示，常见状态如下：
 
 ```bash
 git clone https://github.com/zz-zed/GPT-TouchBar-hud.git
-cd TouchBarCodexToken
+cd GPT-TouchBar-hud
 scripts/build-app.sh
-open build/TouchBarCodexToken.app
+open "build/GPT TouchBar HUD.app"
 ```
 
 `scripts/build-app.sh` 优先使用 SwiftPM Release 构建；如果本机 SwiftPM SDK 探测失败，会尝试使用 `swiftc -sdk` 后备路径。
@@ -213,12 +215,13 @@ scripts/package-dmg.sh
 输出位置：
 
 ```text
-dist/TouchBarCodexToken-<版本号>.dmg
+dist/GPT-TouchBar-HUD-<版本号>.dmg
 ```
 
 运行回归检查：
 
 ```bash
+bash scripts/test-app-migration.sh
 bash scripts/test-account-token-usage.sh
 bash scripts/test-token-usage.sh
 bash scripts/test-touchbar-layout.sh
@@ -233,7 +236,7 @@ bash scripts/test-touchbar.sh --smoke-system
 
 ## 隐私说明
 
-TouchBarCodexToken 不保存密码、API Key、授权码或访问令牌，也不会上传本机会话日志。
+GPT TouchBar HUD 不保存密码、API Key、授权码或访问令牌，也不会上传本机会话日志。
 
 额度和 Token 数据通过本机 `codex app-server` 获取。app-server 使用 ChatGPT / Codex 已有登录态访问服务端；本应用只在内存中保留当前展示数据和用于识别账号变化的元数据。磁盘上仅保存正常运行所需的应用设置、LaunchAgent 和手动退出状态。
 

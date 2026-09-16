@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="$ROOT_DIR/build/TouchBarCodexToken.app"
+APP_DIR="$ROOT_DIR/build/GPT TouchBar HUD.app"
 DIST_DIR="$ROOT_DIR/dist"
 STAGING_DIR="$DIST_DIR/dmg-stage"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT_DIR/Resources/Info.plist")"
-DMG_NAME="TouchBarCodexToken-${VERSION}.dmg"
+DMG_NAME="GPT-TouchBar-HUD-${VERSION}.dmg"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 
 cd "$ROOT_DIR"
@@ -16,12 +16,12 @@ cd "$ROOT_DIR"
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR" "$DIST_DIR"
 
-cp -R "$APP_DIR" "$STAGING_DIR/TouchBarCodexToken.app"
+cp -R "$APP_DIR" "$STAGING_DIR/GPT TouchBar HUD.app"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 rm -f "$DMG_PATH"
 hdiutil create \
-    -volname "TouchBarCodexToken" \
+    -volname "GPT TouchBar HUD" \
     -srcfolder "$STAGING_DIR" \
     -ov \
     -format UDZO \
