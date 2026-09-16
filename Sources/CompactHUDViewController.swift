@@ -95,6 +95,7 @@ final class CompactQuotaHUDView: NSView {
     weak var touchBarProvider: CompactHUDViewController?
 
     private let firstItem = CompactQuotaItemView()
+    private let taskLabel = NSTextField(labelWithString: "")
     private let secondItem = CompactQuotaItemView()
     private let refreshButton = CompactIconButton(
         symbolName: "arrow.clockwise",
@@ -167,6 +168,13 @@ final class CompactQuotaHUDView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
+        let taskStatus = state.displayedTaskStatus
+        taskLabel.isHidden = taskStatus == nil
+        taskLabel.stringValue = taskStatus?.label ?? ""
+        taskLabel.toolTip = taskStatus?.detail
+        taskLabel.textColor = taskStatus.map {
+            $0.runningCount > 0 ? .systemCyan : ($0.recentlyCompletedCount > 0 ? .systemGreen : .lightGray)
+        } ?? .white
         let hasError = state.errorMessage != nil && state.fiveHour == nil && state.weekly == nil
 
         if let fiveHour = state.fiveHour {
@@ -215,7 +223,10 @@ final class CompactQuotaHUDView: NSView {
         quitButton.target = self
         quitButton.action = #selector(quitClicked)
 
-        let stack = NSStackView(views: [firstItem, secondItem, refreshButton, quitButton])
+        taskLabel.isHidden = true
+        taskLabel.font = .systemFont(ofSize: 11, weight: .medium)
+        taskLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let stack = NSStackView(views: [taskLabel, firstItem, secondItem, refreshButton, quitButton])
         contentStack = stack
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .horizontal
@@ -248,7 +259,8 @@ final class CompactQuotaHUDView: NSView {
         let showsSecondItem = count > 1
         secondItem.isHidden = !showsSecondItem
 
-        let targetWidth: CGFloat = showsSecondItem ? 250 : 166
+        let taskWidth: CGFloat = taskLabel.isHidden ? 0 : ceil(taskLabel.intrinsicContentSize.width) + 8
+        let targetWidth: CGFloat = (showsSecondItem ? 250 : 166) + taskWidth
         guard widthConstraint?.constant != targetWidth else {
             return
         }

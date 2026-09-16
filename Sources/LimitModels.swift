@@ -82,6 +82,10 @@ struct LimitMeter: Equatable {
 }
 
 struct RateLimitDisplayState: Equatable {
+    var taskStatus: TaskStatusSummary? = nil
+    var displayedTaskStatus: TaskStatusSummary? {
+        taskStatus.flatMap { $0.isIdle ? nil : $0 }
+    }
     var fiveHour: LimitMeter?
     var weekly: LimitMeter?
     var resetCredits: ResetCreditSummary?
@@ -118,6 +122,32 @@ struct RateLimitDisplayState: Equatable {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
         return "上次更新 \(formatter.string(from: lastUpdated))"
+    }
+}
+
+/// Local lifecycle evidence, not a server-authoritative task/goal status.
+struct TaskStatusSummary: Equatable {
+    var runningCount: Int = 0
+    var recentlyCompletedCount: Int = 0
+    var unknownCount: Int = 0
+
+    var isIdle: Bool {
+        runningCount == 0 && recentlyCompletedCount == 0 && unknownCount == 0
+    }
+
+    var label: String {
+        if runningCount > 0 { return "执行中 \(runningCount)" }
+        if recentlyCompletedCount > 0 { return "本轮完成" }
+        return isIdle ? "空闲" : "状态未知"
+    }
+
+    var badge: String {
+        if runningCount > 0 { return runningCount > 9 ? "9+" : "\(runningCount)" }
+        return recentlyCompletedCount > 0 ? "✓" : (isIdle ? "" : "?")
+    }
+
+    var detail: String {
+        "本机近期任务：执行中 \(runningCount)，本轮完成 \(recentlyCompletedCount)，未知 \(unknownCount)。仅根据本地日志推断；不代表整个目标完成，也不区分等待授权与工具执行。"
     }
 }
 

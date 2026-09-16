@@ -8,6 +8,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: 118)
     private let store = RateLimitStore()
+    private let appUpdater = AppUpdater()
+    private let taskMonitor = TaskStatusMonitor()
+    private var latestQuotaState = RateLimitDisplayState.initial
+    private var latestTaskStatus: TaskStatusSummary?
+    private var taskStatusEnabled: Bool {
+        UserDefaults.standard.object(forKey: "taskStatusEnabled") as? Bool ?? true
+    }
     private let lifecycleMonitor = CodexLifecycleMonitor()
     private var hudAppearance = HUDAppearance.load()
     private var hudVisibilityMenuItem: NSMenuItem?
@@ -38,6 +45,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         LegacyAppMigration.terminateLegacyApplications()
 
         store.delegate = self
+        appUpdater.onInstall = { [weak self] in self?.quitApp() }
+        taskMonitor.onUpdate = { [weak self] status in
+            guard let self else { return }
+            self.latestTaskStatus = status
+            self.renderDisplayState()
+        }
         configureStatusItem()
         configureLifecycleMonitor()
         CodexAutoLauncher.installOrUpdate()
@@ -53,12 +66,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        taskMonitor.stop()
         persistentTouchBar.stop()
         lifecycleMonitor.stop()
         store.stop()
     }
 
     func rateLimitStore(_ store: RateLimitStore, didUpdate state: RateLimitDisplayState) {
+        latestQuotaState = state
+        renderDisplayState()
+    }
+
+    private func renderDisplayState() {
+        var state = latestQuotaState
+        state.taskStatus = taskStatusEnabled ? latestTaskStatus : nil
         updateStatusTitle(with: state)
         hudController.update(with: state)
         persistentTouchBar.update(with: state)
@@ -81,6 +102,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private func makeStatusMenu() -> NSMenu {
         let menu = NSMenu()
 
+        addUpdateMenuItems(to: menu)
+
         let visibilityItem = NSMenuItem(
             title: "隐藏浮窗",
             action: #selector(toggleHUDWindow(_:)),
@@ -97,6 +120,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         )
         refreshItem.target = self
         menu.addItem(refreshItem)
+
+        let taskItem = NSMenuItem(title: "显示任务状态（实验性）", action: #selector(toggleTaskStatus(_:)), keyEquivalent: "")
+        taskItem.target = self
+        taskItem.state = taskStatusEnabled ? .on : .off
+        menu.addItem(taskItem)
 
         let settingsItem = NSMenuItem(title: "设置", action: nil, keyEquivalent: "")
         menu.setSubmenu(makeAppearanceSettingsMenu(registerItems: true), for: settingsItem)
@@ -116,6 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func makeHUDContextMenu() -> NSMenu {
         let menu = NSMenu()
+        addUpdateMenuItems(to: menu)
 
         let hideItem = NSMenuItem(
             title: "隐藏浮窗",
@@ -166,12 +195,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(checkForAppUpdates(_:)) {
+            menuItem.title = appUpdater.canCheck ? "检查更新…" : "正在检查或下载更新…"
+            return appUpdater.canCheck
+        }
         if menuItem.action == #selector(togglePersistentTouchBar(_:)) {
             menuItem.state = persistentTouchBar.usesSystemPresentation ? .on : .off
             return persistentTouchBar.isAvailable
         }
         return true
     }
+
+    private func addUpdateMenuItems(to menu: NSMenu) {
+        let version = NSMenuItem(title: AppUpdater.versionLabel, action: nil, keyEquivalent: "")
+        version.isEnabled = false
+        menu.addItem(version)
+        let check = NSMenuItem(title: "检查更新…", action: #selector(checkForAppUpdates(_:)), keyEquivalent: "")
+        check.target = self
+        menu.addItem(check)
+        menu.addItem(.separator())
+    }
+
+    @objc private func checkForAppUpdates(_ sender: AnyObject?) { appUpdater.check() }
 
     private func makeAppearanceSettingsMenu(registerItems: Bool) -> NSMenu {
         let settingsMenu = NSMenu(title: "设置")
@@ -318,6 +363,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func codexDidStart() {
+        if taskStatusEnabled { taskMonitor.start() }
         NSApp.setActivationPolicy(.accessory)
         persistentTouchBar.start()
         store.start()
@@ -327,6 +373,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func codexDidStop() {
+        taskMonitor.stop()
         persistentTouchBar.stop()
         hudWindow.orderOut(nil)
         store.stop()
@@ -335,6 +382,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func refreshQuotaNow() {
         store.start()
+    }
+
+    @objc private func toggleTaskStatus(_ sender: NSMenuItem) {
+        let enabled = !taskStatusEnabled
+        UserDefaults.standard.set(enabled, forKey: "taskStatusEnabled")
+        sender.state = enabled ? .on : .off
+        latestTaskStatus = nil
+        if enabled { taskMonitor.start() } else { taskMonitor.stop() }
+        renderDisplayState()
     }
 
     private func quitFromHUD() {

@@ -46,11 +46,13 @@ final class CompactHUDPanel: NSPanel {
         }
 
         let screenFrame = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
+        let contentSize = contentView?.fittingSize ?? defaultSize
+        let size = NSSize(width: max(166, contentSize.width), height: defaultSize.height)
         let origin = NSPoint(
-            x: screenFrame.midX - defaultSize.width / 2,
-            y: screenFrame.maxY - defaultSize.height - 68
+            x: screenFrame.midX - size.width / 2,
+            y: screenFrame.maxY - size.height - 68
         )
-        setFrame(NSRect(origin: origin, size: defaultSize), display: false)
+        setFrame(NSRect(origin: origin, size: size), display: false)
         hasPositionedInitialFrame = true
     }
 }

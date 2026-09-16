@@ -3,6 +3,7 @@ import AppKit
 final class TouchBarRateLimitsView: NSView {
     static let contentWidth: CGFloat = 600
     private let chatGPTIconView = NSImageView()
+    private let taskBadge = NSTextField(labelWithString: "")
     private let fiveHourRow = TouchBarLimitRow(title: "5 小时")
     private let weeklyRow = TouchBarLimitRow(title: "周限额")
     private let creditBalanceRow = TouchBarCreditBalanceRow()
@@ -17,6 +18,14 @@ final class TouchBarRateLimitsView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
+        let taskStatus = state.displayedTaskStatus
+        taskBadge.isHidden = taskStatus == nil
+        taskBadge.stringValue = taskStatus?.badge ?? ""
+        taskBadge.backgroundColor = taskStatus.map {
+            $0.runningCount > 0 ? .systemBlue : ($0.recentlyCompletedCount > 0 ? .systemGreen : .darkGray)
+        } ?? .clear
+        chatGPTIconView.toolTip = taskStatus?.detail ?? "ChatGPT"
+        chatGPTIconView.setAccessibilityLabel(taskStatus?.label ?? "ChatGPT")
         fiveHourRow.toolTip = state.tokenUsage?.toolTip
         weeklyRow.toolTip = state.tokenUsage?.toolTip
         var hasLeadingLimitRow = false
@@ -83,6 +92,22 @@ final class TouchBarRateLimitsView: NSView {
         chatGPTIconView.imageScaling = .scaleProportionallyUpOrDown
         chatGPTIconView.translatesAutoresizingMaskIntoConstraints = false
         chatGPTIconView.toolTip = "ChatGPT"
+        taskBadge.translatesAutoresizingMaskIntoConstraints = false
+        taskBadge.font = .systemFont(ofSize: 8, weight: .bold)
+        taskBadge.textColor = .white
+        taskBadge.alignment = .center
+        taskBadge.drawsBackground = true
+        taskBadge.isHidden = true
+        taskBadge.wantsLayer = true
+        taskBadge.layer?.cornerRadius = 5
+        taskBadge.layer?.masksToBounds = true
+        chatGPTIconView.addSubview(taskBadge)
+        NSLayoutConstraint.activate([
+            taskBadge.trailingAnchor.constraint(equalTo: chatGPTIconView.trailingAnchor),
+            taskBadge.bottomAnchor.constraint(equalTo: chatGPTIconView.bottomAnchor, constant: -1),
+            taskBadge.widthAnchor.constraint(equalToConstant: 20),
+            taskBadge.heightAnchor.constraint(equalToConstant: 11)
+        ])
 
         let rows = NSStackView(views: [fiveHourRow, weeklyRow, creditBalanceRow])
         rows.translatesAutoresizingMaskIntoConstraints = false

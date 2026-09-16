@@ -25,7 +25,9 @@ cp "$EXECUTABLE_PATH" "$MACOS_DIR/GPTTouchBarHUD"
 cp "Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
 cp "Resources/codex-token-launcher.sh" "$RESOURCES_DIR/codex-token-launcher.sh"
+cp "Resources/install-update.sh" "$RESOURCES_DIR/install-update.sh"
 chmod +x "$RESOURCES_DIR/codex-token-launcher.sh"
-codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1 || true
+codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1
+codesign --verify --deep --strict "$APP_DIR"
 
 echo "$APP_DIR"
