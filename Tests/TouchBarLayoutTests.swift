@@ -46,6 +46,13 @@ enum TouchBarLayoutTests {
             }
         }
         verify("two quotas")
+        state.taskStatus = TaskStatusSummary(runningCount: 12)
+        verify("running badge")
+        state.taskStatus = TaskStatusSummary(recentlyCompletedCount: 1)
+        verify("completed badge")
+        state.taskStatus = TaskStatusSummary(unknownCount: 1)
+        verify("unknown badge")
+        state.taskStatus = nil
         state.tokenUsage?.isStale = true
         verify("stale marker")
         state.creditBalance = CreditBalanceSummary(response: CreditsSnapshot(hasCredits: true, unlimited: false, balance: "9999.99"))

@@ -107,6 +107,31 @@ account/rateLimits/read  account/usage/read
 
 ## 日常使用
 
+### 版本与更新
+
+菜单栏和浮窗右键菜单显示当前版本及构建号，提供 `检查更新…` 入口。
+
+- 仅在点击 `检查更新…` 后联网查询；启动时和后台均不自动检查。仅使用本仓库 GitHub Release 的最新正式版，不安装草稿、预发布版或降级版本。
+- 发现新版本后先提示，只有点击 `安装并重启` 才会下载、校验和安装。安装完成后重启额度工具，不退出 ChatGPT。
+- 按当前程序架构选择安装包，核对 SHA-256、包大小、应用标识、版本、最低 macOS 要求及代码签名完整性。缺少安装包或 `SHA256SUMS.txt` 时拒绝安装。
+- 原地更新仅支持可写的 `/Applications/GPT TouchBar HUD.app` 或 `~/Applications/GPT TouchBar HUD.app`。开发 worktree、DMG 和其他目录不被覆盖，可打开 Release 页面手动安装；不会请求管理员权限。
+- 安装前保留旧应用；文件替换失败或系统拒绝启动时尝试恢复。成功启动请求不代表已验证新版运行健康。备份及日志保留在应用同级隐藏目录 `.GPTTouchBarHUD-update-<随机标识>/`，其中 `previous.app` 可用于手动恢复；不会自动删除备份。
+
+当前发布使用 ad-hoc 签名，SHA-256 与安装包来自同一个 GitHub Release，校验用于发现损坏，不等同于独立发布者签名或 Apple 公证。更新信任本仓库及 GitHub HTTPS 分发；后续可升级为独立签名的更新源。
+
+### 任务状态（实验性）
+
+菜单栏的 `显示任务状态（实验性）` 开关控制任务指示器，默认开启：
+
+- Touch Bar 的 ChatGPT 图标右下角显示角标：蓝色数字为执行中的任务数，绿色 `✓` 为最近一轮完成，灰色 `?` 为状态未知。不占用额度与 Token 文字区域。
+- 手动打开浮窗后，左侧显示同一份状态摘要；任务变化不会自动弹出浮窗。
+- 执行中优先展示；本轮完成保留 30 秒，到期后该任务进入空闲。明确中止的任务也进入空闲，不显示完成提示。全部任务空闲时隐藏角标和浮窗状态摘要，恢复原有布局；仍有状态未知的任务时保留 `?`。执行中的任务连续 5 分钟没有新日志事件后降级为未知，避免遗留状态误报。
+
+当前仅依据本机 Codex 最近 32 个未归档任务的本地日志推断，不代表所有 ChatGPT 网页、远程任务或账号任务。首次发现时，仅最近 5 分钟有日志更新的任务参与指示；更早的历史记录不影响当前展示，这不代表已确认历史任务结束。监测期间有新增日志的任务会继续参与状态判断。新增任务通常在 10 秒内被发现，已发现任务每 2 秒检查新增日志；单个文件每次最多读取 256 KiB。参与监测的日志格式不兼容、事件缺失或读取失败时显示未知，不影响额度读取。
+
+“本轮完成”不等于整个目标完成；第一版不识别等待审批、等待输入或失败，也不提供进度百分比。长时间无日志的工具执行可能显示未知。该功能依赖未公开承诺稳定的本地记录格式，宿主升级后可能需要适配。可随时关闭开关，停止任务日志读取。
+
+
 ### Touch Bar
 
 默认开启 `设置 → Touch Bar 常驻`：
@@ -223,6 +248,8 @@ dist/GPT-TouchBar-HUD-<版本号>.dmg
 bash scripts/test-app-migration.sh
 bash scripts/test-account-token-usage.sh
 bash scripts/test-token-usage.sh
+bash scripts/test-task-status.sh
+bash scripts/test-app-update.sh
 bash scripts/test-touchbar-layout.sh
 bash scripts/test-touchbar.sh
 ```
@@ -236,6 +263,10 @@ bash scripts/test-touchbar.sh --smoke-system
 ## 隐私说明
 
 GPT TouchBar HUD 不保存密码、API Key、授权码或访问令牌，也不会上传本机会话日志。
+
+手动检查更新时会访问本仓库的公开 GitHub Release API，并发送应用版本作为 User-Agent；确认安装后下载 Release 附件，不携带 ChatGPT 账号信息或任务内容。未点击检查时不会发起更新网络请求。
+
+启用实验性任务状态时，应用会只读访问本机 Codex 的任务索引和近期日志片段，仅在内存中提取生命周期与时间戳。不会展示、保存或上传对话正文；关闭开关后停止读取。任务状态来源与账号 Token 统计相互独立。
 
 额度和 Token 数据通过本机 `codex app-server` 获取。app-server 使用 ChatGPT / Codex 已有登录态访问服务端；本应用只在内存中保留当前展示数据和用于识别账号变化的元数据。磁盘上仅保存正常运行所需的应用设置、LaunchAgent 和手动退出状态。
 

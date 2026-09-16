@@ -102,6 +102,27 @@ enum PersistentTouchBarTests {
         hud.activateTouchBar(bringAppForward: true)
         check(NSWorkspace.shared.frontmostApplication?.processIdentifier == frontmostPID, "Persistent HUD activation preserves the frontmost app")
 
+        let hudView = hud.view
+        hud.update(with: state)
+        let plainWidth = hudView.frame.width
+        state.taskStatus = TaskStatusSummary(runningCount: 2)
+        hud.update(with: state)
+        hudView.layoutSubtreeIfNeeded()
+        check(labels(in: hudView).contains("执行中 2"), "HUD displays task summary")
+        check(hudView.frame.width > plainWidth, "Task summary adds width without squeezing metrics")
+        check(!hudView.hasAmbiguousLayout, "Task HUD layout is determined")
+        check(hudView.window == nil, "Task updates do not create/show a floating window")
+        controller.update(with: state)
+        check(labels(in: item.view).contains("2"), "Task count reaches persistent Touch Bar")
+        state.taskStatus = TaskStatusSummary()
+        hud.update(with: state)
+        controller.update(with: state)
+        check(hudView.frame.width == plainWidth, "Idle restores original HUD width")
+        check(!labels(in: item.view).contains("?"), "Idle does not show unknown badge")
+        state.taskStatus = nil
+        hud.update(with: state)
+        check(hudView.frame.width == plainWidth, "Disabling restores original HUD width")
+
         notifications.post(name: NSWorkspace.didActivateApplicationNotification, object: nil)
         controller.stop()
         let countAfterStop = presenter.presentations.count

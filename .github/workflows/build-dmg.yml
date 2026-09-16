@@ -8,6 +8,7 @@ on:
     paths:
       - "Package.swift"
       - "Sources/**"
+      - "Tests/**"
       - "Resources/**"
       - "scripts/**"
       - ".github/workflows/build-dmg.yml"
@@ -19,6 +20,7 @@ on:
     paths:
       - "Package.swift"
       - "Sources/**"
+      - "Tests/**"
       - "Resources/**"
       - "scripts/**"
       - ".github/workflows/build-dmg.yml"
@@ -71,6 +73,12 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "arch=$ACTUAL_ARCH" >> "$GITHUB_OUTPUT"
           echo "Building version $VERSION for $ACTUAL_ARCH"
+
+      - name: Test local task status parser
+        run: bash scripts/test-task-status.sh
+
+      - name: Test update policy and installer guards
+        run: bash scripts/test-app-update.sh
 
       - name: Build and package DMG
         id: package
