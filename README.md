@@ -1,12 +1,12 @@
 # TouchBarCodexToken
 
-在 Mac 的 Touch Bar、菜单栏和可选桌面浮窗中，持续查看 ChatGPT / Codex 的额度与 Token 使用情况。
+支持 Touch Bar 跨 App 常驻，在 Mac 的 Touch Bar、菜单栏和可选桌面浮窗中持续查看 ChatGPT / Codex 的额度与 Token 使用情况。
 
 ![TouchBarCodexToken 宣传图](Marketing/promo-style-d-tech-board.png)
 
 ## 这是什么
 
-TouchBarCodexToken 是一个轻量的 macOS 状态工具。它读取 ChatGPT / Codex 自带的本机 `codex app-server`，把以下信息整理成随时可见的状态：
+TouchBarCodexToken 是一个支持跨 App 常驻 Touch Bar 的轻量 macOS 状态工具。它读取 ChatGPT / Codex 自带的本机 `codex app-server`，把以下信息整理成随时可见的状态：
 
 - 5 小时额度、周额度及各自的重置时间。
 - 可用完整重置次数及最早到期日期。
