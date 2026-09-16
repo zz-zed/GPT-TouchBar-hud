@@ -4,6 +4,7 @@ import SQLite3
 /// Bounded, incremental reader. Never persists or publishes conversation contents.
 struct TaskLogCursor {
     static let readLimit = 256 * 1024
+    static let runningStaleInterval: TimeInterval = 30 * 60
     var offset: UInt64 = 0
     var pending = Data()
     var identity: UInt64?
@@ -24,7 +25,7 @@ struct TaskLogCursor {
         if reset { self = TaskLogCursor(); identity = inode }
         fileModifiedAt = attrs[.modificationDate] as? Date
         guard size > offset else { return }
-        if hadBaseline || fileModifiedAt.map({ Date().timeIntervalSince($0) < 300 }) == true {
+        if hadBaseline || fileModifiedAt.map({ Date().timeIntervalSince($0) < Self.runningStaleInterval }) == true {
             observedLiveChange = true
         }
         let handle = try FileHandle(forReadingFrom: url)
@@ -70,6 +71,10 @@ struct TaskLogCursor {
             } else if type == "task_complete" || type == "turn_aborted" {
                 phase = type == "task_complete" ? "complete" : "idle"
                 eventDate = date
+            } else if phase == nil && (type == "item_completed" || type == "token_count") {
+                // Large rollouts can push task_started outside the bounded tail.
+                // Fresh durable work events still prove that this turn was active.
+                phase = "running"; turnID = id; eventDate = date
             }
         }
         // A malformed/huge single record must not grow memory without bound.
@@ -79,7 +84,7 @@ struct TaskLogCursor {
     func summary(now: Date) -> TaskStatusSummary {
         if phase == "running", let activityDate,
            now.timeIntervalSince(activityDate) >= -5,
-           now.timeIntervalSince(activityDate) < 300 {
+           now.timeIntervalSince(activityDate) < Self.runningStaleInterval {
             return TaskStatusSummary(runningCount: 1)
         }
         if phase == "complete", let eventDate,
@@ -93,7 +98,7 @@ struct TaskLogCursor {
 
     /// Old unobserved history is outside the live indicator's scope, not proof of idle.
     func monitoredSummary(now: Date) -> TaskStatusSummary {
-        guard observedLiveChange || fileModifiedAt.map({ now.timeIntervalSince($0) < 300 }) == true else {
+        guard observedLiveChange || fileModifiedAt.map({ now.timeIntervalSince($0) < Self.runningStaleInterval }) == true else {
             return TaskStatusSummary()
         }
         return summary(now: now)

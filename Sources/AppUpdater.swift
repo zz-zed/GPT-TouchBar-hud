@@ -26,22 +26,46 @@ final class AppUpdater: NSObject {
         session.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.busy = false
-                guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200,
+                if error == nil, (response as? HTTPURLResponse)?.statusCode == 200,
                       let data, data.count < 2_000_000,
                       let release = try? JSONDecoder().decode(AppRelease.self, from: data),
-                      !release.draft, !release.prerelease,
-                      let latest = AppVersion(release.tag_name), let current = AppVersion(Self.version) else {
-                    self.message("无法检查更新", "请检查网络或稍后重试。GitHub 限流或发布信息不完整时不会安装任何文件。")
-                    return
+                      !release.draft, !release.prerelease {
+                    self.handle(release)
+                } else {
+                    self.checkViaReleasePage()
                 }
-                guard latest > current else {
-                    self.message("无需更新", "当前版本 \(Self.version)，最新正式版 \(release.tag_name)。")
-                    return
-                }
-                self.offer(release)
             }
         }.resume()
+    }
+    private func checkViaReleasePage() {
+        var request = URLRequest(url: AppRelease.page)
+        request.httpMethod = "HEAD"
+        request.setValue("GPTTouchBarHUD/\(Self.version)", forHTTPHeaderField: "User-Agent")
+        session.dataTask(with: request) { [weak self] _, response, error in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200,
+                      let finalURL = response?.url,
+                      let release = AppRelease.fromLatestPageURL(finalURL) else {
+                    self.busy = false
+                    self.message("无法检查更新", "GitHub API 和 Release 页面均无法读取。请检查网络或稍后重试；不会安装任何文件。")
+                    return
+                }
+                self.handle(release)
+            }
+        }.resume()
+    }
+    private func handle(_ release: AppRelease) {
+        busy = false
+        guard let latest = AppVersion(release.tag_name), let current = AppVersion(Self.version) else {
+            message("无法检查更新", "发布版本格式无效，不会安装任何文件。")
+            return
+        }
+        guard latest > current else {
+            message("无需更新", "当前版本 \(Self.version)，最新正式版 \(release.tag_name)。")
+            return
+        }
+        offer(release)
     }
     private func offer(_ release: AppRelease) {
         #if arch(arm64)
@@ -74,7 +98,25 @@ final class AppUpdater: NSObject {
         download(asset: asset, checksum: checksum, release: release, target: target)
     }
     private func download(asset: AppRelease.Asset, checksum: AppRelease.Asset, release: AppRelease, target: URL) {
-        guard asset.size > 0 && asset.size < 400_000_000 else { finish(error: "安装包大小不符合预期。"); return }
+        resolveSize(for: asset) { [weak self] verifiedSize in
+            guard let self else { return }
+            guard let verifiedSize else { self.finish(error: "无法确认安装包大小，已拒绝下载。"); return }
+            self.downloadVerified(asset: asset, verifiedSize: verifiedSize, checksum: checksum, release: release, target: target)
+        }
+    }
+    private func resolveSize(for asset: AppRelease.Asset, completion: @escaping (Int?) -> Void) {
+        if asset.size > 0 {
+            completion(asset.size < 400_000_000 ? asset.size : nil)
+            return
+        }
+        var request = URLRequest(url: asset.browser_download_url)
+        request.httpMethod = "HEAD"
+        session.dataTask(with: request) { _, response, error in
+            let size = response?.expectedContentLength ?? -1
+            completion(error == nil && (response as? HTTPURLResponse)?.statusCode == 200 && size > 0 && size < 400_000_000 ? Int(size) : nil)
+        }.resume()
+    }
+    private func downloadVerified(asset: AppRelease.Asset, verifiedSize: Int, checksum: AppRelease.Asset, release: AppRelease, target: URL) {
         session.dataTask(with: checksum.browser_download_url) { [weak self] data, response, error in
             guard let self else { return }
             guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200,
@@ -89,7 +131,7 @@ final class AppUpdater: NSObject {
                 }
                 do {
                     let attributes = try FileManager.default.attributesOfItem(atPath: temporary.path)
-                    guard (attributes[.size] as? NSNumber)?.intValue == asset.size else { throw UpdateError.invalid("安装包大小不匹配。") }
+                    guard (attributes[.size] as? NSNumber)?.intValue == verifiedSize else { throw UpdateError.invalid("安装包大小不匹配。") }
                     let handle = try FileHandle(forReadingFrom: temporary)
                     defer { try? handle.close() }
                     var digest = SHA256()

@@ -20,6 +20,18 @@ import Foundation
         check(release.installer(architecture: "arm64")?.name == name, "Matching architecture")
         check(release.installer(architecture: "x86_64") == nil, "Wrong architecture not selected")
         check(release.checksums != nil, "Checksum asset matched")
+        let fallback = AppRelease.fromLatestPageURL(URL(string: "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v1.2.3")!)
+        check(fallback?.installer(architecture: "arm64")?.name == name, "Latest page redirect constructs trusted release assets")
+        check(fallback?.installer(architecture: "arm64")?.size == 0, "Fallback defers size verification to asset HEAD")
+        for url in [
+            "http://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v1.2.3",
+            "https://evil.example/zz-zed/GPT-TouchBar-hud/releases/tag/v1.2.3",
+            "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v1.2.3/extra",
+            "https://github.com/other/repo/releases/tag/v1.2.3",
+            "https://user@github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v1.2.3"
+        ] {
+            check(AppRelease.fromLatestPageURL(URL(string: url)!) == nil, "Reject untrusted latest-page redirect")
+        }
         for url in ["https://example.com/" + name, "http://github.com/" + name, root.replacingOccurrences(of: "v1.2.3", with: "v1.2.4") + name] {
             let bad = AppRelease(tag_name: "v1.2.3", draft: false, prerelease: false, assets: [.init(name: name, browser_download_url: URL(string: url)!, size: 123)])
             check(bad.installer(architecture: "arm64") == nil, "Reject untrusted asset location")
