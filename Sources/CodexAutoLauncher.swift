@@ -1,8 +1,6 @@
 import Foundation
 
 enum CodexAutoLauncher {
-    private static let launchAgentLabel = "com.jackchen.TouchBarCodexToken.CodexLauncher"
-    private static let appSupportDirectoryName = "TouchBarCodexToken"
     private static let manualQuitLockName = "manual-quit.lock"
 
     static func installOrUpdate() {
@@ -15,38 +13,41 @@ enum CodexAutoLauncher {
             isDirectory: false
         )
         guard FileManager.default.fileExists(atPath: scriptURL.path) else {
-            NSLog("TouchBarCodexToken auto launcher script is missing at %@", scriptURL.path)
+            NSLog("%@ auto launcher script is missing at %@", AppIdentity.productName, scriptURL.path)
             return
         }
 
         do {
+            removeLegacyLaunchAgent()
             try FileManager.default.createDirectory(
                 at: launchAgentsDirectory,
                 withIntermediateDirectories: true
             )
 
-            let plistURL = launchAgentsDirectory.appendingPathComponent("\(launchAgentLabel).plist")
+            let plistURL = launchAgentsDirectory.appendingPathComponent("\(AppIdentity.launchAgentLabel).plist")
             let plist = launchAgentPlist(scriptPath: scriptURL.path, appPath: appBundleURL.path)
             try plist.write(to: plistURL, atomically: true, encoding: .utf8)
             bootstrapLaunchAgent(at: plistURL)
         } catch {
-            NSLog("TouchBarCodexToken failed to install auto launcher: %@", String(describing: error))
+            NSLog("%@ failed to install auto launcher: %@", AppIdentity.productName, String(describing: error))
         }
     }
 
     static func clearManualQuitLock() {
-        try? FileManager.default.removeItem(at: manualQuitLockURL)
+        manualQuitLockURLs.forEach { try? FileManager.default.removeItem(at: $0) }
     }
 
     static func markManualQuit() {
         do {
-            try FileManager.default.createDirectory(
-                at: appSupportDirectory,
-                withIntermediateDirectories: true
-            )
-            try "manual quit\n".write(to: manualQuitLockURL, atomically: true, encoding: .utf8)
+            for lockURL in manualQuitLockURLs {
+                try FileManager.default.createDirectory(
+                    at: lockURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try "manual quit\n".write(to: lockURL, atomically: true, encoding: .utf8)
+            }
         } catch {
-            NSLog("TouchBarCodexToken failed to write manual quit lock: %@", String(describing: error))
+            NSLog("%@ failed to write manual quit lock: %@", AppIdentity.productName, String(describing: error))
         }
     }
 
@@ -58,11 +59,19 @@ enum CodexAutoLauncher {
     private static var appSupportDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support", isDirectory: true)
-            .appendingPathComponent(appSupportDirectoryName, isDirectory: true)
+            .appendingPathComponent(AppIdentity.appSupportDirectoryName, isDirectory: true)
     }
 
-    private static var manualQuitLockURL: URL {
-        appSupportDirectory.appendingPathComponent(manualQuitLockName, isDirectory: false)
+    private static var legacyAppSupportDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support", isDirectory: true)
+            .appendingPathComponent(AppIdentity.legacyAppSupportDirectoryName, isDirectory: true)
+    }
+
+    private static var manualQuitLockURLs: [URL] {
+        [appSupportDirectory, legacyAppSupportDirectory].map {
+            $0.appendingPathComponent(manualQuitLockName, isDirectory: false)
+        }
     }
 
     private static func launchAgentPlist(scriptPath: String, appPath: String) -> String {
@@ -72,7 +81,7 @@ enum CodexAutoLauncher {
         <plist version="1.0">
         <dict>
             <key>Label</key>
-            <string>\(launchAgentLabel)</string>
+            <string>\(AppIdentity.launchAgentLabel)</string>
             <key>ProgramArguments</key>
             <array>
                 <string>/bin/zsh</string>
@@ -93,7 +102,14 @@ enum CodexAutoLauncher {
 
         runLaunchctl(arguments: ["bootout", domain, plistURL.path])
         runLaunchctl(arguments: ["bootstrap", domain, plistURL.path])
-        runLaunchctl(arguments: ["kickstart", "-k", "\(domain)/\(launchAgentLabel)"])
+        runLaunchctl(arguments: ["kickstart", "-k", "\(domain)/\(AppIdentity.launchAgentLabel)"])
+    }
+
+    private static func removeLegacyLaunchAgent() {
+        let domain = "gui/\(getuid())"
+        let plistURL = launchAgentsDirectory.appendingPathComponent("\(AppIdentity.legacyLaunchAgentLabel).plist")
+        runLaunchctl(arguments: ["bootout", "\(domain)/\(AppIdentity.legacyLaunchAgentLabel)"])
+        try? FileManager.default.removeItem(at: plistURL)
     }
 
     private static func runLaunchctl(arguments: [String]) {

@@ -16,7 +16,7 @@ final class SystemTouchBarPresenter: SystemTouchBarPresenting {
     static let applicationRegionPlacement: Int64 = 0
     private typealias Present = @convention(c) (AnyObject, Selector, NSTouchBar, Int64, NSString?) -> Void
     private typealias Dismiss = @convention(c) (AnyObject, Selector, NSTouchBar) -> Void
-    static let systemButtonIdentifier = NSTouchBarItem.Identifier("com.jackchen.TouchBarCodexToken.emptySystemButton")
+    static let systemButtonIdentifier = NSTouchBarItem.Identifier("io.github.zz-zed.GPTTouchBarHUD.emptySystemButton")
 
     /// Current AppKit's system-modal overlay uses this item in place of its
     /// automatic background close button. The legacy DFR close-box function is

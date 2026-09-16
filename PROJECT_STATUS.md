@@ -4,12 +4,20 @@
 
 ## 项目概况
 
-TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch Bar 小工具。应用通过本机 ChatGPT/Codex 包内的 `codex app-server` 调用 `account/rateLimits/read` 和 `account/usage/read`，显示额度窗口、可用重置次数、额度点数和 GPT 账号 Token 用量。
+GPT TouchBar HUD 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch Bar 小工具。应用通过本机 ChatGPT/Codex 包内的 `codex app-server` 调用 `account/rateLimits/read` 和 `account/usage/read`，显示额度窗口、可用重置次数、额度点数和 GPT 账号 Token 用量。
 
 - 当前分支：`main`
-- 当前源码版本：`0.1.20`，Build `21`
-- GitHub `main` 目标版本：`0.1.20`（2026-09-16）
-- 正式标签 / GitHub Release：尚未创建
+- 当前源码版本：`0.1.21`，Build `22`
+- GitHub `main` 目标版本：`0.1.21`（2026-09-16）
+- 最新正式标签 / GitHub Release：`v0.1.20`
+
+## 0.1.21 品牌迁移
+
+- 产品名统一为 `GPT TouchBar HUD`，应用包改为 `GPT TouchBar HUD.app`，可执行文件改为 `GPTTouchBarHUD`。
+- Bundle ID、Touch Bar 标识符、LaunchAgent 和 Application Support 目录切换到新命名空间。
+- 首次运行新版时迁移旧版 HUD 外观和 Touch Bar 常驻设置，停用旧 LaunchAgent，并兼容旧手动退出锁。
+- DMG 和 GitHub Release Assets 统一为 `GPT-TouchBar-HUD-<版本>-<架构>.dmg`。
+- README 的产品说明、安装命令和源码构建路径已同步，许可证处继续保留上游项目名称与链接。
 
 ## 0.1.20 修正系统关闭按钮
 
@@ -25,7 +33,7 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 - Tag 构建要求 `vX.Y.Z` 与 `Resources/Info.plist` 的 `X.Y.Z` 一致，避免版本和安装包错配。
 - Apple Silicon 与 Intel runner 分别生成带 `arm64` / `x86_64` 后缀的 DMG，并验证 App 签名、DMG 和二进制架构。
 - 两个 DMG 构建成功后，自动生成 `SHA256SUMS.txt`，使用 GitHub 提供的临时 Token 创建 Release，并把两个安装包和校验文件作为可下载 Assets 一次性发布。
-- 重新运行同一个 Tag 的工作流时复用已有 Release，并更新同名安装包；当前没有创建 Tag 或 GitHub Release。
+- 重新运行同一个 Tag 的工作流时复用已有 Release，并更新同名安装包；`v0.1.20` 已完成首次真实发布验证。
 
 ## 本地开发：0.1.19 去除常驻关闭按钮（已取代）
 
@@ -176,18 +184,20 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 
 ## 验证状态
 
+- `bash scripts/test-app-migration.sh`：4 项通过，覆盖旧设置迁移、新设置优先及无关键隔离。
 - `bash scripts/test-account-token-usage.sh`：37 项通过。
 - `bash scripts/test-token-usage.sh`：18 项通过。
 - `bash scripts/test-touchbar-layout.sh`：136 项通过。
 - `bash scripts/test-touchbar.sh`：23 项通过；本机 system-modal 方法签名可用。
 - `git diff --check`：通过。
-- `scripts/package-dmg.sh`：通过，生成并校验 `dist/TouchBarCodexToken-0.1.20.dmg`；App 严格签名检查通过，当前本机构建架构为 arm64。
-- SwiftPM Release 构建成功；链接器仅报告本机 Command Line Tools 的两个缺失搜索路径警告，不影响产物生成和校验。
-- GitHub Actions YAML 已通过本地语法解析；Tag 发布分支尚未真实触发，因为远端当前没有 Tag 或 Release。
+- `scripts/package-dmg.sh`：通过，生成并校验 `dist/GPT-TouchBar-HUD-0.1.21.dmg`；DMG 内应用名、可执行文件、Bundle ID 和版本均符合新命名。
+- SwiftPM Release 构建、App 严格签名检查和 arm64 架构检查通过；链接器仅报告本机 Command Line Tools 的两个缺失搜索路径警告，不影响产物生成和校验。
+- 本机从旧版进程直接启动 0.1.21 后，旧进程正常结束，旧 LaunchAgent 已移除，新 LaunchAgent 已加载且指向 `GPT TouchBar HUD.app`；启动后未显示浮窗。
+- `v0.1.20` Tag 的 GitHub Actions 双架构构建、Release 创建和下载校验均已通过。
 
 ## 未解决和注意事项
 
-- `0.1.20` 尚未创建 Git 标签或 GitHub Release；推送 `v0.1.20` Tag 后将由 Actions 自动打包并创建带 DMG 的 Release。
+- `0.1.21` 尚未创建 Git 标签或 GitHub Release；需在本轮代码验证完成后另行决定发布时间。
 - 项目已增加 Touch Bar 控制器回归检查；额度接口结构变化仍主要依赖本机 app-server 和实体 Touch Bar 验证。
 - App 尚未使用 Apple Developer 证书签名和公证，公开分发时仍可能出现 macOS 安全提示。
 - 以下 Marketing 文件是未跟踪草稿，除非明确要求，否则不要加入提交：
@@ -199,7 +209,7 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 ## 建议下一步
 
 1. 在实体 Touch Bar 上继续观察 ChatGPT 图标、重置券行和两行 `|` 分隔线在不同额度值下的对齐情况。
-2. 准备正式发布时推送 `v0.1.20` Tag，由 Actions 自动创建 GitHub Release；无需在本地手动打包 DMG。
+2. 准备正式发布时推送 `v0.1.21` Tag，由 Actions 自动创建 GitHub Release；无需在本地手动打包 DMG。
 3. 后续 app-server 返回结构变化时，优先检查额度窗口时长和重置券字段。
 
 ## 常用命令
@@ -207,6 +217,6 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 ```bash
 scripts/build-app.sh
 scripts/package-dmg.sh
-open build/TouchBarCodexToken.app
+open "build/GPT TouchBar HUD.app"
 git status --short --branch
 ```

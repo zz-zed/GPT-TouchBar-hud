@@ -3,7 +3,7 @@ import AppKit
 /// Owns a bar independently of the HUD, key window and first responder.
 final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
     private static let enabledKey = "persistentTouchBarEnabled"
-    private static let limitsIdentifier = NSTouchBarItem.Identifier("com.jackchen.TouchBarCodexToken.persistent.limits")
+    private static let limitsIdentifier = NSTouchBarItem.Identifier("io.github.zz-zed.GPTTouchBarHUD.persistent.limits")
 
     private let presenter: SystemTouchBarPresenting
     private let defaults: UserDefaults
