@@ -231,15 +231,6 @@ bash scripts/test-touchbar.sh
 bash scripts/test-touchbar.sh --smoke-system
 ```
 
-## GitHub Release 自动打包
-
-工作流位于 `.github/workflows/build-dmg.yml`。
-
-- `main` 推送和 Pull Request：分别构建 arm64、x86_64 DMG，并保存为 Actions Artifact，用于验证代码可以在两种架构打包。
-- GitHub Release 发布：从 Release 对应 Tag 构建两个安装包，生成 `SHA256SUMS.txt`，并自动上传到该 Release。
-- Release Tag 必须与 `Resources/Info.plist` 的版本一致。例如应用版本 `0.1.20` 对应 Tag `v0.1.20`，不一致时工作流会失败。
-- 工作流不会自动创建 Tag 或 Release；只有发布 Release 后才会上传正式安装包。
-
 ## 隐私说明
 
 TouchBarCodexToken 不保存密码、API Key、授权码或访问令牌，也不会上传本机会话日志。
