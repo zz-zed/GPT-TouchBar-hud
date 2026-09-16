@@ -2,7 +2,7 @@
 
 支持 Touch Bar 跨 App 常驻，在 Mac 的 Touch Bar、菜单栏和可选桌面浮窗中持续查看 ChatGPT / Codex 的额度与 Token 使用情况。
 
-![GPT TouchBar HUD 宣传图](Marketing/promo-style-d-tech-board.png)
+![GPT TouchBar HUD：跨 App 常驻、菜单栏与桌面 HUD](Marketing/readme-hero-gpt-touchbar-hud.png)
 
 ## 这是什么
 
@@ -34,7 +34,7 @@ GPT TouchBar HUD 是一个支持跨 App 常驻 Touch Bar 的轻量 macOS 状态�
 
 Touch Bar 显示效果：
 
-![Touch Bar 清晰细节](Marketing/promo-touchbar-upgrade-detail.png)
+![GPT TouchBar HUD 的多种额度展示形态](Marketing/readme-touchbar-gpt-touchbar-hud.png)
 
 ## 工作原理
 
