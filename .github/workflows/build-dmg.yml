@@ -49,7 +49,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
@@ -98,7 +98,7 @@ jobs:
             -verify_arch "${{ steps.metadata.outputs.arch }}"
 
       - name: Upload DMG
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: TouchBarCodexToken-${{ steps.metadata.outputs.version }}-${{ steps.metadata.outputs.arch }}
           path: ${{ steps.package.outputs.dmg }}
@@ -115,7 +115,7 @@ jobs:
 
     steps:
       - name: Download architecture-specific DMGs
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: TouchBarCodexToken-*
           path: release-assets
