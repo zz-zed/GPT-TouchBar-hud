@@ -239,6 +239,10 @@ GPT TouchBar HUD 不保存密码、API Key、授权码或访问令牌，也不�
 
 额度和 Token 数据通过本机 `codex app-server` 获取。app-server 使用 ChatGPT / Codex 已有登录态访问服务端；本应用只在内存中保留当前展示数据和用于识别账号变化的元数据。磁盘上仅保存正常运行所需的应用设置、LaunchAgent 和手动退出状态。
 
+## 参与贡献
+
+欢迎提交 Bug 修复、兼容性改进、功能优化、测试和文档类 Pull Request。开始开发或提交 PR 前，请先阅读 [贡献指南](CONTRIBUTING.md)；新建 PR 时会自动加载仓库的检查模板。
+
 ## 许可证
 
 本项目遵循 [MIT License](LICENSE)。感谢 [jackchensky/TouchBarCodexToken](https://github.com/jackchensky/TouchBarCodexToken) 原项目提供的基础实现。
