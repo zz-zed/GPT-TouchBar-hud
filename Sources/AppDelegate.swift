@@ -1,6 +1,6 @@
 import AppKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, RateLimitStoreDelegate {
     private enum OpacitySetting {
         case background
         case content
@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
     private let lifecycleMonitor = CodexLifecycleMonitor()
     private var hudAppearance = HUDAppearance.load()
     private var hudVisibilityMenuItem: NSMenuItem?
+    private var persistentTouchBarMenuItem: NSMenuItem?
+    private lazy var persistentTouchBar = PersistentTouchBarController()
     private var colorMenuItems: [HUDAppearance.ColorChoice: NSMenuItem] = [:]
     private var backgroundOpacityMenuItems: [Double: NSMenuItem] = [:]
     private var contentOpacityMenuItems: [Double: NSMenuItem] = [:]
@@ -21,6 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         },
         onQuit: { [weak self] in
             self?.quitFromHUD()
+        },
+        onPresentTouchBar: { [weak self] in
+            self?.persistentTouchBar.presentNow() ?? false
         },
         contextMenuProvider: { [weak self] in
             self?.makeHUDContextMenu() ?? NSMenu()
@@ -47,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        persistentTouchBar.stop()
         lifecycleMonitor.stop()
         store.stop()
     }
@@ -54,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
     func rateLimitStore(_ store: RateLimitStore, didUpdate state: RateLimitDisplayState) {
         updateStatusTitle(with: state)
         hudController.update(with: state)
+        persistentTouchBar.update(with: state)
     }
 
     private func configureStatusItem() {
@@ -141,8 +148,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         return menu
     }
 
+    private func makePersistentTouchBarMenuItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Touch Bar 常驻", action: #selector(togglePersistentTouchBar(_:)), keyEquivalent: "")
+        item.target = self
+        item.isEnabled = persistentTouchBar.isAvailable
+        item.state = persistentTouchBar.usesSystemPresentation ? .on : .off
+        item.toolTip = persistentTouchBar.isAvailable
+            ? "完整额度条在切换 App 后继续显示；关闭后恢复当前 App 的 Touch Bar。"
+            : "当前系统不提供常驻接口，点击浮窗后可使用普通 Touch Bar 显示。"
+        return item
+    }
+
+    @objc private func togglePersistentTouchBar(_ sender: NSMenuItem) {
+        persistentTouchBar.setEnabled(!persistentTouchBar.isEnabled)
+        updateMenuState()
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(togglePersistentTouchBar(_:)) {
+            menuItem.state = persistentTouchBar.usesSystemPresentation ? .on : .off
+            return persistentTouchBar.isAvailable
+        }
+        return true
+    }
+
     private func makeAppearanceSettingsMenu(registerItems: Bool) -> NSMenu {
         let settingsMenu = NSMenu(title: "设置")
+
+        let persistentItem = makePersistentTouchBarMenuItem()
+        settingsMenu.addItem(persistentItem)
+        if registerItems { persistentTouchBarMenuItem = persistentItem }
+        settingsMenu.addItem(.separator())
 
         let colorHeader = NSMenuItem(title: "浮窗颜色", action: nil, keyEquivalent: "")
         colorHeader.isEnabled = false
@@ -260,6 +296,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
             button.title = " --"
             button.toolTip = state.errorMessage ?? "Codex 额度"
         }
+        if let usage = state.tokenUsage {
+            button.toolTip = (button.toolTip ?? "Codex 额度") + "\n\(usage.yesterdayText)；\(usage.cumulativeText)\n\(usage.toolTip)"
+        }
     }
 
     @objc private func toggleHUDWindow(_ sender: AnyObject?) {
@@ -279,11 +318,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
 
     private func codexDidStart() {
         NSApp.setActivationPolicy(.accessory)
+        persistentTouchBar.start()
         store.start()
-        showHUDWindow()
+        // Startup is menu/Touch Bar only; showing the HUD is an explicit menu action.
+        hudWindow.orderOut(nil)
+        updateMenuState()
     }
 
     private func codexDidStop() {
+        persistentTouchBar.stop()
         hudWindow.orderOut(nil)
         store.stop()
         NSApp.terminate(nil)
@@ -345,6 +388,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
     }
 
     private func updateMenuState() {
+        persistentTouchBarMenuItem?.state = persistentTouchBar.usesSystemPresentation ? .on : .off
         hudVisibilityMenuItem?.title = hudWindow.isVisible ? "隐藏浮窗" : "显示浮窗"
 
         for (colorChoice, item) in colorMenuItems {
@@ -362,6 +406,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
 
     private func quitApp() {
         CodexAutoLauncher.markManualQuit()
+        persistentTouchBar.stop()
         hudWindow.orderOut(nil)
         lifecycleMonitor.stop()
         store.stop()

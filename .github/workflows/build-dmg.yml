@@ -2,6 +2,9 @@ name: Build macOS DMG
 
 on:
   workflow_dispatch:
+  release:
+    types:
+      - published
   pull_request:
     branches:
       - main
@@ -47,37 +50,95 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
       - name: Read build metadata
         id: metadata
         shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)"
           ACTUAL_ARCH="$(uname -m)"
+          if [[ "$ACTUAL_ARCH" != "$EXPECTED_ARCH" ]]; then
+            echo "Expected runner architecture $EXPECTED_ARCH, got $ACTUAL_ARCH" >&2
+            exit 1
+          fi
+          if [[ -n "$RELEASE_TAG" && "$RELEASE_TAG" != "v$VERSION" ]]; then
+            echo "Release tag $RELEASE_TAG does not match app version v$VERSION" >&2
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "arch=$ACTUAL_ARCH" >> "$GITHUB_OUTPUT"
           echo "Building version $VERSION for $ACTUAL_ARCH"
 
       - name: Build and package DMG
+        id: package
         shell: bash
         run: |
           chmod +x scripts/build-app.sh scripts/package-dmg.sh
           scripts/package-dmg.sh
+          VERSION="${{ steps.metadata.outputs.version }}"
+          ARCH="${{ steps.metadata.outputs.arch }}"
+          SOURCE_PATH="dist/TouchBarCodexToken-$VERSION.dmg"
+          ASSET_PATH="dist/TouchBarCodexToken-$VERSION-$ARCH.dmg"
+          mv "$SOURCE_PATH" "$ASSET_PATH"
+          echo "dmg=$ASSET_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Verify app and DMG
         shell: bash
         run: |
-          VERSION="${{ steps.metadata.outputs.version }}"
-          DMG_PATH="dist/TouchBarCodexToken-$VERSION.dmg"
+          DMG_PATH="${{ steps.package.outputs.dmg }}"
           test -f "$DMG_PATH"
           codesign --verify --deep --strict build/TouchBarCodexToken.app
           hdiutil verify "$DMG_PATH"
-          file build/TouchBarCodexToken.app/Contents/MacOS/TouchBarCodexToken
+          lipo -verify_arch "${{ steps.metadata.outputs.arch }}" \
+            build/TouchBarCodexToken.app/Contents/MacOS/TouchBarCodexToken
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
           name: TouchBarCodexToken-${{ steps.metadata.outputs.version }}-${{ steps.metadata.outputs.arch }}
-          path: dist/*.dmg
+          path: ${{ steps.package.outputs.dmg }}
           if-no-files-found: error
           retention-days: 30
+
+  publish-release-assets:
+    name: Attach DMGs to GitHub Release
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download architecture-specific DMGs
+        uses: actions/download-artifact@v5
+        with:
+          pattern: TouchBarCodexToken-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release assets and create checksums
+        shell: bash
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          test -f "release-assets/TouchBarCodexToken-$VERSION-arm64.dmg"
+          test -f "release-assets/TouchBarCodexToken-$VERSION-x86_64.dmg"
+          cd release-assets
+          sha256sum *.dmg > SHA256SUMS.txt
+
+      - name: Upload assets to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            release-assets/*.dmg \
+            release-assets/SHA256SUMS.txt \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"

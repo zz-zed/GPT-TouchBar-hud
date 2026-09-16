@@ -191,15 +191,27 @@ struct ResetCreditSummary: Equatable {
 }
 
 struct TokenUsageSummary: Equatable {
-    let yesterdayTokens: Int
-    let cumulativeTokens: Int
+    let yesterdayTokens: Int?
+    let cumulativeTokens: Int?
+    var isStale = false
+    var status: String? = nil
+    var updatedAt: Date? = nil
 
     var yesterdayText: String {
-        "昨日 \(Self.formatAsWan(yesterdayTokens))"
+        "昨日 \(yesterdayTokens.map(Self.formatAsWan) ?? "--")\(isStale && yesterdayTokens != nil ? "*" : "")"
     }
 
     var cumulativeText: String {
-        "累计 \(Self.formatAsYi(cumulativeTokens))"
+        "累计 \(cumulativeTokens.map(Self.formatAsYi) ?? "--")\(isStale && cumulativeTokens != nil ? "*" : "")"
+    }
+
+    var toolTip: String {
+        var text = "GPT 账号 Token 统计；缺失项显示 --，* 表示旧数据。"
+        if let updatedAt {
+            text += "\n上次更新：" + DateFormatter.localizedString(from: updatedAt, dateStyle: .short, timeStyle: .medium)
+        }
+        if let status { text += "\n" + status }
+        return text
     }
 
     private static func formatAsWan(_ tokens: Int) -> String {
@@ -213,9 +225,6 @@ struct TokenUsageSummary: Equatable {
     }
 
     private static func formatted(_ value: Double) -> String {
-        if value >= 100 {
-            return String(format: "%.0f", value)
-        }
         if value >= 10 {
             return String(format: "%.1f", value)
         }

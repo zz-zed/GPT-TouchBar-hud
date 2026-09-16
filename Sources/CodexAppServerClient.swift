@@ -5,6 +5,7 @@ enum CodexAppServerError: LocalizedError {
     case malformedResponse
     case serverError(String)
     case missingResult
+    case requestTimedOut
 
     var errorDescription: String? {
         switch self {
@@ -16,11 +17,18 @@ enum CodexAppServerError: LocalizedError {
             return message
         case .missingResult:
             return "Codex app-server response did not include a result."
+        case .requestTimedOut:
+            return "Codex app-server 请求超时。"
         }
     }
 }
 
-final class CodexAppServerClient {
+protocol AccountUsageClient: AnyObject {
+    func readAccountIdentity(completion: @escaping (Result<String?, Error>) -> Void)
+    func readTokenUsage(completion: @escaping (Result<AccountTokenUsageResponse, Error>) -> Void)
+}
+
+final class CodexAppServerClient: AccountUsageClient {
     typealias JSONDictionary = [String: Any]
 
     private let codexCandidates = [
@@ -39,6 +47,37 @@ final class CodexAppServerClient {
     private var pendingResponses: [Int: (Result<Any, Error>) -> Void] = [:]
 
     var onRateLimitsUpdated: (() -> Void)?
+    var onAccountUpdated: (() -> Void)?
+
+    func readAccountIdentity(completion: @escaping (Result<String?, Error>) -> Void) {
+        request(method: "account/read", params: ["refreshToken": false]) { result in
+            completion(result.flatMap { value in
+                guard let response = value as? JSONDictionary else {
+                    return .failure(CodexAppServerError.malformedResponse)
+                }
+                guard let account = response["account"] as? JSONDictionary else {
+                    return .success(nil)
+                }
+                // Account metadata only; never request, persist or log access tokens.
+                guard let data = try? JSONSerialization.data(withJSONObject: account, options: .sortedKeys),
+                      let identity = String(data: data, encoding: .utf8) else {
+                    return .failure(CodexAppServerError.malformedResponse)
+                }
+                return .success(identity)
+            })
+        }
+    }
+
+    func readTokenUsage(completion: @escaping (Result<AccountTokenUsageResponse, Error>) -> Void) {
+        request(method: "account/usage/read", params: nil) { result in
+            completion(result.flatMap { value in
+                Result {
+                    let data = try JSONSerialization.data(withJSONObject: value)
+                    return try JSONDecoder().decode(AccountTokenUsageResponse.self, from: data)
+                }
+            })
+        }
+    }
 
     func start(completion: @escaping (Result<Void, Error>) -> Void) {
         queue.async {
@@ -69,7 +108,7 @@ final class CodexAppServerClient {
                 self.process?.terminate()
             }
             self.process = nil
-            self.pendingResponses.removeAll()
+            self.failPendingResponses(CodexAppServerError.processUnavailable)
         }
     }
 
@@ -168,7 +207,7 @@ final class CodexAppServerClient {
     }
 
     private func request(method: String, params: Any?, completion: @escaping (Result<Any, Error>) -> Void) {
-        queue.async {
+        queue.async { [self] in
             guard let writer = self.inputPipe?.fileHandleForWriting, self.process?.isRunning == true else {
                 DispatchQueue.main.async {
                     completion(.failure(CodexAppServerError.processUnavailable))
@@ -182,6 +221,9 @@ final class CodexAppServerClient {
                 DispatchQueue.main.async {
                     completion(result)
                 }
+            }
+            self.queue.asyncAfter(deadline: .now() + 30) { [weak self] in
+                self?.pendingResponses.removeValue(forKey: requestId)?(.failure(CodexAppServerError.requestTimedOut))
             }
 
             var payload: JSONDictionary = [
@@ -229,6 +271,9 @@ final class CodexAppServerClient {
         }
 
         if let method = message["method"] as? String {
+            if method == "account/updated" || method == "account/login/completed" {
+                DispatchQueue.main.async { self.onAccountUpdated?() }
+            }
             if method == "account/rateLimits/updated" {
                 DispatchQueue.main.async {
                     self.onRateLimitsUpdated?()
