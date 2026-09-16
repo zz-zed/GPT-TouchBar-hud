@@ -82,7 +82,7 @@ account/rateLimits/read  account/usage/read
 
 ### 2. 下载安装
 
-1. 打开当前仓库的 [Releases](https://github.com/zz-zed/TouchBarCodexToken/releases) 页面。
+1. 打开当前仓库的 [Releases](https://github.com/zz-zed/GPT-TouchBar-hud/releases) 页面。
 2. 根据 Mac 处理器下载 `arm64.dmg` 或 `x86_64.dmg`。
 3. 打开 DMG，把 `TouchBarCodexToken.app` 拖入 `Applications`。
 4. 先启动并登录 ChatGPT / Codex，再打开 `TouchBarCodexToken.app`。
@@ -196,7 +196,7 @@ HUD 需要从菜单栏手动显示，常见状态如下：
 需要安装 Xcode Command Line Tools 和支持 Swift 5.8 的工具链。
 
 ```bash
-git clone https://github.com/zz-zed/TouchBarCodexToken.git
+git clone https://github.com/zz-zed/GPT-TouchBar-hud.git
 cd TouchBarCodexToken
 scripts/build-app.sh
 open build/TouchBarCodexToken.app
