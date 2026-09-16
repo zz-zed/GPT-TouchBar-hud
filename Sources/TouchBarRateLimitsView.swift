@@ -1,16 +1,14 @@
 import AppKit
 
 final class TouchBarRateLimitsView: NSView {
-    private let closeButton = NSButton()
-    private let codexIconView = NSImageView()
+    static let contentWidth: CGFloat = 600
+    private let chatGPTIconView = NSImageView()
     private let fiveHourRow = TouchBarLimitRow(title: "5 小时")
     private let weeklyRow = TouchBarLimitRow(title: "周限额")
     private let creditBalanceRow = TouchBarCreditBalanceRow()
 
-    init(closeTarget: AnyObject, closeAction: Selector) {
+    init() {
         super.init(frame: .zero)
-        closeButton.target = closeTarget
-        closeButton.action = closeAction
         configure()
     }
 
@@ -19,6 +17,8 @@ final class TouchBarRateLimitsView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
+        fiveHourRow.toolTip = state.tokenUsage?.toolTip
+        weeklyRow.toolTip = state.tokenUsage?.toolTip
         var hasLeadingLimitRow = false
 
         if let fiveHour = state.fiveHour {
@@ -68,21 +68,21 @@ final class TouchBarRateLimitsView: NSView {
             weeklyRow.isHidden = false
             weeklyRow.updatePlaceholder(title: "周限额", usageText: "累计 --")
         }
+        // Optional USD balance shares the second row. Reclaim decorative progress
+        // space in both rows while keeping percentages, dates and tokens aligned.
+        let hasInlineBalance = hasLeadingLimitRow && state.weekly != nil && state.creditBalance != nil
+        fiveHourRow.setCompactLayout(hasInlineBalance)
+        weeklyRow.setCompactLayout(hasInlineBalance)
     }
 
     private func configure() {
         translatesAutoresizingMaskIntoConstraints = false
 
-        closeButton.title = "×"
-        closeButton.bezelStyle = .circular
-        closeButton.font = .systemFont(ofSize: 19, weight: .semibold)
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-
-        codexIconView.image = Self.codexIcon()
-        codexIconView.imageAlignment = .alignCenter
-        codexIconView.imageScaling = .scaleProportionallyUpOrDown
-        codexIconView.translatesAutoresizingMaskIntoConstraints = false
-        codexIconView.toolTip = "Codex"
+        chatGPTIconView.image = Self.chatGPTIcon()
+        chatGPTIconView.imageAlignment = .alignCenter
+        chatGPTIconView.imageScaling = .scaleProportionallyUpOrDown
+        chatGPTIconView.translatesAutoresizingMaskIntoConstraints = false
+        chatGPTIconView.toolTip = "ChatGPT"
 
         let rows = NSStackView(views: [fiveHourRow, weeklyRow, creditBalanceRow])
         rows.translatesAutoresizingMaskIntoConstraints = false
@@ -92,36 +92,35 @@ final class TouchBarRateLimitsView: NSView {
         rows.spacing = 1
         creditBalanceRow.isHidden = true
 
-        let content = NSStackView(views: [closeButton, codexIconView, rows])
+        let content = NSStackView(views: [chatGPTIconView, rows])
         content.translatesAutoresizingMaskIntoConstraints = false
         content.orientation = .horizontal
         content.alignment = .centerY
-        content.spacing = 12
-        content.setCustomSpacing(2, after: codexIconView)
+        content.spacing = 6
+        content.setCustomSpacing(2, after: chatGPTIconView)
 
         addSubview(content)
 
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: 750),
+            widthAnchor.constraint(equalToConstant: Self.contentWidth),
             heightAnchor.constraint(equalToConstant: 30),
-            closeButton.widthAnchor.constraint(equalToConstant: 34),
-            closeButton.heightAnchor.constraint(equalToConstant: 28),
-            codexIconView.widthAnchor.constraint(equalToConstant: 34),
-            codexIconView.heightAnchor.constraint(equalToConstant: 30),
-            fiveHourRow.widthAnchor.constraint(equalToConstant: 632),
-            weeklyRow.widthAnchor.constraint(equalToConstant: 632),
-            creditBalanceRow.widthAnchor.constraint(equalToConstant: 632),
+            chatGPTIconView.widthAnchor.constraint(equalToConstant: 24),
+            chatGPTIconView.heightAnchor.constraint(equalToConstant: 30),
+            fiveHourRow.widthAnchor.constraint(equalToConstant: 574),
+            weeklyRow.widthAnchor.constraint(equalToConstant: 574),
+            creditBalanceRow.widthAnchor.constraint(equalToConstant: 574),
             content.leadingAnchor.constraint(equalTo: leadingAnchor),
             content.trailingAnchor.constraint(equalTo: trailingAnchor),
             content.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
     }
 
-    private static func codexIcon() -> NSImage {
+    private static func chatGPTIcon() -> NSImage {
         let iconPaths = [
-            "/Applications/ChatGPT.app/Contents/Resources/icon-codex-light.png",
-            "/Applications/ChatGPT.app/Contents/Resources/icon-codex-dark-color.png",
-            "/Applications/Codex.app/Contents/Resources/icon.icns"
+            "/Applications/ChatGPT.app/Contents/Resources/icon-chatgpt.png",
+            "/Applications/ChatGPT.app/Contents/Resources/icon-chatgpt.icns",
+            "/Applications/GPT.app/Contents/Resources/icon-chatgpt.png",
+            "/Applications/GPT.app/Contents/Resources/icon-chatgpt.icns"
         ]
 
         for path in iconPaths {
@@ -131,7 +130,7 @@ final class TouchBarRateLimitsView: NSView {
             }
         }
 
-        let appPaths = ["/Applications/ChatGPT.app", "/Applications/Codex.app"]
+        let appPaths = ["/Applications/ChatGPT.app", "/Applications/GPT.app"]
         for path in appPaths where FileManager.default.fileExists(atPath: path) {
             let image = NSWorkspace.shared.icon(forFile: path)
             image.size = NSSize(width: 30, height: 30)
@@ -140,7 +139,7 @@ final class TouchBarRateLimitsView: NSView {
 
         let bundledIconPath = Bundle.main.path(forResource: "AppIcon", ofType: "icns")
         let image = bundledIconPath.flatMap(NSImage.init(contentsOfFile:))
-            ?? NSImage(systemSymbolName: "terminal.fill", accessibilityDescription: "Codex")
+            ?? NSImage(systemSymbolName: "bubble.left.and.bubble.right.fill", accessibilityDescription: "ChatGPT")
             ?? NSImage(size: NSSize(width: 30, height: 30))
         image.size = NSSize(width: 30, height: 30)
         return image
@@ -185,6 +184,7 @@ private final class TouchBarCreditBalanceRow: NSView {
 }
 
 private final class TouchBarLimitRow: NSView {
+    private let statusContainer = NSView()
     private let titleLabel: NSTextField
     private let batteryBar = SegmentedBatteryBar()
     private let creditsIndicatorLabel = NSTextField(labelWithString: "")
@@ -245,6 +245,10 @@ private final class TouchBarLimitRow: NSView {
         updateCreditBalance(nil)
     }
 
+    func setCompactLayout(_ compact: Bool) {
+        statusContainer.isHidden = compact
+    }
+
     private func configure() {
         translatesAutoresizingMaskIntoConstraints = false
 
@@ -272,7 +276,8 @@ private final class TouchBarLimitRow: NSView {
 
         usageLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
         usageLabel.textColor = .labelColor
-        usageLabel.lineBreakMode = .byTruncatingTail
+        usageLabel.lineBreakMode = .byClipping
+        usageLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         creditSeparatorLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
         creditSeparatorLabel.textColor = .labelColor
@@ -285,7 +290,6 @@ private final class TouchBarLimitRow: NSView {
         creditBalanceLabel.isHidden = true
         creditBalanceLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        let statusContainer = NSView()
         statusContainer.translatesAutoresizingMaskIntoConstraints = false
         batteryBar.translatesAutoresizingMaskIntoConstraints = false
         creditsIndicatorLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -306,7 +310,7 @@ private final class TouchBarLimitRow: NSView {
         row.orientation = .horizontal
         row.alignment = .centerY
         row.distribution = .fill
-        row.spacing = 8
+        row.spacing = 6
         row.setCustomSpacing(4, after: titleLabel)
         row.setCustomSpacing(0, after: remainingLabel)
         row.setCustomSpacing(4, after: resetLabel)
@@ -319,12 +323,19 @@ private final class TouchBarLimitRow: NSView {
         let preferredHeight = heightAnchor.constraint(equalToConstant: 13)
         preferredHeight.priority = .defaultHigh
 
+        let preferredProgressWidth = statusContainer.widthAnchor.constraint(equalToConstant: 72)
+        preferredProgressWidth.priority = .defaultHigh
+        let preferredResetWidth = resetLabel.widthAnchor.constraint(equalToConstant: 125)
+        preferredResetWidth.priority = .defaultHigh
+
         NSLayoutConstraint.activate([
             preferredHeight,
-            titleLabel.widthAnchor.constraint(equalToConstant: 42),
-            statusContainer.widthAnchor.constraint(equalToConstant: 175),
+            titleLabel.widthAnchor.constraint(equalToConstant: 38),
+            preferredProgressWidth,
+            statusContainer.widthAnchor.constraint(greaterThanOrEqualToConstant: 40),
+            statusContainer.widthAnchor.constraint(lessThanOrEqualToConstant: 72),
             statusContainer.heightAnchor.constraint(equalToConstant: 11),
-            batteryBar.widthAnchor.constraint(equalToConstant: 175),
+            batteryBar.widthAnchor.constraint(equalTo: statusContainer.widthAnchor),
             batteryBar.heightAnchor.constraint(equalToConstant: 11),
             batteryBar.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor),
             batteryBar.topAnchor.constraint(equalTo: statusContainer.topAnchor),
@@ -332,9 +343,10 @@ private final class TouchBarLimitRow: NSView {
             creditsIndicatorLabel.trailingAnchor.constraint(lessThanOrEqualTo: statusContainer.trailingAnchor),
             creditsIndicatorLabel.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor),
             remainingLabel.widthAnchor.constraint(equalToConstant: 58),
-            resetLabel.widthAnchor.constraint(equalToConstant: 125),
-            separatorLabel.widthAnchor.constraint(equalToConstant: 8),
-            usageLabel.widthAnchor.constraint(equalToConstant: 66),
+            preferredResetWidth,
+            resetLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 80),
+            separatorLabel.widthAnchor.constraint(equalToConstant: 12),
+            usageLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
             row.leadingAnchor.constraint(equalTo: leadingAnchor),
             row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
             row.topAnchor.constraint(equalTo: topAnchor),
@@ -353,6 +365,7 @@ private final class TouchBarLimitRow: NSView {
         let shouldShow = text?.isEmpty == false
         creditSeparatorLabel.isHidden = !shouldShow
         creditBalanceLabel.isHidden = !shouldShow
-        creditBalanceLabel.stringValue = text ?? ""
+        creditBalanceLabel.stringValue = text?.replacingOccurrences(of: "还剩点数：", with: "") ?? ""
+        creditBalanceLabel.toolTip = text
     }
 }

@@ -17,6 +17,9 @@ final class CompactHUDPanel: NSPanel {
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         self.hasShadow = true
         self.hidesOnDeactivate = false
+        // Quota display has no text input. A background HUD click should not
+        // automatically take keyboard focus; the legacy path requests it explicitly.
+        self.becomesKeyOnlyIfNeeded = true
         self.isMovableByWindowBackground = true
         self.isOpaque = false
         self.isReleasedWhenClosed = false

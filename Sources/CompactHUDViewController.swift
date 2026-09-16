@@ -7,19 +7,22 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     }
 
     private let hudView: CompactQuotaHUDView
-    private lazy var touchBarView = TouchBarRateLimitsView(closeTarget: self, closeAction: #selector(quitClicked))
+    private lazy var touchBarView = TouchBarRateLimitsView()
     private var currentState = RateLimitDisplayState.initial
     private let onRefresh: () -> Void
     private let onQuit: () -> Void
+    private let onPresentTouchBar: () -> Bool
 
     init(
         initialAppearance: HUDAppearance,
         onRefresh: @escaping () -> Void,
         onQuit: @escaping () -> Void,
+        onPresentTouchBar: @escaping () -> Bool,
         contextMenuProvider: @escaping () -> NSMenu
     ) {
         self.onRefresh = onRefresh
         self.onQuit = onQuit
+        self.onPresentTouchBar = onPresentTouchBar
         self.hudView = CompactQuotaHUDView(
             initialAppearance: initialAppearance,
             onRefresh: onRefresh,
@@ -48,11 +51,12 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         let touchBar = NSTouchBar()
         touchBar.customizationIdentifier = TouchBarIdentifiers.touchBar
         touchBar.delegate = self
-        touchBar.defaultItemIdentifiers = [TouchBarIdentifiers.limits]
+        touchBar.defaultItemIdentifiers = [TouchBarIdentifiers.limits, .flexibleSpace]
         return touchBar
     }
 
     func activateTouchBar(bringAppForward: Bool = false) {
+        if onPresentTouchBar() { return }
         hudView.activateTouchBar(bringAppForward: bringAppForward)
     }
 
@@ -138,7 +142,7 @@ final class CompactQuotaHUDView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        activateTouchBar(bringAppForward: true)
+        touchBarProvider?.activateTouchBar(bringAppForward: true)
         super.mouseDown(with: event)
     }
 

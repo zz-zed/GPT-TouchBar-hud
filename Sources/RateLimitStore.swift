@@ -8,26 +8,39 @@ final class RateLimitStore {
     weak var delegate: RateLimitStoreDelegate?
 
     private let client = CodexAppServerClient()
-    private let tokenUsageQueue = DispatchQueue(label: "TouchBarCodexToken.LocalTokenUsageReader", qos: .utility)
+    private lazy var accountUsage = AccountTokenUsageStore(client: client)
     private var timer: Timer?
     private var state = RateLimitDisplayState.initial
     private var refreshInFlight = false
-    private var tokenUsageInFlight = false
     private var isStarted = false
+    private var generation = 0
 
     func start() {
         guard !isStarted else {
-            refresh()
+            refresh(forceTokenUsage: true)
             return
         }
         isStarted = true
+        generation += 1
+        let revision = generation
+
+        accountUsage.onUpdate = { [weak self] usage in
+            guard let self, self.isStarted else { return }
+            self.state.tokenUsage = usage
+            self.publish()
+        }
+        client.onAccountUpdated = { [weak self] in
+            guard let self, self.isStarted else { return }
+            self.accountUsage.invalidate()
+            self.accountUsage.refresh()
+        }
 
         client.onRateLimitsUpdated = { [weak self] in
             self?.refresh()
         }
 
         client.start { [weak self] result in
-            guard let self else {
+            guard let self, self.isStarted, self.generation == revision else {
                 return
             }
 
@@ -43,14 +56,18 @@ final class RateLimitStore {
 
     func stop() {
         isStarted = false
+        generation += 1
         refreshInFlight = false
-        tokenUsageInFlight = false
+        accountUsage.invalidate()
+        state.tokenUsage = nil
         timer?.invalidate()
         timer = nil
         client.stop()
     }
 
-    func refresh() {
+    func refresh(forceTokenUsage: Bool = false) {
+        guard isStarted else { return }
+        accountUsage.refresh(force: forceTokenUsage)
         guard !refreshInFlight else {
             return
         }
@@ -59,9 +76,10 @@ final class RateLimitStore {
         state.isRefreshing = true
         state.errorMessage = nil
         publish()
+        let revision = generation
 
         client.readRateLimits { [weak self] result in
-            guard let self else {
+            guard let self, self.isStarted, self.generation == revision else {
                 return
             }
 
@@ -97,7 +115,6 @@ final class RateLimitStore {
         state.lastUpdated = Date()
         state.errorMessage = nil
         publish()
-        refreshTokenUsage()
     }
 
     private func classifyWindows(primary: RateLimitWindow?, secondary: RateLimitWindow?) -> (fiveHour: LimitMeter?, weekly: LimitMeter?) {
@@ -148,28 +165,4 @@ final class RateLimitStore {
         delegate?.rateLimitStore(self, didUpdate: state)
     }
 
-    private func refreshTokenUsage() {
-        guard !tokenUsageInFlight else {
-            return
-        }
-
-        tokenUsageInFlight = true
-        tokenUsageQueue.async { [weak self] in
-            let tokenUsage = LocalTokenUsageReader.read()
-
-            DispatchQueue.main.async {
-                guard let self else {
-                    return
-                }
-
-                self.tokenUsageInFlight = false
-                guard self.isStarted else {
-                    return
-                }
-
-                self.state.tokenUsage = tokenUsage
-                self.publish()
-            }
-        }
-    }
 }
