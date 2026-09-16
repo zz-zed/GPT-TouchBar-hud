@@ -12,6 +12,7 @@ GPT TouchBar HUD 是一个支持跨 App 常驻 Touch Bar 的轻量 macOS 状态�
 - 可用完整重置次数及最早到期日期。
 - 额度点数余额。
 - GPT 账号昨日 Token 和累计 Token。
+- 本机 Codex 任务的执行中、最近完成和状态未知提示（实验性）。
 
 应用默认把完整额度条常驻在 Touch Bar 左侧应用区域。Mac 没有 Touch Bar 时，菜单栏和桌面 HUD 仍可正常使用。
 
@@ -29,6 +30,8 @@ GPT TouchBar HUD 是一个支持跨 App 常驻 Touch Bar 的轻量 macOS 状态�
 | 可选桌面 HUD | 启动时默认隐藏；需要时可从菜单栏显示，并自定义颜色、背景透明度和文字透明度。 |
 | 自动联动宿主 | 首次运行后注册 LaunchAgent；ChatGPT / Codex 启动时自动运行，宿主完全退出后自动结束。 |
 | 刷新与容错 | 额度定时刷新；短暂失败时保留上次数据，Token 旧数据用 `*` 标记，缺失数据用 `--` 显示。 |
+| 任务状态提示（实验性） | 在 Touch Bar 图标角标和桌面 HUD 中提示执行中任务数、最近完成或状态未知；可随时关闭。 |
+| 手动安全更新 | 菜单中显示版本并提供手动检查；确认后校验安装包、安装并重启，不在启动或后台自动检测。 |
 | 本地登录态 | 不要求填写 API Key，不抓取网页，不保存密码、授权码或访问令牌。 |
 
 Touch Bar 显示效果：
@@ -38,21 +41,22 @@ Touch Bar 显示效果：
 ## 工作原理
 
 ```text
-ChatGPT / Codex 的本机登录态
-              │
-              ▼
-       codex app-server
-              │
-   ┌──────────┴──────────┐
-   │                     │
-account/rateLimits/read  account/usage/read
-   │                     │
-   └──────────┬──────────┘
-              ▼
-      GPT TouchBar HUD
-       ├─ Touch Bar
-       ├─ macOS 菜单栏
-       └─ 桌面 HUD（可选）
+ChatGPT / Codex 的本机登录态        本机 Codex 任务索引与近期日志
+              │                              │
+              ▼                              │
+       codex app-server                      │
+              │                              │
+   ┌──────────┴──────────┐                   │
+   │                     │                   │
+account/rateLimits/read  account/usage/read  │
+   │                     │                   │
+   └──────────┬──────────┘                   │
+              └──────────────┬───────────────┘
+                             ▼
+                     GPT TouchBar HUD
+                      ├─ Touch Bar
+                      ├─ macOS 菜单栏
+                      └─ 桌面 HUD（可选）
 ```
 
 应用会依次查找以下本机程序：
@@ -131,7 +135,6 @@ account/rateLimits/read  account/usage/read
 
 “本轮完成”不等于整个目标完成；第一版不识别等待审批、等待输入或失败，也不提供进度百分比。长时间无日志的工具执行可能显示未知。该功能依赖未公开承诺稳定的本地记录格式，宿主升级后可能需要适配。可随时关闭开关，停止任务日志读取。
 
-
 ### Touch Bar
 
 默认开启 `设置 → Touch Bar 常驻`：
@@ -166,10 +169,13 @@ account/rateLimits/read  account/usage/read
 | --- | --- |
 | 显示浮窗 / 隐藏浮窗 | 控制桌面 HUD。 |
 | 刷新额度 | 立即刷新额度，并在防抖允许时刷新 Token 统计。 |
+| 显示任务状态（实验性） | 开启或关闭 Touch Bar 与浮窗中的任务状态提示。 |
 | Touch Bar 常驻 | 开启或关闭跨 App 常驻。 |
 | 浮窗颜色 | 选择深黑、石墨、深蓝、深绿或紫色。 |
 | 背景透明度 | 单独调整 HUD 胶囊背景透明度。 |
 | 文字透明度 | 调整 HUD 文字、状态点和操作图标透明度。 |
+| 检查更新… | 手动查询最新正式版；发现新版本后由用户确认安装并重启。 |
+| 版本信息 | 显示当前版本号和构建号。 |
 | 退出 | 结束应用，并在当前宿主会话内阻止自动重新拉起。 |
 
 ### 桌面 HUD
@@ -229,6 +235,8 @@ open "build/GPT TouchBar HUD.app"
 ```
 
 `scripts/build-app.sh` 优先使用 SwiftPM Release 构建；如果本机 SwiftPM SDK 探测失败，会尝试使用 `swiftc -sdk` 后备路径。
+
+仓库中的 `experiments/task-status-hooks/` 是桌面 App 生命周期 Hook 的可行性验证工具和测试，不会被 Swift Package 编译或打入 DMG。当前发布版的任务状态仍按“任务状态（实验性）”一节所述，从本机任务索引与近期日志进行有界推断。
 
 生成本机架构 DMG：
 
