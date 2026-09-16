@@ -17,17 +17,6 @@ TouchBarCodexToken 是一个支持跨 App 常驻 Touch Bar 的轻量 macOS 状�
 
 它适合希望在工作过程中快速确认剩余额度、不想频繁打开账号页面，也不希望额外配置 API Key 的 ChatGPT / Codex 用户。
 
-## 项目来源与致谢
-
-本仓库基于 [jackchensky/TouchBarCodexToken](https://github.com/jackchensky/TouchBarCodexToken) 继续迭代。原项目提供了 Swift / AppKit 应用基础、菜单栏与 HUD 展示、Touch Bar 支持、本机 app-server 接入和自动启动能力；当前版本在此基础上增加了跨 App 常驻 Touch Bar、服务端 Token 统计、布局与性能优化、系统控制条共存，以及双架构自动打包。
-
-原项目 README 所列作者信息：
-
-- 个人博客：[jackchen.cn](https://jackchen.cn)
-- 小红书：Jackchen
-
-当前迭代仓库：[zz-zed/TouchBarCodexToken](https://github.com/zz-zed/TouchBarCodexToken)
-
 ## 主要功能
 
 | 功能 | 说明 |
@@ -250,21 +239,6 @@ bash scripts/test-touchbar.sh --smoke-system
 - GitHub Release 发布：从 Release 对应 Tag 构建两个安装包，生成 `SHA256SUMS.txt`，并自动上传到该 Release。
 - Release Tag 必须与 `Resources/Info.plist` 的版本一致。例如应用版本 `0.1.20` 对应 Tag `v0.1.20`，不一致时工作流会失败。
 - 工作流不会自动创建 Tag 或 Release；只有发布 Release 后才会上传正式安装包。
-
-## 当前版本
-
-### 0.1.20 · 2026-09-16
-
-- 完成 Touch Bar 跨 App 常驻，并增加持久化开关。
-- 保留右侧系统控制条，系统控制条展开时隐藏 Token、收起后恢复。
-- 修复普通状态出现系统关闭按钮的问题。
-- Touch Bar 改用 ChatGPT 图标并优化左对齐、文字宽度和余额布局。
-- 启动时默认隐藏 HUD。
-- 昨日与累计 Token 改为账号服务端口径。
-- 优化 Token 读取与刷新策略，避免高 CPU 占用。
-- 增加双架构 DMG 自动构建与 GitHub Release 附件上传。
-
-完整开发记录和验证状态见 [PROJECT_STATUS.md](PROJECT_STATUS.md)，更早版本变更可查阅 [提交历史](https://github.com/zz-zed/TouchBarCodexToken/commits/main/)。
 
 ## 隐私说明
 
