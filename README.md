@@ -30,7 +30,7 @@ TouchBarCodexToken 是一个支持跨 App 常驻 Touch Bar 的轻量 macOS 状�
 | 自动联动宿主 | 首次运行后注册 LaunchAgent；ChatGPT / Codex 启动时自动运行，宿主完全退出后自动结束。 |
 | 刷新与容错 | 额度定时刷新；短暂失败时保留上次数据，Token 旧数据用 `*` 标记，缺失数据用 `--` 显示。 |
 | 本地登录态 | 不要求填写 API Key，不抓取网页，不保存密码、授权码或访问令牌。 |
-| 双架构安装包 | GitHub Release 自动构建 Apple Silicon 与 Intel 两个 DMG，并附带 SHA-256 校验文件。 |
+| 双架构安装包 | 推送版本 Tag 后自动构建 Apple Silicon 与 Intel 两个 DMG、创建 GitHub Release，并附带 SHA-256 校验文件。 |
 
 Touch Bar 显示效果：
 

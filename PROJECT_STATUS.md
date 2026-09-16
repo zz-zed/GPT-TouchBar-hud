@@ -21,11 +21,11 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 
 ## GitHub Release 自动打包
 
-- `.github/workflows/build-dmg.yml` 保留 `main`、Pull Request 和手动触发的双架构构建校验，并新增 `release.published` 触发器。
-- Release 触发时检出 Release Tag；要求 Tag `vX.Y.Z` 与 `Resources/Info.plist` 的 `X.Y.Z` 一致，避免版本和安装包错配。
+- `.github/workflows/build-dmg.yml` 保留 `main`、Pull Request 和手动触发的双架构构建校验；推送 `v*` Tag 时进入正式发布链路。
+- Tag 构建要求 `vX.Y.Z` 与 `Resources/Info.plist` 的 `X.Y.Z` 一致，避免版本和安装包错配。
 - Apple Silicon 与 Intel runner 分别生成带 `arm64` / `x86_64` 后缀的 DMG，并验证 App 签名、DMG 和二进制架构。
-- 两个 DMG 构建成功后，自动生成 `SHA256SUMS.txt`，使用 GitHub 提供的临时 Token 上传为该 Release 的 Assets。
-- 当前没有创建 Tag 或 GitHub Release；首次发布时才会执行 Release Assets 上传链路。
+- 两个 DMG 构建成功后，自动生成 `SHA256SUMS.txt`，使用 GitHub 提供的临时 Token 创建 Release，并把两个安装包和校验文件作为可下载 Assets 一次性发布。
+- 重新运行同一个 Tag 的工作流时复用已有 Release，并更新同名安装包；当前没有创建 Tag 或 GitHub Release。
 
 ## 本地开发：0.1.19 去除常驻关闭按钮（已取代）
 
@@ -183,11 +183,11 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 - `git diff --check`：通过。
 - `scripts/package-dmg.sh`：通过，生成并校验 `dist/TouchBarCodexToken-0.1.20.dmg`；App 严格签名检查通过，当前本机构建架构为 arm64。
 - SwiftPM Release 构建成功；链接器仅报告本机 Command Line Tools 的两个缺失搜索路径警告，不影响产物生成和校验。
-- GitHub Actions YAML 已通过本地语法解析；Release 事件上传分支尚未通过真实 Release 触发，因为远端当前没有 Tag 或 Release。
+- GitHub Actions YAML 已通过本地语法解析；Tag 发布分支尚未真实触发，因为远端当前没有 Tag 或 Release。
 
 ## 未解决和注意事项
 
-- `0.1.20` 尚未创建 Git 标签或 GitHub Release；发布 `v0.1.20` Release 后将由 Actions 自动生成并上传 DMG。
+- `0.1.20` 尚未创建 Git 标签或 GitHub Release；推送 `v0.1.20` Tag 后将由 Actions 自动打包并创建带 DMG 的 Release。
 - 项目已增加 Touch Bar 控制器回归检查；额度接口结构变化仍主要依赖本机 app-server 和实体 Touch Bar 验证。
 - App 尚未使用 Apple Developer 证书签名和公证，公开分发时仍可能出现 macOS 安全提示。
 - 以下 Marketing 文件是未跟踪草稿，除非明确要求，否则不要加入提交：
@@ -199,7 +199,7 @@ TouchBarCodexToken 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch
 ## 建议下一步
 
 1. 在实体 Touch Bar 上继续观察 ChatGPT 图标、重置券行和两行 `|` 分隔线在不同额度值下的对齐情况。
-2. 按需要创建 `v0.1.20` GitHub Release；无需在本地手动打包 DMG。
+2. 准备正式发布时推送 `v0.1.20` Tag，由 Actions 自动创建 GitHub Release；无需在本地手动打包 DMG。
 3. 后续 app-server 返回结构变化时，优先检查额度窗口时长和重置券字段。
 
 ## 常用命令
