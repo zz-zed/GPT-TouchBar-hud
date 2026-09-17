@@ -16,7 +16,7 @@
 | test-touchbar-layout.sh | 291 |
 | test-touchbar.sh | 34 |
 | test-design-layout.sh | 155 |
-| 合计 | 727 |
+| 合计 | 627 |
 
 另通过更新器 shell 语法/无效目标拒绝，以及 `test-first-open.sh` 的取消、隔离属性定向移除、保留无关属性、重复运行、符号链接拒绝、哈希不符、参数拒绝与签名篡改检查。首次打开测试只操作临时副本并抑制真正启动。
 
@@ -42,7 +42,7 @@
 | test-touchbar-layout.sh | 321 项通过 |
 | test-touchbar.sh | 34 项通过；本机 system-modal 签名可用 |
 
-共 602 项计数检查。test-first-open.sh 是打包首次打开专项，依赖已构建 app 副本并修改隔离属性；本次仅设计探索，未执行。签名可用不代表实体硬件行为已验证。
+共 502 项计数检查。test-first-open.sh 是打包首次打开专项，依赖已构建 app 副本并修改隔离属性；本次仅设计探索，未执行。签名可用不代表实体硬件行为已验证。
 
 ## 原型
 
