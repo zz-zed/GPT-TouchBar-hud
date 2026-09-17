@@ -1,4 +1,6 @@
-# PROJECT_STATUS
+# PROJECT_STATUS（历史归档）
+
+> 本文件归档截至 2026-09-16 的开发过程，版本、发布状态和路径均为当时记录，不代表当前项目状态。当前说明以 README、源码和 GitHub Release 为准。
 
 最后更新：2026-09-16
 
@@ -6,10 +8,10 @@
 
 GPT TouchBar HUD 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch Bar 小工具。应用通过本机 ChatGPT/Codex 包内的 `codex app-server` 调用 `account/rateLimits/read` 和 `account/usage/read`，显示额度窗口、可用重置次数、额度点数和 GPT 账号 Token 用量。
 
-- 当前分支：`main`
-- 当前源码版本：`0.1.21`，Build `22`
-- GitHub `main` 目标版本：`0.1.21`（2026-09-16）
-- 最新正式标签 / GitHub Release：`v0.1.20`
+- 归档时分支：`main`
+- 归档时源码版本：`0.1.21`，Build `22`
+- 归档时 GitHub `main` 目标版本：`0.1.21`（2026-09-16）
+- 归档时最新正式标签 / GitHub Release：`v0.1.20`
 
 ## 0.1.21 品牌迁移
 
@@ -81,7 +83,7 @@ GPT TouchBar HUD 是一个 Swift/AppKit macOS 菜单栏、桌面 HUD 和 Touch B
 - 显示/撤销接口缺失或签名不兼容时禁用常驻开关，回退为原有焦点绑定显示。
 - 回归检查：`bash scripts/test-touchbar.sh`；本机接口冒烟检查：`bash scripts/test-touchbar.sh --smoke-system`。
 - 本轮已验证：21 项控制器回归检查通过；当前 macOS 27.0 的私有方法签名可用，真实显示/撤销调用正常返回，前台 App 未改变。调用正常返回不等同于实体 Touch Bar 显示成功。
-- 本机构建：`scripts/build-app.sh` 成功生成 `build/TouchBarCodexToken.app`（0.1.14 / Build 15）；本轮 SwiftPM Release 构建成功，未使用后备路径。
+- 本机构建：`scripts/build-app.sh` 成功生成当时仍使用旧产品名的 `build/TouchBarCodexToken.app`（0.1.14 / Build 15）；本轮 SwiftPM Release 构建成功，未使用后备路径。
 - 实体 Touch Bar 验收待完成：跨 App 输入、切换常驻开关、隐藏 HUD、休眠恢复、退出后恢复系统控制条，以及旧款 Touch Bar 上的系统按键和内容宽度。
 - 以下 0.1.6—0.1.13 验证说明为历史记录，不能作为 0.1.14 的实机验证结果。
 

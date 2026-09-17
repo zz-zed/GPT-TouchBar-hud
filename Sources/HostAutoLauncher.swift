@@ -1,6 +1,6 @@
 import Foundation
 
-enum CodexAutoLauncher {
+enum HostAutoLauncher {
     private static let manualQuitLockName = "manual-quit.lock"
 
     static func installOrUpdate() {
@@ -9,7 +9,7 @@ enum CodexAutoLauncher {
         }
 
         let scriptURL = appBundleURL.appendingPathComponent(
-            "Contents/Resources/codex-token-launcher.sh",
+            "Contents/Resources/gpt-touchbar-hud-launcher.sh",
             isDirectory: false
         )
         guard FileManager.default.fileExists(atPath: scriptURL.path) else {
