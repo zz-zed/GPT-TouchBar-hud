@@ -1,7 +1,0 @@
-commit bb434443e3ade67e2cc92f4b5cefb6d272920d77
-Author:     Zed <didi@Zed-Macbook.local>
-AuthorDate: Thu Sep 17 16:11:25 2026 +0800
-Commit:     Zed <didi@Zed-Macbook.local>
-CommitDate: Thu Sep 17 16:11:25 2026 +0800
-
-    feat: add scoped first-open helper to installer
