@@ -56,11 +56,11 @@ enum TouchBarLayoutTests {
         func verify(_ name: String) {
             view.update(with: state)
             host.layoutSubtreeIfNeeded()
-            check(view.frame.width == TouchBarRateLimitsView.contentWidth, "\(name): application region width budget")
+            check(view.frame.width > 0 && view.frame.width <= TouchBarRateLimitsView.contentWidth, "\(name): application region width budget")
             check(!view.hasAmbiguousLayout, "\(name): root layout is determined")
             for label in visibleLabels(view) where !label.stringValue.isEmpty {
                 let frame = label.convert(label.bounds, to: view)
-                check(frame.minX >= -0.5 && frame.maxX <= TouchBarRateLimitsView.contentWidth + 0.5, "\(name): \(label.stringValue) stays inside app region (\(frame))")
+                check(frame.minX >= -0.5 && frame.maxX <= view.frame.width + 0.5, "\(name): \(label.stringValue) stays inside app region (\(frame))")
                 let needed = label.cell?.cellSize.width ?? 0
                 check(label.bounds.width + 1 >= needed, "\(name): \(label.stringValue) is not clipped: \(label.bounds.width) < \(needed)")
             }

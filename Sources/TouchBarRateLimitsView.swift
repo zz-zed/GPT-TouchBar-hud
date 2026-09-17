@@ -11,9 +11,13 @@ final class TouchBarRateLimitsView: NSView {
     private var windowObserver: NSObjectProtocol?
     private var accessibilityObserver: NSObjectProtocol?
     private static let breathingAnimationKey = "taskBadgeBreathing"
-    private let fiveHourRow = TouchBarLimitRow(title: DisplayLanguage.text("5 小时", "5h"))
-    private let weeklyRow = TouchBarLimitRow(title: DisplayLanguage.text("周限额", "Week"))
-    private let creditBalanceRow = TouchBarCreditBalanceRow()
+    private var widthConstraint: NSLayoutConstraint!
+    private let rowViews = [BalancedRowView(), BalancedRowView()]
+    private let usageLabels = [BalancedRowView.label(), BalancedRowView.label()]
+    private let balanceTitle = BalancedRowView.label()
+    private let balanceValue = BalancedRowView.label()
+    private let usageDivider = NSBox()
+    private let balanceDivider = NSBox()
 
     init() {
         super.init(frame: .zero)
@@ -91,127 +95,106 @@ final class TouchBarRateLimitsView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
-        refreshLanguageWidths()
-        let taskStatus = state.displayedTaskStatus
-        taskBadge.isHidden = taskStatus == nil
-        taskBadge.stringValue = taskStatus?.badge ?? ""
-        taskBadge.backgroundColor = TaskStatusAppearance(taskStatus).color ?? .clear
-        hasRunningTasks = (taskStatus?.runningCount ?? 0) > 0
+        let status = state.displayedTaskStatus
+        taskBadge.stringValue = status?.badge ?? ""
+        taskBadge.isHidden = status == nil
+        taskBadge.backgroundColor = TaskStatusAppearance(status).color ?? .clear
+        hasRunningTasks = (status?.runningCount ?? 0) > 0
+        chatGPTIconView.setAccessibilityLabel(status?.label ?? "ChatGPT")
+        chatGPTIconView.toolTip = status?.detail ?? "ChatGPT"
         updateTaskAnimation()
-        chatGPTIconView.toolTip = taskStatus?.detail ?? "ChatGPT"
-        chatGPTIconView.setAccessibilityLabel(taskStatus?.label ?? "ChatGPT")
-        fiveHourRow.toolTip = state.tokenUsage?.toolTip
-        weeklyRow.toolTip = state.tokenUsage?.toolTip
-        var hasLeadingLimitRow = false
 
-        if let fiveHour = state.fiveHour {
-            fiveHourRow.isHidden = false
-            hasLeadingLimitRow = true
-            fiveHourRow.updateLimit(
-                title: DisplayLanguage.text("5 小时", "5h"),
-                meter: fiveHour,
-                usageText: state.tokenUsage?.yesterdayText ?? DisplayLanguage.text("昨日 --", "Yday --")
-            )
-        } else if let resetCredits = state.resetCredits, resetCredits.availableCount > 0 {
-            fiveHourRow.isHidden = false
-            hasLeadingLimitRow = true
-            fiveHourRow.updateResetCredits(
-                resetCredits,
-                usageText: state.tokenUsage?.yesterdayText ?? DisplayLanguage.text("昨日 --", "Yday --")
-            )
-        } else if state.lastUpdated != nil {
-            fiveHourRow.isHidden = true
-        } else {
-            fiveHourRow.isHidden = false
-            fiveHourRow.updatePlaceholder(title: DisplayLanguage.text("5 小时", "5h"), usageText: DisplayLanguage.text("昨日 --", "Yday --"))
+        var rows: [(String, String, String, Double?)] = []
+        func add(_ meter: LimitMeter, _ title: String) {
+            let date = meter.resetText.replacingOccurrences(of: " 重置", with: "")
+            rows.append((title, meter.remainingText + (state.errorMessage == nil ? "" : "*"), date, meter.remainingPercent))
         }
-
-        creditBalanceRow.isHidden = true
-
-        if let weekly = state.weekly {
-            weeklyRow.isHidden = false
-            weeklyRow.updateLimit(
-                title: DisplayLanguage.text("周限额", "Week"),
-                meter: weekly,
-                usageText: state.tokenUsage?.cumulativeText ?? DisplayLanguage.text("累计 --", "Total --"),
-                creditBalanceText: hasLeadingLimitRow ? state.creditBalance?.displayText : nil
-            )
-
-            if !hasLeadingLimitRow, let balanceText = state.creditBalance?.displayText {
-                creditBalanceRow.update(text: balanceText)
-                creditBalanceRow.isHidden = false
-            }
-        } else if state.lastUpdated != nil {
-            weeklyRow.isHidden = true
-            if let balanceText = state.creditBalance?.displayText {
-                creditBalanceRow.update(text: balanceText)
-                creditBalanceRow.isHidden = false
-            }
-        } else {
-            weeklyRow.isHidden = false
-            weeklyRow.updatePlaceholder(title: DisplayLanguage.text("周限额", "Week"), usageText: DisplayLanguage.text("累计 --", "Total --"))
+        if let five = state.fiveHour { add(five, DisplayLanguage.text("5 小时", "5h")) }
+        else if let credits = state.resetCredits, credits.availableCount > 0 {
+            rows.append((DisplayLanguage.text("重置卡", "Reset"), DisplayLanguage.text("\(credits.availableCount) 次", "\(credits.availableCount) left"), credits.expirationText.replacingOccurrences(of: " 到期", with: "").replacingOccurrences(of: "到期 ", with: ""), nil))
         }
-        // Optional USD balance shares the second row. Reclaim decorative progress
-        // space in both rows while keeping percentages, dates and tokens aligned.
-        let hasInlineBalance = hasLeadingLimitRow && state.weekly != nil && state.creditBalance != nil
-        fiveHourRow.setCompactLayout(hasInlineBalance)
-        weeklyRow.setCompactLayout(hasInlineBalance)
+        if let week = state.weekly { add(week, DisplayLanguage.text("周限额", "Week")) }
+        if rows.isEmpty && state.lastUpdated == nil {
+            rows = [("5h", "--", DisplayLanguage.text("重置 --", "Reset --"), 0), ("7d", "--", DisplayLanguage.text("重置 --", "Reset --"), 0)]
+        }
+        for index in rowViews.indices {
+            let row = rowViews[index]
+            row.isHidden = index >= rows.count
+            if index < rows.count {
+                let data = rows[index]
+                row.update(title: data.0, value: data.1, date: data.2, percent: data.3)
+                row.toolTip = state.statusText
+                if index == 0, state.fiveHour == nil, let credits = state.resetCredits {
+                    row.date.toolTip = credits.expirationText
+                } else {
+                    row.date.toolTip = data.2
+                }
+            }
+        }
+        usageLabels[0].stringValue = state.tokenUsage?.yesterdayText ?? DisplayLanguage.text("昨日 --", "Yday --")
+        usageLabels[1].stringValue = state.tokenUsage?.cumulativeText ?? DisplayLanguage.text("累计 --", "Total --")
+        usageLabels.forEach { $0.toolTip = state.tokenUsage?.toolTip }
+        balanceTitle.stringValue = DisplayLanguage.text("点数", "Credits")
+        balanceValue.stringValue = state.creditBalance?.displayText.replacingOccurrences(of: "还剩点数：", with: "") ?? ""
+        let hasBalance = state.creditBalance != nil
+        balanceTitle.isHidden = !hasBalance
+        balanceValue.isHidden = !hasBalance
+        balanceDivider.isHidden = !hasBalance
+        balanceValue.toolTip = state.creditBalance?.displayText
+
+        // Columns fit their visible content; both quota rows share the same widths.
+        let visible = rowViews.filter { !$0.isHidden }
+        let titleWidth = ceil(visible.map { $0.title.fittingSize.width }.max() ?? 0)
+        let valueWidth = ceil(visible.map { $0.value.fittingSize.width }.max() ?? 0)
+        let dateWidth = ceil(visible.map { $0.date.fittingSize.width }.max() ?? 0)
+        let rowWidth = titleWidth + DesignTokens.progressWidth + valueWidth + dateWidth + DesignTokens.spacing * 3
+        let rowX: CGFloat = 30
+        for (index, row) in rowViews.enumerated() where !row.isHidden {
+            row.frame = NSRect(x: rowX, y: visible.count == 1 ? 8 : (index == 0 ? 16 : 2), width: rowWidth, height: 13)
+            row.arrange(titleWidth: titleWidth, valueWidth: valueWidth, dateWidth: dateWidth)
+        }
+        let usageX = rowX + (visible.isEmpty ? 0 : rowWidth + 8)
+        usageDivider.frame = NSRect(x: usageX - 4, y: 3, width: 1, height: 24)
+        let usageWidth = ceil(usageLabels.map { $0.fittingSize.width }.max() ?? 0)
+        for index in usageLabels.indices {
+            usageLabels[index].frame = NSRect(x: usageX + 3, y: index == 0 ? 16 : 2, width: usageWidth, height: 13)
+        }
+        var total = usageX + 3 + usageWidth
+        if hasBalance {
+            balanceDivider.frame = NSRect(x: total + 6, y: 3, width: 1, height: 24)
+            let balanceWidth = ceil(max(balanceTitle.fittingSize.width, balanceValue.fittingSize.width))
+            balanceTitle.frame = NSRect(x: total + 12, y: 16, width: balanceWidth, height: 13)
+            balanceValue.frame = NSRect(x: total + 12, y: 2, width: balanceWidth, height: 13)
+            total += 12 + balanceWidth
+        }
+        widthConstraint.constant = ceil(total + 2)
+        toolTip = state.statusText
+        setAccessibilityLabel(([status?.label].compactMap { $0 } + rows.map { "\($0.0) \($0.1) \($0.2)" } + usageLabels.map(\.stringValue) + (hasBalance ? [balanceValue.stringValue] : [])).joined(separator: ", "))
     }
 
     private func configure() {
         translatesAutoresizingMaskIntoConstraints = false
-
+        widthConstraint = widthAnchor.constraint(equalToConstant: Self.contentWidth)
+        NSLayoutConstraint.activate([widthConstraint, heightAnchor.constraint(equalToConstant: DesignTokens.touchBarHeight)])
         chatGPTIconView.image = Self.chatGPTIcon()
-        chatGPTIconView.imageAlignment = .alignCenter
         chatGPTIconView.imageScaling = .scaleProportionallyUpOrDown
-        chatGPTIconView.translatesAutoresizingMaskIntoConstraints = false
-        chatGPTIconView.toolTip = "ChatGPT"
-        taskBadge.translatesAutoresizingMaskIntoConstraints = false
+        chatGPTIconView.frame = NSRect(x: 0, y: 0, width: 24, height: 30)
+        addSubview(chatGPTIconView)
         taskBadge.font = .systemFont(ofSize: 8, weight: .bold)
         taskBadge.textColor = .white
         taskBadge.alignment = .center
         taskBadge.drawsBackground = true
-        taskBadge.isHidden = true
         taskBadge.wantsLayer = true
-        taskBadge.layer?.cornerRadius = 5
+        taskBadge.layer?.cornerRadius = 4
         taskBadge.layer?.masksToBounds = true
+        taskBadge.frame = NSRect(x: 4, y: 0, width: 20, height: 11)
         chatGPTIconView.addSubview(taskBadge)
-        NSLayoutConstraint.activate([
-            taskBadge.trailingAnchor.constraint(equalTo: chatGPTIconView.trailingAnchor),
-            taskBadge.bottomAnchor.constraint(equalTo: chatGPTIconView.bottomAnchor, constant: -1),
-            taskBadge.widthAnchor.constraint(equalToConstant: 20),
-            taskBadge.heightAnchor.constraint(equalToConstant: 11)
-        ])
-
-        let rows = NSStackView(views: [fiveHourRow, weeklyRow, creditBalanceRow])
-        rows.translatesAutoresizingMaskIntoConstraints = false
-        rows.orientation = .vertical
-        rows.alignment = .leading
-        rows.distribution = .fill
-        rows.spacing = 1
-        creditBalanceRow.isHidden = true
-
-        let content = NSStackView(views: [chatGPTIconView, rows])
-        content.translatesAutoresizingMaskIntoConstraints = false
-        content.orientation = .horizontal
-        content.alignment = .centerY
-        content.spacing = 6
-        content.setCustomSpacing(2, after: chatGPTIconView)
-
-        addSubview(content)
-
-        NSLayoutConstraint.activate([
-            widthAnchor.languageWidth(english: 460, chinese: 600),
-            heightAnchor.constraint(equalToConstant: 30),
-            chatGPTIconView.widthAnchor.constraint(equalToConstant: 24),
-            chatGPTIconView.heightAnchor.constraint(equalToConstant: 30),
-            fiveHourRow.widthAnchor.languageWidth(english: 434, chinese: 574),
-            weeklyRow.widthAnchor.languageWidth(english: 434, chinese: 574),
-            creditBalanceRow.widthAnchor.languageWidth(english: 434, chinese: 574),
-            content.leadingAnchor.constraint(equalTo: leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: trailingAnchor),
-            content.centerYAnchor.constraint(equalTo: centerYAnchor)
-        ])
+        rowViews.forEach { addSubview($0) }
+        usageLabels.forEach { addSubview($0) }
+        addSubview(balanceTitle)
+        addSubview(balanceValue)
+        for divider in [usageDivider, balanceDivider] { divider.boxType = .separator; addSubview(divider) }
+        update(with: .initial)
     }
 
     private static func chatGPTIcon() -> NSImage {
@@ -245,247 +228,60 @@ final class TouchBarRateLimitsView: NSView {
     }
 }
 
-private final class TouchBarCreditBalanceRow: NSView {
-    private let label = NSTextField(labelWithString: "")
+private final class BalancedRowView: NSView {
+    let title = label()
+    let value = label()
+    let date = label()
+    private let progress = BalancedProgressView()
+    private let credit = label()
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        configure()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    func update(text: String) {
-        label.stringValue = text
-    }
-
-    private func configure() {
-        translatesAutoresizingMaskIntoConstraints = false
-
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
-        label.textColor = .labelColor
+    static func label() -> NSTextField {
+        let label = NSTextField(labelWithString: "")
+        label.font = .monospacedDigitSystemFont(ofSize: 10, weight: .bold)
+        label.textColor = .white
         label.lineBreakMode = .byClipping
-        addSubview(label)
-
-        let preferredHeight = heightAnchor.constraint(equalToConstant: 13)
-        preferredHeight.priority = .defaultHigh
-
-        NSLayoutConstraint.activate([
-            preferredHeight,
-            label.leadingAnchor.constraint(equalTo: leadingAnchor),
-            label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor)
-        ])
+        return label
     }
-}
 
-private final class TouchBarLimitRow: NSView {
-    private let statusContainer = NSView()
-    private let titleLabel: NSTextField
-    private let batteryBar = SegmentedBatteryBar()
-    private let creditsIndicatorLabel = NSTextField(labelWithString: "")
-    private let remainingLabel = NSTextField(labelWithString: "--")
-    private let resetLabel = NSTextField(labelWithString: DisplayLanguage.text("重置 --", "Reset --"))
-    private let separatorLabel = NSTextField(labelWithString: "|")
-    private let usageLabel = NSTextField(labelWithString: "--")
-    private let creditSeparatorLabel = NSTextField(labelWithString: "|")
-    private let creditBalanceLabel = NSTextField(labelWithString: "")
-
-    init(title: String) {
-        self.titleLabel = NSTextField(labelWithString: title)
+    init() {
         super.init(frame: .zero)
-        configure()
+        [title, value, date, progress, credit].forEach { addSubview($0) }
+        title.textColor = .white
+        date.textColor = .white
+        credit.textColor = .white
+        credit.font = .systemFont(ofSize: 10, weight: .bold)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func update(title: String, value: String, date: String, percent: Double?) {
+        self.title.stringValue = title
+        self.value.stringValue = value
+        self.date.stringValue = date
+        self.value.textColor = percent.map { $0 <= 20 ? .systemRed : .white } ?? .white
+        progress.isHidden = percent == nil
+        credit.isHidden = percent != nil
+        credit.stringValue = DisplayLanguage.text("可用", "Ready")
+        progress.percent = percent ?? 0
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    func updateLimit(
-        title: String,
-        meter: LimitMeter,
-        usageText: String,
-        creditBalanceText: String? = nil
-    ) {
-        titleLabel.stringValue = title
-        batteryBar.isHidden = false
-        creditsIndicatorLabel.isHidden = true
-        batteryBar.remainingPercent = meter.remainingPercent
-        batteryBar.isDimmed = false
-        remainingLabel.stringValue = DisplayLanguage.text("剩余 ", "") + meter.remainingText
-        resetLabel.stringValue = meter.resetText
-        usageLabel.stringValue = usageText
-        updateCreditBalance(creditBalanceText)
-    }
-
-    func updateResetCredits(_ resetCredits: ResetCreditSummary, usageText: String) {
-        titleLabel.stringValue = DisplayLanguage.text("重置券", "Reset")
-        batteryBar.isHidden = true
-        creditsIndicatorLabel.isHidden = false
-        creditsIndicatorLabel.stringValue = Self.creditIndicator(count: resetCredits.availableCount)
-        remainingLabel.stringValue = resetCredits.availableText
-        resetLabel.stringValue = resetCredits.expirationText
-        usageLabel.stringValue = usageText
-        updateCreditBalance(nil)
-    }
-
-    func updatePlaceholder(title: String, usageText: String) {
-        titleLabel.stringValue = title
-        batteryBar.isHidden = false
-        creditsIndicatorLabel.isHidden = true
-        batteryBar.remainingPercent = 0
-        batteryBar.isDimmed = true
-        remainingLabel.stringValue = DisplayLanguage.text("剩余 --", "--")
-        resetLabel.stringValue = DisplayLanguage.text("重置 --", "Reset --")
-        usageLabel.stringValue = usageText
-        updateCreditBalance(nil)
-    }
-
-    func setCompactLayout(_ compact: Bool) {
-        statusContainer.isHidden = compact
-    }
-
-    private func configure() {
-        translatesAutoresizingMaskIntoConstraints = false
-
-        titleLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
-        titleLabel.textColor = .labelColor
-        titleLabel.alignment = .left
-
-        creditsIndicatorLabel.font = .systemFont(ofSize: 9, weight: .semibold)
-        creditsIndicatorLabel.textColor = .systemTeal
-        creditsIndicatorLabel.alignment = .left
-        creditsIndicatorLabel.lineBreakMode = .byClipping
-        creditsIndicatorLabel.isHidden = true
-
-        remainingLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
-        remainingLabel.textColor = .labelColor
-        remainingLabel.lineBreakMode = .byTruncatingTail
-
-        resetLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
-        resetLabel.textColor = .labelColor
-        resetLabel.lineBreakMode = .byTruncatingTail
-
-        separatorLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
-        separatorLabel.textColor = .labelColor
-        separatorLabel.alignment = .center
-
-        usageLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
-        usageLabel.textColor = .labelColor
-        usageLabel.lineBreakMode = .byClipping
-        usageLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-
-        creditSeparatorLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
-        creditSeparatorLabel.textColor = .labelColor
-        creditSeparatorLabel.alignment = .center
-        creditSeparatorLabel.isHidden = true
-
-        creditBalanceLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
-        creditBalanceLabel.textColor = .labelColor
-        creditBalanceLabel.lineBreakMode = .byClipping
-        creditBalanceLabel.isHidden = true
-        creditBalanceLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-
-        statusContainer.translatesAutoresizingMaskIntoConstraints = false
-        batteryBar.translatesAutoresizingMaskIntoConstraints = false
-        creditsIndicatorLabel.translatesAutoresizingMaskIntoConstraints = false
-        statusContainer.addSubview(batteryBar)
-        statusContainer.addSubview(creditsIndicatorLabel)
-
-        let row = NSStackView(views: [
-            titleLabel,
-            statusContainer,
-            remainingLabel,
-            resetLabel,
-            separatorLabel,
-            usageLabel,
-            creditSeparatorLabel,
-            creditBalanceLabel
-        ])
-        row.translatesAutoresizingMaskIntoConstraints = false
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.distribution = .fill
-        row.spacing = 6
-        row.setCustomSpacing(4, after: titleLabel)
-        row.setCustomSpacing(0, after: remainingLabel)
-        row.setCustomSpacing(4, after: resetLabel)
-        row.setCustomSpacing(4, after: separatorLabel)
-        row.setCustomSpacing(4, after: usageLabel)
-        row.setCustomSpacing(4, after: creditSeparatorLabel)
-
-        addSubview(row)
-
-        let preferredHeight = heightAnchor.constraint(equalToConstant: 13)
-        preferredHeight.priority = .defaultHigh
-
-        let preferredProgressWidth = statusContainer.widthAnchor.constraint(equalToConstant: 72)
-        preferredProgressWidth.priority = .defaultHigh
-        let preferredResetWidth = resetLabel.widthAnchor.languageWidth(english: 95, chinese: 145)
-        preferredResetWidth.priority = .defaultHigh
-
-        NSLayoutConstraint.activate([
-            preferredHeight,
-            titleLabel.widthAnchor.constraint(equalToConstant: 38),
-            preferredProgressWidth,
-            statusContainer.widthAnchor.constraint(greaterThanOrEqualToConstant: 40),
-            statusContainer.widthAnchor.constraint(lessThanOrEqualToConstant: 72),
-            statusContainer.heightAnchor.constraint(equalToConstant: 11),
-            batteryBar.widthAnchor.constraint(equalTo: statusContainer.widthAnchor),
-            batteryBar.heightAnchor.constraint(equalToConstant: 11),
-            batteryBar.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor),
-            batteryBar.topAnchor.constraint(equalTo: statusContainer.topAnchor),
-            creditsIndicatorLabel.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor, constant: 5),
-            creditsIndicatorLabel.trailingAnchor.constraint(lessThanOrEqualTo: statusContainer.trailingAnchor),
-            creditsIndicatorLabel.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor),
-            remainingLabel.widthAnchor.languageWidth(english: 36, chinese: 58),
-            preferredResetWidth,
-            resetLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 80),
-            separatorLabel.widthAnchor.constraint(equalToConstant: 12),
-            usageLabel.widthAnchor.languageWidth(english: 88, chinese: 120, minimum: true),
-            row.leadingAnchor.constraint(equalTo: leadingAnchor),
-            row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
-            row.topAnchor.constraint(equalTo: topAnchor),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-    }
-
-    private static func creditIndicator(count: Int) -> String {
-        if count <= 5 {
-            return Array(repeating: "●", count: max(0, count)).joined(separator: "  ")
-        }
-        return "●  × \(count)"
-    }
-
-    private func updateCreditBalance(_ text: String?) {
-        let shouldShow = text?.isEmpty == false
-        creditSeparatorLabel.isHidden = !shouldShow
-        creditBalanceLabel.isHidden = !shouldShow
-        creditBalanceLabel.stringValue = text?.replacingOccurrences(of: "还剩点数：", with: "") ?? ""
-        creditBalanceLabel.toolTip = text
+    func arrange(titleWidth: CGFloat, valueWidth: CGFloat, dateWidth: CGFloat) {
+        title.frame = NSRect(x: 0, y: 0, width: titleWidth, height: 13)
+        let progressX = titleWidth + DesignTokens.spacing
+        progress.frame = NSRect(x: progressX, y: 4, width: DesignTokens.progressWidth, height: 5)
+        credit.frame = NSRect(x: progressX, y: 0, width: DesignTokens.progressWidth, height: 13)
+        let valueX = progressX + DesignTokens.progressWidth + DesignTokens.spacing
+        value.frame = NSRect(x: valueX, y: 0, width: valueWidth, height: 13)
+        date.frame = NSRect(x: valueX + valueWidth + DesignTokens.spacing, y: 0, width: dateWidth, height: 13)
     }
 }
 
-private extension NSLayoutDimension {
-    func languageWidth(english: CGFloat, chinese: CGFloat, minimum: Bool = false) -> NSLayoutConstraint {
-        let value = DisplayLanguage.current == .english ? english : chinese
-        let constraint = minimum ? constraint(greaterThanOrEqualToConstant: value) : constraint(equalToConstant: value)
-        constraint.identifier = "languageWidth:\(english):\(chinese)"
-        return constraint
-    }
-}
-
-private extension NSView {
-    func refreshLanguageWidths() {
-        for constraint in constraints {
-            guard let id = constraint.identifier, id.hasPrefix("languageWidth:") else { continue }
-            let parts = id.split(separator: ":")
-            let index = DisplayLanguage.current == .english ? 1 : 2
-            if let value = Double(parts[index]) { constraint.constant = CGFloat(value) }
-        }
-        subviews.forEach { $0.refreshLanguageWidths() }
+private final class BalancedProgressView: NSView {
+    var percent: Double = 0 { didSet { needsDisplay = true } }
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.darkGray.setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: 2, yRadius: 2).fill()
+        (percent <= 20 ? NSColor.systemRed : DesignTokens.accent).setFill()
+        let width = bounds.width * max(0, min(100, percent)) / 100
+        if width > 0 { NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: width, height: bounds.height), xRadius: 2, yRadius: 2).fill() }
     }
 }
