@@ -70,9 +70,9 @@ struct HUDAppearance: Equatable {
         let defaults = UserDefaults.standard
         let colorName = defaults.string(forKey: DefaultsKey.color) ?? ColorChoice.black.rawValue
         let color = ColorChoice(rawValue: colorName) ?? .black
-        let legacyOpacity = defaults.object(forKey: DefaultsKey.legacyOpacity) as? Double ?? 0.86
-        let backgroundOpacity = defaults.object(forKey: DefaultsKey.backgroundOpacity) as? Double ?? legacyOpacity
-        let contentOpacity = defaults.object(forKey: DefaultsKey.contentOpacity) as? Double ?? legacyOpacity
+        let legacyOpacity = defaults.object(forKey: DefaultsKey.legacyOpacity) as? Double
+        let backgroundOpacity = defaults.object(forKey: DefaultsKey.backgroundOpacity) as? Double ?? legacyOpacity ?? 0.94
+        let contentOpacity = defaults.object(forKey: DefaultsKey.contentOpacity) as? Double ?? legacyOpacity ?? 1.0
 
         return HUDAppearance(
             colorChoice: color,

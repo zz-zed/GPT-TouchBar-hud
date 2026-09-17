@@ -113,9 +113,8 @@ enum PersistentTouchBarTests {
             return view.subviews.lazy.compactMap { closeButton(in: $0) }.first
         }
         let dismissalsBeforeClose = presenter.dismissals.count
-        check(closeButton(in: hudView) != nil, "HUD close button is labelled Hide HUD")
-        closeButton(in: hudView)?.performClick(nil)
-        check(closeRequests == 1, "HUD close invokes only the close callback")
+        check(closeButton(in: hudView) == nil, "Quiet has no close button; hiding is a menu action")
+        check(closeRequests == 0, "Rendering Quiet does not request hiding")
         check(presenter.dismissals.count == dismissalsBeforeClose, "HUD close does not dismiss persistent Touch Bar")
         hud.update(with: state)
         let plainWidth = hudView.frame.width

@@ -1,12 +1,7 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, RateLimitStoreDelegate {
-    private enum OpacitySetting {
-        case background
-        case content
-    }
-
-    private let statusItem = NSStatusBar.system.statusItem(withLength: 118)
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let store = RateLimitStore()
     private let appUpdater = AppUpdater()
     private let taskMonitor = TaskStatusMonitor()
@@ -21,9 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private var persistentTouchBarMenuItem: NSMenuItem?
     private var menuTaskAppearance: TaskStatusAppearance = .idle
     private lazy var persistentTouchBar = PersistentTouchBarController()
-    private var colorMenuItems: [HUDAppearance.ColorChoice: NSMenuItem] = [:]
-    private var backgroundOpacityMenuItems: [Double: NSMenuItem] = [:]
-    private var contentOpacityMenuItems: [Double: NSMenuItem] = [:]
+    private var summaryMenuItem: NSMenuItem?
+    private var preferences: PreferencesWindowController?
     private lazy var hudController = CompactHUDViewController(
         initialAppearance: hudAppearance,
         onRefresh: { [weak self] in
@@ -84,6 +78,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         updateStatusTitle(with: state)
         hudController.update(with: state)
         persistentTouchBar.update(with: state)
+        summaryMenuItem?.view = StatusSummaryView(state: state)
+        preferences?.update(appearance: hudAppearance, state: state, taskEnabled: taskStatusEnabled, persistentEnabled: persistentTouchBar.isEnabled, persistentAvailable: persistentTouchBar.isAvailable)
     }
 
     private func configureStatusItem() {
@@ -93,6 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
         button.image = NSImage(systemSymbolName: "bolt.horizontal.circle.fill", accessibilityDescription: AppIdentity.productName)
         button.imagePosition = .imageLeft
+        button.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         button.title = " --"
         button.toolTip = "\(AppIdentity.productName) 额度"
 
@@ -100,83 +97,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         updateMenuState()
     }
 
+    private func menuAction(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.target = self
+        return item
+    }
+
     private func makeStatusMenu() -> NSMenu {
         let menu = NSMenu()
-
-        addUpdateMenuItems(to: menu)
-
-        let visibilityItem = NSMenuItem(
-            title: "隐藏浮窗",
-            action: #selector(toggleHUDWindow(_:)),
-            keyEquivalent: ""
-        )
-        visibilityItem.target = self
-        menu.addItem(visibilityItem)
-        hudVisibilityMenuItem = visibilityItem
-
-        let refreshItem = NSMenuItem(
-            title: "刷新额度",
-            action: #selector(refreshQuotaFromMenu(_:)),
-            keyEquivalent: "r"
-        )
-        refreshItem.target = self
-        menu.addItem(refreshItem)
-
-        let taskItem = NSMenuItem(title: "显示任务状态（实验性）", action: #selector(toggleTaskStatus(_:)), keyEquivalent: "")
-        taskItem.target = self
-        taskItem.state = taskStatusEnabled ? .on : .off
-        menu.addItem(taskItem)
-
-        let settingsItem = NSMenuItem(title: "设置", action: nil, keyEquivalent: "")
-        menu.setSubmenu(makeAppearanceSettingsMenu(registerItems: true), for: settingsItem)
-        menu.addItem(settingsItem)
+        let summary = NSMenuItem()
+        var state = latestQuotaState
+        state.taskStatus = taskStatusEnabled ? latestTaskStatus : nil
+        summary.view = StatusSummaryView(state: state)
+        summaryMenuItem = summary
+        menu.addItem(summary)
         menu.addItem(.separator())
-
-        let quitItem = NSMenuItem(
-            title: "退出",
-            action: #selector(quitFromMenu(_:)),
-            keyEquivalent: "q"
-        )
-        quitItem.target = self
-        menu.addItem(quitItem)
-
+        menu.addItem(menuAction("刷新额度", #selector(refreshQuotaFromMenu(_:)), key: "r"))
+        let visibility = menuAction("显示浮窗", #selector(toggleHUDWindow(_:)))
+        hudVisibilityMenuItem = visibility
+        menu.addItem(visibility)
+        let persistent = makePersistentTouchBarMenuItem()
+        persistentTouchBarMenuItem = persistent
+        menu.addItem(persistent)
+        menu.addItem(.separator())
+        menu.addItem(menuAction("设置…", #selector(openPreferences(_:)), key: ","))
+        menu.addItem(.separator())
+        addUpdateMenuItems(to: menu)
+        menu.addItem(menuAction("退出", #selector(quitFromMenu(_:)), key: "q"))
         return menu
     }
 
     private func makeHUDContextMenu() -> NSMenu {
         let menu = NSMenu()
-        addUpdateMenuItems(to: menu)
-
-        let hideItem = NSMenuItem(
-            title: "隐藏浮窗",
-            action: #selector(hideHUDFromContextMenu(_:)),
-            keyEquivalent: ""
-        )
-        hideItem.target = self
-        menu.addItem(hideItem)
-
-        let refreshItem = NSMenuItem(
-            title: "刷新额度",
-            action: #selector(refreshQuotaFromMenu(_:)),
-            keyEquivalent: "r"
-        )
-        refreshItem.target = self
-        menu.addItem(refreshItem)
-
-        let settingsItem = NSMenuItem(title: "设置", action: nil, keyEquivalent: "")
-        menu.setSubmenu(makeAppearanceSettingsMenu(registerItems: false), for: settingsItem)
-        menu.addItem(settingsItem)
+        menu.addItem(menuAction("刷新额度", #selector(refreshQuotaFromMenu(_:)), key: "r"))
+        menu.addItem(menuAction("隐藏浮窗", #selector(hideHUDFromContextMenu(_:))))
         menu.addItem(.separator())
-
-        let quitItem = NSMenuItem(
-            title: "退出",
-            action: #selector(quitFromMenu(_:)),
-            keyEquivalent: "q"
-        )
-        quitItem.target = self
-        menu.addItem(quitItem)
-
+        menu.addItem(menuAction("设置…", #selector(openPreferences(_:)), key: ","))
         return menu
+    }
+
+    @objc private func openPreferences(_ sender: AnyObject?) {
+        if preferences == nil {
+            let controller = PreferencesWindowController(appearance: hudAppearance)
+            controller.onAppearance = { [weak self] appearance in
+                self?.hudAppearance = appearance
+                self?.applyHUDAppearance()
+            }
+            controller.onLanguage = { [weak self] language in
+                DisplayLanguage.current = language
+                self?.renderDisplayState()
+            }
+            controller.onTaskStatus = { [weak self] enabled in self?.setTaskStatusEnabled(enabled) }
+            controller.onPersistent = { [weak self] enabled in
+                self?.persistentTouchBar.setEnabled(enabled)
+                self?.updateMenuState()
+                self?.renderDisplayState()
+            }
+            preferences = controller
+        }
+        renderDisplayState()
+        NSApp.activate(ignoringOtherApps: true)
+        preferences?.showWindow(sender)
+        preferences?.window?.makeKeyAndOrderFront(sender)
     }
 
     private func makePersistentTouchBarMenuItem() -> NSMenuItem {
@@ -190,21 +172,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         return item
     }
 
-    @objc private func selectDisplayLanguage(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String,
-              let language = DisplayLanguage(rawValue: raw) else { return }
-        DisplayLanguage.current = language
-        renderDisplayState()
-        statusItem.menu = makeStatusMenu()
-        updateMenuState()
-    }
-
     @objc private func togglePersistentTouchBar(_ sender: NSMenuItem) {
         persistentTouchBar.setEnabled(!persistentTouchBar.isEnabled)
         updateMenuState()
+        renderDisplayState()
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(refreshQuotaFromMenu(_:)) {
+            menuItem.title = latestQuotaState.isRefreshing ? "正在刷新…" : "刷新额度"
+            return !latestQuotaState.isRefreshing
+        }
         if menuItem.action == #selector(checkForAppUpdates(_:)) {
             menuItem.title = appUpdater.canCheck ? "检查更新…" : "正在检查或下载更新…"
             return appUpdater.canCheck
@@ -227,101 +205,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     @objc private func checkForAppUpdates(_ sender: AnyObject?) { appUpdater.check() }
-
-    private func makeAppearanceSettingsMenu(registerItems: Bool) -> NSMenu {
-        let settingsMenu = NSMenu(title: "设置")
-        let languageItem = NSMenuItem(title: "信息语言 / Language", action: nil, keyEquivalent: "")
-        let languageMenu = NSMenu()
-        for language in DisplayLanguage.allCases {
-            let item = NSMenuItem(title: language == .chinese ? "中文" : "English", action: #selector(selectDisplayLanguage(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = language.rawValue
-            item.state = DisplayLanguage.current == language ? .on : .off
-            languageMenu.addItem(item)
-        }
-        languageItem.submenu = languageMenu
-        settingsMenu.addItem(languageItem)
-        settingsMenu.addItem(.separator())
-
-        let persistentItem = makePersistentTouchBarMenuItem()
-        settingsMenu.addItem(persistentItem)
-        if registerItems { persistentTouchBarMenuItem = persistentItem }
-        settingsMenu.addItem(.separator())
-
-        let colorHeader = NSMenuItem(title: "浮窗颜色", action: nil, keyEquivalent: "")
-        colorHeader.isEnabled = false
-        settingsMenu.addItem(colorHeader)
-
-        for colorChoice in HUDAppearance.ColorChoice.allCases {
-            let item = NSMenuItem(
-                title: colorChoice.title,
-                action: #selector(selectHUDColor(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = colorChoice.rawValue
-            item.state = colorChoice == hudAppearance.colorChoice ? .on : .off
-            settingsMenu.addItem(item)
-            if registerItems {
-                colorMenuItems[colorChoice] = item
-            }
-        }
-
-        settingsMenu.addItem(.separator())
-
-        let backgroundOpacityItem = NSMenuItem(title: "背景透明度", action: nil, keyEquivalent: "")
-        settingsMenu.setSubmenu(
-            makeOpacityMenu(for: .background, registerItems: registerItems),
-            for: backgroundOpacityItem
-        )
-        settingsMenu.addItem(backgroundOpacityItem)
-
-        let contentOpacityItem = NSMenuItem(title: "文字透明度", action: nil, keyEquivalent: "")
-        settingsMenu.setSubmenu(
-            makeOpacityMenu(for: .content, registerItems: registerItems),
-            for: contentOpacityItem
-        )
-        settingsMenu.addItem(contentOpacityItem)
-
-        return settingsMenu
-    }
-
-    private func makeOpacityMenu(for setting: OpacitySetting, registerItems: Bool) -> NSMenu {
-        let menu = NSMenu(title: setting == .background ? "背景透明度" : "文字透明度")
-        let currentOpacity: Double
-        let action: Selector
-
-        switch setting {
-        case .background:
-            currentOpacity = hudAppearance.backgroundOpacity
-            action = #selector(selectHUDBackgroundOpacity(_:))
-        case .content:
-            currentOpacity = hudAppearance.contentOpacity
-            action = #selector(selectHUDContentOpacity(_:))
-        }
-
-        for opacity in HUDAppearance.opacityChoices {
-            let item = NSMenuItem(
-                title: "\(Int((opacity * 100).rounded()))%",
-                action: action,
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = NSNumber(value: opacity)
-            item.state = abs(opacity - currentOpacity) < 0.001 ? .on : .off
-            menu.addItem(item)
-            if registerItems {
-                switch setting {
-                case .background:
-                    backgroundOpacityMenuItems[opacity] = item
-                case .content:
-                    contentOpacityMenuItems[opacity] = item
-                }
-            }
-        }
-
-        return menu
-    }
 
     private func configureLifecycleMonitor() {
         lifecycleMonitor.onHostStarted = { [weak self] in
@@ -416,10 +299,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         store.start()
     }
 
-    @objc private func toggleTaskStatus(_ sender: NSMenuItem) {
-        let enabled = !taskStatusEnabled
+    private func setTaskStatusEnabled(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: "taskStatusEnabled")
-        sender.state = enabled ? .on : .off
         latestTaskStatus = nil
         if enabled { taskMonitor.start() } else { taskMonitor.stop() }
         renderDisplayState()
@@ -442,34 +323,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         quitApp()
     }
 
-    @objc private func selectHUDColor(_ sender: NSMenuItem) {
-        guard let rawValue = sender.representedObject as? String,
-              let colorChoice = HUDAppearance.ColorChoice(rawValue: rawValue) else {
-            return
-        }
-
-        hudAppearance.colorChoice = colorChoice
-        applyHUDAppearance()
-    }
-
-    @objc private func selectHUDBackgroundOpacity(_ sender: NSMenuItem) {
-        guard let number = sender.representedObject as? NSNumber else {
-            return
-        }
-
-        hudAppearance.backgroundOpacity = number.doubleValue
-        applyHUDAppearance()
-    }
-
-    @objc private func selectHUDContentOpacity(_ sender: NSMenuItem) {
-        guard let number = sender.representedObject as? NSNumber else {
-            return
-        }
-
-        hudAppearance.contentOpacity = number.doubleValue
-        applyHUDAppearance()
-    }
-
     private func applyHUDAppearance() {
         hudAppearance.save()
         hudController.updateAppearance(hudAppearance)
@@ -480,17 +333,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         persistentTouchBarMenuItem?.state = persistentTouchBar.usesSystemPresentation ? .on : .off
         hudVisibilityMenuItem?.title = hudWindow.isVisible ? "隐藏浮窗" : "显示浮窗"
 
-        for (colorChoice, item) in colorMenuItems {
-            item.state = colorChoice == hudAppearance.colorChoice ? .on : .off
-        }
-
-        for (opacity, item) in backgroundOpacityMenuItems {
-            item.state = abs(opacity - hudAppearance.backgroundOpacity) < 0.001 ? .on : .off
-        }
-
-        for (opacity, item) in contentOpacityMenuItems {
-            item.state = abs(opacity - hudAppearance.contentOpacity) < 0.001 ? .on : .off
-        }
     }
 
     private func quitApp() {

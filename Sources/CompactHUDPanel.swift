@@ -1,7 +1,7 @@
 import AppKit
 
 final class CompactHUDPanel: NSPanel {
-    private let defaultSize = NSSize(width: 250, height: 34)
+    private let defaultSize = NSSize(width: 250, height: DesignTokens.hudHeight)
     private var hasPositionedInitialFrame = false
 
     init(contentViewController: NSViewController) {
@@ -47,7 +47,7 @@ final class CompactHUDPanel: NSPanel {
 
         let screenFrame = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
         let contentSize = contentView?.fittingSize ?? defaultSize
-        let size = NSSize(width: max(166, contentSize.width), height: defaultSize.height)
+        let size = NSSize(width: max(80, contentSize.width), height: defaultSize.height)
         let origin = NSPoint(
             x: screenFrame.midX - size.width / 2,
             y: screenFrame.maxY - size.height - 68
