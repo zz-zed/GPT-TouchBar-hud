@@ -4,7 +4,12 @@ build/
 backups/
 DerivedData/
 dist/
+Design/
 *.xcuserdata/
 .DS_Store
 .env
 .env.*
+
+# Superseded README artwork kept locally for design reference.
+Marketing/readme-hero-gpt-touchbar-hud.png
+Marketing/readme-touchbar-gpt-touchbar-hud.png
