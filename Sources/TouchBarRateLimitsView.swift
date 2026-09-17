@@ -2,7 +2,7 @@ import AppKit
 import QuartzCore
 
 final class TouchBarRateLimitsView: NSView {
-    static let contentWidth: CGFloat = 600
+    static let contentWidth: CGFloat = 460
     private let chatGPTIconView = NSImageView()
     private let taskBadge = NSTextField(labelWithString: "")
     private var hasRunningTasks = false
@@ -11,8 +11,8 @@ final class TouchBarRateLimitsView: NSView {
     private var windowObserver: NSObjectProtocol?
     private var accessibilityObserver: NSObjectProtocol?
     private static let breathingAnimationKey = "taskBadgeBreathing"
-    private let fiveHourRow = TouchBarLimitRow(title: "5 小时")
-    private let weeklyRow = TouchBarLimitRow(title: "周限额")
+    private let fiveHourRow = TouchBarLimitRow(title: "5h")
+    private let weeklyRow = TouchBarLimitRow(title: "Week")
     private let creditBalanceRow = TouchBarCreditBalanceRow()
 
     init() {
@@ -109,22 +109,22 @@ final class TouchBarRateLimitsView: NSView {
             fiveHourRow.isHidden = false
             hasLeadingLimitRow = true
             fiveHourRow.updateLimit(
-                title: "5 小时",
+                title: "5h",
                 meter: fiveHour,
-                usageText: state.tokenUsage?.yesterdayText ?? "昨日 --"
+                usageText: state.tokenUsage?.yesterdayText ?? "Yday --"
             )
         } else if let resetCredits = state.resetCredits, resetCredits.availableCount > 0 {
             fiveHourRow.isHidden = false
             hasLeadingLimitRow = true
             fiveHourRow.updateResetCredits(
                 resetCredits,
-                usageText: state.tokenUsage?.yesterdayText ?? "昨日 --"
+                usageText: state.tokenUsage?.yesterdayText ?? "Yday --"
             )
         } else if state.lastUpdated != nil {
             fiveHourRow.isHidden = true
         } else {
             fiveHourRow.isHidden = false
-            fiveHourRow.updatePlaceholder(title: "5 小时", usageText: "昨日 --")
+            fiveHourRow.updatePlaceholder(title: "5h", usageText: "Yday --")
         }
 
         creditBalanceRow.isHidden = true
@@ -132,9 +132,9 @@ final class TouchBarRateLimitsView: NSView {
         if let weekly = state.weekly {
             weeklyRow.isHidden = false
             weeklyRow.updateLimit(
-                title: "周限额",
+                title: "Week",
                 meter: weekly,
-                usageText: state.tokenUsage?.cumulativeText ?? "累计 --",
+                usageText: state.tokenUsage?.cumulativeText ?? "Total --",
                 creditBalanceText: hasLeadingLimitRow ? state.creditBalance?.displayText : nil
             )
 
@@ -150,7 +150,7 @@ final class TouchBarRateLimitsView: NSView {
             }
         } else {
             weeklyRow.isHidden = false
-            weeklyRow.updatePlaceholder(title: "周限额", usageText: "累计 --")
+            weeklyRow.updatePlaceholder(title: "Week", usageText: "Total --")
         }
         // Optional USD balance shares the second row. Reclaim decorative progress
         // space in both rows while keeping percentages, dates and tokens aligned.
@@ -206,9 +206,9 @@ final class TouchBarRateLimitsView: NSView {
             heightAnchor.constraint(equalToConstant: 30),
             chatGPTIconView.widthAnchor.constraint(equalToConstant: 24),
             chatGPTIconView.heightAnchor.constraint(equalToConstant: 30),
-            fiveHourRow.widthAnchor.constraint(equalToConstant: 574),
-            weeklyRow.widthAnchor.constraint(equalToConstant: 574),
-            creditBalanceRow.widthAnchor.constraint(equalToConstant: 574),
+            fiveHourRow.widthAnchor.constraint(equalToConstant: 434),
+            weeklyRow.widthAnchor.constraint(equalToConstant: 434),
+            creditBalanceRow.widthAnchor.constraint(equalToConstant: 434),
             content.leadingAnchor.constraint(equalTo: leadingAnchor),
             content.trailingAnchor.constraint(equalTo: trailingAnchor),
             content.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -288,8 +288,8 @@ private final class TouchBarLimitRow: NSView {
     private let titleLabel: NSTextField
     private let batteryBar = SegmentedBatteryBar()
     private let creditsIndicatorLabel = NSTextField(labelWithString: "")
-    private let remainingLabel = NSTextField(labelWithString: "剩余 --")
-    private let resetLabel = NSTextField(labelWithString: "-- 重置")
+    private let remainingLabel = NSTextField(labelWithString: "--")
+    private let resetLabel = NSTextField(labelWithString: "Reset --")
     private let separatorLabel = NSTextField(labelWithString: "|")
     private let usageLabel = NSTextField(labelWithString: "--")
     private let creditSeparatorLabel = NSTextField(labelWithString: "|")
@@ -316,14 +316,14 @@ private final class TouchBarLimitRow: NSView {
         creditsIndicatorLabel.isHidden = true
         batteryBar.remainingPercent = meter.remainingPercent
         batteryBar.isDimmed = false
-        remainingLabel.stringValue = "剩余 \(meter.remainingText)"
+        remainingLabel.stringValue = "\(meter.remainingText)"
         resetLabel.stringValue = meter.resetText
         usageLabel.stringValue = usageText
         updateCreditBalance(creditBalanceText)
     }
 
     func updateResetCredits(_ resetCredits: ResetCreditSummary, usageText: String) {
-        titleLabel.stringValue = "重置券"
+        titleLabel.stringValue = "Reset"
         batteryBar.isHidden = true
         creditsIndicatorLabel.isHidden = false
         creditsIndicatorLabel.stringValue = Self.creditIndicator(count: resetCredits.availableCount)
@@ -339,8 +339,8 @@ private final class TouchBarLimitRow: NSView {
         creditsIndicatorLabel.isHidden = true
         batteryBar.remainingPercent = 0
         batteryBar.isDimmed = true
-        remainingLabel.stringValue = "剩余 --"
-        resetLabel.stringValue = "-- 重置"
+        remainingLabel.stringValue = "--"
+        resetLabel.stringValue = "Reset --"
         usageLabel.stringValue = usageText
         updateCreditBalance(nil)
     }
@@ -425,7 +425,7 @@ private final class TouchBarLimitRow: NSView {
 
         let preferredProgressWidth = statusContainer.widthAnchor.constraint(equalToConstant: 72)
         preferredProgressWidth.priority = .defaultHigh
-        let preferredResetWidth = resetLabel.widthAnchor.constraint(equalToConstant: 125)
+        let preferredResetWidth = resetLabel.widthAnchor.constraint(equalToConstant: 95)
         preferredResetWidth.priority = .defaultHigh
 
         NSLayoutConstraint.activate([
@@ -442,11 +442,11 @@ private final class TouchBarLimitRow: NSView {
             creditsIndicatorLabel.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor, constant: 5),
             creditsIndicatorLabel.trailingAnchor.constraint(lessThanOrEqualTo: statusContainer.trailingAnchor),
             creditsIndicatorLabel.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor),
-            remainingLabel.widthAnchor.constraint(equalToConstant: 58),
+            remainingLabel.widthAnchor.constraint(equalToConstant: 36),
             preferredResetWidth,
             resetLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 80),
             separatorLabel.widthAnchor.constraint(equalToConstant: 12),
-            usageLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
+            usageLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 88),
             row.leadingAnchor.constraint(equalTo: leadingAnchor),
             row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
             row.topAnchor.constraint(equalTo: topAnchor),

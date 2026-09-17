@@ -50,16 +50,16 @@ struct LimitMeter: Equatable {
 
     var resetText: String {
         guard let resetDate else {
-            return "重置 --"
+            return "Reset --"
         }
 
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.timeZone = .current
 
-        formatter.dateFormat = "MM月dd日 HH:mm"
+        formatter.dateFormat = "MM/dd HH:mm"
 
-        return "\(formatter.string(from: resetDate)) 重置"
+        return "\(formatter.string(from: resetDate))"
     }
 
     init(title: String, shortTitle: String, window: RateLimitWindow) {
@@ -136,9 +136,9 @@ struct TaskStatusSummary: Equatable {
     }
 
     var label: String {
-        if runningCount > 0 { return "执行中 \(runningCount)" }
-        if recentlyCompletedCount > 0 { return "本轮完成" }
-        return isIdle ? "空闲" : "状态未知"
+        if runningCount > 0 { return "Run \(runningCount)" }
+        if recentlyCompletedCount > 0 { return "Done" }
+        return isIdle ? "Idle" : "Unknown"
     }
 
     var badge: String {
@@ -147,7 +147,7 @@ struct TaskStatusSummary: Equatable {
     }
 
     var detail: String {
-        "本机近期任务：执行中 \(runningCount)，本轮完成 \(recentlyCompletedCount)，未知 \(unknownCount)。仅根据本地日志推断；不代表整个目标完成，也不区分等待授权与工具执行。"
+        "本机近期任务：Running \(runningCount)，Done \(recentlyCompletedCount)，未知 \(unknownCount)。仅根据本地日志推断；不代表整个目标完成，也不区分等待授权与工具执行。"
     }
 }
 
@@ -186,23 +186,23 @@ struct ResetCreditSummary: Equatable {
     let earliestExpirationDate: Date?
 
     var compactText: String {
-        "重置 \(availableCount)次"
+        "Reset \(availableCount)"
     }
 
     var availableText: String {
-        "可用 \(availableCount) 次"
+        "\(availableCount) left"
     }
 
     var expirationText: String {
         guard let earliestExpirationDate else {
-            return "到期 --"
+            return "Exp --"
         }
 
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.timeZone = .current
-        formatter.dateFormat = "MM月dd日"
-        return "\(formatter.string(from: earliestExpirationDate)) 到期"
+        formatter.dateFormat = "MM/dd HH:mm"
+        return "\(formatter.string(from: earliestExpirationDate))"
     }
 
     init(response: RateLimitResetCreditsResponse) {
@@ -228,11 +228,11 @@ struct TokenUsageSummary: Equatable {
     var updatedAt: Date? = nil
 
     var yesterdayText: String {
-        "昨日 \(yesterdayTokens.map(Self.formatDailyTokens) ?? "--")\(isStale && yesterdayTokens != nil ? "*" : "")"
+        "Yday \(yesterdayTokens.map(Self.formatCompactTokens) ?? "--")\(isStale && yesterdayTokens != nil ? "*" : "")"
     }
 
     var cumulativeText: String {
-        "累计 \(cumulativeTokens.map(Self.formatAsYi) ?? "--")\(isStale && cumulativeTokens != nil ? "*" : "")"
+        "Total \(cumulativeTokens.map(Self.formatCompactTokens) ?? "--")\(isStale && cumulativeTokens != nil ? "*" : "")"
     }
 
     var toolTip: String {
@@ -244,18 +244,15 @@ struct TokenUsageSummary: Equatable {
         return text
     }
 
-    private static func formatDailyTokens(_ tokens: Int) -> String {
-        if tokens < 10_000 { return "\(tokens) 个" }
-        // At one decimal place, 99,999,500 would round to 10000.0 万.
-        // Promote the unit before rendering so the boundary stays readable.
-        if tokens >= 99_999_500 { return formatAsYi(tokens) }
-        let value = Double(tokens) / 10_000
-        return "\(formatted(value)) 万"
-    }
-
-    private static func formatAsYi(_ tokens: Int) -> String {
-        let value = Double(tokens) / 100_000_000
-        return "\(formatted(value)) 亿"
+    private static func formatCompactTokens(_ tokens: Int) -> String {
+        let units: [(Double, String)] = [(1e12, "T"), (1e9, "B"), (1e6, "M"), (1e3, "K")]
+        for (divisor, suffix) in units {
+            if Double(tokens) >= divisor * 0.99995 {
+                let value = Double(tokens) / divisor
+                return String(format: "%.1f", value) + suffix
+            }
+        }
+        return "\(tokens)"
     }
 
     private static func formatted(_ value: Double) -> String {
