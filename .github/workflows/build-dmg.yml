@@ -123,6 +123,9 @@ jobs:
       contents: write
 
     steps:
+      - name: Check out release notes
+        uses: actions/checkout@v7
+
       - name: Download architecture-specific DMGs
         uses: actions/download-artifact@v8
         with:
@@ -154,7 +157,7 @@ jobs:
             gh release create "$RELEASE_TAG" \
               --draft \
               --verify-tag \
-              --generate-notes \
+              --notes-file RELEASE_NOTES.md \
               --title "GPT TouchBar HUD $RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY"
             IS_DRAFT="true"
