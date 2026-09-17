@@ -189,6 +189,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         return item
     }
 
+    @objc private func selectDisplayLanguage(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let language = DisplayLanguage(rawValue: raw) else { return }
+        DisplayLanguage.current = language
+        renderDisplayState()
+        statusItem.menu = makeStatusMenu()
+        updateMenuState()
+    }
+
     @objc private func togglePersistentTouchBar(_ sender: NSMenuItem) {
         persistentTouchBar.setEnabled(!persistentTouchBar.isEnabled)
         updateMenuState()
@@ -220,6 +229,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func makeAppearanceSettingsMenu(registerItems: Bool) -> NSMenu {
         let settingsMenu = NSMenu(title: "设置")
+        let languageItem = NSMenuItem(title: "信息语言 / Language", action: nil, keyEquivalent: "")
+        let languageMenu = NSMenu()
+        for language in DisplayLanguage.allCases {
+            let item = NSMenuItem(title: language == .chinese ? "中文" : "English", action: #selector(selectDisplayLanguage(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = language.rawValue
+            item.state = DisplayLanguage.current == language ? .on : .off
+            languageMenu.addItem(item)
+        }
+        languageItem.submenu = languageMenu
+        settingsMenu.addItem(languageItem)
+        settingsMenu.addItem(.separator())
 
         let persistentItem = makePersistentTouchBarMenuItem()
         settingsMenu.addItem(persistentItem)

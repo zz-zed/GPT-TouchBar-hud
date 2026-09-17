@@ -9,6 +9,10 @@ enum TouchBarLayoutTests {
     }
 
     static func main() throws {
+        let languageSuite = "GPTTouchBarHUD.tests." + UUID().uuidString
+        DisplayLanguage.defaults = UserDefaults(suiteName: languageSuite)!
+        defer { DisplayLanguage.defaults.removePersistentDomain(forName: languageSuite) }
+        DisplayLanguage.current = .english
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let view = TouchBarRateLimitsView()
@@ -32,17 +36,17 @@ enum TouchBarLayoutTests {
         func verify(_ name: String) {
             view.update(with: state)
             host.layoutSubtreeIfNeeded()
-            check(view.frame.width == 460, "\(name): application region width budget")
+            check(view.frame.width == TouchBarRateLimitsView.contentWidth, "\(name): application region width budget")
             check(!view.hasAmbiguousLayout, "\(name): root layout is determined")
             for label in visibleLabels(view) where !label.stringValue.isEmpty {
                 let frame = label.convert(label.bounds, to: view)
-                check(frame.minX >= -0.5 && frame.maxX <= 460.5, "\(name): \(label.stringValue) stays inside app region (\(frame))")
+                check(frame.minX >= -0.5 && frame.maxX <= TouchBarRateLimitsView.contentWidth + 0.5, "\(name): \(label.stringValue) stays inside app region (\(frame))")
                 let needed = label.cell?.cellSize.width ?? 0
                 check(label.bounds.width + 1 >= needed, "\(name): \(label.stringValue) is not clipped: \(label.bounds.width) < \(needed)")
             }
-            let yesterday = visibleLabels(view).first { $0.stringValue.hasPrefix("Yday ") }
+            let yesterday = visibleLabels(view).first { $0.stringValue.hasPrefix(DisplayLanguage.text("昨日 ", "Yday ")) }
             if state.fiveHour != nil || state.resetCredits != nil {
-                check(yesterday?.stringValue.contains("27.4") == true, "\(name): yesterday is visible")
+                check(yesterday?.stringValue.contains(DisplayLanguage.text("2744.3", "27.4")) == true, "\(name): yesterday is visible")
             }
         }
         verify("two quotas")
@@ -93,6 +97,11 @@ enum TouchBarLayoutTests {
             credits: [RateLimitResetCreditResponse(status: "available", expiresAt: expiry.timeIntervalSince1970)]))
         check(state.resetCredits?.expirationText == "09/18 14:37", "Expiration preserves local hour and minute")
         verify("reset credits with minute precision and USD balance")
+        DisplayLanguage.current = .chinese
+        check(state.resetCredits?.expirationText == "09月18日 14:37 到期", "Chinese minute-level expiry")
+        verify("switch existing view to Chinese")
+        DisplayLanguage.current = .english
+        verify("switch existing view back to English")
         state.resetCredits = nil
         verify("weekly and balance")
         state.creditBalance = nil
