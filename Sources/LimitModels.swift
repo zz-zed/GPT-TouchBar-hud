@@ -228,7 +228,7 @@ struct TokenUsageSummary: Equatable {
     var updatedAt: Date? = nil
 
     var yesterdayText: String {
-        "昨日 \(yesterdayTokens.map(Self.formatAsWan) ?? "--")\(isStale && yesterdayTokens != nil ? "*" : "")"
+        "昨日 \(yesterdayTokens.map(Self.formatDailyTokens) ?? "--")\(isStale && yesterdayTokens != nil ? "*" : "")"
     }
 
     var cumulativeText: String {
@@ -244,7 +244,11 @@ struct TokenUsageSummary: Equatable {
         return text
     }
 
-    private static func formatAsWan(_ tokens: Int) -> String {
+    private static func formatDailyTokens(_ tokens: Int) -> String {
+        if tokens < 10_000 { return "\(tokens) 个" }
+        // At one decimal place, 99,999,500 would round to 10000.0 万.
+        // Promote the unit before rendering so the boundary stays readable.
+        if tokens >= 99_999_500 { return formatAsYi(tokens) }
         let value = Double(tokens) / 10_000
         return "\(formatted(value)) 万"
     }

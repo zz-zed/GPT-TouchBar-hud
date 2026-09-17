@@ -45,6 +45,18 @@ enum AccountTokenUsageTests {
         check(display(fixture).cumulativeTokens == 2659004914, "Int64 lifetime independent of bucket range")
         check(display(fixture).yesterdayText == "昨日 2744.3 万", "Keep tenths above 100 wan")
         check(display(fixture).cumulativeText == "累计 26.6 亿", "Match screenshot rounding")
+        for (tokens, expected) in [
+            (0, "0 个"), (9999, "9999 个"), (10000, "1.00 万"),
+            (99999499, "9999.9 万"), (99999500, "1.00 亿"),
+            (100000000, "1.00 亿"), (120000000, "1.20 亿"),
+            (1200000000, "12.0 亿")
+        ] {
+            let summary = TokenUsageSummary(yesterdayTokens: tokens, cumulativeTokens: nil)
+            check(summary.yesterdayText == "昨日 \(expected)", "Daily unit promotion at \(tokens)")
+        }
+        var staleDaily = TokenUsageSummary(yesterdayTokens: 120000000, cumulativeTokens: nil)
+        staleDaily.isStale = true
+        check(staleDaily.yesterdayText == "昨日 1.20 亿*", "Promoted units preserve stale marker")
         let empty = try decode("{\"summary\":{},\"dailyUsageBuckets\":null}")
         check(display(empty).yesterdayText == "昨日 --", "Null buckets are unknown")
         check(display(empty).cumulativeText == "累计 --", "Missing lifetime is unknown")
