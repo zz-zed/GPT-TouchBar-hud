@@ -43,11 +43,18 @@ enum AccountTokenUsageTests {
         }
         check(display(fixture).yesterdayTokens == 27442835, "Match service daily bucket, not daily sum")
         check(display(fixture).cumulativeTokens == 2659004914, "Int64 lifetime independent of bucket range")
-        check(display(fixture).yesterdayText == "昨日 2744.3 万", "Keep tenths above 100 wan")
-        check(display(fixture).cumulativeText == "累计 26.6 亿", "Match screenshot rounding")
+        check(display(fixture).yesterdayText == "Yday 27.4M", "Keep tenths above 100 wan")
+        check(display(fixture).cumulativeText == "Total 2.7B", "Match screenshot rounding")
+        for (tokens, expected) in [(999, "999"), (1000, "1.0K"),
+                                   (999949, "999.9K"), (999950, "1.0M"),
+                                   (1000000000, "1.0B"), (1000000000000, "1.0T")] {
+            let summary = TokenUsageSummary(yesterdayTokens: tokens, cumulativeTokens: tokens)
+            check(summary.yesterdayText == "Yday \(expected)", "Daily compact unit boundary")
+            check(summary.cumulativeText == "Total \(expected)", "Total compact unit boundary")
+        }
         let empty = try decode("{\"summary\":{},\"dailyUsageBuckets\":null}")
-        check(display(empty).yesterdayText == "昨日 --", "Null buckets are unknown")
-        check(display(empty).cumulativeText == "累计 --", "Missing lifetime is unknown")
+        check(display(empty).yesterdayText == "Yday --", "Null buckets are unknown")
+        check(display(empty).cumulativeText == "Total --", "Missing lifetime is unknown")
         let missing = try decode("{\"summary\":{\"lifetimeTokens\":0},\"dailyUsageBuckets\":[]}")
         check(display(missing).yesterdayTokens == nil, "Empty buckets do not imply zero")
         check(display(missing).cumulativeTokens == 0, "Explicit zero lifetime is valid")

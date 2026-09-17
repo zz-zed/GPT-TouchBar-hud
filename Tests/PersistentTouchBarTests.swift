@@ -88,12 +88,12 @@ enum PersistentTouchBarTests {
         state.lastUpdated = Date()
         controller.update(with: state)
         let item = controller.touchBar(bar, makeItemForIdentifier: bar.defaultItemIdentifiers[0]) as! NSCustomTouchBarItem
-        check(labels(in: item.view).contains("剩余 77%"), "Latest data reaches a lazily created system bar")
+        check(labels(in: item.view).contains("77%"), "Latest data reaches a lazily created system bar")
         state.weekly = LimitMeter(title: "周限额", shortTitle: "7d", window: RateLimitWindow(
             usedPercent: 50, windowDurationMins: 10080, resetsAt: nil
         ))
         controller.update(with: state)
-        check(labels(in: item.view).contains("剩余 50%"), "Quota updates do not depend on HUD visibility")
+        check(labels(in: item.view).contains("50%"), "Quota updates do not depend on HUD visibility")
 
         let hud = CompactHUDViewController(
             initialAppearance: HUDAppearance(colorChoice: .black, backgroundOpacity: 0.86, contentOpacity: 1),
@@ -108,7 +108,7 @@ enum PersistentTouchBarTests {
         state.taskStatus = TaskStatusSummary(runningCount: 2)
         hud.update(with: state)
         hudView.layoutSubtreeIfNeeded()
-        check(labels(in: hudView).contains("执行中 2"), "HUD displays task summary")
+        check(labels(in: hudView).contains("Run 2"), "HUD displays task summary")
         check(hudView.frame.width > plainWidth, "Task summary adds width without squeezing metrics")
         check(!hudView.hasAmbiguousLayout, "Task HUD layout is determined")
         check(hudView.window == nil, "Task updates do not create/show a floating window")
