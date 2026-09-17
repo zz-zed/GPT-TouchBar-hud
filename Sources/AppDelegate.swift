@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private var hudAppearance = HUDAppearance.load()
     private var hudVisibilityMenuItem: NSMenuItem?
     private var persistentTouchBarMenuItem: NSMenuItem?
+    private var menuTaskAppearance: TaskStatusAppearance = .idle
     private lazy var persistentTouchBar = PersistentTouchBarController()
     private var colorMenuItems: [HUDAppearance.ColorChoice: NSMenuItem] = [:]
     private var backgroundOpacityMenuItems: [Double: NSMenuItem] = [:]
@@ -28,8 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         onRefresh: { [weak self] in
             self?.refreshQuotaNow()
         },
-        onQuit: { [weak self] in
-            self?.quitFromHUD()
+        onClose: { [weak self] in
+            self?.closeHUD()
         },
         onPresentTouchBar: { [weak self] in
             self?.persistentTouchBar.presentNow() ?? false
@@ -336,6 +337,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         guard let button = statusItem.button else {
             return
         }
+        let task = state.displayedTaskStatus
+        let appearance = TaskStatusAppearance(task)
+        if menuTaskAppearance != appearance {
+            button.image = appearance.menuIcon()
+            menuTaskAppearance = appearance
+        }
 
         var titleParts: [String] = []
         var tooltipParts: [String] = []
@@ -366,6 +373,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         if let usage = state.tokenUsage {
             button.toolTip = (button.toolTip ?? "\(AppIdentity.productName) 额度") + "\n\(usage.yesterdayText)；\(usage.cumulativeText)\n\(usage.toolTip)"
         }
+        if let task {
+            button.toolTip = (button.toolTip ?? AppIdentity.productName) + "\n" + task.label + "\n" + task.detail
+        }
+        button.setAccessibilityLabel(AppIdentity.productName + (task.map { " · " + $0.label } ?? ""))
     }
 
     @objc private func toggleHUDWindow(_ sender: AnyObject?) {
@@ -414,8 +425,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         renderDisplayState()
     }
 
-    private func quitFromHUD() {
-        quitApp()
+    private func closeHUD() {
+        hudWindow.orderOut(nil)
+        updateMenuState()
     }
 
     @objc private func refreshQuotaFromMenu(_ sender: AnyObject?) {
@@ -423,8 +435,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     @objc private func hideHUDFromContextMenu(_ sender: AnyObject?) {
-        hudWindow.orderOut(sender)
-        updateMenuState()
+        closeHUD()
     }
 
     @objc private func quitFromMenu(_ sender: AnyObject?) {
