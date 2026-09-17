@@ -1,9 +1,16 @@
 import AppKit
+import QuartzCore
 
 final class TouchBarRateLimitsView: NSView {
     static let contentWidth: CGFloat = 600
     private let chatGPTIconView = NSImageView()
     private let taskBadge = NSTextField(labelWithString: "")
+    private var hasRunningTasks = false
+    private var itemVisibility: Bool?
+    private var itemVisibilityObservation: NSKeyValueObservation?
+    private var windowObserver: NSObjectProtocol?
+    private var accessibilityObserver: NSObjectProtocol?
+    private static let breathingAnimationKey = "taskBadgeBreathing"
     private let fiveHourRow = TouchBarLimitRow(title: "5 小时")
     private let weeklyRow = TouchBarLimitRow(title: "周限额")
     private let creditBalanceRow = TouchBarCreditBalanceRow()
@@ -11,10 +18,76 @@ final class TouchBarRateLimitsView: NSView {
     init() {
         super.init(frame: .zero)
         configure()
+        accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in self?.updateTaskAnimation() }
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        if let windowObserver { NotificationCenter.default.removeObserver(windowObserver) }
+        if let accessibilityObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver)
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let windowObserver { NotificationCenter.default.removeObserver(windowObserver) }
+        windowObserver = nil
+        if let window {
+            windowObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
+            ) { [weak self] _ in self?.updateTaskAnimation() }
+        }
+        updateTaskAnimation()
+    }
+
+    override func viewDidHide() {
+        super.viewDidHide()
+        updateTaskAnimation()
+    }
+
+    func observeVisibility(of item: NSTouchBarItem) {
+        itemVisibilityObservation = item.observe(\.isVisible, options: [.initial, .new]) { [weak self] item, _ in
+            self?.setTouchBarItemVisible(item.isVisible)
+        }
+    }
+
+    func setTouchBarItemVisible(_ visible: Bool) {
+        itemVisibility = visible
+        updateTaskAnimation()
+    }
+
+    override func viewDidUnhide() {
+        super.viewDidUnhide()
+        updateTaskAnimation()
+    }
+
+    private func updateTaskAnimation() {
+        guard let layer = taskBadge.layer else { return }
+        let shouldAnimate = hasRunningTasks && !isHiddenOrHasHiddenAncestor &&
+            (itemVisibility ?? (window?.occlusionState.contains(.visible) == true)) &&
+            !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        guard shouldAnimate else {
+            layer.removeAnimation(forKey: Self.breathingAnimationKey)
+            return
+        }
+        // Repeated status updates must not restart the cycle. Core Animation
+        // drives the effect without a timer or repeated redraws of the quota rows.
+        guard layer.animation(forKey: Self.breathingAnimationKey) == nil else { return }
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = 1.0
+        animation.toValue = 0.45
+        animation.duration = 1.2
+        animation.autoreverses = true
+        animation.repeatCount = .infinity
+        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        layer.add(animation, forKey: Self.breathingAnimationKey)
     }
 
     func update(with state: RateLimitDisplayState) {
@@ -24,6 +97,8 @@ final class TouchBarRateLimitsView: NSView {
         taskBadge.backgroundColor = taskStatus.map {
             $0.runningCount > 0 ? .systemBlue : ($0.recentlyCompletedCount > 0 ? .systemGreen : .darkGray)
         } ?? .clear
+        hasRunningTasks = (taskStatus?.runningCount ?? 0) > 0
+        updateTaskAnimation()
         chatGPTIconView.toolTip = taskStatus?.detail ?? "ChatGPT"
         chatGPTIconView.setAccessibilityLabel(taskStatus?.label ?? "ChatGPT")
         fiveHourRow.toolTip = state.tokenUsage?.toolTip

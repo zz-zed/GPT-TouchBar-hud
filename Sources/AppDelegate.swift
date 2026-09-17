@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private var taskStatusEnabled: Bool {
         UserDefaults.standard.object(forKey: "taskStatusEnabled") as? Bool ?? true
     }
-    private let lifecycleMonitor = CodexLifecycleMonitor()
+    private let lifecycleMonitor = HostLifecycleMonitor()
     private var hudAppearance = HUDAppearance.load()
     private var hudVisibilityMenuItem: NSMenuItem?
     private var persistentTouchBarMenuItem: NSMenuItem?
@@ -53,13 +53,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         }
         configureStatusItem()
         configureLifecycleMonitor()
-        CodexAutoLauncher.installOrUpdate()
-        CodexAutoLauncher.clearManualQuitLock()
+        HostAutoLauncher.installOrUpdate()
+        HostAutoLauncher.clearManualQuitLock()
 
         lifecycleMonitor.start()
 
-        if lifecycleMonitor.codexIsRunningNow() {
-            codexDidStart()
+        if lifecycleMonitor.hostIsRunningNow() {
+            hostDidStart()
         } else {
             updateStatusTitle(with: .initial)
         }
@@ -90,10 +90,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             return
         }
 
-        button.image = NSImage(systemSymbolName: "bolt.horizontal.circle.fill", accessibilityDescription: "Codex")
+        button.image = NSImage(systemSymbolName: "bolt.horizontal.circle.fill", accessibilityDescription: AppIdentity.productName)
         button.imagePosition = .imageLeft
         button.title = " --"
-        button.toolTip = "Codex 额度"
+        button.toolTip = "\(AppIdentity.productName) 额度"
 
         statusItem.menu = makeStatusMenu()
         updateMenuState()
@@ -302,12 +302,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func configureLifecycleMonitor() {
-        lifecycleMonitor.onCodexStarted = { [weak self] in
-            self?.codexDidStart()
+        lifecycleMonitor.onHostStarted = { [weak self] in
+            self?.hostDidStart()
         }
 
-        lifecycleMonitor.onCodexStopped = { [weak self] in
-            self?.codexDidStop()
+        lifecycleMonitor.onHostStopped = { [weak self] in
+            self?.hostDidStop()
         }
     }
 
@@ -334,16 +334,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
         if !titleParts.isEmpty {
             button.title = " \(titleParts.joined(separator: "  "))"
-            button.toolTip = "Codex 额度：\(tooltipParts.joined(separator: "，"))"
+            button.toolTip = "\(AppIdentity.productName) 额度：\(tooltipParts.joined(separator: "，"))"
         } else if state.isRefreshing {
             button.title = " ..."
-            button.toolTip = "Codex 额度：正在刷新"
+            button.toolTip = "\(AppIdentity.productName) 额度：正在刷新"
         } else {
             button.title = " --"
-            button.toolTip = state.errorMessage ?? "Codex 额度"
+            button.toolTip = state.errorMessage ?? "\(AppIdentity.productName) 额度"
         }
         if let usage = state.tokenUsage {
-            button.toolTip = (button.toolTip ?? "Codex 额度") + "\n\(usage.yesterdayText)；\(usage.cumulativeText)\n\(usage.toolTip)"
+            button.toolTip = (button.toolTip ?? "\(AppIdentity.productName) 额度") + "\n\(usage.yesterdayText)；\(usage.cumulativeText)\n\(usage.toolTip)"
         }
     }
 
@@ -362,7 +362,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         updateMenuState()
     }
 
-    private func codexDidStart() {
+    private func hostDidStart() {
         if taskStatusEnabled { taskMonitor.start() }
         NSApp.setActivationPolicy(.accessory)
         persistentTouchBar.start()
@@ -372,7 +372,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         updateMenuState()
     }
 
-    private func codexDidStop() {
+    private func hostDidStop() {
         taskMonitor.stop()
         persistentTouchBar.stop()
         hudWindow.orderOut(nil)
@@ -462,7 +462,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func quitApp() {
-        CodexAutoLauncher.markManualQuit()
+        HostAutoLauncher.markManualQuit()
         persistentTouchBar.stop()
         hudWindow.orderOut(nil)
         lifecycleMonitor.stop()

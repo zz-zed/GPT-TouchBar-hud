@@ -104,6 +104,7 @@ final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
         limitsView = view
         let item = NSCustomTouchBarItem(identifier: identifier)
         item.view = view
+        view.observeVisibility(of: item)
         return item
     }
 

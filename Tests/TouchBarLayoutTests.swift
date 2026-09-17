@@ -48,8 +48,31 @@ enum TouchBarLayoutTests {
         verify("two quotas")
         state.taskStatus = TaskStatusSummary(runningCount: 12)
         verify("running badge")
+        let badge = visibleLabels(view).first { $0.stringValue == "9+" }!
+        check(badge.layer?.animationKeys()?.isEmpty != false, "Hidden window does not animate")
+        view.setTouchBarItemVisible(true)
+        check((badge.layer?.animation(forKey: "taskBadgeBreathing") != nil) ==
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              "Visible Touch Bar animates even when host window is not visible")
+        view.setTouchBarItemVisible(false)
+        check(badge.layer?.animation(forKey: "taskBadgeBreathing") == nil,
+              "Hidden Touch Bar stops animation")
+        window.orderFrontRegardless()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        view.update(with: state)
+        view.setTouchBarItemVisible(true)
+        let shouldAnimate =
+            !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        check((badge.layer?.animation(forKey: "taskBadgeBreathing") != nil) == shouldAnimate,
+              "Running animation respects window visibility and reduced motion")
+        view.isHidden = true
+        check(badge.layer?.animation(forKey: "taskBadgeBreathing") == nil, "Hiding view stops animation")
+        view.isHidden = false
+        view.update(with: state)
         state.taskStatus = TaskStatusSummary(recentlyCompletedCount: 1)
         verify("completed badge")
+        check(badge.layer?.animation(forKey: "taskBadgeBreathing") == nil, "Completion stops animation")
+        window.orderOut(nil)
         state.taskStatus = TaskStatusSummary(unknownCount: 1)
         verify("unknown badge")
         state.taskStatus = nil

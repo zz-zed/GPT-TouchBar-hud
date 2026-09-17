@@ -65,6 +65,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         case TouchBarIdentifiers.limits:
             let item = NSCustomTouchBarItem(identifier: identifier)
             item.view = touchBarView
+            touchBarView.observeVisibility(of: item)
             return item
         default:
             return nil

@@ -1,14 +1,14 @@
 import AppKit
 
-final class CodexLifecycleMonitor {
-    var onCodexStarted: (() -> Void)?
-    var onCodexStopped: (() -> Void)?
+final class HostLifecycleMonitor {
+    var onHostStarted: (() -> Void)?
+    var onHostStopped: (() -> Void)?
 
     private var timer: Timer?
-    private var isCodexRunning = false
+    private var isHostRunning = false
 
     func start() {
-        isCodexRunning = Self.detectCodexRunning()
+        isHostRunning = Self.detectHostRunning()
 
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
@@ -35,8 +35,8 @@ final class CodexLifecycleMonitor {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
-    func codexIsRunningNow() -> Bool {
-        Self.detectCodexRunning()
+    func hostIsRunningNow() -> Bool {
+        Self.detectHostRunning()
     }
 
     @objc private func appDidLaunch(_ notification: Notification) {
@@ -44,7 +44,7 @@ final class CodexLifecycleMonitor {
             return
         }
 
-        if Self.isCodex(app) {
+        if Self.isSupportedHost(app) {
             transition(to: true)
         }
     }
@@ -54,35 +54,35 @@ final class CodexLifecycleMonitor {
             return
         }
 
-        if Self.isCodex(app) {
-            transition(to: Self.detectCodexRunning())
+        if Self.isSupportedHost(app) {
+            transition(to: Self.detectHostRunning())
         }
     }
 
     private func poll() {
-        transition(to: Self.detectCodexRunning())
+        transition(to: Self.detectHostRunning())
     }
 
     private func transition(to running: Bool) {
-        guard running != isCodexRunning else {
+        guard running != isHostRunning else {
             return
         }
 
-        isCodexRunning = running
+        isHostRunning = running
         if running {
-            onCodexStarted?()
+            onHostStarted?()
         } else {
-            onCodexStopped?()
+            onHostStopped?()
         }
     }
 
-    private static func detectCodexRunning() -> Bool {
+    private static func detectHostRunning() -> Bool {
         NSWorkspace.shared.runningApplications.contains { app in
-            isCodex(app)
+            isSupportedHost(app)
         }
     }
 
-    private static func isCodex(_ app: NSRunningApplication) -> Bool {
+    private static func isSupportedHost(_ app: NSRunningApplication) -> Bool {
         if app.bundleIdentifier == "com.openai.codex" {
             return true
         }
