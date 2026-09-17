@@ -10,7 +10,7 @@ cd "$PROJECT_DIR"
 
 swiftc -sdk "$SDK_PATH" -module-cache-path "$TEST_DIR/module-cache" \
     Sources/SystemTouchBarPresenter.swift Sources/PersistentTouchBarController.swift \
-    Sources/TouchBarRateLimitsView.swift Sources/SegmentedBatteryBar.swift \
+    Sources/TouchBarRateLimitsView.swift Sources/TaskStatusAppearance.swift Sources/SegmentedBatteryBar.swift \
     Sources/LimitModels.swift Sources/LocalTokenUsageReader.swift Sources/TokenUsageScanner.swift \
     Sources/CompactHUDViewController.swift Sources/HUDAppearance.swift \
     Tests/PersistentTouchBarTests.swift \

@@ -99,14 +99,24 @@ enum PersistentTouchBarTests {
         controller.update(with: state)
         check(labels(in: item.view).contains("50%"), "Quota updates do not depend on HUD visibility")
 
+        var closeRequests = 0
         let hud = CompactHUDViewController(
             initialAppearance: HUDAppearance(colorChoice: .black, backgroundOpacity: 0.86, contentOpacity: 1),
-            onRefresh: {}, onQuit: {}, onPresentTouchBar: { controller.presentNow() }, contextMenuProvider: { NSMenu() }
+            onRefresh: {}, onClose: { closeRequests += 1 }, onPresentTouchBar: { controller.presentNow() }, contextMenuProvider: { NSMenu() }
         )
         hud.activateTouchBar(bringAppForward: true)
         check(NSWorkspace.shared.frontmostApplication?.processIdentifier == frontmostPID, "Persistent HUD activation preserves the frontmost app")
 
         let hudView = hud.view
+        func closeButton(in view: NSView) -> NSButton? {
+            if let button = view as? NSButton, button.toolTip == "隐藏浮窗" { return button }
+            return view.subviews.lazy.compactMap { closeButton(in: $0) }.first
+        }
+        let dismissalsBeforeClose = presenter.dismissals.count
+        check(closeButton(in: hudView) != nil, "HUD close button is labelled Hide HUD")
+        closeButton(in: hudView)?.performClick(nil)
+        check(closeRequests == 1, "HUD close invokes only the close callback")
+        check(presenter.dismissals.count == dismissalsBeforeClose, "HUD close does not dismiss persistent Touch Bar")
         hud.update(with: state)
         let plainWidth = hudView.frame.width
         state.taskStatus = TaskStatusSummary(runningCount: 2)

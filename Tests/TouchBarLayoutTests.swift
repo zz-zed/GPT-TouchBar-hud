@@ -15,6 +15,26 @@ enum TouchBarLayoutTests {
         DisplayLanguage.current = .english
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
+        check(TaskStatusAppearance(nil) == .idle, "Disabled task status restores default icon")
+        check(TaskStatusAppearance(TaskStatusSummary()) == .idle, "Idle has no task tint")
+        check(TaskStatusAppearance(TaskStatusSummary(runningCount: 2, recentlyCompletedCount: 1, unknownCount: 1)) == .running,
+              "Running takes priority over completed and unknown")
+        check(TaskStatusAppearance(TaskStatusSummary(recentlyCompletedCount: 1, unknownCount: 1)) == .completed,
+              "Completed takes priority over unknown")
+        check(TaskStatusAppearance(TaskStatusSummary(unknownCount: 1)) == .unknown, "Unknown is separate from idle")
+        check(TaskStatusAppearance.running.color == .systemBlue, "Running shares blue")
+        check(TaskStatusAppearance.completed.color == .systemGreen, "Completed shares green")
+        check(TaskStatusAppearance.unknown.color == .systemGray, "Unknown shares gray")
+        check(TaskStatusAppearance.idle.menuIcon()?.isTemplate == true, "Idle uses system template rendering")
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            NSAppearance(named: name)!.performAsCurrentDrawingAppearance {
+                for phase in [TaskStatusAppearance.running, .completed, .unknown] {
+                    let icon = phase.menuIcon()
+                    check(icon?.isTemplate == false, "Task icon keeps color in \(name)")
+                    check(icon?.tiffRepresentation != nil, "Task icon renders in \(name)")
+                }
+            }
+        }
         let view = TouchBarRateLimitsView()
         check(buttons(view).isEmpty, "Quota view has no persistent close/quit button")
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 30),

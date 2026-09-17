@@ -10,23 +10,23 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     private lazy var touchBarView = TouchBarRateLimitsView()
     private var currentState = RateLimitDisplayState.initial
     private let onRefresh: () -> Void
-    private let onQuit: () -> Void
+    private let onClose: () -> Void
     private let onPresentTouchBar: () -> Bool
 
     init(
         initialAppearance: HUDAppearance,
         onRefresh: @escaping () -> Void,
-        onQuit: @escaping () -> Void,
+        onClose: @escaping () -> Void,
         onPresentTouchBar: @escaping () -> Bool,
         contextMenuProvider: @escaping () -> NSMenu
     ) {
         self.onRefresh = onRefresh
-        self.onQuit = onQuit
+        self.onClose = onClose
         self.onPresentTouchBar = onPresentTouchBar
         self.hudView = CompactQuotaHUDView(
             initialAppearance: initialAppearance,
             onRefresh: onRefresh,
-            onQuit: onQuit,
+            onClose: onClose,
             contextMenuProvider: contextMenuProvider
         )
         super.init(nibName: nil, bundle: nil)
@@ -87,8 +87,8 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         hudView.updateAppearance(appearance)
     }
 
-    @objc private func quitClicked() {
-        onQuit()
+    @objc private func closeClicked() {
+        onClose()
     }
 }
 
@@ -102,12 +102,12 @@ final class CompactQuotaHUDView: NSView {
         symbolName: "arrow.clockwise",
         accessibilityLabel: "刷新额度"
     )
-    private let quitButton = CompactIconButton(
+    private let closeButton = CompactIconButton(
         symbolName: "xmark",
-        accessibilityLabel: "退出额度条"
+        accessibilityLabel: "隐藏浮窗"
     )
     private let onRefresh: () -> Void
-    private let onQuit: () -> Void
+    private let onClose: () -> Void
     private let contextMenuProvider: () -> NSMenu
     private var hudAppearance: HUDAppearance
     private var widthConstraint: NSLayoutConstraint?
@@ -116,11 +116,11 @@ final class CompactQuotaHUDView: NSView {
     init(
         initialAppearance: HUDAppearance,
         onRefresh: @escaping () -> Void,
-        onQuit: @escaping () -> Void,
+        onClose: @escaping () -> Void,
         contextMenuProvider: @escaping () -> NSMenu
     ) {
         self.onRefresh = onRefresh
-        self.onQuit = onQuit
+        self.onClose = onClose
         self.contextMenuProvider = contextMenuProvider
         self.hudAppearance = initialAppearance
         super.init(frame: .zero)
@@ -221,13 +221,13 @@ final class CompactQuotaHUDView: NSView {
 
         refreshButton.target = self
         refreshButton.action = #selector(refreshClicked)
-        quitButton.target = self
-        quitButton.action = #selector(quitClicked)
+        closeButton.target = self
+        closeButton.action = #selector(closeClicked)
 
         taskLabel.isHidden = true
         taskLabel.font = .systemFont(ofSize: 11, weight: .medium)
         taskLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        let stack = NSStackView(views: [taskLabel, firstItem, secondItem, refreshButton, quitButton])
+        let stack = NSStackView(views: [taskLabel, firstItem, secondItem, refreshButton, closeButton])
         contentStack = stack
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .horizontal
@@ -248,8 +248,8 @@ final class CompactQuotaHUDView: NSView {
             secondItem.widthAnchor.constraint(equalToConstant: 76),
             refreshButton.widthAnchor.constraint(equalToConstant: 20),
             refreshButton.heightAnchor.constraint(equalToConstant: 20),
-            quitButton.widthAnchor.constraint(equalToConstant: 20),
-            quitButton.heightAnchor.constraint(equalToConstant: 20),
+            closeButton.widthAnchor.constraint(equalToConstant: 20),
+            closeButton.heightAnchor.constraint(equalToConstant: 20),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -284,8 +284,8 @@ final class CompactQuotaHUDView: NSView {
         onRefresh()
     }
 
-    @objc private func quitClicked() {
-        onQuit()
+    @objc private func closeClicked() {
+        onClose()
     }
 }
 
