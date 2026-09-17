@@ -26,6 +26,10 @@ enum AccountTokenUsageTests {
     }
 
     static func main() throws {
+        let languageSuite = "GPTTouchBarHUD.tests." + UUID().uuidString
+        DisplayLanguage.defaults = UserDefaults(suiteName: languageSuite)!
+        defer { DisplayLanguage.defaults.removePersistentDomain(forName: languageSuite) }
+        DisplayLanguage.current = .english
         func decode(_ json: String) throws -> AccountTokenUsageResponse {
             try JSONDecoder().decode(AccountTokenUsageResponse.self, from: Data(json.utf8))
         }
@@ -52,6 +56,12 @@ enum AccountTokenUsageTests {
             check(summary.yesterdayText == "Yday \(expected)", "Daily compact unit boundary")
             check(summary.cumulativeText == "Total \(expected)", "Total compact unit boundary")
         }
+        DisplayLanguage.current = .chinese
+        check(display(fixture).yesterdayText == "昨日 2744.3 万", "Chinese daily units")
+        check(TokenUsageSummary(yesterdayTokens: 113900000, cumulativeTokens: nil).yesterdayText == "昨日 1.14 亿", "Chinese promotion")
+        check(display(fixture).cumulativeText == "累计 26.6 亿", "Chinese cumulative units")
+        check(DisplayLanguage.defaults.string(forKey: "displayLanguage") == "zh", "Language preference persists")
+        DisplayLanguage.current = .english
         let empty = try decode("{\"summary\":{},\"dailyUsageBuckets\":null}")
         check(display(empty).yesterdayText == "Yday --", "Null buckets are unknown")
         check(display(empty).cumulativeText == "Total --", "Missing lifetime is unknown")

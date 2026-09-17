@@ -28,6 +28,10 @@ enum PersistentTouchBarTests {
     }
 
     static func main() {
+        let languageSuite = "GPTTouchBarHUD.tests." + UUID().uuidString
+        DisplayLanguage.defaults = UserDefaults(suiteName: languageSuite)!
+        defer { DisplayLanguage.defaults.removePersistentDomain(forName: languageSuite) }
+        DisplayLanguage.current = .english
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier

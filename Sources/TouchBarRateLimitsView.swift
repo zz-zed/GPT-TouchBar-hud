@@ -2,7 +2,7 @@ import AppKit
 import QuartzCore
 
 final class TouchBarRateLimitsView: NSView {
-    static let contentWidth: CGFloat = 460
+    static var contentWidth: CGFloat { DisplayLanguage.current == .english ? 460 : 600 }
     private let chatGPTIconView = NSImageView()
     private let taskBadge = NSTextField(labelWithString: "")
     private var hasRunningTasks = false
@@ -11,8 +11,8 @@ final class TouchBarRateLimitsView: NSView {
     private var windowObserver: NSObjectProtocol?
     private var accessibilityObserver: NSObjectProtocol?
     private static let breathingAnimationKey = "taskBadgeBreathing"
-    private let fiveHourRow = TouchBarLimitRow(title: "5h")
-    private let weeklyRow = TouchBarLimitRow(title: "Week")
+    private let fiveHourRow = TouchBarLimitRow(title: DisplayLanguage.text("5 小时", "5h"))
+    private let weeklyRow = TouchBarLimitRow(title: DisplayLanguage.text("周限额", "Week"))
     private let creditBalanceRow = TouchBarCreditBalanceRow()
 
     init() {
@@ -91,6 +91,7 @@ final class TouchBarRateLimitsView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
+        refreshLanguageWidths()
         let taskStatus = state.displayedTaskStatus
         taskBadge.isHidden = taskStatus == nil
         taskBadge.stringValue = taskStatus?.badge ?? ""
@@ -109,22 +110,22 @@ final class TouchBarRateLimitsView: NSView {
             fiveHourRow.isHidden = false
             hasLeadingLimitRow = true
             fiveHourRow.updateLimit(
-                title: "5h",
+                title: DisplayLanguage.text("5 小时", "5h"),
                 meter: fiveHour,
-                usageText: state.tokenUsage?.yesterdayText ?? "Yday --"
+                usageText: state.tokenUsage?.yesterdayText ?? DisplayLanguage.text("昨日 --", "Yday --")
             )
         } else if let resetCredits = state.resetCredits, resetCredits.availableCount > 0 {
             fiveHourRow.isHidden = false
             hasLeadingLimitRow = true
             fiveHourRow.updateResetCredits(
                 resetCredits,
-                usageText: state.tokenUsage?.yesterdayText ?? "Yday --"
+                usageText: state.tokenUsage?.yesterdayText ?? DisplayLanguage.text("昨日 --", "Yday --")
             )
         } else if state.lastUpdated != nil {
             fiveHourRow.isHidden = true
         } else {
             fiveHourRow.isHidden = false
-            fiveHourRow.updatePlaceholder(title: "5h", usageText: "Yday --")
+            fiveHourRow.updatePlaceholder(title: DisplayLanguage.text("5 小时", "5h"), usageText: DisplayLanguage.text("昨日 --", "Yday --"))
         }
 
         creditBalanceRow.isHidden = true
@@ -132,9 +133,9 @@ final class TouchBarRateLimitsView: NSView {
         if let weekly = state.weekly {
             weeklyRow.isHidden = false
             weeklyRow.updateLimit(
-                title: "Week",
+                title: DisplayLanguage.text("周限额", "Week"),
                 meter: weekly,
-                usageText: state.tokenUsage?.cumulativeText ?? "Total --",
+                usageText: state.tokenUsage?.cumulativeText ?? DisplayLanguage.text("累计 --", "Total --"),
                 creditBalanceText: hasLeadingLimitRow ? state.creditBalance?.displayText : nil
             )
 
@@ -150,7 +151,7 @@ final class TouchBarRateLimitsView: NSView {
             }
         } else {
             weeklyRow.isHidden = false
-            weeklyRow.updatePlaceholder(title: "Week", usageText: "Total --")
+            weeklyRow.updatePlaceholder(title: DisplayLanguage.text("周限额", "Week"), usageText: DisplayLanguage.text("累计 --", "Total --"))
         }
         // Optional USD balance shares the second row. Reclaim decorative progress
         // space in both rows while keeping percentages, dates and tokens aligned.
@@ -202,13 +203,13 @@ final class TouchBarRateLimitsView: NSView {
         addSubview(content)
 
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: Self.contentWidth),
+            widthAnchor.languageWidth(english: 460, chinese: 600),
             heightAnchor.constraint(equalToConstant: 30),
             chatGPTIconView.widthAnchor.constraint(equalToConstant: 24),
             chatGPTIconView.heightAnchor.constraint(equalToConstant: 30),
-            fiveHourRow.widthAnchor.constraint(equalToConstant: 434),
-            weeklyRow.widthAnchor.constraint(equalToConstant: 434),
-            creditBalanceRow.widthAnchor.constraint(equalToConstant: 434),
+            fiveHourRow.widthAnchor.languageWidth(english: 434, chinese: 574),
+            weeklyRow.widthAnchor.languageWidth(english: 434, chinese: 574),
+            creditBalanceRow.widthAnchor.languageWidth(english: 434, chinese: 574),
             content.leadingAnchor.constraint(equalTo: leadingAnchor),
             content.trailingAnchor.constraint(equalTo: trailingAnchor),
             content.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -289,7 +290,7 @@ private final class TouchBarLimitRow: NSView {
     private let batteryBar = SegmentedBatteryBar()
     private let creditsIndicatorLabel = NSTextField(labelWithString: "")
     private let remainingLabel = NSTextField(labelWithString: "--")
-    private let resetLabel = NSTextField(labelWithString: "Reset --")
+    private let resetLabel = NSTextField(labelWithString: DisplayLanguage.text("重置 --", "Reset --"))
     private let separatorLabel = NSTextField(labelWithString: "|")
     private let usageLabel = NSTextField(labelWithString: "--")
     private let creditSeparatorLabel = NSTextField(labelWithString: "|")
@@ -316,14 +317,14 @@ private final class TouchBarLimitRow: NSView {
         creditsIndicatorLabel.isHidden = true
         batteryBar.remainingPercent = meter.remainingPercent
         batteryBar.isDimmed = false
-        remainingLabel.stringValue = "\(meter.remainingText)"
+        remainingLabel.stringValue = DisplayLanguage.text("剩余 ", "") + meter.remainingText
         resetLabel.stringValue = meter.resetText
         usageLabel.stringValue = usageText
         updateCreditBalance(creditBalanceText)
     }
 
     func updateResetCredits(_ resetCredits: ResetCreditSummary, usageText: String) {
-        titleLabel.stringValue = "Reset"
+        titleLabel.stringValue = DisplayLanguage.text("重置券", "Reset")
         batteryBar.isHidden = true
         creditsIndicatorLabel.isHidden = false
         creditsIndicatorLabel.stringValue = Self.creditIndicator(count: resetCredits.availableCount)
@@ -339,8 +340,8 @@ private final class TouchBarLimitRow: NSView {
         creditsIndicatorLabel.isHidden = true
         batteryBar.remainingPercent = 0
         batteryBar.isDimmed = true
-        remainingLabel.stringValue = "--"
-        resetLabel.stringValue = "Reset --"
+        remainingLabel.stringValue = DisplayLanguage.text("剩余 --", "--")
+        resetLabel.stringValue = DisplayLanguage.text("重置 --", "Reset --")
         usageLabel.stringValue = usageText
         updateCreditBalance(nil)
     }
@@ -425,7 +426,7 @@ private final class TouchBarLimitRow: NSView {
 
         let preferredProgressWidth = statusContainer.widthAnchor.constraint(equalToConstant: 72)
         preferredProgressWidth.priority = .defaultHigh
-        let preferredResetWidth = resetLabel.widthAnchor.constraint(equalToConstant: 95)
+        let preferredResetWidth = resetLabel.widthAnchor.languageWidth(english: 95, chinese: 145)
         preferredResetWidth.priority = .defaultHigh
 
         NSLayoutConstraint.activate([
@@ -442,11 +443,11 @@ private final class TouchBarLimitRow: NSView {
             creditsIndicatorLabel.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor, constant: 5),
             creditsIndicatorLabel.trailingAnchor.constraint(lessThanOrEqualTo: statusContainer.trailingAnchor),
             creditsIndicatorLabel.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor),
-            remainingLabel.widthAnchor.constraint(equalToConstant: 36),
+            remainingLabel.widthAnchor.languageWidth(english: 36, chinese: 58),
             preferredResetWidth,
             resetLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 80),
             separatorLabel.widthAnchor.constraint(equalToConstant: 12),
-            usageLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 88),
+            usageLabel.widthAnchor.languageWidth(english: 88, chinese: 120, minimum: true),
             row.leadingAnchor.constraint(equalTo: leadingAnchor),
             row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
             row.topAnchor.constraint(equalTo: topAnchor),
@@ -467,5 +468,26 @@ private final class TouchBarLimitRow: NSView {
         creditBalanceLabel.isHidden = !shouldShow
         creditBalanceLabel.stringValue = text?.replacingOccurrences(of: "还剩点数：", with: "") ?? ""
         creditBalanceLabel.toolTip = text
+    }
+}
+
+private extension NSLayoutDimension {
+    func languageWidth(english: CGFloat, chinese: CGFloat, minimum: Bool = false) -> NSLayoutConstraint {
+        let value = DisplayLanguage.current == .english ? english : chinese
+        let constraint = minimum ? constraint(greaterThanOrEqualToConstant: value) : constraint(equalToConstant: value)
+        constraint.identifier = "languageWidth:\(english):\(chinese)"
+        return constraint
+    }
+}
+
+private extension NSView {
+    func refreshLanguageWidths() {
+        for constraint in constraints {
+            guard let id = constraint.identifier, id.hasPrefix("languageWidth:") else { continue }
+            let parts = id.split(separator: ":")
+            let index = DisplayLanguage.current == .english ? 1 : 2
+            if let value = Double(parts[index]) { constraint.constant = CGFloat(value) }
+        }
+        subviews.forEach { $0.refreshLanguageWidths() }
     }
 }

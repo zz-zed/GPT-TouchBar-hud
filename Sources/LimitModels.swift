@@ -1,5 +1,17 @@
 import Foundation
 
+enum DisplayLanguage: String, CaseIterable {
+    case chinese = "zh", english = "en"
+    static var defaults = UserDefaults.standard
+    static var current: DisplayLanguage {
+        get { DisplayLanguage(rawValue: defaults.string(forKey: "displayLanguage") ?? "zh") ?? .chinese }
+        set { defaults.set(newValue.rawValue, forKey: "displayLanguage") }
+    }
+    static func text(_ chinese: String, _ english: String) -> String {
+        current == .chinese ? chinese : english
+    }
+}
+
 struct GetAccountRateLimitsResponse: Codable {
     let rateLimits: RateLimitSnapshot
     let rateLimitsByLimitId: [String: RateLimitSnapshot]?
@@ -50,16 +62,16 @@ struct LimitMeter: Equatable {
 
     var resetText: String {
         guard let resetDate else {
-            return "Reset --"
+            return DisplayLanguage.text("重置 --", "Reset --")
         }
 
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.timeZone = .current
 
-        formatter.dateFormat = "MM/dd HH:mm"
+        formatter.dateFormat = DisplayLanguage.text("MM月dd日 HH:mm", "MM/dd HH:mm")
 
-        return "\(formatter.string(from: resetDate))"
+        return formatter.string(from: resetDate) + DisplayLanguage.text(" 重置", "")
     }
 
     init(title: String, shortTitle: String, window: RateLimitWindow) {
@@ -136,9 +148,9 @@ struct TaskStatusSummary: Equatable {
     }
 
     var label: String {
-        if runningCount > 0 { return "Run \(runningCount)" }
-        if recentlyCompletedCount > 0 { return "Done" }
-        return isIdle ? "Idle" : "Unknown"
+        if runningCount > 0 { return DisplayLanguage.text("执行中 \(runningCount)", "Run \(runningCount)") }
+        if recentlyCompletedCount > 0 { return DisplayLanguage.text("本轮完成", "Done") }
+        return isIdle ? DisplayLanguage.text("空闲", "Idle") : DisplayLanguage.text("状态未知", "Unknown")
     }
 
     var badge: String {
@@ -186,23 +198,23 @@ struct ResetCreditSummary: Equatable {
     let earliestExpirationDate: Date?
 
     var compactText: String {
-        "Reset \(availableCount)"
+        DisplayLanguage.text("重置 \(availableCount)次", "Reset \(availableCount)")
     }
 
     var availableText: String {
-        "\(availableCount) left"
+        DisplayLanguage.text("可用 \(availableCount) 次", "\(availableCount) left")
     }
 
     var expirationText: String {
         guard let earliestExpirationDate else {
-            return "Exp --"
+            return DisplayLanguage.text("到期 --", "Exp --")
         }
 
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.timeZone = .current
-        formatter.dateFormat = "MM/dd HH:mm"
-        return "\(formatter.string(from: earliestExpirationDate))"
+        formatter.dateFormat = DisplayLanguage.text("MM月dd日 HH:mm", "MM/dd HH:mm")
+        return formatter.string(from: earliestExpirationDate) + DisplayLanguage.text(" 到期", "")
     }
 
     init(response: RateLimitResetCreditsResponse) {
@@ -228,11 +240,11 @@ struct TokenUsageSummary: Equatable {
     var updatedAt: Date? = nil
 
     var yesterdayText: String {
-        "Yday \(yesterdayTokens.map(Self.formatCompactTokens) ?? "--")\(isStale && yesterdayTokens != nil ? "*" : "")"
+        DisplayLanguage.text("昨日 ", "Yday ") + (yesterdayTokens.map(Self.formatDaily) ?? "--") + (isStale && yesterdayTokens != nil ? "*" : "")
     }
 
     var cumulativeText: String {
-        "Total \(cumulativeTokens.map(Self.formatCompactTokens) ?? "--")\(isStale && cumulativeTokens != nil ? "*" : "")"
+        DisplayLanguage.text("累计 ", "Total ") + (cumulativeTokens.map { DisplayLanguage.current == .english ? Self.formatCompactTokens($0) : "\(Self.formatted(Double($0) / 100_000_000)) 亿" } ?? "--") + (isStale && cumulativeTokens != nil ? "*" : "")
     }
 
     var toolTip: String {
@@ -242,6 +254,13 @@ struct TokenUsageSummary: Equatable {
         }
         if let status { text += "\n" + status }
         return text
+    }
+
+    private static func formatDaily(_ tokens: Int) -> String {
+        if DisplayLanguage.current == .english { return formatCompactTokens(tokens) }
+        if tokens < 10_000 { return "\(tokens) 个" }
+        if tokens >= 99_999_500 { return "\(formatted(Double(tokens) / 100_000_000)) 亿" }
+        return "\(formatted(Double(tokens) / 10_000)) 万"
     }
 
     private static func formatCompactTokens(_ tokens: Int) -> String {
