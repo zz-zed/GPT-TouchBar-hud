@@ -19,6 +19,14 @@ mkdir -p "$STAGING_DIR" "$DIST_DIR"
 cp -R "$APP_DIR" "$STAGING_DIR/GPT TouchBar HUD.app"
 ln -s /Applications "$STAGING_DIR/Applications"
 
+# Bind the first-open helper to this exact app; keep it outside the signed bundle.
+CDHASH="$(codesign -dvvv "$APP_DIR" 2>&1 | sed -n 's/^CDHash=//p')"
+[[ "$CDHASH" =~ ^[0-9a-f]{40}$ ]] || { echo 'Missing app CDHash' >&2; exit 1; }
+sed "s/__PACKAGED_CDHASH__/$CDHASH/g" "$ROOT_DIR/Resources/first-open.command" > "$STAGING_DIR/首次打开助手.command"
+chmod 755 "$STAGING_DIR/首次打开助手.command"
+cp "$ROOT_DIR/Resources/first-open-guide.txt" "$STAGING_DIR/首次打开说明.txt"
+bash -n "$STAGING_DIR/首次打开助手.command"
+
 rm -f "$DMG_PATH"
 hdiutil create \
     -volname "GPT TouchBar HUD" \

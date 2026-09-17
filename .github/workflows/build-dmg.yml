@@ -93,6 +93,9 @@ jobs:
           mv "$SOURCE_PATH" "$ASSET_PATH"
           echo "dmg=$ASSET_PATH" >> "$GITHUB_OUTPUT"
 
+      - name: Test first-open helper with isolated app copy
+        run: bash scripts/test-first-open.sh
+
       - name: Verify app and DMG
         shell: bash
         run: |

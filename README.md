@@ -92,7 +92,12 @@ account/rateLimits/read  account/usage/read  │
 3. 打开 DMG，把 `GPT TouchBar HUD.app` 拖入 `Applications`。
 4. 先启动并登录 ChatGPT / Codex，再打开 `GPT TouchBar HUD.app`。
 
-当前安装包没有 Apple Developer 证书签名和公证。首次打开若 macOS 提示无法验证开发者，请在 Finder 中右键点击应用，选择“打开”，然后再次确认。不要关闭系统整体安全保护。
+首次打开提示“无法验证开发者”时：
+
+- 双击安装包中的 `首次打开助手.command`，输入 `OPEN`，按回车。
+- 若助手也打不开：先尝试打开应用，再进入 **系统设置 → 隐私与安全性 → 仍要打开**，确认打开。
+
+应用未经 Apple 公证，仅对你信任的安装包操作，无需开启“任何来源”。若提示恶意软件或应用损坏，请停止并重新下载或联系维护者。
 
 ### 3. 首次运行
 
