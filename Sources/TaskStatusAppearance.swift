@@ -20,7 +20,13 @@ enum TaskStatusAppearance: Equatable {
     }
 
     func menuIcon() -> NSImage? {
-        guard let source = NSImage(systemSymbolName: "bolt.horizontal.circle.fill",
+        let symbol: String
+        switch self {
+        case .completed: symbol = "checkmark.circle.fill"
+        case .unknown: symbol = "questionmark.circle.fill"
+        case .idle, .running: symbol = "bolt.horizontal.circle.fill"
+        }
+        guard let source = NSImage(systemSymbolName: symbol,
                                    accessibilityDescription: "GPT TouchBar HUD") else { return nil }
         guard let color else {
             source.isTemplate = true

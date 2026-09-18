@@ -37,7 +37,38 @@ final class CompactHUDPanel: NSPanel {
 
     func orderFrontPinned() {
         positionInitialFrameIfNeeded()
+        recoverPositionIfOffscreen()
         orderFrontRegardless()
+    }
+
+    func recoverPositionIfOffscreen() {
+        guard hasPositionedInitialFrame, !NSScreen.screens.isEmpty else { return }
+        let areas = NSScreen.screens.map { screen -> NSRect in
+            var area = screen.visibleFrame
+            if #available(macOS 12.0, *) {
+                let insets = screen.safeAreaInsets
+                let safe = NSRect(x: screen.frame.minX + insets.left, y: screen.frame.minY + insets.bottom,
+                                  width: screen.frame.width - insets.left - insets.right,
+                                  height: screen.frame.height - insets.top - insets.bottom)
+                area = area.intersection(safe)
+            }
+            return area.insetBy(dx: 8, dy: 8)
+        }
+        let target = areas.max { a, b in
+            let left = a.intersection(frame), right = b.intersection(frame)
+            return (left.isNull ? 0 : left.width * left.height) < (right.isNull ? 0 : right.width * right.height)
+        } ?? areas[0]
+        setFrameOrigin(Self.clampedOrigin(frame: frame, usable: target))
+    }
+
+    static func clampedOrigin(frame: NSRect, usable: NSRect) -> NSPoint {
+        NSPoint(x: min(max(frame.minX, usable.minX), max(usable.minX, usable.maxX - frame.width)),
+                y: min(max(frame.minY, usable.minY), max(usable.minY, usable.maxY - frame.height)))
+    }
+
+    override func sendEvent(_ event: NSEvent) {
+        super.sendEvent(event)
+        if event.type == .leftMouseUp { recoverPositionIfOffscreen() }
     }
 
     private func positionInitialFrameIfNeeded() {
