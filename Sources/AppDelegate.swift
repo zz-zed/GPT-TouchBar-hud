@@ -1,6 +1,6 @@
 import AppKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, RateLimitStoreDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, NSMenuDelegate, RateLimitStoreDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let store = RateLimitStore()
     private let appUpdater = AppUpdater()
@@ -11,6 +11,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         UserDefaults.standard.object(forKey: "taskStatusEnabled") as? Bool ?? true
     }
     private let lifecycleMonitor = HostLifecycleMonitor()
+    private var hudPreferences = HUDPresentationPreferences()
+    private var hudDisplayMode: HUDDisplayMode {
+        get { hudPreferences.mode }
+        set { hudPreferences.mode = newValue; hudPreferences.save() }
+    }
+    private var hudRequestedVisible: Bool {
+        get { hudPreferences.isVisible }
+        set { hudPreferences.isVisible = newValue; hudPreferences.save() }
+    }
+    private var menuDisplayMode = MenuBarDisplayMode.load()
+    private var screenLocked = false
+    private var systemSleeping = false
+    private var sessionInactive = false
+    private var sessionSuspended: Bool { screenLocked || systemSleeping || sessionInactive }
+    private lazy var notchHUD: NotchHUDController = {
+        let controller = NotchHUDController()
+        controller.onRefresh = { [weak self] in self?.refreshQuotaNow() }
+        controller.onSettings = { [weak self] in self?.openPreferences(nil) }
+        controller.onDesktop = { [weak self] in self?.setDisplayMode(.floating) }
+        return controller
+    }()
     private var hudAppearance = HUDAppearance.load()
     private var hudVisibilityMenuItem: NSMenuItem?
     private var persistentTouchBarMenuItem: NSMenuItem?
@@ -46,6 +67,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             self.latestTaskStatus = status
             self.renderDisplayState()
         }
+        NotificationCenter.default.addObserver(self, selector: #selector(screenConfigurationChanged), name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        let workspace = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didWakeNotification] {
+            workspace.addObserver(self, selector: #selector(spaceOrWakeChanged), name: name, object: nil)
+        }
+        workspace.addObserver(self, selector: #selector(frontApplicationChanged), name: NSWorkspace.didActivateApplicationNotification, object: nil)
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
+            workspace.addObserver(self, selector: #selector(suspendPanels), name: name, object: nil)
+        }
+        workspace.addObserver(self, selector: #selector(resumePanels), name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(suspendPanels), name: NSNotification.Name("com.apple.screenIsLocked"), object: nil)
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(resumePanels), name: NSNotification.Name("com.apple.screenIsUnlocked"), object: nil)
         configureStatusItem()
         configureLifecycleMonitor()
         HostAutoLauncher.installOrUpdate()
@@ -57,10 +90,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             hostDidStart()
         } else {
             updateStatusTitle(with: .initial)
+            if hudRequestedVisible { presentSelectedHUD() }
         }
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openPreferences(nil)
+        return false
+    }
+
+    @objc private func screenConfigurationChanged() {
+        notchHUD.collapse()
+        if hudRequestedVisible && !sessionSuspended { presentSelectedHUD() }
+        renderDisplayState()
+    }
+
+    @objc private func frontApplicationChanged() { notchHUD.collapse() }
+    @objc private func spaceOrWakeChanged(_ notification: Notification) {
+        if notification.name == NSWorkspace.didWakeNotification { systemSleeping = false }
+        screenConfigurationChanged()
+    }
+    @objc private func suspendPanels(_ notification: Notification) {
+        if notification.name.rawValue == "com.apple.screenIsLocked" { screenLocked = true }
+        if notification.name == NSWorkspace.willSleepNotification { systemSleeping = true }
+        if notification.name == NSWorkspace.sessionDidResignActiveNotification { sessionInactive = true }
+        notchHUD.hide()
+        hudWindow.orderOut(nil)
+        renderDisplayState()
+    }
+    @objc private func resumePanels(_ notification: Notification) {
+        if notification.name.rawValue == "com.apple.screenIsUnlocked" { screenLocked = false }
+        if notification.name == NSWorkspace.sessionDidBecomeActiveNotification { sessionInactive = false }
+        screenConfigurationChanged()
+    }
+    func menuWillOpen(_ menu: NSMenu) { notchHUD.collapse() }
+
     func applicationWillTerminate(_ notification: Notification) {
+        notchHUD.hide()
         taskMonitor.stop()
         persistentTouchBar.stop()
         lifecycleMonitor.stop()
@@ -77,6 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         state.taskStatus = taskStatusEnabled ? latestTaskStatus : nil
         updateStatusTitle(with: state)
         hudController.update(with: state)
+        notchHUD.update(state)
         persistentTouchBar.update(with: state)
         summaryMenuItem?.view = StatusSummaryView(state: state)
         preferences?.update(appearance: hudAppearance, state: state, taskEnabled: taskStatusEnabled, persistentEnabled: persistentTouchBar.isEnabled, persistentAvailable: persistentTouchBar.isAvailable)
@@ -105,6 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func makeStatusMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.delegate = self
         let summary = NSMenuItem()
         var state = latestQuotaState
         state.taskStatus = taskStatusEnabled ? latestTaskStatus : nil
@@ -116,6 +184,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         let visibility = menuAction("显示浮窗", #selector(toggleHUDWindow(_:)))
         hudVisibilityMenuItem = visibility
         menu.addItem(visibility)
+        menu.addItem(menuAction("收起详情", #selector(collapseNotch(_:))))
+        let forms = NSMenuItem(title: "显示形式", action: nil, keyEquivalent: "")
+        forms.submenu = NSMenu()
+        for (index, mode) in HUDDisplayMode.allCases.enumerated() {
+            let item = menuAction(mode.title, #selector(selectDisplayMode(_:)))
+            item.tag = index
+            forms.submenu?.addItem(item)
+        }
+        menu.addItem(forms)
+        let menuModes = NSMenuItem(title: "菜单栏内容", action: nil, keyEquivalent: "")
+        menuModes.submenu = NSMenu()
+        for (index, mode) in MenuBarDisplayMode.allCases.enumerated() {
+            let item = menuAction(mode.title, #selector(selectMenuMode(_:)))
+            item.tag = index
+            menuModes.submenu?.addItem(item)
+        }
+        menu.addItem(menuModes)
         let persistent = makePersistentTouchBarMenuItem()
         persistentTouchBarMenuItem = persistent
         menu.addItem(persistent)
@@ -142,6 +227,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             controller.onAppearance = { [weak self] appearance in
                 self?.hudAppearance = appearance
                 self?.applyHUDAppearance()
+            }
+            controller.onDisplayMode = { [weak self] mode in self?.setDisplayMode(mode) }
+            controller.onMenuMode = { [weak self] mode in self?.setMenuMode(mode) }
+            controller.onVisibility = { [weak self] visible in
+                if visible { self?.showHUDWindow() } else { self?.closeHUD() }
             }
             controller.onLanguage = { [weak self] language in
                 DisplayLanguage.current = language
@@ -179,6 +269,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(selectDisplayMode(_:)) {
+            menuItem.state = HUDDisplayMode.allCases[menuItem.tag] == hudDisplayMode ? .on : .off
+        }
+        if menuItem.action == #selector(selectMenuMode(_:)) {
+            menuItem.state = MenuBarDisplayMode.allCases[menuItem.tag] == menuDisplayMode ? .on : .off
+        }
+        if menuItem.action == #selector(collapseNotch(_:)) { return notchHUD.isExpanded }
         if menuItem.action == #selector(refreshQuotaFromMenu(_:)) {
             menuItem.title = latestQuotaState.isRefreshing ? "正在刷新…" : "刷新额度"
             return !latestQuotaState.isRefreshing
@@ -260,11 +357,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             button.toolTip = (button.toolTip ?? AppIdentity.productName) + "\n" + task.label + "\n" + task.detail
         }
         button.setAccessibilityLabel(AppIdentity.productName + (task.map { " · " + $0.label } ?? ""))
+        let presentation = MenuBarPresentation(state: state, mode: menuDisplayMode, panelVisible: notchHUD.isVisible || hudWindow.isVisible)
+        button.title = presentation.title
+        if presentation.title.isEmpty {
+            statusItem.length = NSStatusItem.squareLength
+        } else {
+            let textWidth = (presentation.reservedTitle as NSString).size(withAttributes: [.font: button.font ?? NSFont.systemFont(ofSize: 12)]).width
+            statusItem.length = ceil(textWidth) + 36
+        }
     }
 
+    private func setDisplayMode(_ mode: HUDDisplayMode) {
+        hudDisplayMode = mode
+        notchHUD.collapse()
+        if hudRequestedVisible && !sessionSuspended { presentSelectedHUD() }
+        renderDisplayState()
+    }
+    private func setMenuMode(_ mode: MenuBarDisplayMode) {
+        menuDisplayMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: MenuBarDisplayMode.defaultsKey)
+        renderDisplayState()
+    }
+    @objc private func selectDisplayMode(_ sender: NSMenuItem) { setDisplayMode(HUDDisplayMode.allCases[sender.tag]) }
+    @objc private func selectMenuMode(_ sender: NSMenuItem) { setMenuMode(MenuBarDisplayMode.allCases[sender.tag]) }
+    @objc private func collapseNotch(_ sender: AnyObject?) { notchHUD.collapse() }
+
     @objc private func toggleHUDWindow(_ sender: AnyObject?) {
-        if hudWindow.isVisible {
-            hudWindow.orderOut(sender)
+        if hudRequestedVisible {
+            closeHUD()
         } else {
             showHUDWindow()
         }
@@ -272,8 +392,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func showHUDWindow() {
-        hudWindow.orderFrontPinned()
-        hudController.activateTouchBar()
+        hudRequestedVisible = true
+        if !sessionSuspended { presentSelectedHUD() }
+        renderDisplayState()
+    }
+
+    private func presentSelectedHUD() {
+        let geometry = NotchHUDGeometry.current()
+        if hudPreferences.usesNotch(hasGeometry: geometry != nil) && notchHUD.show(in: geometry) {
+            hudWindow.orderOut(nil)
+        } else {
+            notchHUD.hide()
+            hudWindow.orderFrontPinned()
+            hudWindow.recoverPositionIfOffscreen()
+        }
         updateMenuState()
     }
 
@@ -282,12 +414,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         NSApp.setActivationPolicy(.accessory)
         persistentTouchBar.start()
         store.start()
-        // Startup is menu/Touch Bar only; showing the HUD is an explicit menu action.
-        hudWindow.orderOut(nil)
+        if hudRequestedVisible && !sessionSuspended {
+            presentSelectedHUD()
+        } else {
+            hudWindow.orderOut(nil)
+        }
         updateMenuState()
+        renderDisplayState()
     }
 
     private func hostDidStop() {
+        notchHUD.hide()
         taskMonitor.stop()
         persistentTouchBar.stop()
         hudWindow.orderOut(nil)
@@ -307,8 +444,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func closeHUD() {
+        hudRequestedVisible = false
+        notchHUD.hide()
         hudWindow.orderOut(nil)
         updateMenuState()
+        renderDisplayState()
     }
 
     @objc private func refreshQuotaFromMenu(_ sender: AnyObject?) {
@@ -331,11 +471,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func updateMenuState() {
         persistentTouchBarMenuItem?.state = persistentTouchBar.usesSystemPresentation ? .on : .off
-        hudVisibilityMenuItem?.title = hudWindow.isVisible ? "隐藏浮窗" : "显示浮窗"
+        hudVisibilityMenuItem?.title = hudRequestedVisible ? "隐藏状态面板" : "显示状态面板"
 
     }
 
     private func quitApp() {
+        notchHUD.hide()
         HostAutoLauncher.markManualQuit()
         persistentTouchBar.stop()
         hudWindow.orderOut(nil)

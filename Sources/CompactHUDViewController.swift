@@ -286,6 +286,7 @@ final class CompactQuotaHUDView: NSView {
         var origin = window.frame.origin
         origin.x = previousMidX - window.frame.width / 2
         window.setFrameOrigin(origin)
+        (window as? CompactHUDPanel)?.recoverPositionIfOffscreen()
     }
 
     @objc private func refreshClicked() {
