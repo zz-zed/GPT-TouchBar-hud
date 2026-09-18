@@ -102,9 +102,15 @@ final class NotchHUDView: NSView {
     }
     var preferredHeight: CGFloat {
         guard expanded else { return 30 }
-        return 30 + 34 + (state.errorMessage == nil ? 0 : 25)
-            + (rows.isEmpty ? 38 : rows.reduce(CGFloat(0)) { $0 + ($1.percent == nil ? 57 : 67) })
-            + (state.tokenUsage == nil ? 0 : 27) + (state.creditBalance == nil ? 0 : 23) + 46
+        let headerHeight: CGFloat = 30 + 34
+        let errorHeight: CGFloat = state.errorMessage == nil ? 0 : 25
+        let metricsHeight: CGFloat = rows.isEmpty
+            ? 38
+            : rows.reduce(CGFloat(0)) { result, row in result + (row.percent == nil ? 57 : 67) }
+        let tokenHeight: CGFloat = state.tokenUsage == nil ? 0 : 27
+        let balanceHeight: CGFloat = state.creditBalance == nil ? 0 : 23
+        let actionsHeight: CGFloat = 46
+        return headerHeight + errorHeight + metricsHeight + tokenHeight + balanceHeight + actionsHeight
     }
     func update(_ state: RateLimitDisplayState, expanded: Bool) {
         self.state = state
