@@ -80,6 +80,9 @@ jobs:
       - name: Test update policy and installer guards
         run: bash scripts/test-app-update.sh
 
+      - name: Test notch HUD geometry, layout, and menu presentation
+        run: bash scripts/test-notch-hud.sh
+
       - name: Build and package DMG
         id: package
         shell: bash
