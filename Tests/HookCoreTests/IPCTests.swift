@@ -33,13 +33,23 @@ struct IPCTests {
         let fd = try connect(receiver.socketURL); defer { close(fd) }
         let data = Data(repeating: 120, count: 4097)
         _ = data.withUnsafeBytes { Darwin.write(fd, $0.baseAddress!, $0.count) }
-        usleep(30_000)
-        queue.sync { #expect(gaps.contains(.protocolError)) }
+        try #require(waitUntil { queue.sync { gaps.contains(.protocolError) && receiver.connectionCount == 0 } })
         var clients: [Int32] = []
         defer { clients.forEach { close($0) } }
-        for _ in 0..<18 { clients.append(try connect(receiver.socketURL)) }
-        usleep(30_000)
-        queue.sync { #expect(receiver.connectionCount <= 16); #expect(gaps.contains(.capacity)) }
+        // Fill accepted application slots, not the kernel's pending-connect backlog.
+        // A burst of 18 connects can be refused by listen(16) before the receiver
+        // gets scheduled, without exercising its capacity rejection at all.
+        for expectedCount in 1...HookBudget.connections {
+            clients.append(try connect(receiver.socketURL))
+            try #require(waitUntil { queue.sync { receiver.connectionCount == expectedCount } })
+        }
+        queue.sync {
+            #expect(receiver.connectionCount == HookBudget.connections)
+            #expect(!gaps.contains(.disconnected))
+        }
+        clients.append(try connect(receiver.socketURL))
+        try #require(waitUntil { queue.sync { gaps.contains(.capacity) } })
+        queue.sync { #expect(receiver.connectionCount <= HookBudget.connections); #expect(gaps.contains(.capacity)) }
     }
     @Test func emitterDeadlineWithUnresponsivePeer() throws {
         let f = try Fixture(); let url = f.ipc.appendingPathComponent("events.sock")
@@ -57,15 +67,30 @@ struct IPCTests {
         try HookPaths.atomicWrite(Data(), to: f.ipc.appendingPathComponent("events.sock"))
         #expect(!HookEmitter.send(HookEvent(kind: .stop, session: "s", turn: "t"), socketURL: f.ipc.appendingPathComponent("events.sock")))
     }
+    private func waitUntil(_ condition: () -> Bool) -> Bool {
+        let deadline = ProcessInfo.processInfo.systemUptime + 1
+        repeat {
+            if condition() { return true }
+            usleep(1_000)
+        } while ProcessInfo.processInfo.systemUptime < deadline
+        return condition()
+    }
+    private struct SocketFailure: Error, CustomStringConvertible {
+        let operation: String
+        let code: Int32
+        var description: String { "\(operation) failed: errno=\(code) (\(String(cString: strerror(code))))" }
+    }
     private func bind(_ fd: Int32, _ url: URL) throws {
         var address = try address(url)
         let result = withUnsafePointer(to: &address) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
-        guard result == 0 else { throw HookFailure.io }
+        guard result == 0 else { throw SocketFailure(operation: "bind", code: errno) }
     }
     private func connect(_ url: URL) throws -> Int32 {
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0); var address = try address(url)
+        var address = try address(url)
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { throw SocketFailure(operation: "socket", code: errno) }
         let result = withUnsafePointer(to: &address) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
-        guard result == 0 else { close(fd); throw HookFailure.io }; return fd
+        guard result == 0 else { let code = errno; close(fd); throw SocketFailure(operation: "connect", code: code) }; return fd
     }
     private func address(_ url: URL) throws -> sockaddr_un {
         var address = sockaddr_un(); address.sun_family = sa_family_t(AF_UNIX); address.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
