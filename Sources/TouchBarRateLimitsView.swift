@@ -98,8 +98,9 @@ final class TouchBarRateLimitsView: NSView {
         let status = state.displayedTaskStatus
         taskBadge.stringValue = status?.badge ?? ""
         taskBadge.isHidden = status == nil
+        taskBadge.frame.size.width = max(20, ceil(taskBadge.fittingSize.width))
         taskBadge.backgroundColor = TaskStatusAppearance(status).color ?? .clear
-        hasRunningTasks = (status?.runningCount ?? 0) > 0
+        hasRunningTasks = status?.hasRunningTasks ?? false
         chatGPTIconView.setAccessibilityLabel(status?.label ?? "ChatGPT")
         chatGPTIconView.toolTip = status?.detail ?? "ChatGPT"
         updateTaskAnimation()
@@ -148,7 +149,7 @@ final class TouchBarRateLimitsView: NSView {
         let valueWidth = ceil(visible.map { $0.value.fittingSize.width }.max() ?? 0)
         let dateWidth = ceil(visible.map { $0.date.fittingSize.width }.max() ?? 0)
         let rowWidth = titleWidth + DesignTokens.progressWidth + valueWidth + dateWidth + DesignTokens.spacing * 3
-        let rowX: CGFloat = 30
+        let rowX: CGFloat = taskBadge.isHidden ? 30 : max(30, taskBadge.frame.maxX + 6)
         for (index, row) in rowViews.enumerated() where !row.isHidden {
             row.frame = NSRect(x: rowX, y: visible.count == 1 ? 8 : (index == 0 ? 16 : 2), width: rowWidth, height: 13)
             row.arrange(titleWidth: titleWidth, valueWidth: valueWidth, dateWidth: dateWidth)
@@ -188,7 +189,8 @@ final class TouchBarRateLimitsView: NSView {
         taskBadge.layer?.cornerRadius = 4
         taskBadge.layer?.masksToBounds = true
         taskBadge.frame = NSRect(x: 4, y: 0, width: 20, height: 11)
-        chatGPTIconView.addSubview(taskBadge)
+        taskBadge.setAccessibilityIdentifier("touchbar.task-badge")
+        addSubview(taskBadge)
         rowViews.forEach { addSubview($0) }
         usageLabels.forEach { addSubview($0) }
         addSubview(balanceTitle)

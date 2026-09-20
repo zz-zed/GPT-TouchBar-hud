@@ -52,7 +52,7 @@ enum NotchHUDTests {
                 let left = NSRect(x: origin.x, y: frame.maxY - inset, width: 666, height: inset)
                 let right = NSRect(x: origin.x + 846, y: frame.maxY - inset, width: 666, height: inset)
                 let geometry = NotchHUDGeometry(screen: frame, topInset: inset, leftArea: left, rightArea: right)!
-                for (width, height): (CGFloat, CGFloat) in [(180, 30), (260, 30), (380, 310)] {
+                for (width, height): (CGFloat, CGFloat) in [(180, 24), (260, 24), (340, 221)] {
                     let panel = geometry.frame(width: width, height: height)
                     check(panel.maxY == frame.maxY - inset, "top anchor below camera")
                     check(panel.midX == origin.x + 756, "stable horizontal center")
@@ -68,7 +68,45 @@ enum NotchHUDTests {
         let clamped = CompactHUDPanel.clampedOrigin(frame: NSRect(x: -30, y: 920, width: 300, height: 40), usable: usable)
         check(usable.contains(NSRect(origin: clamped, size: NSSize(width: 300, height: 40))), "desktop growth clamped inside secondary screen")
 
+        var resolver = DisplayTargetResolver()
+        let a = DisplayTargetResolver.Candidate(id: 1, geometry: sample)
+        let b = DisplayTargetResolver.Candidate(id: 2, geometry: sample)
+        check(resolver.resolve([a, b]) != nil && resolver.selectedID == 1, "select valid notch")
+        _ = resolver.resolve([b, a])
+        check(resolver.selectedID == 1, "main-screen reorder does not move HUD")
+        _ = resolver.resolve([b])
+        check(resolver.selectedID == 2, "removed screen reselects")
+        check(resolver.resolve([]) == nil && resolver.selectedID == nil, "no valid notch falls back")
+        for requested in [false, true] {
+            for active in [false, true] {
+                for unoccluded in [false, true] {
+                    check(NotchVisibility(requested: requested, onActiveSpace: active, unoccluded: unoccluded).isVisible == (requested && active && unoccluded), "actual visibility requires intent, active Space and occlusion")
+                }
+            }
+        }
+        check(NotchTaskPresentation(nil, enabled: false).badge.isEmpty, "disabled tasks are omitted")
+        check(NotchTaskPresentation(nil).badge == "—", "missing snapshot unknown")
+        check(NotchTaskPresentation(TaskStatusSummary()).badge == "0", "explicit legacy local idle distinct from unavailable")
+        check(NotchTaskPresentation(TaskStatusSummary(runningCount: 12)).badge == "12", "full task count")
+        check(NotchTaskPresentation(TaskStatusSummary(runningCount: 2, recentlyCompletedCount: 1, unknownCount: 1)).badge == "2 ? ✓", "partial completion retains running and unknown")
+        check(NotchTaskPresentation(TaskStatusSummary(recentlyCompletedCount: 1, unknownCount: 1)).badge == "?", "uncertainty prevents overall success")
+        // The pure geometry cases above deliberately include off-screen coordinates.
+        // Native button/occlusion checks must place their panel on the runner's real
+        // desktop: the fixed 1512x982 fixture can sit above a smaller CI display.
+        guard let testScreen = NSScreen.main ?? NSScreen.screens.first else {
+            preconditionFailure("native window checks require a desktop screen")
+        }
+        let testFrame = testScreen.frame
+        let testInset = max(CGFloat(32), testFrame.maxY - testScreen.visibleFrame.maxY)
+        let auxiliaryWidth = (testFrame.width - 180) / 2
+        sample = NotchHUDGeometry(screen: testFrame, topInset: testInset,
+            leftArea: NSRect(x: testFrame.minX, y: testFrame.maxY - testInset, width: auxiliaryWidth, height: testInset),
+            rightArea: NSRect(x: testFrame.midX + 90, y: testFrame.maxY - testInset, width: auxiliaryWidth, height: testInset))!
+        check(testFrame.contains(sample.frame(width: 340, height: 227)), "native fixture is inside the actual desktop")
+        print("Native fixture: screen=\(testFrame), visibleFrame=\(testScreen.visibleFrame), anchor=\(sample.anchor)")
+        fflush(stdout)
         let controller = NotchHUDController()
+        controller.animationsEnabled = false
         check(controller.show(in: sample), "show notch")
         let panel = controller.panel
         check(!panel.canBecomeKey && !panel.canBecomeMain, "nonactivating")
@@ -108,19 +146,21 @@ enum NotchHUDTests {
                 if state.weekly != nil { check(summary.title.contains("43%"), "weekly visible while collapsed") }
                 if state.fiveHour != nil { check(summary.title.contains("72%"), "5h visible while collapsed") }
                 if index == 1 { check(summary.title.contains("3"), "reset credits visible") }
-                if index == 3 { check(summary.title.contains("--") && !summary.title.contains("0%"), "unknown not zero") }
+                if index == 3 { check(summary.title.contains("—") && !summary.title.contains("0%"), "unknown not zero") }
                 if index == 4 { check(summary.title.contains("!"), "stale marker") }
                 check(summary.frame.width + 1 >= summary.fittingSize.width, "compact text fits")
                 summary.performClick(nil)
-                check(controller.isExpanded && controller.isVisible, "click expands")
+                check(controller.isExpanded && controller.isPresented, "click expands (language=\(language.rawValue), variant=\(index), frame=\(panel.frame), visible=\(controller.isVisible), occlusion=\(panel.occlusionState.rawValue))")
                 check(panel.frame.maxY == top && panel.frame.midX == center, "expanded anchor stable")
                 check(!controller.view.surfacePath().contains(NSPoint(x: 0.1, y: controller.view.bounds.height - 0.1)), "transparent bottom corner")
-                check(controller.view.surfacePath().contains(NSPoint(x: 1, y: 1)), "solid upper attachment")
+                check(controller.view.surfacePath().contains(NSPoint(x: controller.view.bounds.midX, y: 1)), "solid camera attachment")
+                check(!controller.view.surfacePath().contains(NSPoint(x: 0.1, y: 0.1)), "shoulder outside path")
                 for view in descendants(controller.view) where view is NSTextField || view is NSButton {
                     let rect = view.convert(view.bounds, to: controller.view)
                     check(controller.view.bounds.insetBy(dx: -1, dy: -1).contains(rect), "controls inside panel")
-                    if let label = view as? NSTextField {
-                        check(label.frame.width + 1 >= label.fittingSize.width, "text fits: \(label.stringValue)")
+                    if let label = view as? NSTextField, (label.superview === controller.view || label.superview === controller.view.detailContent) {
+                        let measured = (label.stringValue as NSString).boundingRect(with: NSSize(width: max(1, label.frame.width - 4), height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: label.font!])
+                        check(label.frame.height + 1 >= ceil(measured.height), "wrapped text height fits: \(label.stringValue)")
                     }
                 }
                 let menuAuto = MenuBarPresentation(state: state, mode: .automatic, panelVisible: true)
@@ -134,17 +174,156 @@ enum NotchHUDTests {
             }
         }
         DisplayLanguage.current = .chinese
-        let firstTitle = MenuBarPresentation(state: full, mode: .full, panelVisible: false).reservedTitle
-        var hundred = full
-        hundred.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: RateLimitWindow(usedPercent: 0, windowDurationMins: 300, resetsAt: nil))
-        check(MenuBarPresentation(state: hundred, mode: .full, panelVisible: false).reservedTitle == firstTitle, "menu width budget stable at 100%")
         check(!MenuBarPresentation(state: full, mode: .single, panelVisible: false).title.contains("43%"), "single prioritizes actual 5h")
 
+        let nativeStatusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        defer { NSStatusBar.system.removeStatusItem(nativeStatusItem) }
+        let nativeButton = nativeStatusItem.button!
+        nativeButton.image = NSImage(systemSymbolName: "bolt.horizontal.circle.fill", accessibilityDescription: nil)
+        nativeButton.imagePosition = .imageLeft
+        nativeButton.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        func applyToNativeStatusItem(_ presentation: MenuBarPresentation) -> CGFloat {
+            presentation.apply(to: nativeStatusItem)
+            nativeButton.layoutSubtreeIfNeeded()
+            check(nativeStatusItem.length == presentation.statusItemLength, "native status item uses presentation length policy")
+            check(nativeButton.frame.width + 1 >= nativeButton.fittingSize.width, "native status item content fits")
+            return nativeButton.frame.width
+        }
+        func state(remainingPercent: Double, weekly: Bool = false) -> RateLimitDisplayState {
+            var state = RateLimitDisplayState.initial
+            state.fiveHour = LimitMeter(
+                title: "5 小时",
+                shortTitle: "5h",
+                window: RateLimitWindow(usedPercent: 100 - remainingPercent, windowDurationMins: 300, resetsAt: nil)
+            )
+            if weekly {
+                state.weekly = LimitMeter(
+                    title: "周",
+                    shortTitle: "W",
+                    window: RateLimitWindow(usedPercent: 43, windowDurationMins: 10080, resetsAt: nil)
+                )
+            }
+            return state
+        }
+
+        var percentageWidths: [Int: CGFloat] = [:]
+        for percentage in [0, 9, 10, 99, 100] {
+            let presentation = MenuBarPresentation(
+                state: state(remainingPercent: Double(percentage)),
+                mode: .single,
+                panelVisible: false
+            )
+            check(presentation.title == " 5h \(percentage)%", "menu uses actual \(percentage)% content")
+            check(presentation.statusItemLength == NSStatusItem.variableLength, "text uses variable status item length")
+            percentageWidths[percentage] = applyToNativeStatusItem(presentation)
+        }
+        check(percentageWidths[9]! < percentageWidths[10]!, "native width grows from one to two digits")
+        check(percentageWidths[99]! < percentageWidths[100]!, "native width grows from two to three digits")
+
+        for language in DisplayLanguage.allCases {
+            DisplayLanguage.current = language
+            var resetOne = RateLimitDisplayState.initial
+            resetOne.resetCredits = ResetCreditSummary(response: RateLimitResetCreditsResponse(availableCount: 1, credits: nil))
+            var resetMany = RateLimitDisplayState.initial
+            resetMany.resetCredits = ResetCreditSummary(response: RateLimitResetCreditsResponse(availableCount: 12, credits: nil))
+            let one = MenuBarPresentation(state: resetOne, mode: .single, panelVisible: false)
+            let many = MenuBarPresentation(state: resetMany, mode: .single, panelVisible: false)
+            check(one.title.contains("1") && many.title.contains("12"), "\(language.rawValue) reset count uses actual digits")
+            check(applyToNativeStatusItem(one) < applyToNativeStatusItem(many), "\(language.rawValue) reset count changes native width")
+        }
+
+        DisplayLanguage.current = .chinese
+        let single = MenuBarPresentation(state: state(remainingPercent: 9, weekly: true), mode: .single, panelVisible: false)
+        let dual = MenuBarPresentation(state: state(remainingPercent: 9, weekly: true), mode: .full, panelVisible: false)
+        check(!single.title.contains("57%") && dual.title.contains("57%"), "single and full preserve metric selection")
+        check(applyToNativeStatusItem(single) < applyToNativeStatusItem(dual), "dual quota changes native width")
+
+        var failed = state(remainingPercent: 9)
+        failed.errorMessage = "Test connection error"
+        let healthy = MenuBarPresentation(state: state(remainingPercent: 9), mode: .single, panelVisible: false)
+        let errorPresentation = MenuBarPresentation(state: failed, mode: .single, panelVisible: false)
+        let healthyWidth = applyToNativeStatusItem(healthy)
+        let errorWidth = applyToNativeStatusItem(errorPresentation)
+        check(!healthy.title.contains("!") && errorPresentation.title.hasSuffix(" !"), "error marker appears only for actual error")
+        check(healthyWidth < errorWidth, "error appearance changes native width")
+        check(applyToNativeStatusItem(healthy) == healthyWidth, "error recovery restores native width")
+
+        let icon = MenuBarPresentation(state: full, mode: .icon, panelVisible: false)
+        check(icon.title.isEmpty && icon.statusItemLength == NSStatusItem.squareLength, "icon mode uses square status item")
+        check(applyToNativeStatusItem(icon) < applyToNativeStatusItem(dual), "icon and text modes switch native width")
+        check(MenuBarPresentation(state: full, mode: .automatic, panelVisible: true).statusItemLength == NSStatusItem.squareLength, "automatic visible panel uses square status item")
+        check(MenuBarPresentation(state: full, mode: .automatic, panelVisible: false).statusItemLength == NSStatusItem.variableLength, "automatic hidden panel uses variable status item")
+
+        for language in DisplayLanguage.allCases {
+            DisplayLanguage.current = language
+            for count in [0, 2, 12, 100] {
+                for percent in [0.0, 9, 10, 99, 100] {
+                    var state = full
+                    state.taskStatus = TaskStatusSummary(runningCount: count)
+                    state.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: RateLimitWindow(usedPercent: 100 - percent, windowDurationMins: 300, resetsAt: 1800000000))
+                    controller.collapse()
+                    controller.update(state)
+                    check(controller.panel.frame.height == 24, "summary is 24 pt")
+                    check(controller.view.summaryText.hasPrefix(String(count)), "untruncated count")
+                    check(controller.view.compactWidth <= controller.panel.frame.width, "current content fully measured")
+                    check(!controller.isExpanded, "data never opens detail")
+                }
+            }
+        }
+        DisplayLanguage.current = .chinese
         controller.update(full)
-        var refreshed = 0, settingsOpened = 0, desktopSelected = 0
+        let plainWidth = controller.view.compactWidth
+        controller.update(error)
+        check(controller.view.compactWidth > plainWidth, "error width exists only when present")
+        controller.update(weekly)
+        check(controller.view.compactWidth < plainWidth, "absent quota has no reserved column")
+        controller.update(full, taskDisplayEnabled: false)
+        check(!controller.view.summaryText.contains("2" + "  "), "disabled task group omitted")
+        controller.update(full)
+        controller.toggleExpanded()
+        print("Native regular expanded size: \(controller.panel.frame.size)")
+        let regularHeight = controller.view.preferredHeight
+        let titleField = descendants(controller.view).compactMap { $0 as? NSTextField }.first { $0.stringValue == "2 个任务执行中" }!
+        titleField.stringValue = String(repeating: "长任务状态需要换行。", count: 12)
+        check(controller.view.preferredHeight > regularHeight, "long native content grows naturally")
+        controller.update(full)
+        // Extreme content on a narrow synthetic screen must wrap instead of dropping digits.
+        let narrowScreen = NSRect(x: 0, y: 0, width: 400, height: 600)
+        let narrow = NotchHUDGeometry(screen: narrowScreen, topInset: 32,
+            leftArea: NSRect(x: 0, y: 568, width: 130, height: 32),
+            rightArea: NSRect(x: 270, y: 568, width: 130, height: 32))!
+        var extreme = reset
+        extreme.taskStatus = TaskStatusSummary(runningCount: Int.max, recentlyCompletedCount: 1, unknownCount: 1)
+        extreme.resetCredits = ResetCreditSummary(response: RateLimitResetCreditsResponse(availableCount: Int.max, credits: nil))
+        controller.collapse()
+        controller.update(extreme)
+        check(controller.show(in: narrow), "narrow synthetic screen")
+        check(controller.panel.frame.height > 24, "extreme counts gain natural summary height")
+        check(controller.view.summaryText.contains(String(Int.max)), "extreme count never shortened")
+        try snapshot(controller.view, "notch-v2-extreme")
+        controller.toggleExpanded()
+        // Force a long localized explanatory note to exercise native overflow, not a clipped window.
+        let noteField = controller.view.detailContent.subviews.compactMap { $0 as? NSTextField }.first { $0.stringValue.contains("本地监测覆盖不完整") }!
+        noteField.stringValue = String(repeating: "这是一段需要完整阅读的状态说明，不能裁掉底部操作。", count: 70)
+        let overflowHeight = controller.view.preferredHeight(width: narrow.screen.width)
+        let limitedFrame = narrow.frame(width: narrow.screen.width, height: overflowHeight)
+        check(overflowHeight > narrow.anchor.y && limitedFrame.height == narrow.anchor.y, "geometry caps screen-height overflow")
+        controller.panel.setFrame(limitedFrame, display: true)
+        controller.view.needsLayout = true
+        controller.view.layoutSubtreeIfNeeded()
+        check(controller.view.detailScroll.hasVerticalScroller, "screen-height overflow provides scrolling")
+        let hideAction = controller.view.detailContent.subviews.compactMap { $0 as? NSButton }.first { $0.title == "隐藏" }!
+        controller.view.detailContent.scrollToVisible(hideAction.frame)
+        check(controller.view.detailScroll.documentVisibleRect.intersects(hideAction.frame), "bottom action reachable by scroll")
+        controller.collapse()
+        check(controller.show(in: sample), "restore sample geometry")
+        controller.update(full)
+        try snapshot(controller.view, "notch-v2-compact")
+        controller.toggleExpanded()
+        var refreshed = 0, settingsOpened = 0, hideSelected = 0
         controller.onRefresh = { refreshed += 1 }
         controller.onSettings = { settingsOpened += 1 }
-        controller.onDesktop = { desktopSelected += 1 }
+        controller.onHide = { hideSelected += 1; controller.hide() }
         func button(_ title: String) -> NSButton {
             descendants(controller.view).compactMap { $0 as? NSButton }.first { $0.title == title }!
         }
@@ -158,14 +337,46 @@ enum NotchHUDTests {
         button("设置").performClick(nil)
         check(settingsOpened == 1 && !controller.isExpanded, "settings collapses detail")
         controller.toggleExpanded()
-        button("桌面").performClick(nil)
-        check(desktopSelected == 1 && !controller.isExpanded, "desktop action connected")
+        button("隐藏").performClick(nil)
+        check(hideSelected == 1 && !controller.isPresented, "hide action connected")
+        check(controller.show(in: sample), "explicit restore")
         controller.toggleExpanded()
         button("收起").performClick(nil)
-        check(!controller.isExpanded && controller.isVisible, "collapse keeps compact")
+        check(!controller.isExpanded && controller.isPresented, "collapse keeps compact")
         check(!controller.show(in: nil) && !panel.isVisible && !controller.isVisible, "screen loss no orphan panel")
         check(controller.show(in: sample) && !controller.isExpanded, "return collapsed")
         controller.hide()
+        check(!controller.isAnimating, "hide cancels transition")
+        let frontPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        controller.animationsEnabled = true
+        check(controller.show(in: sample), "transition harness show")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        print("Live synthetic panel: requested=\(controller.isPresented), visible=\(controller.isVisible), onSpace=\(panel.isOnActiveSpace), occlusion=\(panel.occlusionState.rawValue)")
+        controller.toggleExpanded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.07))
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            check(controller.isAnimating, "animation is active at intermediate frame")
+            check(panel.frame.height > 24 && panel.frame.height < controller.view.preferredHeight, "intermediate geometry is between endpoints")
+        }
+        print("Intermediate anchor: top=\(panel.frame.maxY), expected=\(sample.anchor.y), center=\(panel.frame.midX), expected=\(sample.anchor.x)")
+        fflush(stdout)
+        check(abs(panel.frame.maxY - sample.anchor.y) < 0.001 && abs(panel.frame.midX - sample.anchor.x) < 0.001, "intermediate frame keeps anchor")
+        let local = NSPoint(x: 0.1, y: 0.1)
+        let screenPoint = panel.convertPoint(toScreen: controller.view.convert(local, to: nil))
+        check(controller.contains(screenPoint) == controller.view.surfacePath().contains(local), "intermediate routing matches visible path")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        check(!controller.isAnimating && controller.isExpanded, "transition completes expanded without standing timer")
+        button("刷新").performClick(nil)
+        check(refreshed == 2, "refresh in expanded nonactivating panel")
+        check(NSWorkspace.shared.frontmostApplication?.processIdentifier == frontPID, "show and expand preserve frontmost PID")
+        controller.environmentChanged()
+        check(!controller.isExpanded, "Space or app change collapses")
+        controller.hide()
+        controller.environmentChanged()
+        check(!controller.isPresented && !controller.isVisible, "environment cannot unhide user-hidden panel")
+        check(panel.collectionBehavior.contains(.fullScreenPrimary) && !panel.collectionBehavior.contains(.fullScreenAuxiliary), "other-app full-screen opt-out")
+
+        try HookPresentationIntegrationChecks.run(geometry: sample)
 
         let prefs = PreferencesWindowController(appearance: HUDAppearance.load())
         prefs.update(appearance: HUDAppearance.load(), state: full, taskEnabled: true, persistentEnabled: false, persistentAvailable: false)
@@ -184,7 +395,27 @@ enum NotchHUDTests {
         general.wantsLayer = true
         general.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         try snapshot(general, "notch-settings-general")
+        let quit = descendants(content).compactMap { $0 as? NSButton }.first { $0.accessibilityIdentifier() == "settings.quit" }!
+        var quitRequested = false
+        prefs.onQuit = { quitRequested = true }
+        quit.performClick(nil)
+        check(quitRequested, "settings provides reachable quit action")
+        check(content.bounds.contains(quit.frame), "quit button inside settings")
+        check(NSApp.activationPolicy() == .accessory, "settings does not change accessory policy")
+        tabs.selectTabViewItem(at: 3)
+        content.layoutSubtreeIfNeeded()
+        let experiments = tabs.selectedTabViewItem!.view!
+        let hookEntry = descendants(experiments).compactMap { $0 as? NSButton }.first { $0.title == "配置 Hooks 实验…" }!
+        var experimentRequested = false
+        prefs.onHookExperiment = { experimentRequested = true }
+        hookEntry.performClick(nil)
+        check(experimentRequested, "experiment entry survives Quit integration")
+        check(experiments.bounds.contains(hookEntry.convert(hookEntry.bounds, to: experiments)), "experiment entry remains in tab")
+        check(content.bounds.contains(quit.frame), "Quit remains reachable with experiment tab")
+        experiments.wantsLayer = true
+        experiments.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        try snapshot(experiments, "integrated-settings-experiment")
         prefs.window!.orderOut(nil)
-        print("PASS: \(checks) notch Ledger checks")
+        print("PASS: \(checks) notch V2 checks")
     }
 }

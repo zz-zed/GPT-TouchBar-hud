@@ -1,8 +1,10 @@
 import AppKit
 
 final class PreferencesWindowController: NSWindowController {
+    var onQuit: (() -> Void)?
     var onAppearance: ((HUDAppearance) -> Void)?
     var onLanguage: ((DisplayLanguage) -> Void)?
+    var onHookExperiment: (() -> Void)?
     var onTaskStatus: ((Bool) -> Void)?
     var onDisplayMode: ((HUDDisplayMode) -> Void)?
     var onMenuMode: ((MenuBarDisplayMode) -> Void)?
@@ -39,7 +41,7 @@ final class PreferencesWindowController: NSWindowController {
     func update(appearance: HUDAppearance, state: RateLimitDisplayState, taskEnabled: Bool, persistentEnabled: Bool, persistentAvailable: Bool) {
         self.appearance = appearance
         displayMode.selectItem(at: HUDDisplayMode.allCases.firstIndex(of: HUDDisplayMode.load()) ?? 0)
-        modeAvailability.stringValue = NotchHUDGeometry.current() == nil ? "当前主显示屏无可用刘海区域，将回退桌面浮窗。" : "刘海下沿显示双额度；点击展开 Ledger 明细。"
+        modeAvailability.stringValue = NotchHUDGeometry.current() == nil ? "当前无可用刘海屏，将回退桌面浮窗。" : "刘海下沿显示任务与额度；点击查看详情。"
         menuMode.selectItem(at: MenuBarDisplayMode.allCases.firstIndex(of: MenuBarDisplayMode.load()) ?? 0)
         visible.state = HUDPresentationPreferences().isVisible ? .on : .off
         color.selectItem(at: HUDAppearance.ColorChoice.allCases.firstIndex(of: appearance.colorChoice) ?? 0)
@@ -79,7 +81,9 @@ final class PreferencesWindowController: NSWindowController {
         let general = column([row("显示模式", [displayMode]), modeAvailability, visible, row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, note("隐藏状态独立保存；自动菜单栏在面板显示时仅保留图标。")])
         let appearancePanel = column([row("浮窗颜色", [color]), row("背景不透明度", [backgroundSlider, backgroundValue]), row("文字不透明度", [foregroundSlider, foregroundValue]), note("数值越高越不透明；修改即时保存，保留已有偏好。")])
         let touch = column([persistent, availability])
-        for (title, view) in [("通用", general), ("外观", appearancePanel), ("Touch Bar", touch)] {
+        let hookButton = NSButton(title: "配置 Hooks 实验…", target: self, action: #selector(openHookExperiment))
+        let experiments = column([note("Hooks 任务监测默认关闭。可审阅配置后启用，随时恢复日志模式。"), hookButton])
+        for (title, view) in [("通用", general), ("外观", appearancePanel), ("Touch Bar", touch), ("实验", experiments)] {
             let item = NSTabViewItem(identifier: title)
             item.label = title
             let host = NSView()
@@ -89,6 +93,11 @@ final class PreferencesWindowController: NSWindowController {
             item.view = host
             tabs.addTabViewItem(item)
         }
+        let quit = NSButton(title: "退出 App", target: self, action: #selector(quitClicked))
+        quit.translatesAutoresizingMaskIntoConstraints = false
+        quit.setAccessibilityIdentifier("settings.quit")
+        content.addSubview(quit)
+        NSLayoutConstraint.activate([quit.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20), quit.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -8)])
         // A preview view is not a HUD window and must never resize this window.
         preview.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(preview)
@@ -98,6 +107,9 @@ final class PreferencesWindowController: NSWindowController {
         content.addSubview(caption)
         NSLayoutConstraint.activate([caption.centerXAnchor.constraint(equalTo: content.centerXAnchor), caption.topAnchor.constraint(equalTo: preview.bottomAnchor, constant: 10)])
     }
+    @objc private func quitClicked() { onQuit?() }
+    @objc private func openHookExperiment() { onHookExperiment?() }
+
     private func row(_ title: String, _ controls: [NSView]) -> NSView {
         let label = NSTextField(labelWithString: title)
         label.widthAnchor.constraint(equalToConstant: 120).isActive = true
