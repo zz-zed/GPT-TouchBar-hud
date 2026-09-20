@@ -1,5 +1,7 @@
 # Reviewed A + B + C integration delivery
 
+> Historical integration acceptance for 0.1.27 / build 28. The original frozen bundle and hashes remain in the worktree below. Subsequent 0.1.28 release preparation is recorded separately in [RELEASE-PREPARATION-0.1.28.md](RELEASE-PREPARATION-0.1.28.md); rebuilding in a different worktree does not refresh these historical hashes.
+
 2026-09-20. Local worktree: `/Users/didi/.codex/worktrees/iteration-integration/TouchBarCodexToken`.
 
 This report describes the integrated candidate. The earlier A+B, B and C reports remain stage-specific evidence; their pending-integration and SwiftPM-only packaging notes do not describe the final bundle below. No original delivery worktree, installed app, real Hook configuration or user preference was changed.

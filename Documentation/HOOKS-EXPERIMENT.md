@@ -1,6 +1,6 @@
 # Default-off native Hooks task monitoring experiment
 
-This is a local implementation for review, based on v0.1.27 / dd274b28. It does not change the product version. The existing log mode remains the default. No user Hook configuration, trust record, installed app, or stable helper is changed by building or testing this repository.
+The native experiment was implemented against v0.1.27 / dd274b28 and integrated into the v0.1.28 release candidate. The existing log mode remains the default. No user Hook configuration, trust record, installed app, or stable helper is changed by building or testing this repository.
 
 ## State and display contract
 
@@ -65,11 +65,11 @@ The shipped products require no Node.js or Python. Python scripts are developmen
 - Current-machine arm64 Mach-O minimum target 11.0 is a build fact only. Actual macOS 11 execution, Intel runtime behavior, notarization and real-host end-to-end trust/execution remain release acceptance work.
 - No baseline-versus-Hooks claim about energy savings, false-positive/negative rate, real unknown proportion or production latency is established by these isolated tests.
 
-## Shared-file integration scope
+## Historical shared-file integration scope
 
 C changes AppDelegate's monitor type, initial unready state, monitor update callback, sleep/wake hooks, host start/stop, display-enable handling and one independent experiment settings controller entry. It does not change window/screen geometry, menu title sizing, visibility preference semantics or Dock behavior. Preferences adds only an Experiments tab/entry. Other shared edits are TaskStatusSummary's optional snapshot and derived display semantics, TaskStatusAppearance's adapter priority, and TouchBarRateLimitsView's hasRunningTasks access.
 
-Integrate A → B → C in the coordinator's isolated integration checkout. Conflicts likely: AppDelegate, PreferencesWindowController, LimitModels and test/build scripts. B's NotchTaskPresentation should consume `summary.activityPresentation` and keep its own geometry untouched. No automatic merge, push, PR, version bump, tag or release is part of this delivery.
+The original delivery instruction was to integrate A → B → C in the coordinator's isolated integration checkout. Conflicts likely: AppDelegate, PreferencesWindowController, LimitModels and test/build scripts. B's NotchTaskPresentation should consume `summary.activityPresentation` and keep its own geometry untouched. That stage authorized no automatic merge, push, PR, version bump, tag or release. Integration is now complete; current release preparation and acceptance limits are recorded in [RELEASE-PREPARATION-0.1.28.md](RELEASE-PREPARATION-0.1.28.md).
 
 ## Sources
 
