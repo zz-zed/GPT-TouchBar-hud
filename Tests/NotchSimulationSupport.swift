@@ -56,6 +56,7 @@ final class NotchSimulationScene: NSView {
 
     func configure(geometry: NotchHUDGeometry, state: RateLimitDisplayState, width: CGFloat? = nil,
                    progress: Double = 0, legacyBelowCamera: Bool = false) {
+        hud.notchWidth = geometry.notchWidth
         hud.update(state, expanded: false)
         let compactWidth = geometry.frame(width: width ?? hud.compactWidth, height: 24).width
         let compact = geometry.frame(width: compactWidth, height: hud.preferredHeight(width: compactWidth))
@@ -64,7 +65,7 @@ final class NotchSimulationScene: NSView {
         let target = geometry.frame(width: expandedWidth, height: hud.preferredHeight(width: expandedWidth))
         let current = geometry.transitionFrame(from: compact, to: target, progress: progress)
         hud.update(state, expanded: progress > 0)
-        hud.notchWidth = geometry.notchWidth
+        hud.expansionProgress = NotchHUDGeometry.transitionFraction(progress)
         hud.cameraEnclosure = legacyBelowCamera ? nil : geometry.enclosure(in: current)
         hud.frame = NSRect(x: current.minX - geometry.screen.minX, y: legacyBelowCamera ? geometry.topInset : 0,
                            width: current.width, height: current.height - (legacyBelowCamera ? geometry.topInset : 0))

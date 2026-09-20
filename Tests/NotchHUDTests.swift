@@ -370,6 +370,16 @@ enum NotchHUDTests {
         check(controller.contains(screenPoint) == controller.view.containsInteraction(local), "intermediate routing matches interaction region")
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         check(!controller.isAnimating && controller.isExpanded, "transition completes expanded without standing timer")
+        controller.collapse()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        let reversingFrame = panel.frame
+        let reversingContour = controller.view.expansionProgress
+        controller.toggleExpanded()
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            check(panel.frame == reversingFrame && controller.view.expansionProgress == reversingContour, "reversing starts from the current window and contour, without a jump")
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        check(controller.view.expansionProgress == 1 && !controller.isAnimating, "reversed contour settles expanded")
         button("刷新").performClick(nil)
         check(refreshed == 2, "refresh in expanded nonactivating panel")
         check(NSWorkspace.shared.frontmostApplication?.processIdentifier == frontPID, "show and expand preserve frontmost PID")
@@ -467,6 +477,13 @@ extension NotchHUDTests {
                             if hud.bounds.width - neckRight > 0.5 {
                                 check(!hud.surfacePath().contains(NSPoint(x: neckRight + 0.25, y: inset + 0.01)), "shoulder starts vertically without a horizontal ledge")
                             }
+                            if progress == 1 && hud.bounds.width - neckRight >= 28 {
+                                let shoulderMiddle = (neckRight + 10 + hud.bounds.width - 18) / 2
+                                check(!hud.surfacePath().contains(NSPoint(x: shoulderMiddle, y: inset + 9.5)), "flat shoulder excludes pixels above its 10 pt level")
+                                check(hud.surfacePath().contains(NSPoint(x: shoulderMiddle, y: inset + 10.5)), "flat shoulder includes pixels below its 10 pt level")
+                                check(!hud.surfacePath().contains(NSPoint(x: hud.bounds.width - 1, y: inset + 12)), "outer shoulder corner stays transparent")
+                                check(hud.surfacePath().contains(NSPoint(x: hud.bounds.width - 1, y: inset + 28)), "outer 18 pt corner joins the side")
+                            }
                             let decoration = NSPoint(x: hud.bounds.midX, y: inset - 1)
                             check(hud.surfacePath().contains(decoration) && !hud.containsInteraction(decoration), "visible decoration is noninteractive")
                             check(hud.hitTest(hud.convert(decoration, to: scene)) == nil, "decoration passes view hit test")
@@ -485,8 +502,27 @@ extension NotchHUDTests {
                     let state = NotchSimulation.state(single: single, long: long)
                     scene.configure(geometry: baseline, state: state)
                     check(scene.hud.compactWidth <= scene.hud.bounds.width, "localized long summary fits")
+                    let summary = scene.hud.subviews.compactMap { $0 as? NSButton }.first!
+                    let summaryY = summary.frame.minY
                     for progress in [0.0, 0.5, 1] {
                         scene.configure(geometry: baseline, state: state, progress: progress)
+                        check(summary.frame.minY == summaryY, "summary text stays anchored while shoulders grow")
+                        let rep = scene.bitmap()
+                        let hud = scene.hud
+                        var inkPixels = 0
+                        // Actual glyph pixels (including the attachment), not button frame bounds.
+                        for x in stride(from: hud.frame.minX + 1, to: hud.frame.maxX - 1, by: 0.5) {
+                            for y in stride(from: baseline.topInset + 1, to: min(hud.bounds.height, baseline.topInset + 44), by: 0.5) {
+                                let color = rep.colorAt(x: Int(x * 2), y: Int(y * 2))!.usingColorSpace(.deviceRGB)!
+                                // White labels, mint quota values, and the blue active-task badge.
+                                let isInk = color.redComponent > 0.35 && color.greenComponent > 0.6 || color.blueComponent > 0.9 && color.greenComponent > 0.5
+                                if isInk {
+                                    inkPixels += 1
+                                    check(hud.surfacePath().contains(NSPoint(x: x - hud.frame.minX + 0.25, y: y + 0.25)), "summary ink remains inside shell across language, width and animation")
+                                }
+                            }
+                        }
+                        check(inkPixels > 50, "glyph containment check actually sampled summary ink")
                         try scene.save("notch-fusion-\(language.rawValue)-\(single ? "single" : "dual")-\(long ? "long" : "normal")-\(progress)")
                     }
                 }
@@ -503,6 +539,7 @@ extension NotchHUDTests {
         for progress in [0.0, 0.15, 0.5, 0.85, 1] {
             let frame = geometry.transitionFrame(from: start, to: target, progress: progress)
             controller.panel.setFrame(frame, display: true)
+            controller.view.expansionProgress = NotchHUDGeometry.transitionFraction(progress)
             controller.view.cameraEnclosure = geometry.enclosure(in: frame)
             controller.view.layoutSubtreeIfNeeded()
             for point in [NSPoint(x: frame.width / 2, y: 1), NSPoint(x: 1, y: 1),
@@ -514,6 +551,23 @@ extension NotchHUDTests {
                 check(controller.panel.ignoresMouseEvents == (!controller.isVisible || !interactive), "window routing matches interaction including top decoration")
             }
             check(frame.maxY == geometry.screen.maxY, "animation remains attached to screen top")
+        }
+        // Very small side clearance must shrink both radii instead of crossing them.
+        let narrowShoulder = NotchHUDView(frame: .zero)
+        for width: CGFloat in [180, 181, 188, 208, 235, 340, 380] {
+            narrowShoulder.frame = NSRect(x: 0, y: 0, width: width, height: 260)
+            narrowShoulder.cameraEnclosure = NSRect(x: (width - 180) / 2, y: 0, width: 180, height: 32)
+            narrowShoulder.expansionProgress = 1
+            let path = narrowShoulder.surfacePath()
+            check(narrowShoulder.bounds.contains(path.bounds), "scaled shoulder cannot extend outside panel")
+            for y in stride(from: CGFloat(32.5), through: 62.5, by: 2) {
+                var entered = false, exited = false
+                for x in stride(from: CGFloat(0.5), to: width, by: 2) {
+                    let inside = path.contains(NSPoint(x: x, y: y))
+                    check(!(inside && exited), "each shoulder row has a single continuous black interval")
+                    if inside { entered = true } else if entered { exited = true }
+                }
+            }
         }
         // Fractional auxiliary boundaries are rounded INWARD, even off-origin.
         let fractional = NotchSimulation.geometry(screen: NSRect(x: -1512.25, y: 280, width: 1512, height: 982), neck: 179.5)

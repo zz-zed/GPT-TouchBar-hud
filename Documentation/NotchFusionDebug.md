@@ -71,3 +71,18 @@ HUD_BUILD_ARCHS='arm64 x86_64' bash scripts/build-app.sh
 - `bash scripts/build-app.sh`：arm64、macOS 11 目标构建及严格签名验证通过；本地 App 位于 `build/GPT TouchBar HUD.app`，未安装或启动。
 - `HUD_BUILD_ARCHS='arm64 x86_64' bash scripts/build-app.sh`：arm64 编译成功，x86_64 链接失败。本机 Swift 6.4 Command Line Tools 的 `libswiftCompatibility56.a` / `libswiftCompatibilityConcurrency.a` 仅包含 arm64/arm64e，缺少 Intel 切片。未更改最低系统版本、构建脚本或发布流水线来绕过；Intel 构建须在具备兼容库的工具链/CI 补验。
 - 无实体刘海验收结论；上述真机项目仍待执行。
+
+## 已确认的圆角肩部修订（2026-09-20）
+
+用户确认交互对照后，原生轮廓改为「10 pt 短凹圆角 → 水平肩线 → 18 pt 外圆角」。收起底角保持 11 pt，随展开变为 18 pt；侧边距不足 28 pt 时按比例缩小转角。中央填缝、顶部不可点击、菜单避让和 24 pt 常规摘要预算继续保留。
+
+轮廓与窗口尺寸使用同一个当前帧进度，并沿用原生 180 ms 无过冲过渡和减少动态效果设置。途中反向从实际窗口尺寸和轮廓进度开始，避免直接跳到另一形态。没有引入额外弹簧依赖。
+
+当摘要实际文字宽度超出中央范围时，额外预留 10 pt 顶部空间，避免字形落入水平肩线之外；该空间在收起、展开均保留，因此展开不改变文字的纵向位置。普通摘要不受影响，极端数字仍按实际宽度换行。
+
+本轮验证：
+
+- `bash scripts/test-notch-hud.sh`：202,761 项检查通过。新增平肩线与外圆角边界、窄侧边距轮廓连续性、真实摘要字形像素覆盖、文字位置稳定及动画反向连续性检查；原有填缝负对照、菜单避让、命中、焦点和布局回归保留。
+- `bash scripts/debug-notch-hud.sh --snapshots`：通过，生成新轮廓的原生模拟截图。
+- `bash scripts/build-app.sh` 与 `codesign --verify --deep --strict 'build/GPT TouchBar HUD.app'`：arm64 macOS 11 目标构建与签名校验通过。Intel 的此前工具链限制未改变，本轮未重复该失败构建。
+- 对照截图：`build/notch-shoulder-before.png`（此前长斜肩）、`build/notch-shoulder-expanded.png`（新轮廓）、`build/notch-shoulder-long-summary.png`（长摘要）。这些均为 synthetic 原生模拟，真机剩余项沿用上文清单。
