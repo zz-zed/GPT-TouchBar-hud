@@ -135,8 +135,11 @@ struct NotchHUDGeometry {
     func enclosure(in frame: NSRect) -> NSRect {
         NSRect(x: cameraEnclosure.minX - frame.minX, y: 0, width: notchWidth, height: topInset)
     }
+    static func transitionFraction(_ progress: Double) -> CGFloat {
+        CGFloat(1 - pow(1 - max(0, min(1, progress)), 3))
+    }
     func transitionFrame(from start: NSRect, to target: NSRect, progress: Double) -> NSRect {
-        let eased = CGFloat(1 - pow(1 - max(0, min(1, progress)), 3))
+        let eased = Self.transitionFraction(progress)
         return frame(width: start.width + (target.width - start.width) * eased,
                      height: start.height + (target.height - start.height) * eased - topInset)
     }

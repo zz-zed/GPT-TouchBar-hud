@@ -63,6 +63,7 @@ final class NotchHUDView: NSView {
     var notchWidth: CGFloat = 0
     var cameraEnclosure: NSRect? { didSet { needsLayout = true; needsDisplay = true } }
     var contentOffset: CGFloat { cameraEnclosure?.height ?? 0 }
+    var expansionProgress: CGFloat = 0 { didSet { needsDisplay = true } }
     var detailsAlpha: CGFloat = 1 { didSet { needsLayout = true; needsDisplay = true } }
     var detailsReady = true { didSet { needsLayout = true } }
     private(set) var summaryText = ""
@@ -140,10 +141,15 @@ final class NotchHUDView: NSView {
     func preferredHeight(width: CGFloat) -> CGFloat {
         expanded ? layoutDetails(width: width, apply: false) : summaryHeight(width: width)
     }
+    // Only exceptionally wide summaries need clearance below the horizontal shoulder.
+    // Reserve it in BOTH states so their text does not jump when expansion begins.
+    private var summaryTopPadding: CGFloat {
+        notchWidth > 0 && compactWidth - 26 + 4 > notchWidth ? 10 : 0
+    }
     private func summaryHeight(width: CGFloat) -> CGFloat {
-        guard compactWidth > width else { return 24 }
+        guard compactWidth > width else { return 24 + summaryTopPadding }
         let rect = strip.attributedTitle.boundingRect(with: NSSize(width: max(1, width - 26), height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading])
-        return max(24, ceil(rect.height) + 6)
+        return max(24, ceil(rect.height) + 6) + summaryTopPadding
     }
     func update(_ state: RateLimitDisplayState, expanded: Bool, taskDisplayEnabled: Bool = true, abbreviateLabels: Bool = false) {
         self.state = state
@@ -283,7 +289,7 @@ final class NotchHUDView: NSView {
         detailContent.subviews.forEach { $0.isHidden = true }
         strip.isHidden = false
         let summary = summaryHeight(width: bounds.width)
-        strip.frame = NSRect(x: 13, y: contentOffset, width: max(0, bounds.width - 26), height: summary)
+        strip.frame = NSRect(x: 13, y: contentOffset + summaryTopPadding, width: max(0, bounds.width - 26), height: summary - summaryTopPadding)
         guard expanded && detailsReady else { return }
         let naturalHeight = layoutDetails(width: bounds.width, apply: true)
         detailScroll.isHidden = false
@@ -299,21 +305,50 @@ final class NotchHUDView: NSView {
         let l = cameraEnclosure?.minX ?? (w - neck) / 2
         let right = cameraEnclosure?.maxX ?? (w + neck) / 2
         let t = contentOffset
-        let shoulder = min(8, max(l, w - right), max(0, (h - t) / 2))
-        let r = min(11, max(0, (h - t) / 2))
+        let q = max(0, min(1, expansionProgress))
+        let k: CGFloat = 0.5522847498 // Cubic approximation of a quarter circle.
+        let r = min(11 + 7 * q, max(0, (h - t) / 2))
+        func blend(_ a: NSPoint, _ b: NSPoint) -> NSPoint {
+            NSPoint(x: a.x + (b.x - a.x) * q, y: a.y + (b.y - a.y) * q)
+        }
+        // At rest the narrow strip keeps its existing shoulder. The first curve
+        // contracts into a local concave corner as the horizontal shoulder appears;
+        // a second curve grows from a point into the outer rounded corner.
+        // Proportional radii keep the path monotonic even with < 28 pt side clearance.
+        func shoulder(edge: CGFloat, neck: CGFloat, outward: CGFloat, reversed: Bool, path: NSBezierPath) {
+            let space = abs(edge - neck)
+            let factor = min(1, space / 28, max(0, h - t - r) / 28)
+            let inner = 10 * factor, outer = 18 * factor
+            let old = min(8, space, max(0, (h - t) / 2))
+            let start = NSPoint(x: neck, y: t)
+            let a = blend(NSPoint(x: neck, y: t + old / 2), NSPoint(x: neck, y: t + k * inner))
+            let b = blend(NSPoint(x: edge, y: t + old / 2), NSPoint(x: neck + outward * inner * (1 - k), y: t + inner))
+            let end = blend(NSPoint(x: edge, y: t + old), NSPoint(x: neck + outward * inner, y: t + inner))
+            let top = blend(NSPoint(x: edge, y: t + old), NSPoint(x: edge - outward * outer, y: t + inner))
+            let c = blend(NSPoint(x: edge, y: t + old), NSPoint(x: edge - outward * outer * (1 - k), y: t + inner))
+            let d = blend(NSPoint(x: edge, y: t + old), NSPoint(x: edge, y: t + inner + outer * (1 - k)))
+            let side = blend(NSPoint(x: edge, y: t + old), NSPoint(x: edge, y: t + inner + outer))
+            if reversed {
+                path.line(to: side)
+                path.curve(to: top, controlPoint1: d, controlPoint2: c)
+                path.line(to: end)
+                path.curve(to: start, controlPoint1: b, controlPoint2: a)
+            } else {
+                path.line(to: start)
+                path.curve(to: end, controlPoint1: a, controlPoint2: b)
+                path.line(to: top)
+                path.curve(to: side, controlPoint1: c, controlPoint2: d)
+            }
+        }
         let path = NSBezierPath()
         path.move(to: NSPoint(x: l, y: 0))
         path.line(to: NSPoint(x: right, y: 0))
-        path.line(to: NSPoint(x: right, y: t))
-        // Vertical tangents at both ends avoid a horizontal ledge at the safe-area edge.
-        // Width beyond the enclosure only emerges BELOW that edge.
-        path.curve(to: NSPoint(x: w, y: t + shoulder), controlPoint1: NSPoint(x: right, y: t + shoulder / 2), controlPoint2: NSPoint(x: w, y: t + shoulder / 2))
+        shoulder(edge: w, neck: right, outward: 1, reversed: false, path: path)
         path.line(to: NSPoint(x: w, y: h - r))
-        path.curve(to: NSPoint(x: w - r, y: h), controlPoint1: NSPoint(x: w, y: h - 3), controlPoint2: NSPoint(x: w - 3, y: h))
+        path.curve(to: NSPoint(x: w - r, y: h), controlPoint1: NSPoint(x: w, y: h - r + k * r), controlPoint2: NSPoint(x: w - r + k * r, y: h))
         path.line(to: NSPoint(x: r, y: h))
-        path.curve(to: NSPoint(x: 0, y: h - r), controlPoint1: NSPoint(x: 3, y: h), controlPoint2: NSPoint(x: 0, y: h - 3))
-        path.line(to: NSPoint(x: 0, y: t + shoulder))
-        path.curve(to: NSPoint(x: l, y: t), controlPoint1: NSPoint(x: 0, y: t + shoulder / 2), controlPoint2: NSPoint(x: l, y: t + shoulder / 2))
+        path.curve(to: NSPoint(x: 0, y: h - r), controlPoint1: NSPoint(x: r - k * r, y: h), controlPoint2: NSPoint(x: 0, y: h - r + k * r))
+        shoulder(edge: 0, neck: l, outward: -1, reversed: true, path: path)
         path.line(to: NSPoint(x: l, y: 0))
         path.close()
         return path
@@ -429,7 +464,8 @@ final class NotchHUDController: NSObject {
         view.detailsReady = true
         view.detailsAlpha = 1
     }
-    private func applyFrame(_ frame: NSRect) {
+    private func applyFrame(_ frame: NSRect, expansionProgress: CGFloat? = nil) {
+        view.expansionProgress = expansionProgress ?? (isExpanded ? 1 : 0)
         view.cameraEnclosure = geometry?.enclosure(in: frame)
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         view.needsLayout = true
@@ -452,6 +488,7 @@ final class NotchHUDController: NSObject {
         guard animated, animationsEnabled, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
               panel.frame.width > 0, panel.frame != target else { applyFrame(target); return }
         let start = panel.frame
+        let startExpansion = view.expansionProgress
         let started = ProcessInfo.processInfo.systemUptime
         let expanding = isExpanded
         view.detailsReady = false
@@ -461,7 +498,8 @@ final class NotchHUDController: NSObject {
             let progress = min(1, elapsed / 0.18)
             self.view.detailsReady = progress == 1
             self.view.detailsAlpha = expanding ? CGFloat(min(1, max(0, (elapsed - 0.18) / 0.10))) : 1
-            self.applyFrame(geometry.transitionFrame(from: start, to: target, progress: progress))
+            self.applyFrame(geometry.transitionFrame(from: start, to: target, progress: progress),
+                            expansionProgress: startExpansion + ((expanding ? 1 : 0) - startExpansion) * NotchHUDGeometry.transitionFraction(progress))
             if elapsed >= (expanding ? 0.28 : 0.18) {
                 self.stopTransition()
                 self.applyFrame(target)
