@@ -90,6 +90,21 @@ enum NotchHUDTests {
         check(NotchTaskPresentation(TaskStatusSummary(runningCount: 12)).badge == "12", "full task count")
         check(NotchTaskPresentation(TaskStatusSummary(runningCount: 2, recentlyCompletedCount: 1, unknownCount: 1)).badge == "2 ? ✓", "partial completion retains running and unknown")
         check(NotchTaskPresentation(TaskStatusSummary(recentlyCompletedCount: 1, unknownCount: 1)).badge == "?", "uncertainty prevents overall success")
+        // The pure geometry cases above deliberately include off-screen coordinates.
+        // Native button/occlusion checks must place their panel on the runner's real
+        // desktop: the fixed 1512x982 fixture can sit above a smaller CI display.
+        guard let testScreen = NSScreen.main ?? NSScreen.screens.first else {
+            preconditionFailure("native window checks require a desktop screen")
+        }
+        let testFrame = testScreen.frame
+        let testInset = max(CGFloat(32), testFrame.maxY - testScreen.visibleFrame.maxY)
+        let auxiliaryWidth = (testFrame.width - 180) / 2
+        sample = NotchHUDGeometry(screen: testFrame, topInset: testInset,
+            leftArea: NSRect(x: testFrame.minX, y: testFrame.maxY - testInset, width: auxiliaryWidth, height: testInset),
+            rightArea: NSRect(x: testFrame.midX + 90, y: testFrame.maxY - testInset, width: auxiliaryWidth, height: testInset))!
+        check(testFrame.contains(sample.frame(width: 340, height: 227)), "native fixture is inside the actual desktop")
+        print("Native fixture: screen=\(testFrame), visibleFrame=\(testScreen.visibleFrame), anchor=\(sample.anchor)")
+        fflush(stdout)
         let controller = NotchHUDController()
         controller.animationsEnabled = false
         check(controller.show(in: sample), "show notch")
@@ -135,7 +150,7 @@ enum NotchHUDTests {
                 if index == 4 { check(summary.title.contains("!"), "stale marker") }
                 check(summary.frame.width + 1 >= summary.fittingSize.width, "compact text fits")
                 summary.performClick(nil)
-                check(controller.isExpanded && controller.isPresented, "click expands")
+                check(controller.isExpanded && controller.isPresented, "click expands (language=\(language.rawValue), variant=\(index), frame=\(panel.frame), visible=\(controller.isVisible), occlusion=\(panel.occlusionState.rawValue))")
                 check(panel.frame.maxY == top && panel.frame.midX == center, "expanded anchor stable")
                 check(!controller.view.surfacePath().contains(NSPoint(x: 0.1, y: controller.view.bounds.height - 0.1)), "transparent bottom corner")
                 check(controller.view.surfacePath().contains(NSPoint(x: controller.view.bounds.midX, y: 1)), "solid camera attachment")
