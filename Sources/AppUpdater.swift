@@ -1,73 +1,283 @@
 import AppKit
 import CryptoKit
 
+final class GitHubReleaseFetcher: AppReleaseFetching {
+    private let session: URLSession
+    private let userAgent: String
+
+    init(session: URLSession, version: String) {
+        self.session = session
+        userAgent = "GPTTouchBarHUD/\(version)"
+    }
+
+    func fetchLatest(completion: @escaping (Result<AppRelease, AppUpdateFetchFailure>) -> Void) {
+        var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(AppRelease.repository)/releases/latest")!)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        session.dataTask(with: request) { [weak self] data, response, error in
+            guard let self else { return }
+            let http = response as? HTTPURLResponse
+            if http?.statusCode == 403 || http?.statusCode == 429 {
+                let retryAfter = self.retryDate(from: http)
+                self.complete(.failure(AppUpdateFetchFailure("GitHub 暂时限制了更新检查，请稍后重试。", retryAfter: retryAfter)), completion)
+                return
+            }
+            if error == nil, http?.statusCode == 200,
+               let data, data.count < 2_000_000,
+               let release = try? JSONDecoder().decode(AppRelease.self, from: data),
+               !release.draft, !release.prerelease {
+                self.complete(.success(release), completion)
+                return
+            }
+            self.fetchReleasePage(completion: completion)
+        }.resume()
+    }
+
+    private func fetchReleasePage(completion: @escaping (Result<AppRelease, AppUpdateFetchFailure>) -> Void) {
+        var request = URLRequest(url: AppRelease.page)
+        request.httpMethod = "HEAD"
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        session.dataTask(with: request) { [weak self] _, response, error in
+            guard let self else { return }
+            let http = response as? HTTPURLResponse
+            if http?.statusCode == 403 || http?.statusCode == 429 {
+                let retryAfter = self.retryDate(from: http)
+                self.complete(.failure(AppUpdateFetchFailure("GitHub 暂时限制了更新检查，请稍后重试。", retryAfter: retryAfter)), completion)
+                return
+            }
+            guard error == nil, http?.statusCode == 200,
+                  let finalURL = response?.url,
+                  let release = AppRelease.fromLatestPageURL(finalURL) else {
+                self.complete(.failure(AppUpdateFetchFailure("GitHub API 和 Release 页面均无法读取。请检查网络或稍后重试；不会安装任何文件。")), completion)
+                return
+            }
+            self.complete(.success(release), completion)
+        }.resume()
+    }
+
+    private func retryDate(from response: HTTPURLResponse?) -> Date? {
+        guard let response else { return nil }
+        if let seconds = response.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init), seconds >= 0 {
+            return Date().addingTimeInterval(seconds)
+        }
+        if let epoch = response.value(forHTTPHeaderField: "X-RateLimit-Reset").flatMap(TimeInterval.init), epoch > 0 {
+            return Date(timeIntervalSince1970: epoch)
+        }
+        return nil
+    }
+
+    private func complete(
+        _ result: Result<AppRelease, AppUpdateFetchFailure>,
+        _ completion: @escaping (Result<AppRelease, AppUpdateFetchFailure>) -> Void
+    ) {
+        DispatchQueue.main.async { completion(result) }
+    }
+}
+
 /// Public GitHub releases only; never sends account credentials or task data.
 final class AppUpdater: NSObject {
-    private var busy = false
-    private let session: URLSession = {
+    private let session: URLSession
+    private let preferences: AppUpdatePreferences
+    private let policy: AppUpdateSchedulePolicy
+    private let now: () -> Date
+    private let automaticChecksAvailable: Bool
+    private let fetcher: AppReleaseFetching
+    private var installationInProgress = false
+    private var started = false
+    private var launchedAt: Date?
+    private var scheduledCheck: DispatchWorkItem?
+    private var latestRelease: AppRelease?
+    private lazy var checker: AppUpdateCheckEngine = {
+        let checker = AppUpdateCheckEngine(fetcher: fetcher, currentVersion: Self.version)
+        checker.onCompletion = { [weak self] outcome, origins in
+            self?.handle(outcome, origins: origins)
+        }
+        return checker
+    }()
+
+    override convenience init() {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 600
-        return URLSession(configuration: configuration)
-    }()
+        let session = URLSession(configuration: configuration)
+        let automaticChecksAvailable = AppUpdateRuntime.allowsAutomaticChecks(
+            bundleURL: Bundle.main.bundleURL,
+            bundleIdentifier: Bundle.main.bundleIdentifier
+        )
+        self.init(
+            session: session,
+            preferences: AppUpdatePreferences(),
+            policy: .standard,
+            now: Date.init,
+            automaticChecksAvailable: automaticChecksAvailable
+        )
+    }
+
+    init(
+        session: URLSession,
+        preferences: AppUpdatePreferences,
+        policy: AppUpdateSchedulePolicy,
+        now: @escaping () -> Date,
+        automaticChecksAvailable: Bool,
+        fetcher: AppReleaseFetching? = nil
+    ) {
+        self.session = session
+        self.preferences = preferences
+        self.policy = policy
+        self.now = now
+        self.automaticChecksAvailable = automaticChecksAvailable
+        self.fetcher = fetcher ?? GitHubReleaseFetcher(session: session, version: Self.version)
+        super.init()
+        reconcilePersistentVersions()
+    }
+
     var onInstall: (() -> Void)?
+    var onStateChange: (() -> Void)?
     static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0" }
     static var versionLabel: String {
         "版本 \(version)（构建 \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")）"
     }
-    var canCheck: Bool { !busy }
-    // Only invoked by the explicit menu action; no launch/timer/background checks.
+    var canCheck: Bool { !installationInProgress }
+    var isChecking: Bool { checker.isChecking }
+    var viewState: AppUpdateViewState {
+        let state = preferences.state
+        return AppUpdateViewState(
+            automaticChecksEnabled: preferences.automaticChecksEnabled,
+            automaticChecksAvailable: automaticChecksAvailable,
+            availableVersion: visibleAvailableVersion(in: state),
+            lastSuccess: state.lastSuccess,
+            isChecking: checker.isChecking,
+            isInstalling: installationInProgress
+        )
+    }
+
+    func startAutomaticChecks() {
+        guard !started else { return }
+        started = true
+        launchedAt = now()
+        scheduleAutomaticCheck()
+        notifyStateChanged()
+    }
+
+    func stop() {
+        scheduledCheck?.cancel()
+        scheduledCheck = nil
+        started = false
+    }
+
+    func didWake() {
+        guard automaticChecksAvailable, preferences.automaticChecksEnabled, !installationInProgress else { return }
+        scheduledCheck?.cancel()
+        scheduledCheck = nil
+        let date = now()
+        let shouldCheck = launchedAt.map {
+            AppUpdateSchedulePlanner(launchedAt: $0, policy: policy)
+                .shouldCheckAfterWake(state: preferences.state, now: date)
+        } ?? true
+        if shouldCheck {
+            request(.automatic)
+        } else {
+            scheduleAutomaticCheck()
+        }
+    }
+
+    func setAutomaticChecksEnabled(_ enabled: Bool) {
+        preferences.automaticChecksEnabled = enabled
+        scheduledCheck?.cancel()
+        scheduledCheck = nil
+        if enabled { scheduleAutomaticCheck() }
+        notifyStateChanged()
+    }
+
     func check() {
-        guard !busy else { return }
-        busy = true
-        var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(AppRelease.repository)/releases/latest")!)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("GPTTouchBarHUD/\(Self.version)", forHTTPHeaderField: "User-Agent")
-        session.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if error == nil, (response as? HTTPURLResponse)?.statusCode == 200,
-                      let data, data.count < 2_000_000,
-                      let release = try? JSONDecoder().decode(AppRelease.self, from: data),
-                      !release.draft, !release.prerelease {
-                    self.handle(release)
-                } else {
-                    self.checkViaReleasePage()
-                }
-            }
-        }.resume()
+        request(.manual)
     }
-    private func checkViaReleasePage() {
-        var request = URLRequest(url: AppRelease.page)
-        request.httpMethod = "HEAD"
-        request.setValue("GPTTouchBarHUD/\(Self.version)", forHTTPHeaderField: "User-Agent")
-        session.dataTask(with: request) { [weak self] _, response, error in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200,
-                      let finalURL = response?.url,
-                      let release = AppRelease.fromLatestPageURL(finalURL) else {
-                    self.busy = false
-                    self.message("无法检查更新", "GitHub API 和 Release 页面均无法读取。请检查网络或稍后重试；不会安装任何文件。")
-                    return
-                }
-                self.handle(release)
-            }
-        }.resume()
-    }
-    private func handle(_ release: AppRelease) {
-        busy = false
-        guard let latest = AppVersion(release.tag_name), let current = AppVersion(Self.version) else {
-            message("无法检查更新", "发布版本格式无效，不会安装任何文件。")
+
+    func presentAvailableUpdate() {
+        if checker.isChecking {
+            request(.manual)
             return
         }
-        guard latest > current else {
-            message("无需更新", "当前版本 \(Self.version)，最新正式版 \(release.tag_name)。")
-            return
+        let expected = viewState.availableVersion
+        if let latestRelease, latestRelease.tag_name == expected {
+            offer(latestRelease)
+        } else {
+            request(.manual)
         }
-        offer(release)
     }
+
+    private func request(_ origin: AppUpdateCheckOrigin) {
+        guard !installationInProgress else { return }
+        let disposition = checker.request(origin)
+        if disposition == .started {
+            var state = preferences.state
+            state.lastAttempt = now()
+            preferences.state = state
+        }
+        notifyStateChanged()
+    }
+
+    private func handle(_ outcome: AppUpdateCheckOutcome, origins: Set<AppUpdateCheckOrigin>) {
+        let date = now()
+        var state = preferences.state
+        switch outcome {
+        case let .failure(error):
+            state = policy.recordingAutomaticFailure(in: state, at: date, serverRetryAfter: error.retryAfter)
+            preferences.state = state
+            notifyStateChanged()
+            scheduleAutomaticCheck()
+            if AppUpdatePresentationPolicy.shouldPresentResult(for: origins) {
+                message("无法检查更新", error.message)
+            }
+        case let .upToDate(release):
+            latestRelease = release
+            state = policy.recordingSuccess(in: state, at: date)
+            state.availableVersion = nil
+            preferences.state = state
+            notifyStateChanged()
+            scheduleAutomaticCheck()
+            if AppUpdatePresentationPolicy.shouldPresentResult(for: origins) {
+                message("无需更新", "当前版本 \(Self.version)，最新正式版 \(release.tag_name)。")
+            }
+        case let .update(release):
+            latestRelease = release
+            state = policy.recordingSuccess(in: state, at: date)
+            state.availableVersion = AppUpdateAvailabilityPolicy.storedVersion(
+                for: release,
+                skippedVersion: state.skippedVersion
+            )
+            preferences.state = state
+            notifyStateChanged()
+            scheduleAutomaticCheck()
+            if AppUpdatePresentationPolicy.shouldPresentResult(for: origins) { offer(release) }
+        }
+    }
+
     private func offer(_ release: AppRelease) {
+        guard !installationInProgress, !checker.isChecking else { return }
+        let alert = NSAlert()
+        if let name = release.name, !name.isEmpty {
+            alert.messageText = name
+        } else {
+            alert.messageText = "发现新版本 \(release.tag_name)"
+        }
+        let notes = release.body?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let notes, !notes.isEmpty {
+            alert.informativeText = String(notes.prefix(1_500))
+        } else {
+            alert.informativeText = "当前版本 \(Self.version)。完整版本说明：\n\(release.releasePageURL.absoluteString)"
+        }
+        alert.addButton(withTitle: "安装并重启")
+        alert.addButton(withTitle: "稍后")
+        alert.addButton(withTitle: "跳过此版本")
+        let response = alert.runModal()
+        if response == .alertThirdButtonReturn {
+            preferences.state = AppUpdateAvailabilityPolicy.skipping(release.tag_name, in: preferences.state)
+            notifyStateChanged()
+            return
+        }
+        guard response == .alertFirstButtonReturn else { return }
+
         #if arch(arm64)
         let architecture = "arm64"
         #else
@@ -86,17 +296,72 @@ final class AppUpdater: NSObject {
             alert.messageText = "发现新版本 \(release.tag_name)"
             alert.informativeText = "开发目录、磁盘映像或不可写目录中的应用不能原地更新。请先安装到 /Applications 或 ~/Applications；本地实验构建不会被覆盖。"
             alert.addButton(withTitle: "打开发布页面"); alert.addButton(withTitle: "取消")
-            if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(AppRelease.page) }
+            if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(release.releasePageURL) }
             return
         }
-        let alert = NSAlert()
-        alert.messageText = "更新到 \(release.tag_name)？"
-        alert.informativeText = "当前版本 \(Self.version)。确认后自动下载、校验并安装，完成后重启额度工具；不会退出 ChatGPT。"
-        alert.addButton(withTitle: "安装并重启"); alert.addButton(withTitle: "稍后")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        busy = true
+        installationInProgress = true
+        scheduledCheck?.cancel()
+        scheduledCheck = nil
+        notifyStateChanged()
         download(asset: asset, checksum: checksum, release: release, target: target)
     }
+
+    private func scheduleAutomaticCheck() {
+        scheduledCheck?.cancel()
+        scheduledCheck = nil
+        guard started, automaticChecksAvailable, preferences.automaticChecksEnabled,
+              !installationInProgress, !checker.isChecking,
+              let launchedAt else { return }
+        let date = now()
+        let scheduledDate = AppUpdateSchedulePlanner(launchedAt: launchedAt, policy: policy)
+            .nextDate(state: preferences.state, now: date)
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.scheduledCheck = nil
+            guard self.preferences.automaticChecksEnabled, !self.installationInProgress else { return }
+            let currentDate = self.now()
+            if self.policy.isDue(state: self.preferences.state, now: currentDate) {
+                self.request(.automatic)
+            } else {
+                self.scheduleAutomaticCheck()
+            }
+        }
+        scheduledCheck = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0, scheduledDate.timeIntervalSince(date)), execute: work)
+    }
+
+    private func reconcilePersistentVersions() {
+        guard let current = AppVersion(Self.version) else { return }
+        var state = preferences.state
+        if let availableVersion = state.availableVersion {
+            if let available = AppVersion(availableVersion) {
+                if available <= current { state.availableVersion = nil }
+            } else {
+                state.availableVersion = nil
+            }
+        }
+        if let skippedVersion = state.skippedVersion {
+            if let skipped = AppVersion(skippedVersion) {
+                if skipped <= current { state.skippedVersion = nil }
+            } else {
+                state.skippedVersion = nil
+            }
+        }
+        preferences.state = state
+    }
+
+    private func visibleAvailableVersion(in state: AppUpdatePersistentState) -> String? {
+        guard let version = state.availableVersion,
+              version != state.skippedVersion,
+              let latest = AppVersion(version),
+              let current = AppVersion(Self.version), latest > current else { return nil }
+        return version
+    }
+
+    private func notifyStateChanged() {
+        onStateChange?()
+    }
+
     private func download(asset: AppRelease.Asset, checksum: AppRelease.Asset, release: AppRelease, target: URL) {
         resolveSize(for: asset) { [weak self] verifiedSize in
             guard let self else { return }
@@ -208,7 +473,13 @@ final class AppUpdater: NSObject {
         return executable
     }
     private func finish(error: String) {
-        DispatchQueue.main.async { [weak self] in self?.busy = false; self?.message("更新未完成", error) }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.installationInProgress = false
+            self.notifyStateChanged()
+            self.scheduleAutomaticCheck()
+            self.message("更新未完成", error)
+        }
     }
     private func message(_ title: String, _ detail: String) {
         let alert = NSAlert(); alert.messageText = title; alert.informativeText = detail

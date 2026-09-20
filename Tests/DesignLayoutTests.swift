@@ -73,6 +73,35 @@ enum DesignLayoutTests {
         prefs.window?.contentView?.layoutSubtreeIfNeeded()
         let persistent = buttons(prefs.window!.contentView!).first { $0.title == "Touch Bar 常驻" }
         check(persistent?.isEnabled == false, "Unavailable persistence switch disabled")
+        prefs.update(
+            appearance: appearance,
+            state: state,
+            taskEnabled: true,
+            persistentEnabled: true,
+            persistentAvailable: false,
+            appUpdate: AppUpdateViewState(
+                automaticChecksEnabled: true,
+                automaticChecksAvailable: true,
+                availableVersion: "v1.2.3",
+                lastSuccess: Date(timeIntervalSince1970: 1_800_000_000),
+                isChecking: false,
+                isInstalling: false
+            )
+        )
+        tabs.selectTabViewItem(at: 4)
+        prefs.window?.contentView?.layoutSubtreeIfNeeded()
+        let automaticUpdates = buttons(prefs.window!.contentView!).first {
+            $0.accessibilityIdentifier() == "settings.automaticUpdates"
+        }
+        let checkUpdates = buttons(prefs.window!.contentView!).first {
+            $0.accessibilityIdentifier() == "settings.checkForUpdates"
+        }
+        check(automaticUpdates?.state == .on, "Automatic updates setting reflects persisted state")
+        check(checkUpdates?.title == "查看 v1.2.3…", "Available update is visible in settings")
+        var viewedUpdate = false
+        prefs.onViewUpdate = { viewedUpdate = true }
+        checkUpdates?.performClick(nil)
+        check(viewedUpdate, "Settings update reminder opens the user-triggered update flow")
         tabs.selectTabViewItem(at: 1)
         prefs.window!.appearance = NSAppearance(named: .aqua)
         prefs.window!.contentView!.wantsLayer = true

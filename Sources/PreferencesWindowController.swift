@@ -9,6 +9,9 @@ final class PreferencesWindowController: NSWindowController {
     var onDisplayMode: ((HUDDisplayMode) -> Void)?
     var onMenuMode: ((MenuBarDisplayMode) -> Void)?
     var onVisibility: ((Bool) -> Void)?
+    var onAutomaticUpdates: ((Bool) -> Void)?
+    var onCheckForUpdates: (() -> Void)?
+    var onViewUpdate: (() -> Void)?
     private let menuMode = NSPopUpButton()
     private let visible = NSButton(checkboxWithTitle: "显示状态面板", target: nil, action: nil)
     private let displayMode = NSPopUpButton()
@@ -24,6 +27,10 @@ final class PreferencesWindowController: NSWindowController {
     private let backgroundValue = NSTextField(labelWithString: "")
     private let foregroundValue = NSTextField(labelWithString: "")
     private let availability = NSTextField(wrappingLabelWithString: "")
+    private let automaticUpdates = NSButton(checkboxWithTitle: "自动检查更新", target: nil, action: nil)
+    private let updateStatus = NSTextField(wrappingLabelWithString: "")
+    private let updateButton = NSButton(title: "检查更新…", target: nil, action: nil)
+    private var updateAvailableVersion: String?
     private let preview: CompactQuotaHUDView
 
     init(appearance: HUDAppearance) {
@@ -38,7 +45,21 @@ final class PreferencesWindowController: NSWindowController {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func update(appearance: HUDAppearance, state: RateLimitDisplayState, taskEnabled: Bool, persistentEnabled: Bool, persistentAvailable: Bool) {
+    func update(
+        appearance: HUDAppearance,
+        state: RateLimitDisplayState,
+        taskEnabled: Bool,
+        persistentEnabled: Bool,
+        persistentAvailable: Bool,
+        appUpdate: AppUpdateViewState = AppUpdateViewState(
+            automaticChecksEnabled: true,
+            automaticChecksAvailable: false,
+            availableVersion: nil,
+            lastSuccess: nil,
+            isChecking: false,
+            isInstalling: false
+        )
+    ) {
         self.appearance = appearance
         displayMode.selectItem(at: HUDDisplayMode.allCases.firstIndex(of: HUDDisplayMode.load()) ?? 0)
         modeAvailability.stringValue = NotchHUDGeometry.current() == nil ? "当前无可用刘海屏，将回退桌面浮窗。" : "刘海下沿显示任务与额度；点击查看详情。"
@@ -50,6 +71,30 @@ final class PreferencesWindowController: NSWindowController {
         persistent.state = persistentEnabled ? .on : .off
         persistent.isEnabled = persistentAvailable
         availability.stringValue = persistentAvailable ? "切换 App 后继续显示额度条。隐藏浮窗不影响 Touch Bar 常驻。" : "当前系统常驻接口不可用，保留原有焦点绑定显示。"
+        updateAvailableVersion = appUpdate.availableVersion
+        automaticUpdates.state = appUpdate.automaticChecksEnabled ? .on : .off
+        if appUpdate.isInstalling {
+            updateStatus.stringValue = "正在下载、校验或准备安装更新。"
+            updateButton.title = "正在安装…"
+            updateButton.isEnabled = false
+        } else if appUpdate.isChecking {
+            updateStatus.stringValue = "正在检查 GitHub 正式版本。"
+            updateButton.title = "正在检查…"
+            updateButton.isEnabled = true
+        } else if let available = appUpdate.availableVersion {
+            updateStatus.stringValue = "新版本 \(available) 可用；查看版本说明后可安装、稍后处理或跳过。"
+            updateButton.title = "查看 \(available)…"
+            updateButton.isEnabled = true
+        } else {
+            let lastSuccess = appUpdate.lastSuccess.map {
+                DateFormatter.localizedString(from: $0, dateStyle: .short, timeStyle: .short)
+            } ?? "尚未成功检查"
+            updateStatus.stringValue = appUpdate.automaticChecksAvailable
+                ? "最近成功：\(lastSuccess)。后台无更新或失败时不会弹窗。"
+                : "自动检查仅在安装到 /Applications 或 ~/Applications 后运行；手动检查始终可用。"
+            updateButton.title = "检查更新…"
+            updateButton.isEnabled = true
+        }
         backgroundSlider.doubleValue = appearance.backgroundOpacity * 100
         foregroundSlider.doubleValue = appearance.contentOpacity * 100
         updatePreview()
@@ -72,7 +117,7 @@ final class PreferencesWindowController: NSWindowController {
         language.addItems(withTitles: ["中文", "English"])
         color.addItems(withTitles: HUDAppearance.ColorChoice.allCases.map(\.title))
         for control in [language, color, displayMode, menuMode] { control.target = self; control.action = #selector(changed(_:)) }
-        for control in [tasks, persistent, visible] { control.target = self; control.action = #selector(changed(_:)) }
+        for control in [tasks, persistent, visible, automaticUpdates] { control.target = self; control.action = #selector(changed(_:)) }
         for slider in [backgroundSlider, foregroundSlider] { slider.target = self; slider.action = #selector(changed(_:)); slider.isContinuous = true }
         language.setAccessibilityLabel("信息语言")
         color.setAccessibilityLabel("浮窗颜色")
@@ -81,9 +126,16 @@ final class PreferencesWindowController: NSWindowController {
         let general = column([row("显示模式", [displayMode]), modeAvailability, visible, row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, note("隐藏状态独立保存；自动菜单栏在面板显示时仅保留图标。")])
         let appearancePanel = column([row("浮窗颜色", [color]), row("背景不透明度", [backgroundSlider, backgroundValue]), row("文字不透明度", [foregroundSlider, foregroundValue]), note("数值越高越不透明；修改即时保存，保留已有偏好。")])
         let touch = column([persistent, availability])
+        updateStatus.font = .systemFont(ofSize: 11)
+        updateStatus.textColor = .secondaryLabelColor
+        updateButton.target = self
+        updateButton.action = #selector(updateClicked)
+        automaticUpdates.setAccessibilityIdentifier("settings.automaticUpdates")
+        updateButton.setAccessibilityIdentifier("settings.checkForUpdates")
+        let updates = column([automaticUpdates, updateStatus, updateButton, note("启动后约 30 秒按需检查；成功后 24 小时内不重复请求。手动检查可找回已跳过版本。")])
         let hookButton = NSButton(title: "配置 Hooks 实验…", target: self, action: #selector(openHookExperiment))
         let experiments = column([note("Hooks 任务监测默认关闭。可审阅配置后启用，随时恢复日志模式。"), hookButton])
-        for (title, view) in [("通用", general), ("外观", appearancePanel), ("Touch Bar", touch), ("实验", experiments)] {
+        for (title, view) in [("通用", general), ("外观", appearancePanel), ("Touch Bar", touch), ("实验", experiments), ("更新", updates)] {
             let item = NSTabViewItem(identifier: title)
             item.label = title
             let host = NSView()
@@ -109,6 +161,10 @@ final class PreferencesWindowController: NSWindowController {
     }
     @objc private func quitClicked() { onQuit?() }
     @objc private func openHookExperiment() { onHookExperiment?() }
+    @objc private func updateClicked() {
+        if updateAvailableVersion != nil { onViewUpdate?() }
+        else { onCheckForUpdates?() }
+    }
 
     private func row(_ title: String, _ controls: [NSView]) -> NSView {
         let label = NSTextField(labelWithString: title)
@@ -144,6 +200,7 @@ final class PreferencesWindowController: NSWindowController {
         if sender === language { onLanguage?(language.indexOfSelectedItem == 0 ? .chinese : .english); return }
         if sender === tasks { onTaskStatus?(tasks.state == .on); return }
         if sender === persistent { onPersistent?(persistent.state == .on); return }
+        if sender === automaticUpdates { onAutomaticUpdates?(automaticUpdates.state == .on); return }
         appearance.colorChoice = HUDAppearance.ColorChoice.allCases[color.indexOfSelectedItem]
         appearance.backgroundOpacity = backgroundSlider.doubleValue / 100
         appearance.contentOpacity = foregroundSlider.doubleValue / 100
