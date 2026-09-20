@@ -3,7 +3,7 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_DIR"
 mkdir -p .build/update-tests
-swiftc Sources/AppUpdateModels.swift Tests/AppUpdateTests.swift -o .build/update-tests/AppUpdateTests
+swiftc Sources/AppUpdateModels.swift Sources/AppUpdateScheduler.swift Tests/AppUpdateTests.swift -o .build/update-tests/AppUpdateTests
 .build/update-tests/AppUpdateTests
 zsh -n Resources/install-update.sh
 # Invalid target must be rejected before waiting, moving files or launching apps.
