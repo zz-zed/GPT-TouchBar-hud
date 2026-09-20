@@ -1,0 +1,87 @@
+{
+  "recorded_at": "2026-09-20T05:20:52.528340+00:00",
+  "status": "local release preparation; not published",
+  "source_commit": "55a1a6411dcc84a6d38274993b03f7219d98b50e",
+  "accepted_integration_commit": "290d8952f73ed1d7f09f0981285dc187762bd38b",
+  "branch": "release/0.1.28",
+  "worktree": "/Users/didi/.codex/worktrees/release-prep-0-1-28/TouchBarCodexToken",
+  "package_version": "0.1.28",
+  "build": "29",
+  "LSUIElement": true,
+  "LSMinimumSystemVersion": "11.0",
+  "bundle_files": {
+    "Contents/Helpers/HookEmitter": {
+      "bytes": 334128,
+      "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99"
+    },
+    "Contents/Info.plist": {
+      "bytes": 945,
+      "sha256": "072abba5bd3445cbd0b8938ef1511edeb84e4452a4a513ef37d9c7013063559d"
+    },
+    "Contents/MacOS/GPTTouchBarHUD": {
+      "bytes": 1874448,
+      "sha256": "b34a314e2d177684a1e3971b3cf45f984c1688fa2c8e5f8a13c4afa5c45c3cdd"
+    },
+    "Contents/Resources/AppIcon.icns": {
+      "bytes": 1822741,
+      "sha256": "0a5d1372b809f33738829c961ce5495ebe99d5b83dcc3f3f93c213853dd9d572"
+    },
+    "Contents/Resources/gpt-touchbar-hud-launcher.sh": {
+      "bytes": 915,
+      "sha256": "1b1304d7c93fe51704eb5517a5412aa11be60e14d22f1672ccc30de5e806c860"
+    },
+    "Contents/Resources/install-update.sh": {
+      "bytes": 1076,
+      "sha256": "7860b440d3acb78d247fe4fb00f04c027cf9236dd2dc1d38e92d8976fa7b9b1c"
+    },
+    "Contents/_CodeSignature/CodeResources": {
+      "bytes": 3171,
+      "sha256": "ddcca722a7cc8dd6c844bfb57918dc3eee34564eb4bc79ceae324a935937c1a8"
+    }
+  },
+  "binaries": {
+    "Contents/MacOS/GPTTouchBarHUD": {
+      "bytes": 1874448,
+      "sha256": "b34a314e2d177684a1e3971b3cf45f984c1688fa2c8e5f8a13c4afa5c45c3cdd",
+      "architectures": [
+        "arm64"
+      ],
+      "minimum_macos": "11.0",
+      "sdk": "27.0",
+      "signature": "ad-hoc; strict verification passed"
+    },
+    "Contents/Helpers/HookEmitter": {
+      "bytes": 334128,
+      "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99",
+      "architectures": [
+        "arm64"
+      ],
+      "minimum_macos": "11.0",
+      "sdk": "27.0",
+      "signature": "ad-hoc; strict verification passed"
+    }
+  },
+  "dmg": {
+    "path": "dist/GPT-TouchBar-HUD-0.1.28-arm64.dmg",
+    "bytes": 2905716,
+    "sha256": "7026efe6af65979755b9e95064313082af29899956b4ed4392ae0f1dd1a506ce"
+  },
+  "app_cdhash": "6a4359ee4ed26ed13f8d44fda58c2fbfe621cd26",
+  "verification": [
+    "optimized native build",
+    "source and packaged plist identical",
+    "strict ad-hoc signatures",
+    "arm64 main and helper minos 11.0 / SDK 27.0",
+    "DMG verify and readonly mount",
+    "all 7 mounted bundle hashes and sizes match",
+    "first-open helper bound to exact CDHash",
+    "first-open isolated-copy tests passed"
+  ],
+  "not_verified": [
+    "Intel CI/build/runtime",
+    "macOS 11 runtime",
+    "physical notch/fullscreen/multidisplay/Dock behavior",
+    "real host Hook trust/execution/accuracy/latency",
+    "long-term energy use"
+  ]
+}

@@ -39,4 +39,47 @@
 - 无长期能耗结论。既有 12 秒静态样本中 Hooks CPU 高于 legacy，不能声称省电；未重跑性能或真实宿主探测。
 - 沿用 ad-hoc 签名，未做 Apple Developer 签名或公证。
 
-构建、哈希与工作树最终状态将在本地验证结束后补充；此文件当前为准备记录。
+## 本轮完成的验证与材料
+
+版本/构建输入提交：`55a1a6411dcc84a6d38274993b03f7219d98b50e`。其后收尾仅修改说明和验证记录，App 构建输入未变。主程序 SHA-256 随新版 Info.plist 的签名封装更新；helper 与已验收 C/集成版本字节一致。
+
+| 验证 | 本轮结果 |
+| --- | --- |
+| `scripts/package-dmg.sh` | 完成优化编译、嵌套签名、arm64 DMG 打包 |
+| 源码/包内 Info.plist | 完全一致；0.1.28 / Build 29、LSUIElement=true、最低系统声明 11.0 |
+| 主程序与 helper | 均 arm64；实际 minos 11.0 / SDK 27.0；ad-hoc 严格签名通过 |
+| `hdiutil verify` 与只读挂载 | 通过；DMG 内 7 个 App 文件哈希/大小与外部包全部一致，Applications 链接、首次打开助手及说明齐全 |
+| 首次打开助手 | 绑定本次 App CDHash `6a4359ee4ed26ed13f8d44fda58c2fbfe621cd26`；语法检查通过；隔离测试覆盖取消、定向移除隔离属性、保留其他属性、重复执行、符号链接、哈希不匹配、异常参数和签名篡改；未启动真实 App |
+| 原候选保留 | iteration-integration 中 7 个文件仍与原清单的哈希和尺寸完全一致 |
+| 代码差异 | 相对 290d895，Sources/HookCore/HookHelper/scripts/Package.swift/.github 均无变化；只改版本与文档，因此未重跑无关全量测试 |
+| 文档与交付检查 | Git 空白检查、说明链接、版本对应和本地 SHA256SUMS 核对通过 |
+
+材料均位于本发布准备工作树：
+
+- [发布说明](../RELEASE_NOTES.md)
+- [App](<../build/GPT TouchBar HUD.app>)
+- [arm64 DMG](../dist/GPT-TouchBar-HUD-0.1.28-arm64.dmg)，2,905,716 bytes
+- [本地 SHA256SUMS](../dist/SHA256SUMS.txt)，只含 arm64；不替代后续 CI 的双架构校验清单
+- [全量产物清单](validation/release-0.1.28-artifact-manifest.json)，已纳入 Git
+- `build/release-evidence/package.log`、`package-verification.log`、`first-open.log`；这些生成日志保留在本地且被忽略
+
+DMG SHA-256：`7026efe6af65979755b9e95064313082af29899956b4ed4392ae0f1dd1a506ce`。
+主程序 SHA-256：`b34a314e2d177684a1e3971b3cf45f984c1688fa2c8e5f8a13c4afa5c45c3cdd`。
+helper SHA-256：`32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99`。
+
+## 工作区清洁核查
+
+检查口径为 `git status --porcelain=v1 --untracked-files=all`；另用 `git status --short --ignored` 明确列出保留的忽略内容。干净不表示目录中没有构建产物。最终提交后现场复核记录保存在 `build/release-evidence/worktrees-final.json`，不会将它自身的提交前快照冒充最终状态。
+
+| 工作树 | 分支 / 保留基线 | 需保留的忽略内容 |
+| --- | --- | --- |
+| `/Users/didi/Desktop/codex-space/TouchBarCodexToken` | main / dd274b2 | `.build/` 编译缓存、`build/` 旧包与证据、`dist/` 既有发布产物、`Design/` 本地设计和交付记录 |
+| `/Users/didi/.codex/worktrees/1a59/TouchBarCodexToken` | detached / 1a68cc5 | `.build/`、`build/`、`Design/`，A 的缓存、产物与设计资料 |
+| `/Users/didi/.codex/worktrees/62bb/TouchBarCodexToken` | detached / 99d2e53 | `.build/`、`build/`、`Design/`，C 的缓存、产物与设计资料 |
+| `/Users/didi/.codex/worktrees/6c27/TouchBarCodexToken` | detached / 57e4c23 | `.build/`、`build/`、`Design/`，B 的缓存、产物与设计资料 |
+| `/Users/didi/.codex/worktrees/iteration-integration/TouchBarCodexToken` | detached / 290d895 | `.build/`、`build/`、`Design/` 与 Finder `.DS_Store`，原候选及证据保留 |
+| `/Users/didi/.codex/worktrees/release-prep-0-1-28/TouchBarCodexToken` | release/0.1.28 | `.build/` 编译缓存、`build/` 新 App/验证日志、`dist/` 新 DMG/校验清单/发布说明副本 |
+
+主工作树只更新被忽略的 `Design/iteration-next/DELIVERY.md` 和 `IMPLEMENTATION-TRACKING.md`，记录新入口和本轮结果，未改生产源码。未为清洁检查删除用户文件、丢弃现有修改或执行破坏性 reset。
+
+本地准备已完成，无阻塞本轮交付的问题。正式发布尚缺本轮双架构 CI 和相关实机验收，并且本轮没有远端推送/标签/Release/安装或真实 Hooks 设置操作授权。后续发行需要按上面的步骤独立完成，不能将本地 DMG 视为已公开发布。
