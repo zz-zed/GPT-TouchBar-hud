@@ -68,16 +68,25 @@ struct HUDMetric {
 
 struct MenuBarPresentation {
     let title: String
-    let reservedTitle: String
+    let statusItemLength: CGFloat
+
     init(state: RateLimitDisplayState, mode: MenuBarDisplayMode, panelVisible: Bool) {
         let resolved = mode.resolved(panelVisible: panelVisible)
         let all = HUDMetric.rows(for: state)
         let rows = resolved == .single ? Array(all.prefix(1)) : all
-        if resolved == .icon { title = ""; reservedTitle = ""; return }
+        if resolved == .icon {
+            title = ""
+            statusItemLength = NSStatusItem.squareLength
+            return
+        }
         let suffix = state.errorMessage == nil ? "" : " !"
         title = " " + (rows.isEmpty ? "--" : rows.map(\.compact).joined(separator: "  ")) + suffix
-        // Always reserve the error marker as well as 100%, so refreshes cannot jitter the menu bar.
-        reservedTitle = " " + (rows.isEmpty ? "--" : rows.map(\.reservedCompact).joined(separator: "  ")) + " !"
+        statusItemLength = NSStatusItem.variableLength
+    }
+
+    func apply(to statusItem: NSStatusItem) {
+        statusItem.length = statusItemLength
+        statusItem.button?.title = title
     }
 }
 

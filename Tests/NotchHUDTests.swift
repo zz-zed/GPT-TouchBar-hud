@@ -134,11 +134,85 @@ enum NotchHUDTests {
             }
         }
         DisplayLanguage.current = .chinese
-        let firstTitle = MenuBarPresentation(state: full, mode: .full, panelVisible: false).reservedTitle
-        var hundred = full
-        hundred.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: RateLimitWindow(usedPercent: 0, windowDurationMins: 300, resetsAt: nil))
-        check(MenuBarPresentation(state: hundred, mode: .full, panelVisible: false).reservedTitle == firstTitle, "menu width budget stable at 100%")
         check(!MenuBarPresentation(state: full, mode: .single, panelVisible: false).title.contains("43%"), "single prioritizes actual 5h")
+
+        let nativeStatusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        defer { NSStatusBar.system.removeStatusItem(nativeStatusItem) }
+        let nativeButton = nativeStatusItem.button!
+        nativeButton.image = NSImage(systemSymbolName: "bolt.horizontal.circle.fill", accessibilityDescription: nil)
+        nativeButton.imagePosition = .imageLeft
+        nativeButton.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        func applyToNativeStatusItem(_ presentation: MenuBarPresentation) -> CGFloat {
+            presentation.apply(to: nativeStatusItem)
+            nativeButton.layoutSubtreeIfNeeded()
+            check(nativeStatusItem.length == presentation.statusItemLength, "native status item uses presentation length policy")
+            check(nativeButton.frame.width + 1 >= nativeButton.fittingSize.width, "native status item content fits")
+            return nativeButton.frame.width
+        }
+        func state(remainingPercent: Double, weekly: Bool = false) -> RateLimitDisplayState {
+            var state = RateLimitDisplayState.initial
+            state.fiveHour = LimitMeter(
+                title: "5 小时",
+                shortTitle: "5h",
+                window: RateLimitWindow(usedPercent: 100 - remainingPercent, windowDurationMins: 300, resetsAt: nil)
+            )
+            if weekly {
+                state.weekly = LimitMeter(
+                    title: "周",
+                    shortTitle: "W",
+                    window: RateLimitWindow(usedPercent: 43, windowDurationMins: 10080, resetsAt: nil)
+                )
+            }
+            return state
+        }
+
+        var percentageWidths: [Int: CGFloat] = [:]
+        for percentage in [0, 9, 10, 99, 100] {
+            let presentation = MenuBarPresentation(
+                state: state(remainingPercent: Double(percentage)),
+                mode: .single,
+                panelVisible: false
+            )
+            check(presentation.title == " 5h \(percentage)%", "menu uses actual \(percentage)% content")
+            check(presentation.statusItemLength == NSStatusItem.variableLength, "text uses variable status item length")
+            percentageWidths[percentage] = applyToNativeStatusItem(presentation)
+        }
+        check(percentageWidths[9]! < percentageWidths[10]!, "native width grows from one to two digits")
+        check(percentageWidths[99]! < percentageWidths[100]!, "native width grows from two to three digits")
+
+        for language in DisplayLanguage.allCases {
+            DisplayLanguage.current = language
+            var resetOne = RateLimitDisplayState.initial
+            resetOne.resetCredits = ResetCreditSummary(response: RateLimitResetCreditsResponse(availableCount: 1, credits: nil))
+            var resetMany = RateLimitDisplayState.initial
+            resetMany.resetCredits = ResetCreditSummary(response: RateLimitResetCreditsResponse(availableCount: 12, credits: nil))
+            let one = MenuBarPresentation(state: resetOne, mode: .single, panelVisible: false)
+            let many = MenuBarPresentation(state: resetMany, mode: .single, panelVisible: false)
+            check(one.title.contains("1") && many.title.contains("12"), "\(language.rawValue) reset count uses actual digits")
+            check(applyToNativeStatusItem(one) < applyToNativeStatusItem(many), "\(language.rawValue) reset count changes native width")
+        }
+
+        DisplayLanguage.current = .chinese
+        let single = MenuBarPresentation(state: state(remainingPercent: 9, weekly: true), mode: .single, panelVisible: false)
+        let dual = MenuBarPresentation(state: state(remainingPercent: 9, weekly: true), mode: .full, panelVisible: false)
+        check(!single.title.contains("57%") && dual.title.contains("57%"), "single and full preserve metric selection")
+        check(applyToNativeStatusItem(single) < applyToNativeStatusItem(dual), "dual quota changes native width")
+
+        var failed = state(remainingPercent: 9)
+        failed.errorMessage = "Test connection error"
+        let healthy = MenuBarPresentation(state: state(remainingPercent: 9), mode: .single, panelVisible: false)
+        let errorPresentation = MenuBarPresentation(state: failed, mode: .single, panelVisible: false)
+        let healthyWidth = applyToNativeStatusItem(healthy)
+        let errorWidth = applyToNativeStatusItem(errorPresentation)
+        check(!healthy.title.contains("!") && errorPresentation.title.hasSuffix(" !"), "error marker appears only for actual error")
+        check(healthyWidth < errorWidth, "error appearance changes native width")
+        check(applyToNativeStatusItem(healthy) == healthyWidth, "error recovery restores native width")
+
+        let icon = MenuBarPresentation(state: full, mode: .icon, panelVisible: false)
+        check(icon.title.isEmpty && icon.statusItemLength == NSStatusItem.squareLength, "icon mode uses square status item")
+        check(applyToNativeStatusItem(icon) < applyToNativeStatusItem(dual), "icon and text modes switch native width")
+        check(MenuBarPresentation(state: full, mode: .automatic, panelVisible: true).statusItemLength == NSStatusItem.squareLength, "automatic visible panel uses square status item")
+        check(MenuBarPresentation(state: full, mode: .automatic, panelVisible: false).statusItemLength == NSStatusItem.variableLength, "automatic hidden panel uses variable status item")
 
         controller.update(full)
         var refreshed = 0, settingsOpened = 0, desktopSelected = 0

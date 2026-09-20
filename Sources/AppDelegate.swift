@@ -324,47 +324,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             menuTaskAppearance = appearance
         }
 
-        var titleParts: [String] = []
         var tooltipParts: [String] = []
 
         if let fiveHour = state.fiveHour {
-            titleParts.append("\(fiveHour.shortTitle) \(fiveHour.remainingText)")
             tooltipParts.append("5 小时剩余 \(fiveHour.remainingText)")
         } else if let resetCredits = state.resetCredits, resetCredits.availableCount > 0 {
-            titleParts.append("重置\(resetCredits.availableCount)")
             tooltipParts.append("可重置 \(resetCredits.availableCount) 次，\(resetCredits.expirationText)")
         }
 
         if let weekly = state.weekly {
-            titleParts.append("\(weekly.shortTitle) \(weekly.remainingText)")
             tooltipParts.append("周限额剩余 \(weekly.remainingText)")
         }
 
-        if !titleParts.isEmpty {
-            button.title = " \(titleParts.joined(separator: "  "))"
-            button.toolTip = "\(AppIdentity.productName) 额度：\(tooltipParts.joined(separator: "，"))"
+        var tooltip: String
+        if !tooltipParts.isEmpty {
+            tooltip = "\(AppIdentity.productName) 额度：\(tooltipParts.joined(separator: "，"))"
         } else if state.isRefreshing {
-            button.title = " ..."
-            button.toolTip = "\(AppIdentity.productName) 额度：正在刷新"
+            tooltip = "\(AppIdentity.productName) 额度：正在刷新"
         } else {
-            button.title = " --"
-            button.toolTip = state.errorMessage ?? "\(AppIdentity.productName) 额度"
+            tooltip = state.errorMessage ?? "\(AppIdentity.productName) 额度"
         }
         if let usage = state.tokenUsage {
-            button.toolTip = (button.toolTip ?? "\(AppIdentity.productName) 额度") + "\n\(usage.yesterdayText)；\(usage.cumulativeText)\n\(usage.toolTip)"
+            tooltip += "\n\(usage.yesterdayText)；\(usage.cumulativeText)\n\(usage.toolTip)"
         }
         if let task {
-            button.toolTip = (button.toolTip ?? AppIdentity.productName) + "\n" + task.label + "\n" + task.detail
+            tooltip += "\n" + task.label + "\n" + task.detail
         }
+        button.toolTip = tooltip
         button.setAccessibilityLabel(AppIdentity.productName + (task.map { " · " + $0.label } ?? ""))
+
         let presentation = MenuBarPresentation(state: state, mode: menuDisplayMode, panelVisible: notchHUD.isVisible || hudWindow.isVisible)
-        button.title = presentation.title
-        if presentation.title.isEmpty {
-            statusItem.length = NSStatusItem.squareLength
-        } else {
-            let textWidth = (presentation.reservedTitle as NSString).size(withAttributes: [.font: button.font ?? NSFont.systemFont(ofSize: 12)]).width
-            statusItem.length = ceil(textWidth) + 36
-        }
+        presentation.apply(to: statusItem)
     }
 
     private func setDisplayMode(_ mode: HUDDisplayMode) {
