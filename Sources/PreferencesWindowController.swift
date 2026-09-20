@@ -4,6 +4,7 @@ final class PreferencesWindowController: NSWindowController {
     var onQuit: (() -> Void)?
     var onAppearance: ((HUDAppearance) -> Void)?
     var onLanguage: ((DisplayLanguage) -> Void)?
+    var onHookExperiment: (() -> Void)?
     var onTaskStatus: ((Bool) -> Void)?
     var onDisplayMode: ((HUDDisplayMode) -> Void)?
     var onMenuMode: ((MenuBarDisplayMode) -> Void)?
@@ -80,7 +81,9 @@ final class PreferencesWindowController: NSWindowController {
         let general = column([row("显示模式", [displayMode]), modeAvailability, visible, row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, note("隐藏状态独立保存；自动菜单栏在面板显示时仅保留图标。")])
         let appearancePanel = column([row("浮窗颜色", [color]), row("背景不透明度", [backgroundSlider, backgroundValue]), row("文字不透明度", [foregroundSlider, foregroundValue]), note("数值越高越不透明；修改即时保存，保留已有偏好。")])
         let touch = column([persistent, availability])
-        for (title, view) in [("通用", general), ("外观", appearancePanel), ("Touch Bar", touch)] {
+        let hookButton = NSButton(title: "配置 Hooks 实验…", target: self, action: #selector(openHookExperiment))
+        let experiments = column([note("Hooks 任务监测默认关闭。可审阅配置后启用，随时恢复日志模式。"), hookButton])
+        for (title, view) in [("通用", general), ("外观", appearancePanel), ("Touch Bar", touch), ("实验", experiments)] {
             let item = NSTabViewItem(identifier: title)
             item.label = title
             let host = NSView()
@@ -105,6 +108,8 @@ final class PreferencesWindowController: NSWindowController {
         NSLayoutConstraint.activate([caption.centerXAnchor.constraint(equalTo: content.centerXAnchor), caption.topAnchor.constraint(equalTo: preview.bottomAnchor, constant: 10)])
     }
     @objc private func quitClicked() { onQuit?() }
+    @objc private func openHookExperiment() { onHookExperiment?() }
+
     private func row(_ title: String, _ controls: [NSView]) -> NSView {
         let label = NSTextField(labelWithString: title)
         label.widthAnchor.constraint(equalToConstant: 120).isActive = true

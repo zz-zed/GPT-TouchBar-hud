@@ -1,5 +1,7 @@
 import Foundation
 import SQLite3
+import HookCore
+import AppKit
 
 @main
 enum TaskStatusTests {
@@ -124,6 +126,20 @@ enum TaskStatusTests {
             live.stop()
             print("Live read-only sample: 15s, CPU \(Double(clock() - startCPU) / Double(CLOCKS_PER_SEC))s, \(publications) status publications; no conversation output")
         }
+        let hookActivity = TaskActivitySnapshot(confirmedRunningCount: 2, pendingVerificationCount: 1, recentlyCompletedCount: 4)
+        let hookSummary = TaskStatusSummary(activity: hookActivity, runningCount: 0, recentlyCompletedCount: 99, unknownCount: 0)
+        check(hookSummary.badge == "2 ?", "Hooks adapter ignores legacy default counters")
+        check(hookSummary.hasRunningTasks, "Touch Bar activity reads the same Hook snapshot")
+        check(TaskStatusAppearance(hookSummary) == .running, "Hooks icon color reads the same Hook snapshot")
+        let hookUnknown = TaskStatusSummary(activity: TaskActivitySnapshot(recentlyCompletedCount: 4))
+        check(TaskStatusAppearance(hookUnknown) == .unknown && hookUnknown.badge == "—", "Coverage gap cannot show completion icon")
+        var hookState = RateLimitDisplayState.initial
+        hookState.taskStatus = TaskStatusSummary(activity: TaskActivitySnapshot(coverage: TaskCoverage(gaps: [])))
+        check(hookState.displayedTaskStatus?.badge == "0", "Confirmed Hook zero stays visible")
+        hookState.taskStatus = TaskStatusSummary(activity: TaskActivitySnapshot())
+        check(hookState.displayedTaskStatus?.badge == "—", "Initial Hook unknown stays visible")
+        hookState.taskStatus = nil
+        check(hookState.displayedTaskStatus == nil, "Explicitly disabled task display stays hidden")
         print("PASS: \(checks) task status checks")
     }
 }

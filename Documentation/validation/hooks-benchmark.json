@@ -1,0 +1,12 @@
+{
+  "duration_each_seconds": 12,
+  "hooks_cpu_seconds": 0.269002,
+  "hooks_file_reads": 224,
+  "hooks_publications": 2,
+  "hooks_read_bytes": 8388608,
+  "legacy_cpu_seconds": 0.100648,
+  "legacy_publications": 1,
+  "notes": "Single short sequential sample, different conservative startup semantics; not an energy or accuracy benchmark",
+  "scenario": "32 static synthetic logs, 300000-byte padding plus metadata each; startup included; no host",
+  "label_note": "The initial harness label said 300 KiB; padding was exactly 300000 bytes. CPU results are unchanged."
+}

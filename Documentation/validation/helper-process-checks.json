@@ -1,0 +1,11 @@
+{
+  "samples": 20,
+  "absent_ms_median": 5.32,
+  "absent_ms_p95": 14.01,
+  "malformed_ms": 4.42,
+  "oversized_ms": 10.67,
+  "slow_stdin_ms": 508.31,
+  "no_ack_ms": 213.23,
+  "wire_bytes": 93,
+  "neutral_exit_checks": 25
+}

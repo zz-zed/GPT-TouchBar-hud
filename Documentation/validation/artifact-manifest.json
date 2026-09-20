@@ -1,0 +1,29 @@
+{
+  "recorded_at": "2026-09-20T04:23:08.234497+00:00",
+  "baseline": "dd274b28f1f7487d447fad6bb62fd7ce3f9aad46",
+  "package_version": "0.1.27",
+  "build": "28",
+  "binaries": {
+    "build/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD": {
+      "sha256": "e36e51a1224507dd47be68ef8e2ce584cee142e843660fa6814eb08ee7bda195",
+      "bytes": 1792208,
+      "architectures": [
+        "arm64"
+      ],
+      "minimum_macos": "11.0",
+      "sdk": "27.0",
+      "signature": "ad-hoc; strict verification passed"
+    },
+    "build/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter": {
+      "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99",
+      "bytes": 334128,
+      "architectures": [
+        "arm64"
+      ],
+      "minimum_macos": "11.0",
+      "sdk": "27.0",
+      "signature": "ad-hoc; strict verification passed"
+    }
+  },
+  "x86_64": "Local cross-link failed: installed CLT compatibility libraries lack x86_64 slices; Intel CI not run."
+}
