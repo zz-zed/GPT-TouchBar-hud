@@ -62,7 +62,8 @@ struct HUDMetric {
         return rows
     }
     private static func resetDate(_ meter: LimitMeter) -> String {
-        DisplayLanguage.current == .chinese ? meter.resetText : "Resets " + meter.resetText
+        if DisplayLanguage.current == .chinese { return meter.resetText }
+        return meter.resetDate == nil ? "Resets —" : "Resets " + meter.resetText
     }
 }
 
@@ -163,6 +164,15 @@ struct NotchTaskPresentation {
             title = DisplayLanguage.text("额度概览", "Quota overview")
             note = nil
             appearance = .idle
+            return
+        }
+        if let activity = summary?.activityPresentation {
+            badge = activity.badge + (activity.hasRunningTasks && summary?.completionFeedbackVisible == true ? " ✓" : "")
+            title = activity.label
+            appearance = TaskStatusAppearance(summary)
+            // Keep scope/uncertainty and its reason visible; the full counts/health diagnostic is in the tooltip.
+            let needsHealth = activity.snapshot.sourceHealth.contains { $0.state != .connected }
+            note = [activity.coverageDetail, needsHealth ? activity.sourceHealthDetail : ""].filter { !$0.isEmpty }.joined(separator: "\n")
             return
         }
         guard let summary else {

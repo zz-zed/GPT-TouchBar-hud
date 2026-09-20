@@ -142,8 +142,10 @@ struct RateLimitDisplayState: Equatable {
 struct TaskStatusSummary: Equatable {
     // When present, activity is the sole source for display; legacy counts are ignored.
     var activity: TaskActivitySnapshot? = nil
+    // Nil preserves legacy/source-only callers; the app always supplies a bounded feedback decision.
+    var completionFeedbackVisible: Bool? = nil
     var activityPresentation: HookTaskDisplayAdapter? {
-        activity.map { HookTaskDisplayAdapter($0, english: DisplayLanguage.current == .english) }
+        activity.map { HookTaskDisplayAdapter($0, english: DisplayLanguage.current == .english, showsCompletionFeedback: completionFeedbackVisible ?? true) }
     }
     var hasRunningTasks: Bool { activityPresentation?.hasRunningTasks ?? (runningCount > 0) }
     var runningCount: Int = 0

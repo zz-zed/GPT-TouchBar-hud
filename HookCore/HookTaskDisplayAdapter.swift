@@ -6,15 +6,21 @@ public enum HookTaskDisplayState: Sendable { case running, submitted, unknown, c
 public struct HookTaskDisplayAdapter {
     public let snapshot: TaskActivitySnapshot
     public let english: Bool
-    public init(_ snapshot: TaskActivitySnapshot, english: Bool = false) { self.snapshot = snapshot; self.english = english }
+    /// The app's retained feedback controller limits decorations; diagnostics retain source facts.
+    public let showsCompletionFeedback: Bool
+    public init(_ snapshot: TaskActivitySnapshot, english: Bool = false, showsCompletionFeedback: Bool = true) {
+        self.snapshot = snapshot; self.english = english; self.showsCompletionFeedback = showsCompletionFeedback
+    }
     public var hasRunningTasks: Bool { snapshot.confirmedRunningCount > 0 }
     public var state: HookTaskDisplayState {
         if hasRunningTasks { return .running }
         if snapshot.submittedCount > 0 && snapshot.submittedCount == snapshot.pendingVerificationCount { return .submitted }
         if snapshot.hasUncertainty { return .unknown }
-        return snapshot.showsCompletion ? .completed : .idle
+        return snapshot.showsCompletion && showsCompletionFeedback ? .completed : .idle
     }
-    public var badge: String { snapshot.compactText }
+    public var badge: String {
+        snapshot.showsCompletion && !showsCompletionFeedback ? "0" : snapshot.compactText
+    }
     public var label: String {
         switch state {
         case .running: return (english ? "Run " : "执行中 ") + badge
@@ -28,11 +34,15 @@ public struct HookTaskDisplayAdapter {
         let counts = english
             ? "Local connected tasks: \(snapshot.confirmedRunningCount) confirmed running; \(snapshot.pendingVerificationCount) pending verification (may overlap running); \(snapshot.recentlyCompletedCount) recently completed."
             : "本机已接入任务：已确认运行 \(snapshot.confirmedRunningCount) 个；待核对 \(snapshot.pendingVerificationCount) 个（可与运行数重叠）；最近完成 \(snapshot.recentlyCompletedCount) 个。"
-        let gaps = snapshot.coverage.gaps.sorted { $0.rawValue < $1.rawValue }.map { gapDescription($0) }.joined(separator: "、")
-        let coverage = snapshot.coverage.isComplete ? (english ? "Scope complete." : "接入范围内无已知缺口。")
-            : (english ? "Coverage gaps: " : "覆盖缺口：") + gaps + "。"
-        let health = snapshot.sourceHealth.map { ($0.source == "codexLocal" ? "Codex" : (english ? "Task source" : "任务来源")) + ": " + healthDescription($0.state) }.joined(separator: "; ")
-        return counts + "\n" + coverage + "\n" + health + "\n" + (english ? "Transport health does not establish coverage. Completion refers to a turn, not the whole goal." : "连接正常不代表覆盖完整。完成指当前轮次，不代表整个目标完成。")
+        return counts + "\n" + coverageDetail + "\n" + sourceHealthDetail + "\n" + (english ? "Transport health does not establish coverage. Completion refers to a turn, not the whole goal." : "连接正常不代表覆盖完整。完成指当前轮次，不代表整个目标完成。")
+    }
+    public var coverageDetail: String {
+        let gaps = snapshot.coverage.gaps.sorted { $0.rawValue < $1.rawValue }.map { gapDescription($0) }.joined(separator: english ? "; " : "、")
+        return snapshot.coverage.isComplete ? (english ? "Scope complete." : "接入范围内无已知缺口。")
+            : (english ? "Coverage gaps: " : "覆盖缺口：") + gaps + (english ? "." : "。")
+    }
+    public var sourceHealthDetail: String {
+        snapshot.sourceHealth.map { ($0.source == "codexLocal" ? "Codex" : (english ? "Task source" : "任务来源")) + ": " + healthDescription($0.state) }.joined(separator: "; ")
     }
     private func gapDescription(_ gap: CoverageGap) -> String {
         if english {

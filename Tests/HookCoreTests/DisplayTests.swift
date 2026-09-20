@@ -3,6 +3,21 @@ import Testing
 @testable import HookCore
 
 struct DisplayTests {
+    @Test func transientPermissionDoesNotEraseSourceCompletionOrUncertainty() {
+        var snapshot = TaskActivitySnapshot(recentlyCompletedCount: 2, coverage: TaskCoverage(gaps: []))
+        let expired = HookTaskDisplayAdapter(snapshot, showsCompletionFeedback: false)
+        #expect(expired.state == .idle && expired.badge == "0")
+        #expect(expired.snapshot.recentlyCompletedCount == 2)
+        #expect(expired.detail.contains("最近完成 2"))
+        let active = HookTaskDisplayAdapter(snapshot, showsCompletionFeedback: true)
+        #expect(active.state == .completed && active.badge == "✓")
+        snapshot.coverage.gaps.insert(.initialCoverageUnknown)
+        #expect(HookTaskDisplayAdapter(snapshot, showsCompletionFeedback: true).state == .unknown)
+        #expect(HookTaskDisplayAdapter(snapshot, showsCompletionFeedback: false).badge == "—")
+        snapshot.confirmedRunningCount = 12
+        #expect(HookTaskDisplayAdapter(snapshot, showsCompletionFeedback: false).badge == "12 ?")
+    }
+
     @Test func uncertaintyNeverShowsPrimaryCompletionOrHidesRunning() {
         let snapshot = TaskActivitySnapshot(confirmedRunningCount: 2, pendingVerificationCount: 1, recentlyCompletedCount: 3)
         let display = HookTaskDisplayAdapter(snapshot)
