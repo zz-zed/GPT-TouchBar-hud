@@ -8,6 +8,8 @@ on:
     paths:
       - "Package.swift"
       - "Sources/**"
+      - "HookCore/**"
+      - "HookHelper/**"
       - "Tests/**"
       - "Resources/**"
       - "scripts/**"
@@ -20,6 +22,8 @@ on:
     paths:
       - "Package.swift"
       - "Sources/**"
+      - "HookCore/**"
+      - "HookHelper/**"
       - "Tests/**"
       - "Resources/**"
       - "scripts/**"
@@ -99,12 +103,18 @@ jobs:
       - name: Test first-open helper with isolated app copy
         run: bash scripts/test-first-open.sh
 
+      - name: Verify hook state and transport behavior
+        shell: bash
+        run: bash scripts/test-hooks.sh
+
       - name: Verify app and DMG
         shell: bash
         run: |
           DMG_PATH="${{ steps.package.outputs.dmg }}"
           test -f "$DMG_PATH"
           codesign --verify --deep --strict "build/GPT TouchBar HUD.app"
+          codesign --verify --all-architectures --strict "build/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+          lipo "build/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter" -verify_arch "${{ steps.metadata.outputs.arch }}"
           hdiutil verify "$DMG_PATH"
           lipo "build/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD" \
             -verify_arch "${{ steps.metadata.outputs.arch }}"

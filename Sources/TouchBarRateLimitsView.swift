@@ -99,7 +99,7 @@ final class TouchBarRateLimitsView: NSView {
         taskBadge.stringValue = status?.badge ?? ""
         taskBadge.isHidden = status == nil
         taskBadge.backgroundColor = TaskStatusAppearance(status).color ?? .clear
-        hasRunningTasks = (status?.runningCount ?? 0) > 0
+        hasRunningTasks = status?.hasRunningTasks ?? false
         chatGPTIconView.setAccessibilityLabel(status?.label ?? "ChatGPT")
         chatGPTIconView.toolTip = status?.detail ?? "ChatGPT"
         updateTaskAnimation()

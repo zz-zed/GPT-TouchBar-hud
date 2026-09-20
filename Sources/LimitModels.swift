@@ -1,4 +1,5 @@
 import Foundation
+import HookCore
 
 enum DisplayLanguage: String, CaseIterable {
     case chinese = "zh", english = "en"
@@ -96,7 +97,7 @@ struct LimitMeter: Equatable {
 struct RateLimitDisplayState: Equatable {
     var taskStatus: TaskStatusSummary? = nil
     var displayedTaskStatus: TaskStatusSummary? {
-        taskStatus.flatMap { $0.isIdle ? nil : $0 }
+        taskStatus.flatMap { $0.activity == nil && $0.isIdle ? nil : $0 }
     }
     var fiveHour: LimitMeter?
     var weekly: LimitMeter?
@@ -139,27 +140,37 @@ struct RateLimitDisplayState: Equatable {
 
 /// Local lifecycle evidence, not a server-authoritative task/goal status.
 struct TaskStatusSummary: Equatable {
+    // When present, activity is the sole source for display; legacy counts are ignored.
+    var activity: TaskActivitySnapshot? = nil
+    var activityPresentation: HookTaskDisplayAdapter? {
+        activity.map { HookTaskDisplayAdapter($0, english: DisplayLanguage.current == .english) }
+    }
+    var hasRunningTasks: Bool { activityPresentation?.hasRunningTasks ?? (runningCount > 0) }
     var runningCount: Int = 0
     var recentlyCompletedCount: Int = 0
     var unknownCount: Int = 0
 
     var isIdle: Bool {
-        runningCount == 0 && recentlyCompletedCount == 0 && unknownCount == 0
+        if let activityPresentation { return activityPresentation.state == .idle }
+        return runningCount == 0 && recentlyCompletedCount == 0 && unknownCount == 0
     }
 
     var label: String {
+        if let activityPresentation { return activityPresentation.label }
         if runningCount > 0 { return DisplayLanguage.text("执行中 \(runningCount)", "Run \(runningCount)") }
         if recentlyCompletedCount > 0 { return DisplayLanguage.text("本轮完成", "Done") }
         return isIdle ? DisplayLanguage.text("空闲", "Idle") : DisplayLanguage.text("状态未知", "Unknown")
     }
 
     var badge: String {
+        if let activityPresentation { return activityPresentation.badge }
         if runningCount > 0 { return runningCount > 9 ? "9+" : "\(runningCount)" }
         return recentlyCompletedCount > 0 ? "✓" : (isIdle ? "" : "?")
     }
 
     var detail: String {
-        "本机近期任务：Running \(runningCount)，Done \(recentlyCompletedCount)，未知 \(unknownCount)。仅根据本地日志推断；不代表整个目标完成，也不区分等待授权与工具执行。"
+        if let activityPresentation { return activityPresentation.detail }
+        return "本机近期任务：Running \(runningCount)，Done \(recentlyCompletedCount)，未知 \(unknownCount)。仅根据本地日志推断；不代表整个目标完成，也不区分等待授权与工具执行。"
     }
 }
 

@@ -8,7 +8,8 @@ SDK_PATH="${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}"
 mkdir -p "$TEST_APP/Contents/MacOS" "$TEST_DIR/module-cache"
 cd "$PROJECT_DIR"
 
-swiftc -sdk "$SDK_PATH" -module-cache-path "$TEST_DIR/module-cache" \
+source scripts/hook-core-build.sh
+swiftc "${HOOK_CORE_SWIFT_FLAGS[@]}" -sdk "$SDK_PATH" -module-cache-path "$TEST_DIR/module-cache" \
     Sources/SystemTouchBarPresenter.swift Sources/PersistentTouchBarController.swift \
     Sources/DesignTokens.swift Sources/TouchBarRateLimitsView.swift Sources/TaskStatusAppearance.swift Sources/SegmentedBatteryBar.swift \
     Sources/LimitModels.swift Sources/LocalTokenUsageReader.swift Sources/TokenUsageScanner.swift \
