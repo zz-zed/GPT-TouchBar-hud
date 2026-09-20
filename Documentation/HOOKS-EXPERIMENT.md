@@ -1,6 +1,6 @@
 # Default-off native Hooks task monitoring experiment
 
-This is a local implementation for review, based on v0.1.27 / dd274b28. It does not change the product version. The existing log mode remains the default. No user Hook configuration, trust record, installed app, or stable helper is changed by building or testing this repository.
+The native experiment was implemented against v0.1.27 / dd274b28 and integrated into the v0.1.28 release candidate. The existing log mode remains the default. No user Hook configuration, trust record, installed app, or stable helper is changed by building or testing this repository.
 
 ## State and display contract
 
