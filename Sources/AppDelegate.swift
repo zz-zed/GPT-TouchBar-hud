@@ -6,6 +6,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private let appUpdater = AppUpdater()
     private let taskMonitor = TaskMonitoringCoordinator()
     private var hookPreferences: HookExperimentPreferencesController?
+    private lazy var completionFeedback: TaskCompletionFeedbackController = {
+        let controller = TaskCompletionFeedbackController()
+        controller.onExpiration = { [weak self] in self?.renderDisplayState() }
+        return controller
+    }()
     private var latestQuotaState = RateLimitDisplayState.initial
     private var latestTaskStatus: TaskStatusSummary?
     private var taskStatusEnabled: Bool {
@@ -68,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         taskMonitor.onUpdate = { [weak self] status in
             guard let self else { return }
             self.latestTaskStatus = status
+            self.completionFeedback.receive(status, enabled: self.taskStatusEnabled)
             self.renderDisplayState()
         }
         NotificationCenter.default.addObserver(self, selector: #selector(screenConfigurationChanged), name: NSApplication.didChangeScreenParametersNotification, object: nil)
@@ -93,8 +99,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         if lifecycleMonitor.hostIsRunningNow() {
             hostDidStart()
         } else {
-            updateStatusTitle(with: .initial)
             if hudRequestedVisible { presentSelectedHUD() }
+            renderDisplayState() // Preserve the coordinator's explicit unavailable/disabled state.
         }
     }
 
@@ -130,6 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     func menuWillOpen(_ menu: NSMenu) { notchHUD.collapse() }
 
     func applicationWillTerminate(_ notification: Notification) {
+        completionFeedback.reset()
         notchHUD.hide()
         taskMonitor.stop()
         persistentTouchBar.stop()
@@ -144,7 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func renderDisplayState() {
         var state = latestQuotaState
-        state.taskStatus = taskStatusEnabled ? latestTaskStatus : nil
+        state.taskStatus = taskStatusEnabled ? completionFeedback.applying(to: latestTaskStatus) : nil
         updateStatusTitle(with: state)
         hudController.update(with: state)
         notchHUD.update(state, taskDisplayEnabled: taskStatusEnabled)
@@ -179,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         menu.delegate = self
         let summary = NSMenuItem()
         var state = latestQuotaState
-        state.taskStatus = taskStatusEnabled ? latestTaskStatus : nil
+        state.taskStatus = taskStatusEnabled ? completionFeedback.applying(to: latestTaskStatus) : nil
         summary.view = StatusSummaryView(state: state)
         summaryMenuItem = summary
         menu.addItem(summary)
@@ -419,6 +426,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func hostDidStart() {
+        completionFeedback.reset()
         taskMonitor.start(displayEnabled: taskStatusEnabled)
         NSApp.setActivationPolicy(.accessory)
         persistentTouchBar.start()
@@ -433,6 +441,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func hostDidStop() {
+        completionFeedback.reset()
         taskMonitor.hostUnavailable()
         notchHUD.hide()
         taskMonitor.stop()
@@ -447,6 +456,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func restartTaskMonitoring() {
+        completionFeedback.reset()
         if lifecycleMonitor.hostIsRunningNow() { taskMonitor.start(displayEnabled: taskStatusEnabled) }
         else { taskMonitor.prepareForHost(displayEnabled: taskStatusEnabled) }
     }
@@ -490,6 +500,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func quitApp() {
+        completionFeedback.reset()
         notchHUD.hide()
         HostAutoLauncher.markManualQuit()
         persistentTouchBar.stop()

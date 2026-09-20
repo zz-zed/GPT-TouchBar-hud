@@ -361,6 +361,8 @@ enum NotchHUDTests {
         check(!controller.isPresented && !controller.isVisible, "environment cannot unhide user-hidden panel")
         check(panel.collectionBehavior.contains(.fullScreenPrimary) && !panel.collectionBehavior.contains(.fullScreenAuxiliary), "other-app full-screen opt-out")
 
+        try HookPresentationIntegrationChecks.run(geometry: sample)
+
         let prefs = PreferencesWindowController(appearance: HUDAppearance.load())
         prefs.update(appearance: HUDAppearance.load(), state: full, taskEnabled: true, persistentEnabled: false, persistentAvailable: false)
         prefs.showWindow(nil)
@@ -385,6 +387,19 @@ enum NotchHUDTests {
         check(quitRequested, "settings provides reachable quit action")
         check(content.bounds.contains(quit.frame), "quit button inside settings")
         check(NSApp.activationPolicy() == .accessory, "settings does not change accessory policy")
+        tabs.selectTabViewItem(at: 3)
+        content.layoutSubtreeIfNeeded()
+        let experiments = tabs.selectedTabViewItem!.view!
+        let hookEntry = descendants(experiments).compactMap { $0 as? NSButton }.first { $0.title == "配置 Hooks 实验…" }!
+        var experimentRequested = false
+        prefs.onHookExperiment = { experimentRequested = true }
+        hookEntry.performClick(nil)
+        check(experimentRequested, "experiment entry survives Quit integration")
+        check(experiments.bounds.contains(hookEntry.convert(hookEntry.bounds, to: experiments)), "experiment entry remains in tab")
+        check(content.bounds.contains(quit.frame), "Quit remains reachable with experiment tab")
+        experiments.wantsLayer = true
+        experiments.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        try snapshot(experiments, "integrated-settings-experiment")
         prefs.window!.orderOut(nil)
         print("PASS: \(checks) notch V2 checks")
     }

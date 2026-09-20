@@ -182,7 +182,7 @@ final class NotchHUDView: NSView {
         if state.errorMessage != nil { append("  !", font: strip.font!, color: .systemOrange) }
         strip.attributedTitle = title
         strip.setAccessibilityLabel(task.title + "，" + values + DisplayLanguage.text(expanded ? "，收起详情" : "，展开详情", expanded ? ", Collapse details" : ", Expand details"))
-        strip.toolTip = task.note ?? state.taskStatus?.detail ?? task.title
+        strip.toolTip = state.taskStatus?.detail ?? task.note ?? task.title
         taskTitle.stringValue = task.title
         taskTitle.toolTip = state.taskStatus?.detail
         taskNote.stringValue = task.note ?? ""
