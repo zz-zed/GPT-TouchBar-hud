@@ -1,0 +1,69 @@
+{
+  "recorded_at": "2026-09-20T04:42:59.307197+00:00",
+  "worktree": "/Users/didi/.codex/worktrees/iteration-integration/TouchBarCodexToken",
+  "source_commit": "0e267d258559f7577984a612d3fcd86637784ee8",
+  "c_merge_commit": "41837c8ad1c53e9919b1295f8186bbc99a663e83",
+  "source_revisions": {
+    "A": "1a68cc5142e88d003be1a7f91a1920951c65f107",
+    "B": "57e4c23bbd24b27ad616aff10558dd6234f992e4",
+    "C": "99d2e5342cad367b40ed2e5abfcbd5afa7f6c322"
+  },
+  "package_version": "0.1.27",
+  "build": "28",
+  "LSUIElement": true,
+  "LSMinimumSystemVersion": "11.0",
+  "binaries": {
+    "build/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD": {
+      "sha256": "a86147d1dfeab32cfd29026d7c5284a36e87a002f654ed19b2d017aaa6a68b37",
+      "bytes": 1874448,
+      "architectures": [
+        "arm64"
+      ],
+      "minimum_macos": "11.0",
+      "sdk": "27.0",
+      "signature": "ad-hoc; strict verification passed"
+    },
+    "build/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter": {
+      "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99",
+      "bytes": 334128,
+      "architectures": [
+        "arm64"
+      ],
+      "minimum_macos": "11.0",
+      "sdk": "27.0",
+      "signature": "ad-hoc; strict verification passed"
+    }
+  },
+  "bundle_files": {
+    "Contents/Helpers/HookEmitter": {
+      "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99",
+      "bytes": 334128
+    },
+    "Contents/Info.plist": {
+      "sha256": "3e7d9f1e6c204f9d602b2ae977d86c258034ac6ff514bd12d86cceb67ab5c7b0",
+      "bytes": 945
+    },
+    "Contents/MacOS/GPTTouchBarHUD": {
+      "sha256": "a86147d1dfeab32cfd29026d7c5284a36e87a002f654ed19b2d017aaa6a68b37",
+      "bytes": 1874448
+    },
+    "Contents/Resources/AppIcon.icns": {
+      "sha256": "0a5d1372b809f33738829c961ce5495ebe99d5b83dcc3f3f93c213853dd9d572",
+      "bytes": 1822741
+    },
+    "Contents/Resources/gpt-touchbar-hud-launcher.sh": {
+      "sha256": "1b1304d7c93fe51704eb5517a5412aa11be60e14d22f1672ccc30de5e806c860",
+      "bytes": 915
+    },
+    "Contents/Resources/install-update.sh": {
+      "sha256": "7860b440d3acb78d247fe4fb00f04c027cf9236dd2dc1d38e92d8976fa7b9b1c",
+      "bytes": 1076
+    },
+    "Contents/_CodeSignature/CodeResources": {
+      "sha256": "ddcca722a7cc8dd6c844bfb57918dc3eee34564eb4bc79ceae324a935937c1a8",
+      "bytes": 3171
+    }
+  },
+  "verification": "strict nested signatures passed; first-open isolated-copy tests passed; helper process checks 25 passed",
+  "x86_64": "Not rebuilt: C confirmed missing Intel compatibility-library slices in local CLT. Intel CI and runtime remain unverified."
+}

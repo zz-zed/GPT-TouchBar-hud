@@ -4,6 +4,15 @@ enum TaskStatusAppearance: Equatable {
     case idle, running, completed, unknown
 
     init(_ summary: TaskStatusSummary?) {
+        if let activity = summary?.activityPresentation {
+            switch activity.state {
+            case .running: self = .running
+            case .completed: self = .completed
+            case .unknown, .submitted: self = .unknown
+            case .idle: self = .idle
+            }
+            return
+        }
         if let summary, summary.runningCount > 0 { self = .running }
         else if let summary, summary.recentlyCompletedCount > 0 { self = .completed }
         else if let summary, summary.unknownCount > 0 { self = .unknown }

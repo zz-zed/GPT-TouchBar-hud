@@ -1,0 +1,37 @@
+{
+  "runtime": "codex-cli 0.155.0-alpha.9.2",
+  "scope": "isolated discovery only",
+  "hooks_executed": false,
+  "trust_written": false,
+  "discovered": [
+    {
+      "eventName": "sessionEnd",
+      "enabled": true,
+      "trustStatus": "untrusted",
+      "timeoutSec": 1,
+      "async": false
+    },
+    {
+      "eventName": "userPromptSubmit",
+      "enabled": true,
+      "trustStatus": "untrusted",
+      "timeoutSec": 1,
+      "async": false
+    },
+    {
+      "eventName": "stop",
+      "enabled": true,
+      "trustStatus": "untrusted",
+      "timeoutSec": 1,
+      "async": false
+    },
+    {
+      "eventName": "interrupt",
+      "enabled": true,
+      "trustStatus": "untrusted",
+      "timeoutSec": 1,
+      "async": false
+    }
+  ],
+  "errors": 0
+}
