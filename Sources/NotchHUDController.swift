@@ -41,8 +41,7 @@ final class NotchDetailContent: NSView {
     }
 }
 
-/// One below-camera surface. The scroll viewport stays inside its rounded edges.
-/// Transparent corners are excluded from both view hit-testing and window mouse routing.
+/// A continuous shell from the screen edge, with content and input below the camera.
 final class NotchHUDView: NSView {
     var onToggle: (() -> Void)?
     var onRefresh: (() -> Void)?
@@ -62,6 +61,8 @@ final class NotchHUDView: NSView {
     private let points = NSTextField(labelWithString: "")
     private let taskNote = NSTextField(labelWithString: "")
     var notchWidth: CGFloat = 0
+    var cameraEnclosure: NSRect? { didSet { needsLayout = true; needsDisplay = true } }
+    var contentOffset: CGFloat { cameraEnclosure?.height ?? 0 }
     var detailsAlpha: CGFloat = 1 { didSet { needsLayout = true; needsDisplay = true } }
     var detailsReady = true { didSet { needsLayout = true } }
     private(set) var summaryText = ""
@@ -282,12 +283,12 @@ final class NotchHUDView: NSView {
         detailContent.subviews.forEach { $0.isHidden = true }
         strip.isHidden = false
         let summary = summaryHeight(width: bounds.width)
-        strip.frame = NSRect(x: 13, y: 0, width: max(0, bounds.width - 26), height: summary)
+        strip.frame = NSRect(x: 13, y: contentOffset, width: max(0, bounds.width - 26), height: summary)
         guard expanded && detailsReady else { return }
         let naturalHeight = layoutDetails(width: bounds.width, apply: true)
         detailScroll.isHidden = false
-        detailScroll.frame = NSRect(x: 8, y: summary, width: max(0, bounds.width - 16), height: max(0, bounds.height - summary - 8))
-        detailScroll.hasVerticalScroller = naturalHeight > bounds.height
+        detailScroll.frame = NSRect(x: 8, y: contentOffset + summary, width: max(0, bounds.width - 16), height: max(0, bounds.height - contentOffset - summary - 8))
+        detailScroll.hasVerticalScroller = naturalHeight > bounds.height - contentOffset
         detailContent.frame.size = NSSize(width: detailScroll.bounds.width, height: max(detailScroll.bounds.height, naturalHeight - summary - 8))
         if !detailScroll.hasVerticalScroller { detailScroll.contentView.scroll(to: .zero) }
         detailScroll.reflectScrolledClipView(detailScroll.contentView)
@@ -295,19 +296,25 @@ final class NotchHUDView: NSView {
     func surfacePath() -> NSBezierPath {
         let w = bounds.width, h = bounds.height
         let neck = min(w, notchWidth)
-        let l = (w - neck) / 2, right = l + neck
-        let shoulder = min(7, l)
-        let r = min(11, h / 2)
+        let l = cameraEnclosure?.minX ?? (w - neck) / 2
+        let right = cameraEnclosure?.maxX ?? (w + neck) / 2
+        let t = contentOffset
+        let shoulder = min(8, max(l, w - right), max(0, (h - t) / 2))
+        let r = min(11, max(0, (h - t) / 2))
         let path = NSBezierPath()
         path.move(to: NSPoint(x: l, y: 0))
         path.line(to: NSPoint(x: right, y: 0))
-        path.curve(to: NSPoint(x: w, y: shoulder), controlPoint1: NSPoint(x: right, y: 0), controlPoint2: NSPoint(x: w, y: 0))
+        path.line(to: NSPoint(x: right, y: t))
+        // Vertical tangents at both ends avoid a horizontal ledge at the safe-area edge.
+        // Width beyond the enclosure only emerges BELOW that edge.
+        path.curve(to: NSPoint(x: w, y: t + shoulder), controlPoint1: NSPoint(x: right, y: t + shoulder / 2), controlPoint2: NSPoint(x: w, y: t + shoulder / 2))
         path.line(to: NSPoint(x: w, y: h - r))
         path.curve(to: NSPoint(x: w - r, y: h), controlPoint1: NSPoint(x: w, y: h - 3), controlPoint2: NSPoint(x: w - 3, y: h))
         path.line(to: NSPoint(x: r, y: h))
         path.curve(to: NSPoint(x: 0, y: h - r), controlPoint1: NSPoint(x: 3, y: h), controlPoint2: NSPoint(x: 0, y: h - 3))
-        path.line(to: NSPoint(x: 0, y: shoulder))
-        path.curve(to: NSPoint(x: l, y: 0), controlPoint1: NSPoint(x: 0, y: 0), controlPoint2: NSPoint(x: l, y: 0))
+        path.line(to: NSPoint(x: 0, y: t + shoulder))
+        path.curve(to: NSPoint(x: l, y: t), controlPoint1: NSPoint(x: 0, y: t + shoulder / 2), controlPoint2: NSPoint(x: l, y: t + shoulder / 2))
+        path.line(to: NSPoint(x: l, y: 0))
         path.close()
         return path
     }
@@ -316,8 +323,11 @@ final class NotchHUDView: NSView {
         surfacePath().fill()
     }
     override func hitTest(_ point: NSPoint) -> NSView? {
-        guard surfacePath().contains(convert(point, from: superview)) else { return nil }
+        guard containsInteraction(convert(point, from: superview)) else { return nil }
         return super.hitTest(point)
+    }
+    func containsInteraction(_ point: NSPoint) -> Bool {
+        point.y >= contentOffset && surfacePath().contains(point)
     }
     @objc private func toggle() { onToggle?() }
     @objc private func refreshClicked() { onRefresh?() }
@@ -420,6 +430,7 @@ final class NotchHUDController: NSObject {
         view.detailsAlpha = 1
     }
     private func applyFrame(_ frame: NSRect) {
+        view.cameraEnclosure = geometry?.enclosure(in: frame)
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         view.needsLayout = true
         view.needsDisplay = true
@@ -440,7 +451,7 @@ final class NotchHUDController: NSObject {
         let target = geometry.frame(width: width, height: view.preferredHeight(width: width))
         guard animated, animationsEnabled, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
               panel.frame.width > 0, panel.frame != target else { applyFrame(target); return }
-        let start = panel.frame.size
+        let start = panel.frame
         let started = ProcessInfo.processInfo.systemUptime
         let expanding = isExpanded
         view.detailsReady = false
@@ -448,12 +459,9 @@ final class NotchHUDController: NSObject {
             guard let self else { timer.invalidate(); return }
             let elapsed = ProcessInfo.processInfo.systemUptime - started
             let progress = min(1, elapsed / 0.18)
-            let eased = CGFloat(1 - pow(1 - progress, 3))
-            let size = NSSize(width: start.width + (target.width - start.width) * eased,
-                              height: start.height + (target.height - start.height) * eased)
             self.view.detailsReady = progress == 1
             self.view.detailsAlpha = expanding ? CGFloat(min(1, max(0, (elapsed - 0.18) / 0.10))) : 1
-            self.applyFrame(geometry.frame(width: size.width, height: size.height))
+            self.applyFrame(geometry.transitionFrame(from: start, to: target, progress: progress))
             if elapsed >= (expanding ? 0.28 : 0.18) {
                 self.stopTransition()
                 self.applyFrame(target)
@@ -464,10 +472,10 @@ final class NotchHUDController: NSObject {
     }
     func contains(_ point: NSPoint) -> Bool {
         let local = view.convert(panel.convertPoint(fromScreen: point), from: nil)
-        return view.surfacePath().contains(local)
+        return view.containsInteraction(local)
     }
-    private func updateMouseRouting() {
-        panel.ignoresMouseEvents = !isVisible || !contains(NSEvent.mouseLocation)
+    func updateMouseRouting(at point: NSPoint = NSEvent.mouseLocation) {
+        panel.ignoresMouseEvents = !isVisible || !contains(point)
     }
     private func installEventMonitors() {
         guard globalMonitor == nil else { return }

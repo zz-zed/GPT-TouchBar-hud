@@ -54,10 +54,13 @@ enum NotchHUDTests {
                 let geometry = NotchHUDGeometry(screen: frame, topInset: inset, leftArea: left, rightArea: right)!
                 for (width, height): (CGFloat, CGFloat) in [(180, 24), (260, 24), (340, 221)] {
                     let panel = geometry.frame(width: width, height: height)
-                    check(panel.maxY == frame.maxY - inset, "top anchor below camera")
+                    check(panel.maxY == frame.maxY, "shell begins at screen top")
                     check(panel.midX == origin.x + 756, "stable horizontal center")
                     check(frame.contains(panel), "entire panel contained")
-                    check(!panel.intersects(left) && !panel.intersects(right), "no menu bar wings")
+                    let enclosure = geometry.cameraEnclosure
+                    check(!enclosure.intersects(left) && !enclosure.intersects(right), "decoration avoids menu bar wings")
+                    check(geometry.contentTop <= frame.maxY - inset, "content stays below camera")
+                    check(panel.height - geometry.topInset == height, "decoration does not move content down")
                 }
                 check(NotchHUDGeometry(screen: frame, topInset: 0, leftArea: left, rightArea: right) == nil, "no notch safe fallback")
                 check(NotchHUDGeometry(screen: frame, topInset: inset, leftArea: right, rightArea: left) == nil, "invalid geometry rejected")
@@ -158,6 +161,7 @@ enum NotchHUDTests {
                 for view in descendants(controller.view) where view is NSTextField || view is NSButton {
                     let rect = view.convert(view.bounds, to: controller.view)
                     check(controller.view.bounds.insetBy(dx: -1, dy: -1).contains(rect), "controls inside panel")
+                    check(rect.minY >= sample.topInset, "content and controls avoid camera")
                     if let label = view as? NSTextField, (label.superview === controller.view || label.superview === controller.view.detailContent) {
                         let measured = (label.stringValue as NSString).boundingRect(with: NSSize(width: max(1, label.frame.width - 4), height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: label.font!])
                         check(label.frame.height + 1 >= ceil(measured.height), "wrapped text height fits: \(label.stringValue)")
@@ -263,7 +267,7 @@ enum NotchHUDTests {
                     state.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: RateLimitWindow(usedPercent: 100 - percent, windowDurationMins: 300, resetsAt: 1800000000))
                     controller.collapse()
                     controller.update(state)
-                    check(controller.panel.frame.height == 24, "summary is 24 pt")
+                    check(controller.panel.frame.height - sample.topInset == 24, "summary is 24 pt")
                     check(controller.view.summaryText.hasPrefix(String(count)), "untruncated count")
                     check(controller.view.compactWidth <= controller.panel.frame.width, "current content fully measured")
                     check(!controller.isExpanded, "data never opens detail")
@@ -298,7 +302,7 @@ enum NotchHUDTests {
         controller.collapse()
         controller.update(extreme)
         check(controller.show(in: narrow), "narrow synthetic screen")
-        check(controller.panel.frame.height > 24, "extreme counts gain natural summary height")
+        check(controller.panel.frame.height - narrow.topInset > 24, "extreme counts gain natural summary height")
         check(controller.view.summaryText.contains(String(Int.max)), "extreme count never shortened")
         try snapshot(controller.view, "notch-v2-extreme")
         controller.toggleExpanded()
@@ -356,14 +360,14 @@ enum NotchHUDTests {
         RunLoop.current.run(until: Date().addingTimeInterval(0.07))
         if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             check(controller.isAnimating, "animation is active at intermediate frame")
-            check(panel.frame.height > 24 && panel.frame.height < controller.view.preferredHeight, "intermediate geometry is between endpoints")
+            check(panel.frame.height > sample.topInset + 24 && panel.frame.height < sample.topInset + controller.view.preferredHeight, "intermediate geometry is between endpoints")
         }
         print("Intermediate anchor: top=\(panel.frame.maxY), expected=\(sample.anchor.y), center=\(panel.frame.midX), expected=\(sample.anchor.x)")
         fflush(stdout)
         check(abs(panel.frame.maxY - sample.anchor.y) < 0.001 && abs(panel.frame.midX - sample.anchor.x) < 0.001, "intermediate frame keeps anchor")
         let local = NSPoint(x: 0.1, y: 0.1)
         let screenPoint = panel.convertPoint(toScreen: controller.view.convert(local, to: nil))
-        check(controller.contains(screenPoint) == controller.view.surfacePath().contains(local), "intermediate routing matches visible path")
+        check(controller.contains(screenPoint) == controller.view.containsInteraction(local), "intermediate routing matches interaction region")
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         check(!controller.isAnimating && controller.isExpanded, "transition completes expanded without standing timer")
         button("刷新").performClick(nil)
@@ -376,6 +380,7 @@ enum NotchHUDTests {
         check(!controller.isPresented && !controller.isVisible, "environment cannot unhide user-hidden panel")
         check(panel.collectionBehavior.contains(.fullScreenPrimary) && !panel.collectionBehavior.contains(.fullScreenAuxiliary), "other-app full-screen opt-out")
 
+        try fusionChecks(controller: controller, geometry: sample)
         try HookPresentationIntegrationChecks.run(geometry: sample)
 
         let prefs = PreferencesWindowController(appearance: HUDAppearance.load())
@@ -416,6 +421,103 @@ enum NotchHUDTests {
         experiments.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         try snapshot(experiments, "integrated-settings-experiment")
         prefs.window!.orderOut(nil)
-        print("PASS: \(checks) notch V2 checks")
+        print("PASS: \(checks) notch fusion and V2 checks")
+    }
+}
+
+extension NotchHUDTests {
+    static func fusionChecks(controller: NotchHUDController, geometry: NotchHUDGeometry) throws {
+        let scene = NotchSimulationScene(frame: NSRect(x: 0, y: 0, width: 760, height: 340))
+        let host = NSWindow(contentRect: scene.bounds, styleMask: .borderless, backing: .buffered, defer: false)
+        host.contentView = scene
+        defer { host.orderOut(nil); controller.hide() }
+        func black(_ rep: NSBitmapImageRep, _ point: NSPoint, scale: CGFloat) -> Bool {
+            let color = rep.colorAt(x: Int(point.x * scale), y: Int(point.y * scale))!.usingColorSpace(.deviceRGB)!
+            return max(color.redComponent, color.greenComponent, color.blueComponent) < 0.04 && color.alphaComponent > 0.99
+        }
+        // A negative control recreates the old below-camera start. Both independent
+        // camera corner witnesses MUST fail, or this test would miss the user's photo.
+        let baseline = NotchSimulation.geometry()
+        let witnesses = [NSPoint(x: baseline.cameraEnclosure.minX + 1, y: baseline.topInset - 1),
+                         NSPoint(x: baseline.cameraEnclosure.maxX - 1.5, y: baseline.topInset - 1)]
+        scene.configure(geometry: baseline, state: NotchSimulation.state(), width: 180, legacyBelowCamera: true)
+        let old = scene.bitmap()
+        check(witnesses.allSatisfy { !black(old, $0, scale: 2) }, "negative control detects BOTH old blue corner gaps")
+        try scene.save("notch-fusion-before-synthetic")
+        for scale: CGFloat in [1, 2] {
+            for inset: CGFloat in [24, 32, 38] {
+                let fixture = NotchSimulation.geometry(inset: inset, scale: scale)
+                for background in [NotchSimulation.blue, NSColor.white, NSColor(calibratedWhite: 0.18, alpha: 1)] {
+                    scene.background = background
+                    for width: CGFloat in [180, 188, 240, 340] {
+                        for progress in [0.0, 0.15, 0.5, 0.85, 1] {
+                            scene.configure(geometry: fixture, state: NotchSimulation.state(), width: width, progress: progress)
+                            let rep = scene.bitmap(scale: scale)
+                            // Scan the entire camera bottom band, not just its center.
+                            for x in stride(from: fixture.cameraEnclosure.minX + 1, through: fixture.cameraEnclosure.maxX - 2, by: 2) {
+                                for y in stride(from: inset - 7, through: inset - 1, by: 2) {
+                                    check(black(rep, NSPoint(x: x, y: y), scale: scale), "no background gap across camera bottom band")
+                                }
+                            }
+                            for x in [fixture.cameraEnclosure.minX - 2, fixture.cameraEnclosure.maxX + 1] {
+                                check(!black(rep, NSPoint(x: x, y: inset - 2), scale: scale), "menu pixels remain uncovered")
+                            }
+                            let hud = scene.hud
+                            let neckRight = hud.cameraEnclosure!.maxX
+                            if hud.bounds.width - neckRight > 0.5 {
+                                check(!hud.surfacePath().contains(NSPoint(x: neckRight + 0.25, y: inset + 0.01)), "shoulder starts vertically without a horizontal ledge")
+                            }
+                            let decoration = NSPoint(x: hud.bounds.midX, y: inset - 1)
+                            check(hud.surfacePath().contains(decoration) && !hud.containsInteraction(decoration), "visible decoration is noninteractive")
+                            check(hud.hitTest(hud.convert(decoration, to: scene)) == nil, "decoration passes view hit test")
+                            check(hud.containsInteraction(NSPoint(x: hud.bounds.midX, y: inset + 12)), "summary remains clickable")
+                            check(!hud.containsInteraction(NSPoint(x: 0.1, y: hud.bounds.maxY - 0.1)), "transparent corner passes through")
+                        }
+                    }
+                }
+            }
+        }
+        scene.background = NotchSimulation.blue
+        for language in DisplayLanguage.allCases {
+            DisplayLanguage.current = language
+            for single in [true, false] {
+                for long in [false, true] {
+                    let state = NotchSimulation.state(single: single, long: long)
+                    scene.configure(geometry: baseline, state: state)
+                    check(scene.hud.compactWidth <= scene.hud.bounds.width, "localized long summary fits")
+                    for progress in [0.0, 0.5, 1] {
+                        scene.configure(geometry: baseline, state: state, progress: progress)
+                        try scene.save("notch-fusion-\(language.rawValue)-\(single ? "single" : "dual")-\(long ? "long" : "normal")-\(progress)")
+                    }
+                }
+            }
+        }
+        // Exercise actual NSPanel routing with the same view-space points at every frame.
+        controller.animationsEnabled = false
+        controller.update(NotchSimulation.state())
+        _ = controller.show(in: geometry)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        let start = controller.panel.frame
+        controller.toggleExpanded()
+        let target = controller.panel.frame
+        for progress in [0.0, 0.15, 0.5, 0.85, 1] {
+            let frame = geometry.transitionFrame(from: start, to: target, progress: progress)
+            controller.panel.setFrame(frame, display: true)
+            controller.view.cameraEnclosure = geometry.enclosure(in: frame)
+            controller.view.layoutSubtreeIfNeeded()
+            for point in [NSPoint(x: frame.width / 2, y: 1), NSPoint(x: 1, y: 1),
+                          NSPoint(x: frame.width / 2, y: geometry.topInset + 12), NSPoint(x: 0.1, y: frame.height - 0.1)] {
+                let screen = controller.panel.convertPoint(toScreen: controller.view.convert(point, to: nil))
+                let interactive = controller.view.containsInteraction(point)
+                check(controller.contains(screen) == interactive, "panel and view use identical current-frame input")
+                controller.updateMouseRouting(at: screen)
+                check(controller.panel.ignoresMouseEvents == (!controller.isVisible || !interactive), "window routing matches interaction including top decoration")
+            }
+            check(frame.maxY == geometry.screen.maxY, "animation remains attached to screen top")
+        }
+        // Fractional auxiliary boundaries are rounded INWARD, even off-origin.
+        let fractional = NotchSimulation.geometry(screen: NSRect(x: -1512.25, y: 280, width: 1512, height: 982), neck: 179.5)
+        check((fractional.cameraEnclosure.minX * 2).rounded() == fractional.cameraEnclosure.minX * 2, "camera edge aligned to backing pixels")
+        check(fractional.cameraEnclosure.minX >= -1512.25 + (1512 - 179.5) / 2, "rounded edge cannot cover menu")
     }
 }
