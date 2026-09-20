@@ -1,6 +1,7 @@
 import AppKit
 
 final class PreferencesWindowController: NSWindowController {
+    var onQuit: (() -> Void)?
     var onAppearance: ((HUDAppearance) -> Void)?
     var onLanguage: ((DisplayLanguage) -> Void)?
     var onTaskStatus: ((Bool) -> Void)?
@@ -39,7 +40,7 @@ final class PreferencesWindowController: NSWindowController {
     func update(appearance: HUDAppearance, state: RateLimitDisplayState, taskEnabled: Bool, persistentEnabled: Bool, persistentAvailable: Bool) {
         self.appearance = appearance
         displayMode.selectItem(at: HUDDisplayMode.allCases.firstIndex(of: HUDDisplayMode.load()) ?? 0)
-        modeAvailability.stringValue = NotchHUDGeometry.current() == nil ? "当前主显示屏无可用刘海区域，将回退桌面浮窗。" : "刘海下沿显示双额度；点击展开 Ledger 明细。"
+        modeAvailability.stringValue = NotchHUDGeometry.current() == nil ? "当前无可用刘海屏，将回退桌面浮窗。" : "刘海下沿显示任务与额度；点击查看详情。"
         menuMode.selectItem(at: MenuBarDisplayMode.allCases.firstIndex(of: MenuBarDisplayMode.load()) ?? 0)
         visible.state = HUDPresentationPreferences().isVisible ? .on : .off
         color.selectItem(at: HUDAppearance.ColorChoice.allCases.firstIndex(of: appearance.colorChoice) ?? 0)
@@ -89,6 +90,11 @@ final class PreferencesWindowController: NSWindowController {
             item.view = host
             tabs.addTabViewItem(item)
         }
+        let quit = NSButton(title: "退出 App", target: self, action: #selector(quitClicked))
+        quit.translatesAutoresizingMaskIntoConstraints = false
+        quit.setAccessibilityIdentifier("settings.quit")
+        content.addSubview(quit)
+        NSLayoutConstraint.activate([quit.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20), quit.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -8)])
         // A preview view is not a HUD window and must never resize this window.
         preview.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(preview)
@@ -98,6 +104,7 @@ final class PreferencesWindowController: NSWindowController {
         content.addSubview(caption)
         NSLayoutConstraint.activate([caption.centerXAnchor.constraint(equalTo: content.centerXAnchor), caption.topAnchor.constraint(equalTo: preview.bottomAnchor, constant: 10)])
     }
+    @objc private func quitClicked() { onQuit?() }
     private func row(_ title: String, _ controls: [NSView]) -> NSView {
         let label = NSTextField(labelWithString: title)
         label.widthAnchor.constraint(equalToConstant: 120).isActive = true

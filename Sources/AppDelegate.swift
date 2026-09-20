@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         set { hudPreferences.isVisible = newValue; hudPreferences.save() }
     }
     private var menuDisplayMode = MenuBarDisplayMode.load()
+    private var displayTarget = DisplayTargetResolver()
     private var screenLocked = false
     private var systemSleeping = false
     private var sessionInactive = false
@@ -29,7 +30,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         let controller = NotchHUDController()
         controller.onRefresh = { [weak self] in self?.refreshQuotaNow() }
         controller.onSettings = { [weak self] in self?.openPreferences(nil) }
-        controller.onDesktop = { [weak self] in self?.setDisplayMode(.floating) }
+        controller.onHide = { [weak self] in self?.closeHUD() }
+        controller.onVisibilityChanged = { [weak self] in self?.renderDisplayState() }
         return controller
     }()
     private var hudAppearance = HUDAppearance.load()
@@ -100,12 +102,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     @objc private func screenConfigurationChanged() {
-        notchHUD.collapse()
+        notchHUD.environmentChanged()
         if hudRequestedVisible && !sessionSuspended { presentSelectedHUD() }
         renderDisplayState()
     }
 
-    @objc private func frontApplicationChanged() { notchHUD.collapse() }
+    @objc private func frontApplicationChanged() { notchHUD.environmentChanged() }
     @objc private func spaceOrWakeChanged(_ notification: Notification) {
         if notification.name == NSWorkspace.didWakeNotification { systemSleeping = false }
         screenConfigurationChanged()
@@ -143,7 +145,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         state.taskStatus = taskStatusEnabled ? latestTaskStatus : nil
         updateStatusTitle(with: state)
         hudController.update(with: state)
-        notchHUD.update(state)
+        notchHUD.update(state, taskDisplayEnabled: taskStatusEnabled)
         persistentTouchBar.update(with: state)
         summaryMenuItem?.view = StatusSummaryView(state: state)
         preferences?.update(appearance: hudAppearance, state: state, taskEnabled: taskStatusEnabled, persistentEnabled: persistentTouchBar.isEnabled, persistentAvailable: persistentTouchBar.isAvailable)
@@ -228,6 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                 self?.hudAppearance = appearance
                 self?.applyHUDAppearance()
             }
+            controller.onQuit = { [weak self] in self?.quitApp() }
             controller.onDisplayMode = { [weak self] mode in self?.setDisplayMode(mode) }
             controller.onMenuMode = { [weak self] mode in self?.setMenuMode(mode) }
             controller.onVisibility = { [weak self] visible in
@@ -359,7 +362,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func setDisplayMode(_ mode: HUDDisplayMode) {
         hudDisplayMode = mode
-        notchHUD.collapse()
+        notchHUD.environmentChanged()
         if hudRequestedVisible && !sessionSuspended { presentSelectedHUD() }
         renderDisplayState()
     }
@@ -388,7 +391,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func presentSelectedHUD() {
-        let geometry = NotchHUDGeometry.current()
+        let geometry = displayTarget.resolve(DisplayTargetResolver.candidates())
         if hudPreferences.usesNotch(hasGeometry: geometry != nil) && notchHUD.show(in: geometry) {
             hudWindow.orderOut(nil)
         } else {
