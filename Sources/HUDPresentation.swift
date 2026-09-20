@@ -96,28 +96,49 @@ struct NotchHUDGeometry {
     let screen: NSRect
     let anchor: NSPoint
     let notchWidth: CGFloat
-    init?(screen: NSRect, topInset: CGFloat, leftArea: NSRect, rightArea: NSRect) {
+    let topInset: CGFloat
+    let backingScale: CGFloat
+    let cameraEnclosure: NSRect
+    init?(screen: NSRect, topInset: CGFloat, leftArea: NSRect, rightArea: NSRect, backingScale: CGFloat = 2) {
         let gap = rightArea.minX - leftArea.maxX
         let scalars = [screen.minX, screen.minY, screen.width, screen.height, topInset,
                        leftArea.minX, leftArea.minY, leftArea.width, leftArea.height,
-                       rightArea.minX, rightArea.minY, rightArea.width, rightArea.height]
+                       rightArea.minX, rightArea.minY, rightArea.width, rightArea.height, backingScale]
         guard scalars.allSatisfy(\.isFinite), screen.width >= 400, screen.height >= 480,
-              topInset > 0, topInset < screen.height / 3, gap > 0, gap < screen.width / 2,
+              backingScale >= 1, topInset > 0, topInset < screen.height / 3, gap > 0, gap < screen.width / 2,
               leftArea.width > 0, rightArea.width > 0,
               screen.contains(leftArea), screen.contains(rightArea),
               abs(leftArea.maxY - screen.maxY) < 1, abs(rightArea.maxY - screen.maxY) < 1,
               abs(leftArea.height - topInset) < 1, abs(rightArea.height - topInset) < 1 else { return nil }
         self.screen = screen
-        notchWidth = gap
+        self.backingScale = backingScale
+        self.topInset = ceil(topInset * backingScale) / backingScale
+        // Round inward so antialiased edges never paint into either auxiliary menu area.
+        let left = ceil(leftArea.maxX * backingScale) / backingScale
+        let right = floor(rightArea.minX * backingScale) / backingScale
+        guard right > left else { return nil }
+        notchWidth = right - left
+        cameraEnclosure = NSRect(x: left, y: screen.maxY - self.topInset, width: notchWidth, height: self.topInset)
         // NSWindow aligns origins to whole points. Choose the hardware center once,
         // then use even widths so animated resize cannot move it by half a point.
-        anchor = NSPoint(x: ((leftArea.maxX + rightArea.minX) / 2).rounded(), y: screen.maxY - topInset)
+        anchor = NSPoint(x: ((left + right) / 2).rounded(), y: screen.maxY)
     }
+    var contentTop: CGFloat { anchor.y - topInset }
+    /// Height is the content budget below the camera; the decoration is added once.
     func frame(width: CGFloat, height: CGFloat) -> NSRect {
-        let halfWidth = min(ceil(max(notchWidth, width) / 2), floor(min(anchor.x - screen.minX, screen.maxX - anchor.x)))
+        let enclosureWidth = 2 * max(anchor.x - cameraEnclosure.minX, cameraEnclosure.maxX - anchor.x)
+        let halfWidth = min(ceil(max(enclosureWidth, width) / 2), floor(min(anchor.x - screen.minX, screen.maxX - anchor.x)))
         let w = halfWidth * 2
-        let h = min(ceil(height), anchor.y - screen.minY)
+        let h = min(ceil(topInset + height), anchor.y - screen.minY)
         return NSRect(x: anchor.x - w / 2, y: anchor.y - h, width: w, height: h)
+    }
+    func enclosure(in frame: NSRect) -> NSRect {
+        NSRect(x: cameraEnclosure.minX - frame.minX, y: 0, width: notchWidth, height: topInset)
+    }
+    func transitionFrame(from start: NSRect, to target: NSRect, progress: Double) -> NSRect {
+        let eased = CGFloat(1 - pow(1 - max(0, min(1, progress)), 3))
+        return frame(width: start.width + (target.width - start.width) * eased,
+                     height: start.height + (target.height - start.height) * eased - topInset)
     }
     static func current() -> Self? {
         DisplayTargetResolver.candidates().first?.geometry
@@ -144,7 +165,7 @@ struct DisplayTargetResolver {
             guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber,
                   let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea,
                   let geometry = NotchHUDGeometry(screen: screen.frame, topInset: screen.safeAreaInsets.top,
-                                                  leftArea: left, rightArea: right) else { return nil }
+                                                  leftArea: left, rightArea: right, backingScale: screen.backingScaleFactor) else { return nil }
             return Candidate(id: number.uint32Value, geometry: geometry)
         }
     }
