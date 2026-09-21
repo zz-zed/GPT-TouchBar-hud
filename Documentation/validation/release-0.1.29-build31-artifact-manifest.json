@@ -1,11 +1,11 @@
 {
-  "recorded_at": "2026-09-21T11:47:03.112496+08:00",
+  "recorded_at": "2026-09-21T11:35:26.710653+08:00",
   "status": "local arm64 candidate; not pushed, tagged, installed or published",
-  "source_commit": "fa9261b3d3b8e42b1491d98ab4c5f431037839e6",
+  "source_commit": "1ebd440083856fabe9a888e13fe0ab9f471ef716",
   "branch": "main",
   "worktree": "/Users/didi/Desktop/codex-space/TouchBarCodexToken",
   "package_version": "0.1.29",
-  "build": "32",
+  "build": "31",
   "architectures_prepared_locally": [
     "arm64"
   ],
@@ -87,8 +87,8 @@
       "sha256": "3da50e059b6fc0fcd2a4d20ea5d03f394c1b679b3d846d008bf33b1029a346db"
     },
     "Sources/NotchDetailPages.swift": {
-      "bytes": 7828,
-      "sha256": "3867bd5d066ab3d4e1c84591360dbb28f640da24035aefe2c66fb73068e1e7b3"
+      "bytes": 7829,
+      "sha256": "ef6b25a92d75b4dbac53aa37d89376afa68d53cb9eb227e96b180d016ec16415"
     },
     "Sources/NotchHUDController.swift": {
       "bytes": 7636,
@@ -103,8 +103,8 @@
       "sha256": "88a877d252c4a51fbca34b38383574f515096b84bc184942398b8c27b534d99e"
     },
     "Sources/NotchLayout.swift": {
-      "bytes": 2980,
-      "sha256": "86b197c735033b2751d5138bf6f400de775bbe28c06b17edb896bbd4f62f9a29"
+      "bytes": 2843,
+      "sha256": "203c3a1bf37a4d19ac28f1ebced10c30fdce58c1fe2d731d58072f791f3ec4cf"
     },
     "Sources/NotchLegacyHUDController.swift": {
       "bytes": 29300,
@@ -127,8 +127,8 @@
       "sha256": "1d95c49d5d0636e853eaf750ac5a29701ba484b1d93688712ba5930ebee50d5d"
     },
     "Sources/NotchSurfaceShape.swift": {
-      "bytes": 5605,
-      "sha256": "840defb03adb872784f944bc8813fa7f2782b067c9caf2cd2e7661843cd70e49"
+      "bytes": 4385,
+      "sha256": "884825a04d64e9676b29dfb4ed717908651d38e5bf749e58d3e227e60fce6e42"
     },
     "Sources/PersistentTouchBarController.swift": {
       "bytes": 5038,
@@ -244,7 +244,7 @@
     },
     "Resources/Info.plist": {
       "bytes": 945,
-      "sha256": "d167f2aa45993c191ecc532f440b7fdb90b9c223e208ed0673431cdc130392b3"
+      "sha256": "397f45da52fdd9c0f9b0a3e09f1f248a0a3c09b850c0339bf6f8f1fabdf14406"
     },
     "Resources/ThirdPartyNotices.txt": {
       "bytes": 1328,
@@ -351,11 +351,11 @@
     },
     "Contents/Info.plist": {
       "bytes": 945,
-      "sha256": "d167f2aa45993c191ecc532f440b7fdb90b9c223e208ed0673431cdc130392b3"
+      "sha256": "397f45da52fdd9c0f9b0a3e09f1f248a0a3c09b850c0339bf6f8f1fabdf14406"
     },
     "Contents/MacOS/GPTTouchBarHUD": {
-      "bytes": 2575760,
-      "sha256": "684db235a6906f8f5ad19823505bcd0837af87b28eb382a0254eb4c0ddca1cb1"
+      "bytes": 2573696,
+      "sha256": "2541c51983830c13ffdea6e1b669a0d810a33210b4c5a24ef113a0e2d78910db"
     },
     "Contents/Resources/AppIcon.icns": {
       "bytes": 1822741,
@@ -378,11 +378,11 @@
       "sha256": "aac5b2c78bf1f2db5d602913c1c58093576434eda211d2723fbe9e1187401da5"
     }
   },
-  "cdhash": "3e964121c15dbb88b1d46568066f936ab7f642f7",
+  "cdhash": "b9b61770d6e5c6b585687c0a1ddbb3bf648cd457",
   "binaries": {
     "Contents/MacOS/GPTTouchBarHUD": {
-      "bytes": 2575760,
-      "sha256": "684db235a6906f8f5ad19823505bcd0837af87b28eb382a0254eb4c0ddca1cb1",
+      "bytes": 2573696,
+      "sha256": "2541c51983830c13ffdea6e1b669a0d810a33210b4c5a24ef113a0e2d78910db",
       "architecture": "arm64",
       "build_version": "/Users/didi/Desktop/codex-space/TouchBarCodexToken/build/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n",
       "strict_signature": "passed"
@@ -398,7 +398,7 @@
   "dmg_root_files": {
     "首次打开助手.command": {
       "bytes": 2892,
-      "sha256": "811485311bd26d4dbb6c2d8bbcfc6d93055b29845091159c1423a13b06ca1fc3"
+      "sha256": "9ebf297dc0ba793c4819ae768eada3f24678e7d0386b6a760ec9aaa4aa5ff1a6"
     },
     "首次打开说明.txt": {
       "bytes": 593,
@@ -407,8 +407,8 @@
   },
   "dmg": {
     "path": "dist/GPT-TouchBar-HUD-0.1.29-arm64.dmg",
-    "bytes": 3101135,
-    "sha256": "aae56322d999898b2de25b0372a399dc927102376f4513af6ee4ee43119c141a",
+    "bytes": 3100387,
+    "sha256": "65b93b5a8e0f3ee598dcdf7bde4af1a09c85a98997ab761610f659d4096a6721",
     "hdiutil_verify": "passed",
     "readonly_mount": "passed",
     "mounted_bundle_file_count": 8,
@@ -417,7 +417,7 @@
   "checksums_file": {
     "path": "dist/SHA256SUMS.txt",
     "bytes": 100,
-    "sha256": "b352956d15a8db326a5cec00ddf78353eff36706ffd0d6d7522eee20470df946",
+    "sha256": "83fbca8a29174deb7452480caf37207a7170bc830cc4b33629f35d5ef5dfa4a6",
     "scope": "local arm64 candidate only"
   },
   "first_open_helper": "isolated-copy regression passed; real installed app not launched or changed",
@@ -430,25 +430,130 @@
   ],
   "checks": [
     {
-      "log": "build/release-evidence/build32/test-notch-presentation.log",
-      "sha256": "ab843c99bc2faf54b6e47cbe30be856ee5beda1b0d2955595308cf4e0027d599",
-      "summary": "PASS: 359 native island checks; 283 presented frames\nPASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration."
+      "command": "bash scripts/test-app-migration.sh",
+      "exit_code": 0,
+      "seconds": 3.81,
+      "log": "build/release-evidence/build31/test-app-migration.sh.log",
+      "log_sha256": "8bb69186b562453cc7a75e3e6e6652d179a57f227a02d34107c8e0ef3a2ed851",
+      "summary": [
+        "PASS: 4 legacy migration checks"
+      ]
     },
     {
-      "log": "build/release-evidence/build32/test-design-layout.log",
-      "sha256": "e17d3bf5b62586cd7f355d96c7f22dbd90ac05ba14b8c3ee511efd849c92d880",
-      "summary": "PASS: 158 design integration checks"
+      "command": "bash scripts/test-account-token-usage.sh",
+      "exit_code": 0,
+      "seconds": 47.36,
+      "log": "build/release-evidence/build31/test-account-token-usage.sh.log",
+      "log_sha256": "6557258421a3effc947566da9b677bd00d4a95cb775ddc9f2794c8d92c382896",
+      "summary": [
+        "PASS: 53 account token usage checks"
+      ]
     },
     {
-      "log": "build/release-evidence/build32/package-verification.log",
-      "sha256": "0202363a27ee0d06930c05139ff78abf25f29900b184ca7092d63f0274bf995e",
-      "summary": "PASS: version/build, source plist, arm64/minos 11.0, strict signatures, DMG verify/read-only mount, all bundle bytes, first-open binding and isolated regression\nDMG SHA256: aae56322d999898b2de25b0372a399dc927102376f4513af6ee4ee43119c141a\nPASS: cancel, scoped removal, preserve unrelated attributes, repeat, symlink, hash mismatch, arguments, tampered signature"
+      "command": "bash scripts/test-token-usage.sh",
+      "exit_code": 0,
+      "seconds": 6.81,
+      "log": "build/release-evidence/build31/test-token-usage.sh.log",
+      "log_sha256": "e90fd5a4c2de26bde0760b4d9fa06afb115bb974c468e250e1fc55933ea9bb7a",
+      "summary": [
+        "PASS: 18 token accounting and incremental-I/O checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-touchbar-layout.sh",
+      "exit_code": 0,
+      "seconds": 4.79,
+      "log": "build/release-evidence/build31/test-touchbar-layout.sh.log",
+      "log_sha256": "4531d5aeb6cde9609854f44fded9ae93a8e5e75d9eccd7aca9b8db9055d201b1",
+      "summary": [
+        "PASS: 291 Touch Bar layout checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-touchbar.sh",
+      "exit_code": 0,
+      "seconds": 7.82,
+      "log": "build/release-evidence/build31/test-touchbar.sh.log",
+      "log_sha256": "73c67c6b967e6716e0f0ef5a3cdfde1137d5849511dcf032c5b36464a206b3c7",
+      "summary": [
+        "PASS: 34 Touch Bar lifecycle, preference, data and focus checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-task-status.sh",
+      "exit_code": 0,
+      "seconds": 15.78,
+      "log": "build/release-evidence/build31/test-task-status.sh.log",
+      "log_sha256": "0fa3756bca79944ce276a7e6995a65dbda636424561a0b884ace11d719d632c4",
+      "summary": [
+        "PASS: 41 task status checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-app-update.sh",
+      "exit_code": 0,
+      "seconds": 1.72,
+      "log": "build/release-evidence/build31/test-app-update.sh.log",
+      "log_sha256": "a678949169f397148c7ced28189fc77ccf611590d09651ff659d3422d5d49bef",
+      "summary": [
+        "PASS: 73 update policy checks",
+        "PASS: updater shell syntax and invalid-target rejection"
+      ]
+    },
+    {
+      "command": "bash scripts/test-notch-hud.sh",
+      "exit_code": 0,
+      "seconds": 36.27,
+      "log": "build/release-evidence/build31/test-notch-hud.sh.log",
+      "log_sha256": "261ea688c7c8ac8c89271038d8419efe8dc7c005ed7a27716b8338a5eaaa8d13",
+      "summary": [
+        "PASS: 202778 notch fusion and V2 checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-design-layout.sh",
+      "exit_code": 0,
+      "seconds": 23.28,
+      "log": "build/release-evidence/build31/test-design-layout.sh.log",
+      "log_sha256": "e17d3bf5b62586cd7f355d96c7f22dbd90ac05ba14b8c3ee511efd849c92d880",
+      "summary": [
+        "PASS: 158 design integration checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-notch-presentation.sh",
+      "exit_code": 0,
+      "seconds": 74.06,
+      "log": "build/release-evidence/build31/test-notch-presentation.sh.log",
+      "log_sha256": "2c323be108a7846629e63f0c56e4e24a3e310e4a8002ee35e71c8944b3d4298c",
+      "summary": [
+        "PASS: 356 native island checks; 306 presented frames",
+        "PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration."
+      ]
+    },
+    {
+      "command": "bash scripts/test-hooks.sh",
+      "exit_code": 0,
+      "seconds": 16.64,
+      "log": "build/release-evidence/build31/test-hooks.sh.log",
+      "log_sha256": "18c2a814512fde47d2d84ad40c02dab362840f27d1d4a02bc31ffde92d8976c7",
+      "summary": [
+        "✔ Test run with 41 tests in 7 suites passed after 0.851 seconds."
+      ]
     }
   ],
-  "native_assertions": 359,
-  "presented_geometry_samples": 283,
-  "previous_regression_record": "Documentation/RELEASE-PREPARATION-0.1.29-build31.md",
-  "previous_regression_note": "Unchanged migration, quota, task, updater, Touch Bar and HookCore checks were run for Build 31. They were not re-run for this geometry-only follow-up.",
-  "prior_build31_archive": "backups/notch-polish-build31",
-  "preview": "Documentation/NotchIsland/evidence/refined-synthetic-expanded.png"
+  "checks_finished_at": "2026-09-21T11:36:03.786588+08:00",
+  "verification_log": {
+    "path": "build/release-evidence/build31/package-verification.log",
+    "sha256": "353aab46f56612c8c0831978537995dbbbaac6e4dcb4fc126427dc2f6c4d4f36"
+  },
+  "cleanup_record": "Documentation/validation/worktree-cleanup-2026-09-21.json",
+  "prior_build30_manifest": "Documentation/validation/release-0.1.29-build30-artifact-manifest.json",
+  "prior_build30_archive": "backups/worktree-cleanup-20260921-112910/release-0-1-29-prep",
+  "native_results": {
+    "log": "build/release-evidence/build31/test-notch-presentation.sh.log",
+    "assertions": 356,
+    "presented_geometry_samples": 306,
+    "native_mouse_events": "passed on this host; not physical notch acceptance"
+  }
 }
