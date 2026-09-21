@@ -87,6 +87,9 @@ jobs:
       - name: Test notch HUD geometry, layout, and menu presentation
         run: bash scripts/test-notch-hud.sh
 
+      - name: Test native island presentation and cancellation
+        run: bash scripts/test-notch-presentation.sh
+
       - name: Build and package DMG
         id: package
         shell: bash

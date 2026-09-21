@@ -14,7 +14,7 @@ enum HookPresentationIntegrationChecks {
         let bar = TouchBarRateLimitsView()
         host.contentView!.addSubview(bar)
         NSLayoutConstraint.activate([bar.leadingAnchor.constraint(equalTo: host.contentView!.leadingAnchor), bar.topAnchor.constraint(equalTo: host.contentView!.topAnchor)])
-        let notch = NotchHUDController()
+        let notch = LegacyNotchHUDController()
         notch.animationsEnabled = false
         defer { notch.hide(); host.orderOut(nil) }
         var quota = RateLimitDisplayState.initial
