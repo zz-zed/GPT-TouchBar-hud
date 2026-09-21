@@ -343,8 +343,9 @@ enum NotchHUDTests {
         check(controller.view.summaryText.contains(String(Int.max)), "extreme count never shortened")
         try snapshot(controller.view, "notch-v2-extreme")
         controller.toggleExpanded()
-        // Force a long localized explanatory note to exercise native overflow, not a clipped window.
-        let noteField = controller.view.detailContent.subviews.compactMap { $0 as? NSTextField }.first { $0.stringValue.contains("本地监测覆盖不完整") }!
+        // Force long task text to exercise native overflow without relying on removed diagnostics.
+        let extremeTitle = NotchTaskPresentation(extreme.taskStatus).title
+        let noteField = controller.view.detailContent.subviews.compactMap { $0 as? NSTextField }.first { $0.stringValue == extremeTitle }!
         noteField.stringValue = String(repeating: "这是一段需要完整阅读的状态说明，不能裁掉底部操作。", count: 70)
         let overflowHeight = controller.view.preferredHeight(width: narrow.screen.width)
         let limitedFrame = narrow.frame(width: narrow.screen.width, height: overflowHeight)
