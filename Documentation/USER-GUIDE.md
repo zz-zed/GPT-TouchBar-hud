@@ -141,4 +141,4 @@ Hooks 用于触发状态核对，额度和 Token 数据来源不变，任务状�
 - [自动更新、校验与恢复](UPDATING.md)
 - [源码构建与验证](DEVELOPMENT.md)
 - [卸载与清理](UNINSTALL.md)
-- [v0.1.30 发布验证记录](RELEASE-0.1.30.md)
+- [v0.1.31 发布验证记录](RELEASE-0.1.31.md)

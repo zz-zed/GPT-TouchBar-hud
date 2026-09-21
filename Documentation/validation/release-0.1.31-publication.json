@@ -1,0 +1,86 @@
+{
+  "version": "0.1.31",
+  "build": "34",
+  "sourceCommit": "9857fbc9a4f94ead0b230e5f8aca71b6da26ea84",
+  "tag": "v0.1.31",
+  "tagObject": "cee61925c8dc4adf433ac7d786c4bb9c854c1800",
+  "releaseURL": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.31",
+  "publishedAt": "2026-09-21T11:03:07Z",
+  "latestVerified": true,
+  "mainCI": {
+    "id": 35590948128,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/35590948128",
+    "conclusion": "success"
+  },
+  "tagCI": {
+    "id": 35591165363,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/35591165363",
+    "conclusion": "success"
+  },
+  "checks": {
+    "arm64": {
+      "taskStatusChecks": 74,
+      "updatePolicyChecks": 73,
+      "notchGeometryChecks": 194379,
+      "nativeChecks": 422,
+      "presentedFrames": 137,
+      "hookTests": 41
+    },
+    "x86_64": {
+      "taskStatusChecks": 74,
+      "updatePolicyChecks": 73,
+      "notchGeometryChecks": 194379,
+      "nativeChecks": 422,
+      "presentedFrames": 102,
+      "hookTests": 41
+    }
+  },
+  "assetVerification": {
+    "version": "0.1.31",
+    "build": "34",
+    "verifiedAtUTC": "2026-09-21T11:04:14.256117+00:00",
+    "assets": [
+      {
+        "name": "GPT-TouchBar-HUD-0.1.31-arm64.dmg",
+        "bytes": 3167503,
+        "sha256": "357b0c05cb002808342c25ddbe3b9e67fe02d8ad6621f3bbe5582bc77d74ed6c",
+        "architecture": "arm64",
+        "version": "0.1.31",
+        "build": "34",
+        "minimumSystem": "11.0",
+        "strictSignature": "passed",
+        "dmgIntegrity": "passed",
+        "readonlyMount": "passed",
+        "firstOpenHelperCDHash": "63211a4cc58ac7df88d38a07ad80f20ce725cbb0",
+        "binarySHA256": {
+          "Contents/MacOS/GPTTouchBarHUD": "1db495990f46389b1ea7ce5f8d955015c96b59197a64c2cb36d4d8db928fd236",
+          "Contents/Helpers/HookEmitter": "f7d42845667e9a1d7b57da469edeb0e3d44838f5e3a8c1b8344730dec4dba6dd"
+        }
+      },
+      {
+        "name": "GPT-TouchBar-HUD-0.1.31-x86_64.dmg",
+        "bytes": 3250971,
+        "sha256": "c27f429458daf40e30f09809bbd5e737ad871132915d3ad00201e55429df2bfb",
+        "architecture": "x86_64",
+        "version": "0.1.31",
+        "build": "34",
+        "minimumSystem": "11.0",
+        "strictSignature": "passed",
+        "dmgIntegrity": "passed",
+        "readonlyMount": "passed",
+        "firstOpenHelperCDHash": "ccd24588622acdb43c9a8689ac2683d2b0937998",
+        "binarySHA256": {
+          "Contents/MacOS/GPTTouchBarHUD": "92fa1fab9f7f3e484257b2ee90c0c0d9bcad6d68957c277b0d5eac7276131b18",
+          "Contents/Helpers/HookEmitter": "a38fdb45760ed1caf89fdb9162c21e348c48fdffe6ec4d810fecfca30730ac86"
+        }
+      }
+    ]
+  },
+  "githubAssetDigestsVerified": true,
+  "installedAppModified": false,
+  "limitations": [
+    "Physical notch, full-screen, multiple displays and wake remain hardware acceptance work.",
+    "Actual macOS 11 execution and installed-app automatic update end-to-end flow remain unverified.",
+    "Ad-hoc signed; not notarized."
+  ]
+}
