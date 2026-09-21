@@ -1,7 +1,7 @@
-0.1.29 / Build 32 — source fa9261b3d3b8e42b1491d98ab4c5f431037839e6
+0.1.29 / Build 32 — source 1af1096701a95a1831cb6020ed31856e23871bbe
 
 build/release-evidence/build32/test-notch-presentation.log
-PASS: 359 native island checks; 283 presented frames
+PASS: 359 native island checks; 298 presented frames
 PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration.
 
 build/release-evidence/build32/test-design-layout.log
@@ -9,5 +9,5 @@ PASS: 158 design integration checks
 
 build/release-evidence/build32/package-verification.log
 PASS: version/build, source plist, arm64/minos 11.0, strict signatures, DMG verify/read-only mount, all bundle bytes, first-open binding and isolated regression
-DMG SHA256: aae56322d999898b2de25b0372a399dc927102376f4513af6ee4ee43119c141a
+DMG SHA256: 95dd1c23688dc2201f96bbc1319de1598973524dc04fc9d40fc7f63dbe1a0cbc
 PASS: cancel, scoped removal, preserve unrelated attributes, repeat, symlink, hash mismatch, arguments, tampered signature

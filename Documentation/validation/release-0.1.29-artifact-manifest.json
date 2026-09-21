@@ -1,7 +1,7 @@
 {
-  "recorded_at": "2026-09-21T11:47:03.112496+08:00",
+  "recorded_at": "2026-09-21T11:54:24.614842+08:00",
   "status": "local arm64 candidate; not pushed, tagged, installed or published",
-  "source_commit": "fa9261b3d3b8e42b1491d98ab4c5f431037839e6",
+  "source_commit": "1af1096701a95a1831cb6020ed31856e23871bbe",
   "branch": "main",
   "worktree": "/Users/didi/Desktop/codex-space/TouchBarCodexToken",
   "package_version": "0.1.29",
@@ -87,8 +87,8 @@
       "sha256": "3da50e059b6fc0fcd2a4d20ea5d03f394c1b679b3d846d008bf33b1029a346db"
     },
     "Sources/NotchDetailPages.swift": {
-      "bytes": 7828,
-      "sha256": "3867bd5d066ab3d4e1c84591360dbb28f640da24035aefe2c66fb73068e1e7b3"
+      "bytes": 7829,
+      "sha256": "ef6b25a92d75b4dbac53aa37d89376afa68d53cb9eb227e96b180d016ec16415"
     },
     "Sources/NotchHUDController.swift": {
       "bytes": 7636,
@@ -127,8 +127,8 @@
       "sha256": "1d95c49d5d0636e853eaf750ac5a29701ba484b1d93688712ba5930ebee50d5d"
     },
     "Sources/NotchSurfaceShape.swift": {
-      "bytes": 5605,
-      "sha256": "840defb03adb872784f944bc8813fa7f2782b067c9caf2cd2e7661843cd70e49"
+      "bytes": 5419,
+      "sha256": "d9e85f21185bbd2b404b53c3191e906e462840b0025efe594a080b6809f00682"
     },
     "Sources/PersistentTouchBarController.swift": {
       "bytes": 5038,
@@ -355,7 +355,7 @@
     },
     "Contents/MacOS/GPTTouchBarHUD": {
       "bytes": 2575760,
-      "sha256": "684db235a6906f8f5ad19823505bcd0837af87b28eb382a0254eb4c0ddca1cb1"
+      "sha256": "780d34783060e4f44636c98964d05a1f088ac62e8e415cbe74d71345ab97eed0"
     },
     "Contents/Resources/AppIcon.icns": {
       "bytes": 1822741,
@@ -378,11 +378,11 @@
       "sha256": "aac5b2c78bf1f2db5d602913c1c58093576434eda211d2723fbe9e1187401da5"
     }
   },
-  "cdhash": "3e964121c15dbb88b1d46568066f936ab7f642f7",
+  "cdhash": "192793a2207afcdbf4f3f7a64543809285069c48",
   "binaries": {
     "Contents/MacOS/GPTTouchBarHUD": {
       "bytes": 2575760,
-      "sha256": "684db235a6906f8f5ad19823505bcd0837af87b28eb382a0254eb4c0ddca1cb1",
+      "sha256": "780d34783060e4f44636c98964d05a1f088ac62e8e415cbe74d71345ab97eed0",
       "architecture": "arm64",
       "build_version": "/Users/didi/Desktop/codex-space/TouchBarCodexToken/build/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n",
       "strict_signature": "passed"
@@ -398,7 +398,7 @@
   "dmg_root_files": {
     "首次打开助手.command": {
       "bytes": 2892,
-      "sha256": "811485311bd26d4dbb6c2d8bbcfc6d93055b29845091159c1423a13b06ca1fc3"
+      "sha256": "4db76d2a3d24c8911483c13c7d55714069e5a38e89f8d3d2e7f380954ec33a00"
     },
     "首次打开说明.txt": {
       "bytes": 593,
@@ -407,8 +407,8 @@
   },
   "dmg": {
     "path": "dist/GPT-TouchBar-HUD-0.1.29-arm64.dmg",
-    "bytes": 3101135,
-    "sha256": "aae56322d999898b2de25b0372a399dc927102376f4513af6ee4ee43119c141a",
+    "bytes": 3101074,
+    "sha256": "95dd1c23688dc2201f96bbc1319de1598973524dc04fc9d40fc7f63dbe1a0cbc",
     "hdiutil_verify": "passed",
     "readonly_mount": "passed",
     "mounted_bundle_file_count": 8,
@@ -417,7 +417,7 @@
   "checksums_file": {
     "path": "dist/SHA256SUMS.txt",
     "bytes": 100,
-    "sha256": "b352956d15a8db326a5cec00ddf78353eff36706ffd0d6d7522eee20470df946",
+    "sha256": "4fd1d703adac59201d307ffbd6efe5e7f290caf72b197f866864c619c4120e44",
     "scope": "local arm64 candidate only"
   },
   "first_open_helper": "isolated-copy regression passed; real installed app not launched or changed",
@@ -427,28 +427,5 @@
     "physical notch, fullscreen, display hotplug and wake not accepted",
     "real installed updater path not tested",
     "ad-hoc signed; not notarized"
-  ],
-  "checks": [
-    {
-      "log": "build/release-evidence/build32/test-notch-presentation.log",
-      "sha256": "ab843c99bc2faf54b6e47cbe30be856ee5beda1b0d2955595308cf4e0027d599",
-      "summary": "PASS: 359 native island checks; 283 presented frames\nPASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration."
-    },
-    {
-      "log": "build/release-evidence/build32/test-design-layout.log",
-      "sha256": "e17d3bf5b62586cd7f355d96c7f22dbd90ac05ba14b8c3ee511efd849c92d880",
-      "summary": "PASS: 158 design integration checks"
-    },
-    {
-      "log": "build/release-evidence/build32/package-verification.log",
-      "sha256": "0202363a27ee0d06930c05139ff78abf25f29900b184ca7092d63f0274bf995e",
-      "summary": "PASS: version/build, source plist, arm64/minos 11.0, strict signatures, DMG verify/read-only mount, all bundle bytes, first-open binding and isolated regression\nDMG SHA256: aae56322d999898b2de25b0372a399dc927102376f4513af6ee4ee43119c141a\nPASS: cancel, scoped removal, preserve unrelated attributes, repeat, symlink, hash mismatch, arguments, tampered signature"
-    }
-  ],
-  "native_assertions": 359,
-  "presented_geometry_samples": 283,
-  "previous_regression_record": "Documentation/RELEASE-PREPARATION-0.1.29-build31.md",
-  "previous_regression_note": "Unchanged migration, quota, task, updater, Touch Bar and HookCore checks were run for Build 31. They were not re-run for this geometry-only follow-up.",
-  "prior_build31_archive": "backups/notch-polish-build31",
-  "preview": "Documentation/NotchIsland/evidence/refined-synthetic-expanded.png"
+  ]
 }

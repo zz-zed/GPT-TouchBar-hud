@@ -1,6 +1,6 @@
 # 0.1.29 发布准备：Build 32
 
-2026-09-21。当前候选为 **0.1.29 / Build 32**，在 Build 31 基础上收紧刘海展开面板并柔化四角。本地 main 的功能构建输入为 `fa9261b3d3b8e42b1491d98ab4c5f431037839e6`；后续提交仅保存验证记录。没有推送、创建标签、公开发布或替换已安装 App。
+2026-09-21。当前候选为 **0.1.29 / Build 32**，在 Build 31 基础上收紧刘海展开面板并柔化四角。本地 main 的功能构建输入为 `1af1096701a95a1831cb6020ed31856e23871bbe`；后续提交仅保存验证记录。没有推送、创建标签、公开发布或替换已安装 App。
 
 ## 本次界面调整
 
@@ -16,7 +16,7 @@
 
 | 检查 | 结果 |
 | --- | --- |
-| 原生刘海呈现 | `scripts/test-notch-presentation.sh` 通过 359 项，记录 283 个实际动画几何样本；包含全部四角的真实鼠标点击穿透 |
+| 原生刘海呈现 | `scripts/test-notch-presentation.sh` 通过 359 项，记录 298 个实际动画几何样本；包含全部四角的真实鼠标点击穿透 |
 | 版式集成 | `scripts/test-design-layout.sh` 通过 158 项 |
 | 视觉检查 | 已检查正常中文额度页，以及窄屏英文长内容的额度、活动、用量三页；底部按钮完整，长内容保留滚动 |
 | 分发构建 | arm64 App 与 helper 优化编译、严格签名及 minos 11.0 校验通过 |
@@ -33,8 +33,8 @@
 - App：`build/GPT TouchBar HUD.app`
 - arm64 安装包：`dist/GPT-TouchBar-HUD-0.1.29-arm64.dmg`
 - 本地校验清单：`dist/SHA256SUMS.txt`
-- DMG 字节数：`3101135`
-- SHA-256：`aae56322d999898b2de25b0372a399dc927102376f4513af6ee4ee43119c141a`
+- DMG 字节数：`3101074`
+- SHA-256：`95dd1c23688dc2201f96bbc1319de1598973524dc04fc9d40fc7f63dbe1a0cbc`
 
 Build 31 的 App、DMG 和校验文件已逐文件校验后保留至 `backups/notch-polish-build31/`，其 [旧清单](validation/release-0.1.29-build31-artifact-manifest.json) 继续保留。更早的 Build 30 和 worktree 归档仍在原保留目录，见 [清理记录](validation/worktree-cleanup-2026-09-21.json)。当前只保留主目录 main，没有新增 worktree。
 
