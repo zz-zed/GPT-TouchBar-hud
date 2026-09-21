@@ -29,7 +29,11 @@ import HookCore
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
         precondition(updates.count == count, "Old Hook callbacks escaped after disable")
         coordinator.start(displayEnabled: true, experimental: false)
-        precondition(updates.last??.activity == nil && updates.last??.unknownCount == 1)
+        precondition(updates.last??.activity == nil
+                     && updates.last??.legacyHealth == .unavailable(.starting)
+                     && updates.last??.unknownCount == 1
+                     && updates.last??.isIdle == true
+                     && updates.last??.badge.isEmpty == true)
         coordinator.start(displayEnabled: true, experimental: true)
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
         precondition(updates.last??.activity != nil, "Legacy callback replaced Hook snapshot")
