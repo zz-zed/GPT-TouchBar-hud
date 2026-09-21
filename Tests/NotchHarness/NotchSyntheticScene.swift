@@ -83,17 +83,24 @@ extension NotchHarness {
         let frame = CGRect(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3])
         let panel = NotchIslandPanel()
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue - 1)
-        panel.setFrame(frame, display: true)
+        // Keep the HUD's subpixel corner probes away from the receiver's own
+        // pixel-rounded window boundary. The tested HUD and points stay unchanged.
+        panel.setFrame(frame.insetBy(dx: -2, dy: -2), display: true)
         let layout = NotchLayout(geometry: fixture(CGRect(x: frame.midX - 756, y: frame.maxY - 982, width: 1512, height: 982)))
         let view = NotchSyntheticBackdrop(layout: layout)
         func receipt(_ count: Int) {
-            let payload: [String: Any] = ["clicks": count, "pid": ProcessInfo.processInfo.processIdentifier, "windowNumber": panel.windowNumber]
+            let payload: [String: Any] = ["clicks": count, "pid": ProcessInfo.processInfo.processIdentifier,
+                "windowNumber": panel.windowNumber, "eventLoopUptime": ProcessInfo.processInfo.systemUptime,
+                "visible": panel.isVisible, "onActiveSpace": panel.isOnActiveSpace]
             try? JSONSerialization.data(withJSONObject: payload).write(to: output, options: .atomic)
         }
         view.onClick = receipt
         panel.contentView = view
         panel.orderFrontRegardless()
-        receipt(0)
+        // Readiness and later acknowledgements must come from the running event
+        // loop, not merely from allocating an NSWindow before NSApp.run().
+        let heartbeat = Timer(timeInterval: 0.02, repeats: true) { _ in receipt(view.clicks) }
+        RunLoop.main.add(heartbeat, forMode: .common)
         NSApp.run()
         withExtendedLifetime(panel) {}
     }
@@ -115,17 +122,112 @@ extension NotchHarness {
             guard let data = try? Data(contentsOf: file), let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
             return value
         }
-        for _ in 0..<100 { if receipt()["windowNumber"] != nil { break }; pump(0.02) }
-        check(receipt()["windowNumber"] != nil, "separate native click receiver ready")
         let oldPointer = NSEvent.mouseLocation
-        let frontPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let mainHeight = NSScreen.screens.first!.frame.maxY
         func post(_ type: CGEventType, _ point: CGPoint) {
             let cgPoint = CGPoint(x: point.x, y: mainHeight - point.y)
             CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: cgPoint, mouseButton: .left)?.post(tap: .cghidEventTap)
         }
         defer { post(.mouseMoved, oldPointer) }
-        func click(_ point: CGPoint) { post(.leftMouseDown, point); pump(0.03); post(.leftMouseUp, point); pump(0.12) }
+        var moves = 0, downs = 0, ups = 0
+        var lastEvent = "none"
+        func observe(_ event: NSEvent) {
+            switch event.type {
+            case .mouseMoved: moves += 1
+            case .leftMouseDown: downs += 1
+            case .leftMouseUp: ups += 1
+            default: break
+            }
+            lastEvent = "type=\(event.type.rawValue), window=\(event.windowNumber), timestamp=\(event.timestamp)"
+        }
+        let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDown, .leftMouseUp]
+        let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: observe)
+        let local = NSEvent.addLocalMonitorForEvents(matching: mask) { event in observe(event); return event }
+        defer {
+            if let global { NSEvent.removeMonitor(global) }
+            if let local { NSEvent.removeMonitor(local) }
+        }
+        func diagnostic(_ point: CGPoint?, beforeClicks: Int?) -> String {
+            let pointer = NSEvent.mouseLocation
+            return "target=\(String(describing: point)), pointer=\(pointer), contains=\(controller.interaction.contains(pointer)), "
+                + "ignores=\(controller.panel.ignoresMouseEvents), enabled=\(controller.interaction.enabled), "
+                + "mouseDownWindow=\(NSWindow.windowNumber(at: point ?? pointer, belowWindowWithWindowNumber: 0)), panelWindow=\(controller.panel.windowNumber), "
+                + "visible=\(controller.model.visible)/\(controller.isVisible), state=\(controller.model.state.rawValue), "
+                + "panelVisible=\(controller.panel.isVisible), onSpace=\(controller.panel.isOnActiveSpace), occlusion=\(controller.panel.occlusionState.rawValue), "
+                + "bridge=\(String(describing: controller.bridge.snapshot?.size)), receiverRunning=\(child.isRunning), "
+                + "beforeClicks=\(String(describing: beforeClicks)), receiver=\(receipt()), events=\(moves)/\(downs)/\(ups), lastEvent=\(lastEvent)"
+        }
+        func waitUntil(_ condition: () -> Bool) -> Bool {
+            let deadline = ProcessInfo.processInfo.systemUptime + 3
+            repeat {
+                if condition() { return true }
+                pump(0.01)
+            } while ProcessInfo.processInfo.systemUptime < deadline
+            return condition()
+        }
+        func verify(_ success: Bool, _ message: String, point: CGPoint? = nil, beforeClicks: Int? = nil) {
+            if !success {
+                FileHandle.standardError.write(Data(("Native click failure: " + diagnostic(point, beforeClicks: beforeClicks) + "\n").utf8))
+            }
+            check(success, message)
+        }
+        verify(waitUntil {
+            let value = receipt()
+            return value["eventLoopUptime"] != nil && value["clicks"] as? Int != nil
+                && value["visible"] as? Bool == true && value["onActiveSpace"] as? Bool == true
+        }, "separate native click receiver ready")
+        let frontPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        func pointerIs(at point: CGPoint) -> Bool {
+            let actual = NSEvent.mouseLocation
+            return abs(actual.x - point.x) < 1 && abs(actual.y - point.y) < 1
+        }
+        func move(to point: CGPoint, accepts: Bool) {
+            let before = moves
+            post(.mouseMoved, point)
+            verify(waitUntil {
+                let expectedWindow = accepts ? controller.panel.windowNumber : (receipt()["windowNumber"] as? Int ?? -1)
+                return moves > before && pointerIs(at: point) && controller.interaction.enabled
+                    && controller.model.visible && controller.isVisible
+                    && controller.interaction.contains(point) == accepts && controller.panel.ignoresMouseEvents == !accepts
+                    && NSWindow.windowNumber(at: point, belowWindowWithWindowNumber: 0) == expectedWindow
+            }, "real mouse movement establishes expected native routing", point: point)
+        }
+        func geometryIs(_ state: NotchPresentationState) -> Bool {
+            guard let presented = controller.bridge.snapshot?.size, let layout = controller.model.layout else { return false }
+            let target = layout.size(for: state)
+            return controller.model.state == state && abs(presented.width - target.width) < 0.05 && abs(presented.height - target.height) < 0.05
+        }
+        func expand() {
+            controller.model.click()
+            verify(waitUntil { geometryIs(.expanded) }, "native click fixture presents expanded geometry")
+        }
+        func click(_ point: CGPoint, expectedClicks: Int, state: NotchPresentationState? = nil, _ message: String) {
+            let beforeClicks = receipt()["clicks"] as? Int
+            let beforeDowns = downs, beforeUps = ups
+            let expectedWindow = expectedClicks == beforeClicks ? controller.panel.windowNumber : (receipt()["windowNumber"] as? Int ?? -1)
+            // AppKit's property can change before WindowServer applies routing.
+            // This public query uses actual mouse-down hit-testing rules.
+            verify(waitUntil {
+                pointerIs(at: point) && NSWindow.windowNumber(at: point, belowWindowWithWindowNumber: 0) == expectedWindow
+            }, "WindowServer is ready for the single real click", point: point, beforeClicks: beforeClicks)
+            // Send exactly one down/up pair. Polling must never retry the click.
+            post(.leftMouseDown, point)
+            let downDelivered = waitUntil { downs > beforeDowns }
+            post(.leftMouseUp, point) // Release even if the down acknowledgement times out.
+            verify(downDelivered, "real mouse down is observed", point: point, beforeClicks: beforeClicks)
+            verify(waitUntil { ups > beforeUps }, "real mouse up is observed", point: point, beforeClicks: beforeClicks)
+            let released = ProcessInfo.processInfo.systemUptime
+            var stableSince: TimeInterval?
+            verify(waitUntil {
+                let value = receipt()
+                let matches = (value["eventLoopUptime"] as? Double ?? 0) > released
+                    && value["clicks"] as? Int == expectedClicks && (state == nil || controller.model.state == state)
+                guard matches else { stableSince = nil; return false }
+                let now = ProcessInfo.processInfo.systemUptime
+                guard let since = stableSince else { stableSince = now; return false }
+                return now - since >= 0.12
+            }, message, point: point, beforeClicks: beforeClicks)
+        }
         controller.interaction.mouseLocation = { NSEvent.mouseLocation }
         controller.panel.orderFrontRegardless()
         controller.refreshVisibility()
@@ -133,30 +235,33 @@ extension NotchHarness {
         controller.model.animationsEnabled = false
         controller.model.reset(visible: true)
         let wing = CGPoint(x: frame.midX - controller.model.layout!.notchWidth / 2 - 19, y: frame.maxY - 12)
-        post(.mouseMoved, wing); pump(0.08)
+        move(to: wing, accepts: true)
         let initialClicks = receipt()["clicks"] as? Int ?? -1
-        click(wing)
-        check(controller.model.state == .expanded && receipt()["clicks"] as? Int == initialClicks, "real first wing click expands without reaching underlying receiver")
+        click(wing, expectedClicks: initialClicks, state: .expanded, "real first wing click expands without reaching underlying receiver")
+        verify(waitUntil { geometryIs(.expanded) }, "first real click presents expanded geometry")
         let blank = CGPoint(x: frame.midX, y: frame.maxY - 220)
-        post(.mouseMoved, blank); pump(0.03); click(blank)
-        check(controller.model.state == .expanded && receipt()["clicks"] as? Int == initialClicks, "real detail blank click preserves Expanded")
-        check(NSWorkspace.shared.frontmostApplication?.processIdentifier == frontPID && !controller.panel.isKeyWindow, "real island clicks do not activate app or steal keyboard focus")
+        move(to: blank, accepts: true)
+        click(blank, expectedClicks: initialClicks, state: .expanded, "real detail blank click preserves Expanded")
+        let finalFrontPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        verify(finalFrontPID == frontPID && !controller.panel.isKeyWindow,
+               "real island clicks do not activate app or steal keyboard focus (before=\(String(describing: frontPID)), after=\(String(describing: finalFrontPID)), key=\(controller.panel.isKeyWindow))")
         let exterior = CGPoint(x: frame.minX + 5, y: frame.maxY - 120)
-        post(.mouseMoved, exterior); pump(0.08)
-        controller.model.click(); pump(0.08)
+        move(to: exterior, accepts: false)
+        expand()
         check(controller.model.state == .expanded, "outside click begins with expanded island")
         let first = receipt()["clicks"] as? Int ?? -1
-        click(exterior)
-        check(receipt()["clicks"] as? Int == first + 1, "real outside click reaches separate receiver process")
+        click(exterior, expectedClicks: first + 1, state: .compact, "real outside click reaches separate receiver process")
         check(controller.model.state == .compact, "real outside click collapses island")
-        controller.model.click(); pump(0.08)
+        expand()
         let edge = CGPoint(x: frame.midX + controller.model.layout!.expandedSize.width / 2 - 12, y: frame.maxY - 90)
-        post(.mouseMoved, edge); pump(0.08)
+        move(to: edge, accepts: true)
         controller.model.animationsEnabled = true
-        controller.model.collapse(); pump(0.55)
+        controller.model.collapse()
+        verify(waitUntil { geometryIs(.compact) && pointerIs(at: edge) && controller.panel.ignoresMouseEvents },
+               "stationary pointer becomes click-through after actual shrink", point: edge)
         let second = receipt()["clicks"] as? Int ?? -1
-        click(edge) // Deliberately no intervening mouseMoved after shrink.
-        check(receipt()["clicks"] as? Int == second + 1, "real stationary-pointer click after shrink reaches separate receiver")
+        // Deliberately no intervening mouseMoved after shrink.
+        click(edge, expectedClicks: second + 1, "real stationary-pointer click after shrink reaches separate receiver")
         controller.model.animationsEnabled = false
         for (name, point) in [
             ("camera", CGPoint(x: frame.midX, y: frame.maxY - 10)),
@@ -166,11 +271,10 @@ extension NotchHarness {
             ("bottom-right rounded corner", CGPoint(x: frame.midX + controller.model.layout!.expandedSize.width / 2 - 0.1, y: frame.maxY - controller.model.layout!.expandedSize.height + 0.1)),
             ("decoration", CGPoint(x: frame.midX - controller.model.layout!.expandedSize.width / 2 - 3, y: frame.maxY - 70))
         ] {
-            controller.model.click(); pump(0.06)
-            post(.mouseMoved, point); pump(0.06)
+            expand()
+            move(to: point, accepts: false)
             let count = receipt()["clicks"] as? Int ?? -1
-            click(point)
-            check(receipt()["clicks"] as? Int == count + 1, "real \(name) click reaches separate receiver")
+            click(point, expectedClicks: count + 1, "real \(name) click reaches separate receiver")
         }
         controller.interaction.stop()
         return "PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration."
