@@ -1,0 +1,50 @@
+{
+  "recorded_at": "2026-09-21T11:38:11.036645+08:00",
+  "main": "/Users/didi/Desktop/codex-space/TouchBarCodexToken",
+  "main_before_merge": "3007f8ae73daec9fcc2e15628a99bd18753eaffb",
+  "integrated_head": "f49533c3b472520ab8644f03c27892325ec35f80",
+  "candidate_source_commit": "1ebd440083856fabe9a888e13fe0ab9f471ef716",
+  "archive": "/Users/didi/Desktop/codex-space/TouchBarCodexToken/backups/worktree-cleanup-20260921-112910",
+  "verified_archive_entries": 593,
+  "bundle_sha256": "803a794cc043558b26f28a5424874209536c56b86dddf46f6cbe077bc2bda45f",
+  "removed": [
+    {
+      "path": "/Users/didi/.codex/worktrees/3ab2/TouchBarCodexToken",
+      "head": "02f76de71bb8ea052d913b4e413b948c0e3578dd",
+      "archive_label": "3ab2",
+      "patch_equivalence_to_main": "- 2abc7ef67a089b53afe72967ba94883133d20c1a\n- 02f76de71bb8ea052d913b4e413b948c0e3578dd\n",
+      "command": "git worktree remove (without force)"
+    },
+    {
+      "path": "/Users/didi/.codex/worktrees/436e/TouchBarCodexToken",
+      "head": "b3297e42c0ad299da1fc9e2ba700d2e5d42fd4f3",
+      "archive_label": "436e",
+      "patch_equivalence_to_main": "- b3297e42c0ad299da1fc9e2ba700d2e5d42fd4f3\n",
+      "command": "git worktree remove (without force)"
+    },
+    {
+      "path": "/Users/didi/.codex/worktrees/notch-update-integration/TouchBarCodexToken",
+      "head": "b5a5bbe1866e4d969fb0590117771445b798c815",
+      "archive_label": "notch-update-integration",
+      "patch_equivalence_to_main": "",
+      "command": "git worktree remove (without force)"
+    },
+    {
+      "path": "/Users/didi/.codex/worktrees/release-0-1-29-prep/TouchBarCodexToken",
+      "head": "a2969a071cf4edba9b572ea46d33498bb0b685ba",
+      "archive_label": "release-0-1-29-prep",
+      "patch_equivalence_to_main": "",
+      "command": "git worktree remove (without force)"
+    },
+    {
+      "path": "/Users/didi/.codex/worktrees/cf09/TouchBarCodexToken",
+      "head": "f49533c3b472520ab8644f03c27892325ec35f80",
+      "archive_label": "cf09",
+      "patch_equivalence_to_main": "",
+      "command": "git worktree remove (without force)"
+    }
+  ],
+  "runtime_review": "LaunchAgent and installed App point to /Applications/GPT TouchBar HUD.app. No application/test executable uses the removed worktrees. Generic CUA/node REPL tool hosts hold cwd in 436e/cf09; these host processes are not repository executables and were not terminated.",
+  "removed_merged_branch": "release/0.1.29",
+  "remaining_worktrees": "worktree /Users/didi/Desktop/codex-space/TouchBarCodexToken\nHEAD 1ebd440083856fabe9a888e13fe0ab9f471ef716\nbranch refs/heads/main\n\n"
+}

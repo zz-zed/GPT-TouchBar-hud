@@ -1,62 +1,75 @@
-# 0.1.29 本地发布准备（阶段记录）
+# 0.1.29 发布准备：Build 31
 
-2026-09-20。目标版本 **0.1.29 / Build 30**。本轮只完成版本、发布说明、README 和本地 arm64 候选准备；不是正式发布记录，未推送分支、创建 PR、推送标签、创建或公开 Release，也未安装、替换或启动候选 App。
+2026-09-21。本地 `main` 已整合本轮必要代码与文件，完成 **0.1.29 / Build 31** 的 arm64 候选构建、回归和打包校验，并清理全部 5 个附加 worktree。本轮没有推送、创建标签或公开 Release，也没有安装、替换或启动正式 App。只读检查时，远端 main 为 `3007f8a`，公开最新版为 `v0.1.28`。
 
-## 范围与提交分层
+## 主分支与版本范围
 
-- 已接受的功能整合提交：`b5a5bbe1866e4d969fb0590117771445b798c815`，起点 main 为 `3007f8ae73daec9fcc2e15628a99bd18753eaffb`。
-- 实际候选构建输入：`b9b485f009684c441e88b36cdec95b3c698fab0c`，包含 0.1.29 / Build 30、README 和 RELEASE_NOTES 更新。
-- 构建后的文案收尾提交：`74b9f362121afb5ebdd056dfbd4e5220d79e8434`，只去除 README 与 RELEASE_NOTES 对会话审批历史的引用，没有修改 App、资源、脚本或候选产物输入。
-- 发布准备分支：`release/0.1.29`；独立工作树：`/Users/didi/.codex/worktrees/release-0-1-29-prep/TouchBarCodexToken`。
-- 功能范围是刘海完整外壳、短凹圆角/水平肩线/外圆角、独立原生调试，以及自动检查更新、持久状态、设置和菜单提醒。任务状态 Hook 改造继续暂停，本版没有把任务问号写成已修复。
+- 主目录：`/Users/didi/Desktop/codex-space/TouchBarCodexToken`，保留分支 `main`。
+- 合并前 main：`3007f8ae73daec9fcc2e15628a99bd18753eaffb`。
+- 功能汇集提交：`f49533c3b472520ab8644f03c27892325ec35f80`，通过 fast-forward 合入 main。
+- 本次实际构建输入：`1ebd440083856fabe9a888e13fe0ab9f471ef716`；后续提交仅记录验证与清理结果。
+- 新候选保持未发布的 0.1.29，Build 从 30 增至 31，以区分新增原生刘海三态及启动自动适配后的包。
 
-主任务只读核对时，远端 main 为 `3007f8a`、latest 为 `v0.1.28`，未发现远端 0.1.29 标签、分支或 PR。本工作树没有再次执行远端写操作。`.github/workflows/build-dmg.yml` 对 `v*` 标签会在双架构构建后创建并公开 GitHub Release，因此标签推送不属于本地准备，必须等待后续明确授权。
+本版包含原生刘海 Compact / Peek / Expanded、额度/活动/用量分页、始终显示额度设置、动画期间的实际轮廓点击判断，以及自动检查更新。启动时，未保存模式的用户使用自动检测；有刘海且未保存显示状态时直接显示面板。已保存的手动模式和隐藏设置优先，重新选择“自动”可恢复适配。旧版本无法区分手动选择与随可见性保存的模式值，因此所有既有合法模式均予以保留。
 
-## 证据分层
+`3ab2` 的两项刘海改动和 `436e` 的自动更新改动，经 `git cherry` 确认均有补丁等价提交在整合历史内。没有遗漏独有补丁，也没有再次覆盖已经整合的实现。README、发布说明及贡献检查项已同步当前行为；旧渲染器和独立原生调试入口仍保留。
 
-先前整合报告 `/Users/didi/Desktop/codex-space/TouchBarCodexToken/Design/iteration-next/NOTCH-UPDATE-INTEGRATION-REVIEW.md` 记录的是 `b5a5bbe` 功能整合证据：73 项更新策略检查、202,761 项刘海采样/集成检查、158 项设计集成检查，以及 arm64 分发构建和严格签名通过。这些结果早于 0.1.29 版本修改，不能冒充本次候选包装验证。
+## 本次验证
 
-本轮从干净的 `b9b485f` 重新执行 `scripts/package-dmg.sh`，并针对生成的候选完成以下检查：
+以下均在主目录、Build 31 构建输入上执行，没有使用 Build 30 的结果替代本次检查。
 
-| 验证 | 0.1.29 本地结果 |
+| 检查 | 结果 |
 | --- | --- |
-| 更新策略 | `bash scripts/test-app-update.sh`：73 项通过；安装脚本语法与非法目标拒绝通过 |
-| App/DMG 构建 | `scripts/package-dmg.sh` 完成优化 arm64 编译、嵌套签名及 DMG 打包 |
-| 源码与包内 plist | 源码、build App 和只读挂载 App 的 Info.plist 逐字节一致；0.1.29 / Build 30、LSUIElement=true、最低系统声明 11.0 |
-| 签名与二进制 | build/mounted App 深度严格验证通过；HookEmitter all-architectures 严格验证通过；主程序与 helper 均为 arm64、minos 11.0 / SDK 27.0 |
-| DMG | `hdiutil verify` 与本地 SHA256SUMS 通过；只读挂载后 App 的 7 个文件哈希与字节数全部匹配 build App；Applications 链接、首次打开助手和说明齐全 |
-| 首次打开助手 | 绑定本次 CDHash `958748ee916376e769ace091044337f70f9f0d65`，无模板占位符；隔离副本覆盖取消、定向移除隔离属性、保留其他属性、重复执行、符号链接、哈希不匹配、异常参数和签名篡改，未启动真实 App |
-| 工作区边界 | 未构建已知失败的本地 Intel 目标；未更改 Hooks、信任、全局偏好、真实安装或运行中应用 |
+| 旧设置迁移 | 4 项通过 |
+| 账号 Token / 本地 Token 计数 | 53 / 18 项通过；未运行真实账号 smoke |
+| Touch Bar 布局 / 生命周期 | 291 / 34 项通过；未运行系统级 smoke |
+| 任务状态 | 41 项通过 |
+| 更新策略和安装脚本边界 | 73 项及脚本语法、非法目标拒绝通过 |
+| 刘海几何、偏好、菜单与集成 | 202,778 项通过，含大量几何采样，并非同数量用户场景 |
+| 设计集成 | 158 项通过 |
+| 原生刘海呈现 | 本轮一次通过 356 项，采集 306 个实际动画几何样本；真实 WindowServer 鼠标事件投递及焦点检查通过 |
+| HookCore | `scripts/test-hooks.sh`：7 组、41 项通过 |
+| 分发构建 | arm64 优化编译、App 与 helper 严格签名校验通过 |
+| 包版本与系统目标 | 源码/build/挂载 App plist 一致；0.1.29 / Build 31，最低声明和 Mach-O minos 均为 11.0 |
+| DMG 校验 | `hdiutil verify`、SHA-256 校验及只读挂载通过；包内 8 个 App 文件与 build App 的哈希、大小完全一致 |
+| 首次打开助手 | 绑定本包 CDHash、无模板占位符；隔离副本的取消、属性保留、重复执行、符号链接、哈希不符、异常参数、签名篡改回归通过 |
+| 文档 | 发布相关本地链接与 Git 空白检查通过 |
 
-## 本地候选与哈希
+原始日志位于 `build/release-evidence/build31/`。可提交的证据为 [测试摘要](validation/release-0.1.29-build31-tests.txt) 和 [候选清单](validation/release-0.1.29-artifact-manifest.json)。此前启动策略迭代发生过一次焦点断言失败、原样复跑通过，保留在 [刘海验证记录](NotchIsland/VALIDATION.md)；本次主目录候选回归未复现该失败。
 
-- App：`/Users/didi/.codex/worktrees/release-0-1-29-prep/TouchBarCodexToken/build/GPT TouchBar HUD.app`
-- arm64 DMG：`/Users/didi/.codex/worktrees/release-0-1-29-prep/TouchBarCodexToken/dist/GPT-TouchBar-HUD-0.1.29-arm64.dmg`
-- 本地校验清单：`/Users/didi/.codex/worktrees/release-0-1-29-prep/TouchBarCodexToken/dist/SHA256SUMS.txt`，只含 arm64，不替代未来 CI 生成的双架构清单。
-- 可提交清单：[release-0.1.29-artifact-manifest.json](validation/release-0.1.29-artifact-manifest.json)。
-- 本地证据日志：`build/release-evidence/`，被 Git 忽略但保留在此工作树。
+## 当前候选
 
-| 对象 | 字节数 | SHA-256 |
-| --- | ---: | --- |
-| `GPT-TouchBar-HUD-0.1.29-arm64.dmg` | 2,942,146 | `aa352d4b6a1470f3be4157500707d9bc6b9cdd1e9db19da895f53672f5b19b7b` |
-| `GPTTouchBarHUD` | 1,970,384 | `3b4a01d8920e85d1ccd7916ea42273334b5d3898c53e40922e56ec0e29394f8d` |
-| `HookEmitter` | 334,128 | `32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99` |
-| 包内 `Info.plist` | 945 | `a8ecf39cbd670b2f12934ed9fe5da084ba0e7c37b74a8eb2bcd415fa154c1378` |
+- App：`build/GPT TouchBar HUD.app`
+- arm64 DMG：`dist/GPT-TouchBar-HUD-0.1.29-arm64.dmg`
+- 本地 SHA-256 清单：`dist/SHA256SUMS.txt`，仅包含本次 arm64 候选。
+- DMG 大小：`3100387` 字节。
+- DMG SHA-256：`65b93b5a8e0f3ee598dcdf7bde4af1a09c85a98997ab761610f659d4096a6721`。
+- App CDHash：`b9b61770d6e5c6b585687c0a1ddbb3bf648cd457`。
 
-## 保留的验收限制
+以上路径均相对于主目录。本次包包含最新实现，替代先前仅含旧刘海外壳的 Build 30；Build 30 的 [准备记录](RELEASE-PREPARATION-0.1.29-build30.md) 与 [清单](validation/release-0.1.29-build30-artifact-manifest.json) 作为历史证据保留。
 
-- 本地只生成 arm64。已知本机 Swift 兼容库缺少 Intel 切片，本轮未重复失败构建；x86_64 构建、签名与运行需要 GitHub Actions 的 Intel runner 补验。
-- minos 11.0 是编译链接目标，不等于已完成真实 macOS 11 运行验收。
-- 实体刘海接缝与黑色色差、圆角肩部、透明区域点击穿透、菜单自动隐藏、全屏、多屏、Space 和睡眠恢复尚未真机验收；synthetic 原生模拟不能替代该结果。
-- 正式安装路径下的 30 秒调度、24 小时间隔、睡眠唤醒、GitHub 网络失败/限流和用户触发更新重启尚未端到端验收；自动更新测试使用隔离偏好、假网络和时钟。
-- Hooks 真实信任、执行、任务准确性和问号状态改造不属于本次版本；没有省电或全量任务数结论。
-- 候选继续采用 ad-hoc 签名，未做 Apple Developer 签名或公证。
+## Worktree 清理与保留文件
 
-## 后续发行步骤
+清理前核对了正常/忽略文件、各提交与 main 的包含或补丁等价关系、运行中程序、LaunchAgent 和实际安装路径。LaunchAgent 指向 `/Applications/GPT TouchBar HUD.app`；没有正在使用待清理目录的 App 或测试可执行文件。通用 CUA/node 工具进程虽持有其中两个目录的工作路径，但没有作为仓库程序运行，本轮未终止这些宿主工具进程。
 
-1. 在用户后续授权下推送 release 分支或创建 PR，等待 arm64 与 x86_64 CI；本地 arm64 DMG不能替代 CI 产物。
-2. 结合用户接受的风险边界完成或明确保留真机刘海、真实更新路径和兼容性验收。
-3. 仅在正式发布授权后创建并推送匹配版本的 `v0.1.29` 标签；该动作会触发公开 Release，不能作为普通准备步骤执行。
-4. 核对 tag CI 的两个架构 DMG、CI 生成的 `SHA256SUMS.txt`、Release 正式/最新状态，再按独立授权执行真实安装或更新验证。
+5 个附加 worktree 使用不带 `--force` 的 `git worktree remove` 删除；已合并的旧 `release/0.1.29` 分支也已删除。清理后 Git 仅登记主目录的 main。
 
-本地准备已完成，没有需要扩大功能范围才能解决的阻塞。正式发布仍需双架构 CI 和上述实机/真实路径验收决定；本地候选不能表述为已公开发布。
+本地保留目录：`backups/worktree-cleanup-20260921-112910/`。归档前后校验了 593 个文件/符号链接条目，并以通过验证的 Git bundle 保留原始提交，包括两条补丁等价的 detached 开发线。仅编译及模块缓存作为可重建内容随工作树移除；设计稿、截图、验证日志、旧 App、旧 DMG 和上游参考资料均予以保留。
+
+| 原 worktree | 原提交 | 本地归档子目录 |
+| --- | --- | --- |
+| `3ab2` | `02f76de` | `3ab2/` |
+| `436e` | `b3297e4` | `436e/` |
+| `notch-update-integration` | `b5a5bbe` | `notch-update-integration/` |
+| `release-0-1-29-prep` | `a2969a0` | `release-0-1-29-prep/` |
+| `cf09` | `f49533c` | `cf09/` |
+
+主目录原有 Design/build/dist 也在 `main-before-preparation/` 中留有快照。归档 `inventory.json` 提供每个原路径、保存位置和 SHA-256；[清理清单](validation/worktree-cleanup-2026-09-21.json) 记录实际移除结果。历史文档中的旧 worktree 路径不再是当前交付位置。
+
+## 正式发布前的剩余边界
+
+- 本地只生成 arm64；Intel 的构建、签名和运行仍需要远端 Intel runner 验证。
+- macOS 11 仅验证编译/链接目标；实体刘海黑位、接缝、菜单栏拥挤、缩放、全屏、热插拔和唤醒尚未实机验收。
+- 正式安装路径下的定时更新、真实网络/限流和安装重启链路未端到端验收；Hook 真实启用与任务准确性没有新增结论。
+- 当前为 ad-hoc 签名，未做 Apple Developer 签名或公证。
+- `.github/workflows/build-dmg.yml` 会在推送 `v*` 标签后自动公开 Release。本轮仅准备本地 main 和候选；远端 main、双架构 CI、标签与公开发布均待后续正式发布操作。

@@ -1,0 +1,155 @@
+{
+  "recorded_at": "2026-09-20T11:23:08Z",
+  "status": "local arm64 release candidate; not pushed, tagged, installed, or published",
+  "source_commit": "b9b485f009684c441e88b36cdec95b3c698fab0c",
+  "accepted_integration_commit": "b5a5bbe1866e4d969fb0590117771445b798c815",
+  "base_main_commit": "3007f8ae73daec9fcc2e15628a99bd18753eaffb",
+  "post_build_documentation_commit": "74b9f362121afb5ebdd056dfbd4e5220d79e8434",
+  "post_build_documentation_note": "This successor commit only removes approval-history wording from README and RELEASE_NOTES; it does not change the packaged app input.",
+  "branch": "release/0.1.29",
+  "worktree": "/Users/didi/.codex/worktrees/release-0-1-29-prep/TouchBarCodexToken",
+  "package_version": "0.1.29",
+  "build": "30",
+  "LSUIElement": true,
+  "LSMinimumSystemVersion": "11.0",
+  "architectures_prepared_locally": [
+    "arm64"
+  ],
+  "bundle_files": {
+    "Contents/Helpers/HookEmitter": {
+      "bytes": 334128,
+      "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99"
+    },
+    "Contents/Info.plist": {
+      "bytes": 945,
+      "sha256": "a8ecf39cbd670b2f12934ed9fe5da084ba0e7c37b74a8eb2bcd415fa154c1378"
+    },
+    "Contents/MacOS/GPTTouchBarHUD": {
+      "bytes": 1970384,
+      "sha256": "3b4a01d8920e85d1ccd7916ea42273334b5d3898c53e40922e56ec0e29394f8d"
+    },
+    "Contents/Resources/AppIcon.icns": {
+      "bytes": 1822741,
+      "sha256": "0a5d1372b809f33738829c961ce5495ebe99d5b83dcc3f3f93c213853dd9d572"
+    },
+    "Contents/Resources/gpt-touchbar-hud-launcher.sh": {
+      "bytes": 915,
+      "sha256": "1b1304d7c93fe51704eb5517a5412aa11be60e14d22f1672ccc30de5e806c860"
+    },
+    "Contents/Resources/install-update.sh": {
+      "bytes": 1076,
+      "sha256": "7860b440d3acb78d247fe4fb00f04c027cf9236dd2dc1d38e92d8976fa7b9b1c"
+    },
+    "Contents/_CodeSignature/CodeResources": {
+      "bytes": 3171,
+      "sha256": "ddcca722a7cc8dd6c844bfb57918dc3eee34564eb4bc79ceae324a935937c1a8"
+    }
+  },
+  "binaries": {
+    "Contents/MacOS/GPTTouchBarHUD": {
+      "bytes": 1970384,
+      "sha256": "3b4a01d8920e85d1ccd7916ea42273334b5d3898c53e40922e56ec0e29394f8d",
+      "architectures": [
+        "arm64"
+      ],
+      "minimum_macos": "11.0",
+      "sdk": "27.0",
+      "signature": "ad-hoc; deep strict verification passed"
+    },
+    "Contents/Helpers/HookEmitter": {
+      "bytes": 334128,
+      "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99",
+      "architectures": [
+        "arm64"
+      ],
+      "minimum_macos": "11.0",
+      "sdk": "27.0",
+      "signature": "ad-hoc; all-architectures strict verification passed"
+    }
+  },
+  "dmg": {
+    "path": "dist/GPT-TouchBar-HUD-0.1.29-arm64.dmg",
+    "bytes": 2942146,
+    "sha256": "aa352d4b6a1470f3be4157500707d9bc6b9cdd1e9db19da895f53672f5b19b7b",
+    "hdiutil_verify": "passed",
+    "readonly_mount": "passed",
+    "mounted_bundle_file_count": 7,
+    "mounted_bundle_hash_and_size_match": true
+  },
+  "checksums_file": {
+    "path": "dist/SHA256SUMS.txt",
+    "bytes": 100,
+    "sha256": "af60ff3927852d09a9136290729a8361c1fd93a615c858ba56b134aca7ed362d",
+    "scope": "local arm64 candidate only; not the future CI-generated dual-architecture checksum file"
+  },
+  "dmg_root_files": {
+    "首次打开助手.command": {
+      "bytes": 2892,
+      "sha256": "8a8319da3ac4a5a66f07c24e5471113b4bbd66738baaaa50020e2803f9c5d840"
+    },
+    "首次打开说明.txt": {
+      "bytes": 593,
+      "sha256": "3166f8571832fb0d4ff143b2111e73c8dec1c9eecf00c9e95eaedca8c784b4b4"
+    },
+    "Applications": {
+      "type": "symlink",
+      "target": "/Applications"
+    }
+  },
+  "app_cdhash": "958748ee916376e769ace091044337f70f9f0d65",
+  "first_open_helper": {
+    "bound_cdhash": "958748ee916376e769ace091044337f70f9f0d65",
+    "placeholder_absent": true,
+    "shell_syntax": "passed",
+    "isolated_copy_tests": "passed: cancel, scoped quarantine removal, preserve unrelated attributes, repeat, symlink rejection, CDHash mismatch, argument rejection, tampered signature"
+  },
+  "tool_environment": {
+    "macos": "27.0 (26A428)",
+    "architecture": "arm64",
+    "xcode_select": "/Library/Developer/CommandLineTools",
+    "swift": "Apple Swift 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "swift_driver": "1.168.6"
+  },
+  "inherited_integration_evidence": {
+    "commit": "b5a5bbe1866e4d969fb0590117771445b798c815",
+    "source": "/Users/didi/Desktop/codex-space/TouchBarCodexToken/Design/iteration-next/NOTCH-UPDATE-INTEGRATION-REVIEW.md",
+    "results": [
+      "73 update policy checks passed",
+      "202761 notch sampling and integration checks passed",
+      "158 design integration checks passed",
+      "arm64 distribution build and strict signature verification passed"
+    ],
+    "scope_note": "These checks predate the 0.1.29 version bump and are not presented as candidate packaging verification."
+  },
+  "candidate_verification": [
+    "scripts/package-dmg.sh completed from source_commit",
+    "73 update policy checks and installer guard checks passed after the version bump",
+    "source, build, and mounted Info.plist are byte-identical",
+    "0.1.29 / build 30 / LSUIElement true / minimum system 11.0 read from the mounted app",
+    "strict ad-hoc signatures passed for build and mounted app plus HookEmitter",
+    "arm64 architecture and minos 11.0 / SDK 27.0 confirmed for main and helper",
+    "DMG checksum verification and readonly mount passed",
+    "all seven mounted app files match build hashes and byte sizes",
+    "first-open helper is bound to the exact candidate CDHash and isolated-copy tests passed"
+  ],
+  "local_evidence_logs": [
+    "build/release-evidence/package.log",
+    "build/release-evidence/package-verification.log",
+    "build/release-evidence/first-open.log",
+    "build/release-evidence/app-update.log",
+    "build/release-evidence/build-bundle-sha256.txt",
+    "build/release-evidence/mounted-bundle-sha256.txt",
+    "build/release-evidence/build-bundle-sizes.txt",
+    "build/release-evidence/mounted-bundle-sizes.txt"
+  ],
+  "not_verified": [
+    "x86_64 build, CI, and runtime; the known local Swift compatibility libraries do not contain Intel slices",
+    "actual macOS 11 runtime",
+    "physical notch seams, color, rounded shoulders, click-through, fullscreen, multidisplay, and sleep recovery",
+    "automatic-check timer, wake, GitHub network or rate limit, and update restart in a real supported install path",
+    "real installation or replacement of an installed application",
+    "real Hook trust, execution, task accuracy, or question-mark status redesign",
+    "Apple Developer signing or notarization",
+    "remote CI, tag, pull request, or public GitHub Release"
+  ]
+}

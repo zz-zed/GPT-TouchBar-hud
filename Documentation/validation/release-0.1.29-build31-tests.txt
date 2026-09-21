@@ -1,0 +1,41 @@
+0.1.29 / Build 31 — source 1ebd440083856fabe9a888e13fe0ab9f471ef716
+Local arm64 candidate; not installed or published.
+
+bash scripts/test-app-migration.sh
+PASS: 4 legacy migration checks
+
+bash scripts/test-account-token-usage.sh
+PASS: 53 account token usage checks
+
+bash scripts/test-token-usage.sh
+PASS: 18 token accounting and incremental-I/O checks
+
+bash scripts/test-touchbar-layout.sh
+PASS: 291 Touch Bar layout checks
+
+bash scripts/test-touchbar.sh
+PASS: 34 Touch Bar lifecycle, preference, data and focus checks
+
+bash scripts/test-task-status.sh
+PASS: 41 task status checks
+
+bash scripts/test-app-update.sh
+PASS: 73 update policy checks
+PASS: updater shell syntax and invalid-target rejection
+
+bash scripts/test-notch-hud.sh
+PASS: 202778 notch fusion and V2 checks
+
+bash scripts/test-design-layout.sh
+PASS: 158 design integration checks
+
+bash scripts/test-notch-presentation.sh
+PASS: 356 native island checks; 306 presented frames
+PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration.
+
+bash scripts/test-hooks.sh
+✔ Test run with 41 tests in 7 suites passed after 0.851 seconds.
+
+PASS: version/build, source plist, arm64/minos 11.0, strict signatures, DMG verify/read-only mount, all bundle bytes, first-open binding and isolated regression
+DMG SHA256: 65b93b5a8e0f3ee598dcdf7bde4af1a09c85a98997ab761610f659d4096a6721
+PASS: cancel, scoped removal, preserve unrelated attributes, repeat, symlink, hash mismatch, arguments, tampered signature

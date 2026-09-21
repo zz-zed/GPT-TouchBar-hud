@@ -1,20 +1,349 @@
 {
-  "recorded_at": "2026-09-20T11:23:08Z",
-  "status": "local arm64 release candidate; not pushed, tagged, installed, or published",
-  "source_commit": "b9b485f009684c441e88b36cdec95b3c698fab0c",
-  "accepted_integration_commit": "b5a5bbe1866e4d969fb0590117771445b798c815",
-  "base_main_commit": "3007f8ae73daec9fcc2e15628a99bd18753eaffb",
-  "post_build_documentation_commit": "74b9f362121afb5ebdd056dfbd4e5220d79e8434",
-  "post_build_documentation_note": "This successor commit only removes approval-history wording from README and RELEASE_NOTES; it does not change the packaged app input.",
-  "branch": "release/0.1.29",
-  "worktree": "/Users/didi/.codex/worktrees/release-0-1-29-prep/TouchBarCodexToken",
+  "recorded_at": "2026-09-21T11:35:26.710653+08:00",
+  "status": "local arm64 candidate; not pushed, tagged, installed or published",
+  "source_commit": "1ebd440083856fabe9a888e13fe0ab9f471ef716",
+  "branch": "main",
+  "worktree": "/Users/didi/Desktop/codex-space/TouchBarCodexToken",
   "package_version": "0.1.29",
-  "build": "30",
-  "LSUIElement": true,
-  "LSMinimumSystemVersion": "11.0",
+  "build": "31",
   "architectures_prepared_locally": [
     "arm64"
   ],
+  "source_files": {
+    "Package.swift": {
+      "bytes": 730,
+      "sha256": "b25469c0eb5df1b3cbda45052aba0a00f4722ac9fca4c7f414cfe91052f3e193"
+    },
+    "Sources/AccountTokenUsage.swift": {
+      "bytes": 7002,
+      "sha256": "d468a13d06ae645fd77dc686494885aa65ae93afdf1a3d16f1cbd7bf06c2d13e"
+    },
+    "Sources/AppDelegate.swift": {
+      "bytes": 24732,
+      "sha256": "4c8bc62aaf9d6d56109bbfca926f931137a05a9ed68559b3a73ff6c05ce41a2c"
+    },
+    "Sources/AppIdentity.swift": {
+      "bytes": 1858,
+      "sha256": "b8776507575a9d999467208fe94c3e7cd2ef04fc45dbc4c9347a4b0514a5e05f"
+    },
+    "Sources/AppUpdateModels.swift": {
+      "bytes": 8456,
+      "sha256": "e0f4804611e040e75f53af3731948cecb25397adfaf1a4cdf9e39a4e22b26fd1"
+    },
+    "Sources/AppUpdateScheduler.swift": {
+      "bytes": 5712,
+      "sha256": "a21d4e17308615ac07506221c54fa08c2feae4ca9098d7576bb5569c4630d0c4"
+    },
+    "Sources/AppUpdater.swift": {
+      "bytes": 23622,
+      "sha256": "3a9433137f29a8d0b39cdbf6632e6a21113a422543c58d3c4d497ce6acd92031"
+    },
+    "Sources/CodexAppServerClient.swift": {
+      "bytes": 11299,
+      "sha256": "c60227f3f88243ffdeaaf0527c715604052356e103ba1d18bab9b5592d4e347c"
+    },
+    "Sources/CompactHUDPanel.swift": {
+      "bytes": 3534,
+      "sha256": "8dba1b09fd458e161d70c6537e0c8f09b3735a5d7c8b30174cebd768098e635d"
+    },
+    "Sources/CompactHUDViewController.swift": {
+      "bytes": 14418,
+      "sha256": "a6c6520b1649b2730de0d6e81524190bb39bfb215eca59a198c63d4a7f137cc7"
+    },
+    "Sources/DesignTokens.swift": {
+      "bytes": 482,
+      "sha256": "d69fb3926b88733e93937d58afb90f44bad08d2396b358468a647668438c6efd"
+    },
+    "Sources/HUDAppearance.swift": {
+      "bytes": 3031,
+      "sha256": "d4893b51d744e12795d5b1afe092ceb49dea55e43d3113eb4b6e84f32bf3915d"
+    },
+    "Sources/HUDPresentation.swift": {
+      "bytes": 12513,
+      "sha256": "76377f442bc40ff8830aaaf01396ff8693f84c3a4f65c81bcb31ec3b556debb9"
+    },
+    "Sources/HookExperimentPreferencesController.swift": {
+      "bytes": 8862,
+      "sha256": "6286fbd065bfe18f8c179d0f6c674a9db7516daf2e08ea0d845a11b75914655e"
+    },
+    "Sources/HostAutoLauncher.swift": {
+      "bytes": 5261,
+      "sha256": "30acd186bf0fa5bd77b1f43339f0543b20616ede7c89e4e4e90b9d0ec91460da"
+    },
+    "Sources/HostLifecycleMonitor.swift": {
+      "bytes": 2795,
+      "sha256": "e42dac87f2300281214fa657abf0b752aca3f5753b0d0ce16922912aa1c437e9"
+    },
+    "Sources/LimitModels.swift": {
+      "bytes": 10355,
+      "sha256": "b16eaa88ea22cdbea29b9f0b0237b3f73b89e71256e0234559c66160fe085f75"
+    },
+    "Sources/LocalTokenUsageReader.swift": {
+      "bytes": 365,
+      "sha256": "4e735217e2359156e5a165bec0362352bff138b9cb162a0cb191f7af3a9f0f40"
+    },
+    "Sources/NotchContentAdapter.swift": {
+      "bytes": 2649,
+      "sha256": "3da50e059b6fc0fcd2a4d20ea5d03f394c1b679b3d846d008bf33b1029a346db"
+    },
+    "Sources/NotchDetailPages.swift": {
+      "bytes": 7829,
+      "sha256": "ef6b25a92d75b4dbac53aa37d89376afa68d53cb9eb227e96b180d016ec16415"
+    },
+    "Sources/NotchHUDController.swift": {
+      "bytes": 7636,
+      "sha256": "255c073a6acd21be74fb6fce8f616110bed0f1829c196414dd858ecd91d48905"
+    },
+    "Sources/NotchHostingView.swift": {
+      "bytes": 2599,
+      "sha256": "7aacac5765a375667944c08a39a6438917a9d99e03bf1382d9c69c636871b42f"
+    },
+    "Sources/NotchInteractionController.swift": {
+      "bytes": 3308,
+      "sha256": "88a877d252c4a51fbca34b38383574f515096b84bc184942398b8c27b534d99e"
+    },
+    "Sources/NotchLayout.swift": {
+      "bytes": 2843,
+      "sha256": "203c3a1bf37a4d19ac28f1ebced10c30fdce58c1fe2d731d58072f791f3ec4cf"
+    },
+    "Sources/NotchLegacyHUDController.swift": {
+      "bytes": 29300,
+      "sha256": "1f8a877d541a9418aaf508591d94adb584c6ff02ccd5350b5e27d93c7182de68"
+    },
+    "Sources/NotchMotion.swift": {
+      "bytes": 2027,
+      "sha256": "ec4c7111644f3438d2e0f50238a94a9a572ea88d7fda7a3604e2456f4838e9c0"
+    },
+    "Sources/NotchPresentationModel.swift": {
+      "bytes": 7107,
+      "sha256": "024be29d99ea2feef656a5de6133e3cbe1222331217f6759a88ef400c60dde42"
+    },
+    "Sources/NotchRootView.swift": {
+      "bytes": 4695,
+      "sha256": "f25eabe206675e98ef98206787f6e2b9fff63bc819385905a7eba39c5ceec767"
+    },
+    "Sources/NotchStyleTokens.swift": {
+      "bytes": 3075,
+      "sha256": "1d95c49d5d0636e853eaf750ac5a29701ba484b1d93688712ba5930ebee50d5d"
+    },
+    "Sources/NotchSurfaceShape.swift": {
+      "bytes": 4385,
+      "sha256": "884825a04d64e9676b29dfb4ed717908651d38e5bf749e58d3e227e60fce6e42"
+    },
+    "Sources/PersistentTouchBarController.swift": {
+      "bytes": 5038,
+      "sha256": "86416cdaef34f960d172b82e151ad3943ad5694ec9580698891e34af52fe6cab"
+    },
+    "Sources/PreferencesWindowController.swift": {
+      "bytes": 13970,
+      "sha256": "69161a9cef4938d6f25ad5df0072269ba29548a8b60714cdc3a9397aa869e0d3"
+    },
+    "Sources/RateLimitStore.swift": {
+      "bytes": 5329,
+      "sha256": "1926664f455412a1520677b1a08f34175383b37400c223cf4691316233a73882"
+    },
+    "Sources/SegmentedBatteryBar.swift": {
+      "bytes": 1931,
+      "sha256": "05fe7a9c0f531c9d8ea9374439834c9375a4d7186367ce24de02460f97165e0e"
+    },
+    "Sources/StatusSummaryView.swift": {
+      "bytes": 2635,
+      "sha256": "82132eab7de4c9b76bf32f0751b8eab2acb96998b4324bb6b460b48fd57fc21e"
+    },
+    "Sources/SystemTouchBarPresenter.swift": {
+      "bytes": 4354,
+      "sha256": "1ae8355ea62b6a16ecb9174e822f82b2604722b39847179771f34d70c71367cb"
+    },
+    "Sources/TaskCompletionFeedbackController.swift": {
+      "bytes": 2763,
+      "sha256": "5e8598c22d124f9409623dcbd7de0381625acffe6d9312c33a90fd12fcfb9ffd"
+    },
+    "Sources/TaskMonitoringCoordinator.swift": {
+      "bytes": 2814,
+      "sha256": "e4fe9ba2ad9c3063d5a13e9303610478bf957ecd8ccc4c2765b66bbb4a17ce61"
+    },
+    "Sources/TaskStatusAppearance.swift": {
+      "bytes": 1919,
+      "sha256": "09ebd1b335934f59edbb7a254029ae63f1c41f2a3aadf78a8bb7967fec30fab0"
+    },
+    "Sources/TaskStatusMonitor.swift": {
+      "bytes": 8934,
+      "sha256": "fcc7b6bdbe52edf8df2343fec7fc3851bd0d22a5ba4a44dcbe3782858af7eafc"
+    },
+    "Sources/TokenUsageScanner.swift": {
+      "bytes": 6734,
+      "sha256": "16798d7cec01693d9711c2db7d3d60e5e687570d9755196bd00370935c47c8d6"
+    },
+    "Sources/TouchBarRateLimitsView.swift": {
+      "bytes": 14193,
+      "sha256": "6340a74656650b7d36bb56bbb6a84bba6463a2f31c755dceb990fe37907704a4"
+    },
+    "Sources/main.swift": {
+      "bytes": 150,
+      "sha256": "224254be55ec254ac7a7f3adf1ab26494fd67cec23b0b8cdf26c86a15adc7514"
+    },
+    "HookCore/HookConfiguration.swift": {
+      "bytes": 5982,
+      "sha256": "6a9fb5d1735578336efbbe9a3cd3e999ebf4138f2e91974e8be1ac689c6f94fd"
+    },
+    "HookCore/HookConnectionController.swift": {
+      "bytes": 12762,
+      "sha256": "f54fd7be60e3c2fd3f935444b866eecac34bc15a6e2ae49f9c9676e2e6067b27"
+    },
+    "HookCore/HookHelperInstaller.swift": {
+      "bytes": 5261,
+      "sha256": "0c7d36ec21ae6d1c652fb96591ce823399e0c134b6e5a1c2355884bf44ed3daf"
+    },
+    "HookCore/HookHostPreflight.swift": {
+      "bytes": 5221,
+      "sha256": "575a089cb783891d9d38ab003663e12b327fdc937c0df2b3e9e2f9b5f64b4f4c"
+    },
+    "HookCore/HookIPC.swift": {
+      "bytes": 12632,
+      "sha256": "76ea07e5431bec6ffa801ddcda05b25f1e615a63ab062cbd0385af956626805d"
+    },
+    "HookCore/HookPaths.swift": {
+      "bytes": 5156,
+      "sha256": "89f938aeddf726b219aacf63da04365fad5fd0ec24946e4f9b6fa4e97f6fe84a"
+    },
+    "HookCore/HookProtocol.swift": {
+      "bytes": 3908,
+      "sha256": "6817087cccdaa53facef2f1aeb5a8631dd2374a9ab698be33073852340f9a1ee"
+    },
+    "HookCore/HookTaskDisplayAdapter.swift": {
+      "bytes": 8068,
+      "sha256": "99c03c226008ef0508b233e1543def4c13aff58fe79f594109710610ec058c6e"
+    },
+    "HookCore/HookVerificationSchedule.swift": {
+      "bytes": 1269,
+      "sha256": "e92a30c51577ada67473d90af16134b1db7f04b94dcb0f7aca1cebddc0eb0998"
+    },
+    "HookCore/TaskActivitySnapshot.swift": {
+      "bytes": 3157,
+      "sha256": "268b81103e4d2618b3a526782ed616f9259c4d871df905bcc3fed41bc3d5049e"
+    },
+    "HookCore/TaskEvidenceResolver.swift": {
+      "bytes": 14872,
+      "sha256": "2b35042c78bceaac796f66b8adc4ab1dba227d253768762999877240edecdab5"
+    },
+    "HookCore/TaskStateReducer.swift": {
+      "bytes": 10373,
+      "sha256": "9ddbcec87af026d5c51b24798120652d52261f00b627b1883657b9b28d7fca9b"
+    },
+    "HookHelper/main.swift": {
+      "bytes": 387,
+      "sha256": "33df97b448f215ab6a4864161a6dc455b1498d10fa371edb702fb895fc225a0e"
+    },
+    "Resources/AppIcon.icns": {
+      "bytes": 1822741,
+      "sha256": "0a5d1372b809f33738829c961ce5495ebe99d5b83dcc3f3f93c213853dd9d572"
+    },
+    "Resources/AppIcon.png": {
+      "bytes": 1529552,
+      "sha256": "5f7cb3a6b3ed55223b0b62a66af3d1e130a8003da12291f4b643dc7cc0b69ea7"
+    },
+    "Resources/Info.plist": {
+      "bytes": 945,
+      "sha256": "397f45da52fdd9c0f9b0a3e09f1f248a0a3c09b850c0339bf6f8f1fabdf14406"
+    },
+    "Resources/ThirdPartyNotices.txt": {
+      "bytes": 1328,
+      "sha256": "e0c2e9f8cf0ce6452e350c404696b590ae55bf00b8926dfd33d4161d5b8f3dee"
+    },
+    "Resources/first-open-guide.txt": {
+      "bytes": 593,
+      "sha256": "3166f8571832fb0d4ff143b2111e73c8dec1c9eecf00c9e95eaedca8c784b4b4"
+    },
+    "Resources/first-open.command": {
+      "bytes": 2871,
+      "sha256": "a442f7de2d2cdd422c2db1db17ac3cd627b990e91f10ceed8ad38faca6df7819"
+    },
+    "Resources/gpt-touchbar-hud-launcher.sh": {
+      "bytes": 915,
+      "sha256": "1b1304d7c93fe51704eb5517a5412aa11be60e14d22f1672ccc30de5e806c860"
+    },
+    "Resources/install-update.sh": {
+      "bytes": 1076,
+      "sha256": "7860b440d3acb78d247fe4fb00f04c027cf9236dd2dc1d38e92d8976fa7b9b1c"
+    },
+    "scripts/benchmark-hooks.sh": {
+      "bytes": 1320,
+      "sha256": "b89bf2476a1a69dfc39e80d403a8e10747ab81544a08364442315dfa1165eeda"
+    },
+    "scripts/build-app.sh": {
+      "bytes": 3150,
+      "sha256": "6284c921715182960c0ca944fc72ed0796ae6dec65a1819fb3676bedcc77c921"
+    },
+    "scripts/debug-notch-hud.sh": {
+      "bytes": 615,
+      "sha256": "c32d3175966a608467b57ecb4c4c95ea7aead47e482a0c1c03be181cf377c54f"
+    },
+    "scripts/hook-core-build.sh": {
+      "bytes": 969,
+      "sha256": "5db8d8d21d06399390d4be94c8256b68d7d62a6fdfde71c0450000a24d653628"
+    },
+    "scripts/package-dmg.sh": {
+      "bytes": 1336,
+      "sha256": "97717cb1c88690040fde2ca26bdc107e9bb5d1d5860b0ac483b81f6dc1085e59"
+    },
+    "scripts/test-account-token-usage.sh": {
+      "bytes": 643,
+      "sha256": "50f02674b24cf17314bd6187b3702181e7db411de7c77f754aefbe1da62ef633"
+    },
+    "scripts/test-app-migration.sh": {
+      "bytes": 374,
+      "sha256": "732c6ea24b2310c915561df2f7576b45954cb0eefebc08442769ec6a9706aaca"
+    },
+    "scripts/test-app-update.sh": {
+      "bytes": 642,
+      "sha256": "3b88bab420fa02eca6b9a17e830e4322ec036ee8bd745f8deea4822f6b0bcd79"
+    },
+    "scripts/test-design-layout.sh": {
+      "bytes": 488,
+      "sha256": "1ab9068c51f40d3217e8a472d5341dec510e3b009226e097fdc5c0d74d409bdd"
+    },
+    "scripts/test-first-open.sh": {
+      "bytes": 2093,
+      "sha256": "69b7373fc7a0a0e86721a63fd1e00547287295c46bb56aa3f232420b98fba1c4"
+    },
+    "scripts/test-hook-installer.sh": {
+      "bytes": 793,
+      "sha256": "71f3b2ef511e383887bbf0974bbc76184ccf3c3db2f7abc2149693f588e9a598"
+    },
+    "scripts/test-hook-integration.sh": {
+      "bytes": 423,
+      "sha256": "a0e3e4482e138bb0e5b30337ce9d44d8dca528ca6319f8bac8cda4b178b086b5"
+    },
+    "scripts/test-hooks.sh": {
+      "bytes": 530,
+      "sha256": "0848472c0119314bd0902962f3ccbc0e702fd9ae6094c1a8a686e0370ce7b3bf"
+    },
+    "scripts/test-notch-hud.sh": {
+      "bytes": 539,
+      "sha256": "b0225474e23a6998cf38697696107283baf3e6e6c2a453405cd280f1b45e10d4"
+    },
+    "scripts/test-notch-presentation.sh": {
+      "bytes": 548,
+      "sha256": "a60fe6d2c76755d75366686917ad9c34ae9e6ca788d6cf787422884cf41f66b6"
+    },
+    "scripts/test-task-status.sh": {
+      "bytes": 498,
+      "sha256": "6fa3d7afaef495ab9143fe701368dd152d612442064066e98802b163b1a4e38b"
+    },
+    "scripts/test-token-usage.sh": {
+      "bytes": 462,
+      "sha256": "71ae75561f202766cf7ee104118d341aa3d30a51e2e3207431f96263ffc2a6ea"
+    },
+    "scripts/test-touchbar-layout.sh": {
+      "bytes": 599,
+      "sha256": "4242c8668f8184f36605252294e53ca1a548f8005ba19c9ccc435e963436f49d"
+    },
+    "scripts/test-touchbar.sh": {
+      "bytes": 1078,
+      "sha256": "cef70f264865a5baec778408137daa2952b5082fc1a087744f8d0d5f32b4a4e3"
+    }
+  },
+  "LSMinimumSystemVersion": "11.0",
   "bundle_files": {
     "Contents/Helpers/HookEmitter": {
       "bytes": 334128,
@@ -22,15 +351,19 @@
     },
     "Contents/Info.plist": {
       "bytes": 945,
-      "sha256": "a8ecf39cbd670b2f12934ed9fe5da084ba0e7c37b74a8eb2bcd415fa154c1378"
+      "sha256": "397f45da52fdd9c0f9b0a3e09f1f248a0a3c09b850c0339bf6f8f1fabdf14406"
     },
     "Contents/MacOS/GPTTouchBarHUD": {
-      "bytes": 1970384,
-      "sha256": "3b4a01d8920e85d1ccd7916ea42273334b5d3898c53e40922e56ec0e29394f8d"
+      "bytes": 2573696,
+      "sha256": "2541c51983830c13ffdea6e1b669a0d810a33210b4c5a24ef113a0e2d78910db"
     },
     "Contents/Resources/AppIcon.icns": {
       "bytes": 1822741,
       "sha256": "0a5d1372b809f33738829c961ce5495ebe99d5b83dcc3f3f93c213853dd9d572"
+    },
+    "Contents/Resources/ThirdPartyNotices.txt": {
+      "bytes": 1328,
+      "sha256": "e0c2e9f8cf0ce6452e350c404696b590ae55bf00b8926dfd33d4161d5b8f3dee"
     },
     "Contents/Resources/gpt-touchbar-hud-launcher.sh": {
       "bytes": 915,
@@ -41,115 +374,186 @@
       "sha256": "7860b440d3acb78d247fe4fb00f04c027cf9236dd2dc1d38e92d8976fa7b9b1c"
     },
     "Contents/_CodeSignature/CodeResources": {
-      "bytes": 3171,
-      "sha256": "ddcca722a7cc8dd6c844bfb57918dc3eee34564eb4bc79ceae324a935937c1a8"
+      "bytes": 3419,
+      "sha256": "aac5b2c78bf1f2db5d602913c1c58093576434eda211d2723fbe9e1187401da5"
     }
   },
+  "cdhash": "b9b61770d6e5c6b585687c0a1ddbb3bf648cd457",
   "binaries": {
     "Contents/MacOS/GPTTouchBarHUD": {
-      "bytes": 1970384,
-      "sha256": "3b4a01d8920e85d1ccd7916ea42273334b5d3898c53e40922e56ec0e29394f8d",
-      "architectures": [
-        "arm64"
-      ],
-      "minimum_macos": "11.0",
-      "sdk": "27.0",
-      "signature": "ad-hoc; deep strict verification passed"
+      "bytes": 2573696,
+      "sha256": "2541c51983830c13ffdea6e1b669a0d810a33210b4c5a24ef113a0e2d78910db",
+      "architecture": "arm64",
+      "build_version": "/Users/didi/Desktop/codex-space/TouchBarCodexToken/build/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n",
+      "strict_signature": "passed"
     },
     "Contents/Helpers/HookEmitter": {
       "bytes": 334128,
       "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99",
-      "architectures": [
-        "arm64"
-      ],
-      "minimum_macos": "11.0",
-      "sdk": "27.0",
-      "signature": "ad-hoc; all-architectures strict verification passed"
+      "architecture": "arm64",
+      "build_version": "/Users/didi/Desktop/codex-space/TouchBarCodexToken/build/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n",
+      "strict_signature": "passed"
+    }
+  },
+  "dmg_root_files": {
+    "首次打开助手.command": {
+      "bytes": 2892,
+      "sha256": "9ebf297dc0ba793c4819ae768eada3f24678e7d0386b6a760ec9aaa4aa5ff1a6"
+    },
+    "首次打开说明.txt": {
+      "bytes": 593,
+      "sha256": "3166f8571832fb0d4ff143b2111e73c8dec1c9eecf00c9e95eaedca8c784b4b4"
     }
   },
   "dmg": {
     "path": "dist/GPT-TouchBar-HUD-0.1.29-arm64.dmg",
-    "bytes": 2942146,
-    "sha256": "aa352d4b6a1470f3be4157500707d9bc6b9cdd1e9db19da895f53672f5b19b7b",
+    "bytes": 3100387,
+    "sha256": "65b93b5a8e0f3ee598dcdf7bde4af1a09c85a98997ab761610f659d4096a6721",
     "hdiutil_verify": "passed",
     "readonly_mount": "passed",
-    "mounted_bundle_file_count": 7,
+    "mounted_bundle_file_count": 8,
     "mounted_bundle_hash_and_size_match": true
   },
   "checksums_file": {
     "path": "dist/SHA256SUMS.txt",
     "bytes": 100,
-    "sha256": "af60ff3927852d09a9136290729a8361c1fd93a615c858ba56b134aca7ed362d",
-    "scope": "local arm64 candidate only; not the future CI-generated dual-architecture checksum file"
+    "sha256": "83fbca8a29174deb7452480caf37207a7170bc830cc4b33629f35d5ef5dfa4a6",
+    "scope": "local arm64 candidate only"
   },
-  "dmg_root_files": {
-    "首次打开助手.command": {
-      "bytes": 2892,
-      "sha256": "8a8319da3ac4a5a66f07c24e5471113b4bbd66738baaaa50020e2803f9c5d840"
+  "first_open_helper": "isolated-copy regression passed; real installed app not launched or changed",
+  "limitations": [
+    "Intel build and runtime not tested locally",
+    "macOS 11 runtime not tested",
+    "physical notch, fullscreen, display hotplug and wake not accepted",
+    "real installed updater path not tested",
+    "ad-hoc signed; not notarized"
+  ],
+  "checks": [
+    {
+      "command": "bash scripts/test-app-migration.sh",
+      "exit_code": 0,
+      "seconds": 3.81,
+      "log": "build/release-evidence/build31/test-app-migration.sh.log",
+      "log_sha256": "8bb69186b562453cc7a75e3e6e6652d179a57f227a02d34107c8e0ef3a2ed851",
+      "summary": [
+        "PASS: 4 legacy migration checks"
+      ]
     },
-    "首次打开说明.txt": {
-      "bytes": 593,
-      "sha256": "3166f8571832fb0d4ff143b2111e73c8dec1c9eecf00c9e95eaedca8c784b4b4"
+    {
+      "command": "bash scripts/test-account-token-usage.sh",
+      "exit_code": 0,
+      "seconds": 47.36,
+      "log": "build/release-evidence/build31/test-account-token-usage.sh.log",
+      "log_sha256": "6557258421a3effc947566da9b677bd00d4a95cb775ddc9f2794c8d92c382896",
+      "summary": [
+        "PASS: 53 account token usage checks"
+      ]
     },
-    "Applications": {
-      "type": "symlink",
-      "target": "/Applications"
+    {
+      "command": "bash scripts/test-token-usage.sh",
+      "exit_code": 0,
+      "seconds": 6.81,
+      "log": "build/release-evidence/build31/test-token-usage.sh.log",
+      "log_sha256": "e90fd5a4c2de26bde0760b4d9fa06afb115bb974c468e250e1fc55933ea9bb7a",
+      "summary": [
+        "PASS: 18 token accounting and incremental-I/O checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-touchbar-layout.sh",
+      "exit_code": 0,
+      "seconds": 4.79,
+      "log": "build/release-evidence/build31/test-touchbar-layout.sh.log",
+      "log_sha256": "4531d5aeb6cde9609854f44fded9ae93a8e5e75d9eccd7aca9b8db9055d201b1",
+      "summary": [
+        "PASS: 291 Touch Bar layout checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-touchbar.sh",
+      "exit_code": 0,
+      "seconds": 7.82,
+      "log": "build/release-evidence/build31/test-touchbar.sh.log",
+      "log_sha256": "73c67c6b967e6716e0f0ef5a3cdfde1137d5849511dcf032c5b36464a206b3c7",
+      "summary": [
+        "PASS: 34 Touch Bar lifecycle, preference, data and focus checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-task-status.sh",
+      "exit_code": 0,
+      "seconds": 15.78,
+      "log": "build/release-evidence/build31/test-task-status.sh.log",
+      "log_sha256": "0fa3756bca79944ce276a7e6995a65dbda636424561a0b884ace11d719d632c4",
+      "summary": [
+        "PASS: 41 task status checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-app-update.sh",
+      "exit_code": 0,
+      "seconds": 1.72,
+      "log": "build/release-evidence/build31/test-app-update.sh.log",
+      "log_sha256": "a678949169f397148c7ced28189fc77ccf611590d09651ff659d3422d5d49bef",
+      "summary": [
+        "PASS: 73 update policy checks",
+        "PASS: updater shell syntax and invalid-target rejection"
+      ]
+    },
+    {
+      "command": "bash scripts/test-notch-hud.sh",
+      "exit_code": 0,
+      "seconds": 36.27,
+      "log": "build/release-evidence/build31/test-notch-hud.sh.log",
+      "log_sha256": "261ea688c7c8ac8c89271038d8419efe8dc7c005ed7a27716b8338a5eaaa8d13",
+      "summary": [
+        "PASS: 202778 notch fusion and V2 checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-design-layout.sh",
+      "exit_code": 0,
+      "seconds": 23.28,
+      "log": "build/release-evidence/build31/test-design-layout.sh.log",
+      "log_sha256": "e17d3bf5b62586cd7f355d96c7f22dbd90ac05ba14b8c3ee511efd849c92d880",
+      "summary": [
+        "PASS: 158 design integration checks"
+      ]
+    },
+    {
+      "command": "bash scripts/test-notch-presentation.sh",
+      "exit_code": 0,
+      "seconds": 74.06,
+      "log": "build/release-evidence/build31/test-notch-presentation.sh.log",
+      "log_sha256": "2c323be108a7846629e63f0c56e4e24a3e310e4a8002ee35e71c8944b3d4298c",
+      "summary": [
+        "PASS: 356 native island checks; 306 presented frames",
+        "PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration."
+      ]
+    },
+    {
+      "command": "bash scripts/test-hooks.sh",
+      "exit_code": 0,
+      "seconds": 16.64,
+      "log": "build/release-evidence/build31/test-hooks.sh.log",
+      "log_sha256": "18c2a814512fde47d2d84ad40c02dab362840f27d1d4a02bc31ffde92d8976c7",
+      "summary": [
+        "✔ Test run with 41 tests in 7 suites passed after 0.851 seconds."
+      ]
     }
-  },
-  "app_cdhash": "958748ee916376e769ace091044337f70f9f0d65",
-  "first_open_helper": {
-    "bound_cdhash": "958748ee916376e769ace091044337f70f9f0d65",
-    "placeholder_absent": true,
-    "shell_syntax": "passed",
-    "isolated_copy_tests": "passed: cancel, scoped quarantine removal, preserve unrelated attributes, repeat, symlink rejection, CDHash mismatch, argument rejection, tampered signature"
-  },
-  "tool_environment": {
-    "macos": "27.0 (26A428)",
-    "architecture": "arm64",
-    "xcode_select": "/Library/Developer/CommandLineTools",
-    "swift": "Apple Swift 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
-    "swift_driver": "1.168.6"
-  },
-  "inherited_integration_evidence": {
-    "commit": "b5a5bbe1866e4d969fb0590117771445b798c815",
-    "source": "/Users/didi/Desktop/codex-space/TouchBarCodexToken/Design/iteration-next/NOTCH-UPDATE-INTEGRATION-REVIEW.md",
-    "results": [
-      "73 update policy checks passed",
-      "202761 notch sampling and integration checks passed",
-      "158 design integration checks passed",
-      "arm64 distribution build and strict signature verification passed"
-    ],
-    "scope_note": "These checks predate the 0.1.29 version bump and are not presented as candidate packaging verification."
-  },
-  "candidate_verification": [
-    "scripts/package-dmg.sh completed from source_commit",
-    "73 update policy checks and installer guard checks passed after the version bump",
-    "source, build, and mounted Info.plist are byte-identical",
-    "0.1.29 / build 30 / LSUIElement true / minimum system 11.0 read from the mounted app",
-    "strict ad-hoc signatures passed for build and mounted app plus HookEmitter",
-    "arm64 architecture and minos 11.0 / SDK 27.0 confirmed for main and helper",
-    "DMG checksum verification and readonly mount passed",
-    "all seven mounted app files match build hashes and byte sizes",
-    "first-open helper is bound to the exact candidate CDHash and isolated-copy tests passed"
   ],
-  "local_evidence_logs": [
-    "build/release-evidence/package.log",
-    "build/release-evidence/package-verification.log",
-    "build/release-evidence/first-open.log",
-    "build/release-evidence/app-update.log",
-    "build/release-evidence/build-bundle-sha256.txt",
-    "build/release-evidence/mounted-bundle-sha256.txt",
-    "build/release-evidence/build-bundle-sizes.txt",
-    "build/release-evidence/mounted-bundle-sizes.txt"
-  ],
-  "not_verified": [
-    "x86_64 build, CI, and runtime; the known local Swift compatibility libraries do not contain Intel slices",
-    "actual macOS 11 runtime",
-    "physical notch seams, color, rounded shoulders, click-through, fullscreen, multidisplay, and sleep recovery",
-    "automatic-check timer, wake, GitHub network or rate limit, and update restart in a real supported install path",
-    "real installation or replacement of an installed application",
-    "real Hook trust, execution, task accuracy, or question-mark status redesign",
-    "Apple Developer signing or notarization",
-    "remote CI, tag, pull request, or public GitHub Release"
-  ]
+  "checks_finished_at": "2026-09-21T11:36:03.786588+08:00",
+  "verification_log": {
+    "path": "build/release-evidence/build31/package-verification.log",
+    "sha256": "353aab46f56612c8c0831978537995dbbbaac6e4dcb4fc126427dc2f6c4d4f36"
+  },
+  "cleanup_record": "Documentation/validation/worktree-cleanup-2026-09-21.json",
+  "prior_build30_manifest": "Documentation/validation/release-0.1.29-build30-artifact-manifest.json",
+  "prior_build30_archive": "backups/worktree-cleanup-20260921-112910/release-0-1-29-prep",
+  "native_results": {
+    "log": "build/release-evidence/build31/test-notch-presentation.sh.log",
+    "assertions": 356,
+    "presented_geometry_samples": 306,
+    "native_mouse_events": "passed on this host; not physical notch acceptance"
+  }
 }
