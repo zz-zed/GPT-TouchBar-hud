@@ -216,26 +216,14 @@ struct NotchTaskPresentation {
             appearance = .unknown
             return
         }
-        let running = max(0, summary.runningCount)
-        let unknown = max(0, summary.unknownCount)
-        let completed = max(0, summary.recentlyCompletedCount)
-        appearance = running > 0 ? .running : (unknown > 0 ? .unknown : (completed > 0 ? .completed : .idle))
-        if running > 0 {
-            badge = String(running) + (unknown > 0 ? " ?" : "") + (completed > 0 ? " ✓" : "")
-            title = DisplayLanguage.text("\(running) 个任务执行中", "\(running) tasks running")
-        } else if unknown > 0 {
-            badge = "?"
-            title = DisplayLanguage.text("任务状态未知", "Task status unknown")
-        } else if completed > 0 {
-            badge = "✓"
-            title = DisplayLanguage.text("近期本轮完成", "Recent turn completed")
+        appearance = TaskStatusAppearance(summary)
+        if summary.runningCount > 0 {
+            badge = String(max(0, summary.runningCount)) + (summary.legacyCompletionFeedbackVisible ? " ✓" : "")
         } else {
-            badge = "0"
-            title = DisplayLanguage.text("本地近期无活动", "No recent local activity")
+            badge = summary.legacyCompletionFeedbackVisible ? "✓" : "0"
         }
-        note = unknown > 0
-            ? DisplayLanguage.text("本地监测覆盖不完整，部分任务状态无法确认。", "Local monitoring is incomplete; some task states cannot be confirmed.")
-            : nil
+        title = summary.label
+        note = nil
     }
 }
 

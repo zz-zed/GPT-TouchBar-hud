@@ -26,7 +26,7 @@ final class TaskMonitoringCoordinator {
             }
             hooks.start()
         } else {
-            onUpdate?(TaskStatusSummary(unknownCount: 1)) // Legacy source is explicitly not ready yet.
+            onUpdate?(Self.legacyUnavailable(.starting))
             legacy.onUpdate = { [weak self] snapshot in
                 guard let self, self.enabled, self.generation == token, !self.experimental else { return }
                 self.onUpdate?(snapshot)
@@ -39,13 +39,13 @@ final class TaskMonitoringCoordinator {
         guard displayEnabled else { onUpdate?(nil); return }
         if experimental {
             onUpdate?(TaskStatusSummary(activity: TaskActivitySnapshot(sourceHealth: [HookSourceHealth(state: .unavailable)])))
-        } else { onUpdate?(TaskStatusSummary(unknownCount: 1)) }
+        } else { onUpdate?(Self.legacyUnavailable(.hostUnavailable)) }
     }
     func stop() { generation += 1; enabled = false; legacy.stop(); hooks.stop() }
     func suspend() {
         guard enabled else { return }
         if experimental { hooks.suspend() }
-        else { legacy.stop(); onUpdate?(TaskStatusSummary(unknownCount: 1)) }
+        else { legacy.stop(); onUpdate?(Self.legacyUnavailable(.suspended)) }
     }
     func resume() {
         guard enabled else { return }
@@ -54,6 +54,14 @@ final class TaskMonitoringCoordinator {
     }
     func hostUnavailable() {
         if experimental { hooks.hostUnavailable() }
-        else if enabled { legacy.stop(); onUpdate?(TaskStatusSummary(unknownCount: 1)) }
+        else if enabled { legacy.stop(); onUpdate?(Self.legacyUnavailable(.hostUnavailable)) }
+    }
+
+    private static func legacyUnavailable(_ reason: LegacyTaskDiagnosticReason) -> TaskStatusSummary {
+        TaskStatusSummary(
+            unknownCount: 1,
+            legacyHealth: .unavailable(reason),
+            legacyDiagnostics: LegacyTaskDiagnostics(unknownCount: 1, reasons: [reason])
+        )
     }
 }

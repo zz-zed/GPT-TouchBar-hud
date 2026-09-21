@@ -13,9 +13,6 @@ struct NotchContentAdapter {
     var taskTitle: String { tasksEnabled ? task.title : DisplayLanguage.text("任务监测已关闭", "Task monitoring off") }
     var taskDetail: String {
         guard tasksEnabled else { return DisplayLanguage.text("开启任务展示后可查看本机监测状态。", "Enable task display to view local monitoring status.") }
-        if DisplayLanguage.current == .english, let summary = state.taskStatus, summary.activity == nil {
-            return "Recent local tasks: Running \(summary.runningCount), Done \(summary.recentlyCompletedCount), Unknown \(summary.unknownCount). Inferred from local logs; this does not mean the overall goal is complete or distinguish approval waits from tool execution."
-        }
         return state.taskStatus?.detail ?? task.note ?? DisplayLanguage.text("任务数量未知。", "Task count is unknown.")
     }
     var errorSummary: String? {

@@ -14,8 +14,7 @@ enum TaskStatusAppearance: Equatable {
             return
         }
         if let summary, summary.runningCount > 0 { self = .running }
-        else if let summary, summary.recentlyCompletedCount > 0 { self = .completed }
-        else if let summary, summary.unknownCount > 0 { self = .unknown }
+        else if let summary, summary.legacyCompletionFeedbackVisible { self = .completed }
         else { self = .idle }
     }
 

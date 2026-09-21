@@ -20,8 +20,12 @@ enum TouchBarLayoutTests {
         check(TaskStatusAppearance(TaskStatusSummary(runningCount: 2, recentlyCompletedCount: 1, unknownCount: 1)) == .running,
               "Running takes priority over completed and unknown")
         check(TaskStatusAppearance(TaskStatusSummary(recentlyCompletedCount: 1, unknownCount: 1)) == .completed,
-              "Completed takes priority over unknown")
-        check(TaskStatusAppearance(TaskStatusSummary(unknownCount: 1)) == .unknown, "Unknown is separate from idle")
+              "Legacy uncertainty does not hide confirmed completion")
+        check(TaskStatusAppearance(TaskStatusSummary(unknownCount: 1)) == .idle,
+              "Legacy uncertainty stays internal and presents a neutral state")
+        check(TaskStatusAppearance(TaskStatusSummary(completionFeedbackVisible: false, recentlyCompletedCount: 1,
+                                                     legacyHealth: .unavailable(.allCandidatesUnreadable))) == .idle,
+              "Legacy monitoring faults clear completion and remain neutral")
         check(TaskStatusAppearance.running.color == .systemBlue, "Running shares blue")
         check(TaskStatusAppearance.completed.color == .systemGreen, "Completed shares green")
         check(TaskStatusAppearance.unknown.color == .systemGray, "Unknown shares gray")

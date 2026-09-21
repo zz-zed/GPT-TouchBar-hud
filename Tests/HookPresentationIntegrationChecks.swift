@@ -140,7 +140,10 @@ enum HookPresentationIntegrationChecks {
         check(!feedback.isActive, "re-enable does not replay existing completions")
         let legacy = TaskStatusSummary(runningCount: 3)
         feedback.receive(legacy, enabled: true)
-        check(feedback.applying(to: legacy) == legacy, "legacy source remains unchanged")
+        let appliedLegacy = feedback.applying(to: legacy)!
+        check(appliedLegacy.runningCount == legacy.runningCount && appliedLegacy.activity == nil
+              && appliedLegacy.completionFeedbackVisible == false,
+              "legacy source receives only the bounded feedback decision")
         let firstCompleted = TaskCompletionFeedbackController(now: { instant })
         snapshot.confirmedRunningCount = 0; snapshot.coverage = complete
         source.activity = snapshot

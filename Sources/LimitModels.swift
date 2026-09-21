@@ -138,6 +138,41 @@ struct RateLimitDisplayState: Equatable {
     }
 }
 
+enum LegacyTaskDiagnosticReason: String, Hashable {
+    case missingLifecycleEvidence
+    case staleWithoutTerminal
+    case readFailure
+    case discoveryFailure
+    case allCandidatesUnreadable
+    case starting
+    case suspended
+    case hostUnavailable
+}
+
+enum LegacyTaskMonitoringHealth: Equatable {
+    case healthy
+    case unavailable(LegacyTaskDiagnosticReason)
+
+    var isUnavailable: Bool {
+        if case .unavailable = self { return true }
+        return false
+    }
+    var reason: LegacyTaskDiagnosticReason? {
+        if case let .unavailable(reason) = self { return reason }
+        return nil
+    }
+}
+
+struct LegacyTaskDiagnostics: Equatable {
+    var unknownCount: Int = 0
+    var readFailureCount: Int = 0
+    var staleCount: Int = 0
+    var reasons: Set<LegacyTaskDiagnosticReason> = []
+    var lastSuccessfulCheck: Date? = nil
+
+    var hasIssues: Bool { unknownCount > 0 || readFailureCount > 0 || staleCount > 0 || !reasons.isEmpty }
+}
+
 /// Local lifecycle evidence, not a server-authoritative task/goal status.
 struct TaskStatusSummary: Equatable {
     // When present, activity is the sole source for display; legacy counts are ignored.
@@ -151,28 +186,56 @@ struct TaskStatusSummary: Equatable {
     var runningCount: Int = 0
     var recentlyCompletedCount: Int = 0
     var unknownCount: Int = 0
+    // Legacy-only authority. Nil keeps source-only fixtures compatible; Hook activity ignores all fields below.
+    var legacyHealth: LegacyTaskMonitoringHealth? = nil
+    var legacyDiagnostics: LegacyTaskDiagnostics? = nil
+    // Ephemeral hashed identities for deduplicating the four-second presentation signal. Never displayed or persisted.
+    var legacyCompletionIDs: Set<String> = []
+
+    var legacyHasOverallFailure: Bool {
+        guard activity == nil else { return false }
+        return legacyHealth?.isUnavailable == true
+    }
+    var legacyCompletionFeedbackVisible: Bool {
+        completionFeedbackVisible ?? (recentlyCompletedCount > 0)
+    }
 
     var isIdle: Bool {
         if let activityPresentation { return activityPresentation.state == .idle }
-        return runningCount == 0 && recentlyCompletedCount == 0 && unknownCount == 0
+        return runningCount == 0 && !legacyCompletionFeedbackVisible
     }
 
     var label: String {
         if let activityPresentation { return activityPresentation.label }
         if runningCount > 0 { return DisplayLanguage.text("执行中 \(runningCount)", "Run \(runningCount)") }
-        if recentlyCompletedCount > 0 { return DisplayLanguage.text("本轮完成", "Done") }
-        return isIdle ? DisplayLanguage.text("空闲", "Idle") : DisplayLanguage.text("状态未知", "Unknown")
+        if legacyCompletionFeedbackVisible { return DisplayLanguage.text("本轮完成", "Done") }
+        return DisplayLanguage.text("当前未检测到执行中任务", "No running tasks detected")
     }
 
     var badge: String {
         if let activityPresentation { return activityPresentation.badge }
-        if runningCount > 0 { return runningCount > 9 ? "9+" : "\(runningCount)" }
-        return recentlyCompletedCount > 0 ? "✓" : (isIdle ? "" : "?")
+        if runningCount > 0 {
+            let count = runningCount > 9 ? "9+" : "\(runningCount)"
+            return count + (legacyCompletionFeedbackVisible ? " ✓" : "")
+        }
+        return legacyCompletionFeedbackVisible ? "✓" : ""
     }
 
     var detail: String {
         if let activityPresentation { return activityPresentation.detail }
-        return "本机近期任务：Running \(runningCount)，Done \(recentlyCompletedCount)，未知 \(unknownCount)。仅根据本地日志推断；不代表整个目标完成，也不区分等待授权与工具执行。"
+        let facts: String
+        if runningCount > 0 {
+            facts = DisplayLanguage.text("本机近期任务：已确认执行中 \(runningCount)。", "Recent local tasks: \(runningCount) confirmed running.")
+        } else if legacyCompletionFeedbackVisible {
+            facts = DisplayLanguage.text("刚刚确认本轮完成。", "The current turn was just confirmed complete.")
+        } else {
+            facts = DisplayLanguage.text("当前未检测到执行中任务。", "No running tasks are currently detected.")
+        }
+        let boundary = DisplayLanguage.text(
+            "仅显示本机日志可确认的执行状态；不代表整个目标完成。",
+            "Only execution states confirmed by local logs are shown; this does not mean the overall goal is complete."
+        )
+        return facts + " " + boundary
     }
 }
 

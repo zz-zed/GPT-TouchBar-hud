@@ -124,9 +124,11 @@ enum NotchHUDTests {
         check(NotchTaskPresentation(nil, enabled: false).badge.isEmpty, "disabled tasks are omitted")
         check(NotchTaskPresentation(nil).badge == "—", "missing snapshot unknown")
         check(NotchTaskPresentation(TaskStatusSummary()).badge == "0", "explicit legacy local idle distinct from unavailable")
-        check(NotchTaskPresentation(TaskStatusSummary(runningCount: 12)).badge == "12", "full task count")
-        check(NotchTaskPresentation(TaskStatusSummary(runningCount: 2, recentlyCompletedCount: 1, unknownCount: 1)).badge == "2 ? ✓", "partial completion retains running and unknown")
-        check(NotchTaskPresentation(TaskStatusSummary(recentlyCompletedCount: 1, unknownCount: 1)).badge == "?", "uncertainty prevents overall success")
+        check(NotchTaskPresentation(TaskStatusSummary(runningCount: 12)).badge == "12", "notch preserves the full task count")
+        check(NotchTaskPresentation(TaskStatusSummary(runningCount: 2, recentlyCompletedCount: 1, unknownCount: 1)).badge == "2 ✓", "running and completion stay visible while legacy uncertainty remains internal")
+        check(NotchTaskPresentation(TaskStatusSummary(recentlyCompletedCount: 1, unknownCount: 1)).badge == "✓", "legacy uncertainty does not hide confirmed completion")
+        check(NotchTaskPresentation(TaskStatusSummary(unknownCount: 1)).badge == "0", "legacy uncertainty presents a neutral state")
+        check(NotchTaskPresentation(TaskStatusSummary(completionFeedbackVisible: false, recentlyCompletedCount: 1, unknownCount: 1, legacyHealth: .unavailable(.allCandidatesUnreadable))).badge == "0", "legacy monitoring faults clear completion and remain neutral")
         // The pure geometry cases above deliberately include off-screen coordinates.
         // Native button/occlusion checks must place their panel on the runner's real
         // desktop: the fixed 1512x982 fixture can sit above a smaller CI display.
