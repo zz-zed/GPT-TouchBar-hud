@@ -2,7 +2,7 @@
 
 [返回项目说明](../README.md)
 
-本文适用于 GPT TouchBar HUD **v0.1.30 / Build 33**，介绍安装后的日常操作、各显示界面和设置项。额度、任务状态的数据口径见[数据与隐私](DATA-AND-PRIVACY.md)，更新行为见[更新与恢复](UPDATING.md)。
+本文适用于 GPT TouchBar HUD **v0.1.31 / Build 34**，介绍安装后的日常操作、各显示界面和设置项。额度、任务状态的数据口径见[数据与隐私](DATA-AND-PRIVACY.md)，更新行为见[更新与恢复](UPDATING.md)。
 
 ## 开始使用
 
