@@ -113,7 +113,7 @@ final class PreferencesWindowController: NSWindowController {
         displayMode.addItems(withTitles: HUDDisplayMode.allCases.map(\.title))
         displayMode.selectItem(at: HUDDisplayMode.allCases.firstIndex(of: HUDDisplayMode.load()) ?? 0)
         displayMode.setAccessibilityLabel("浮窗显示模式")
-        notchRestingState.addItems(withTitles: ["静止态 Compact（默认）", "额度预览态 Peek"])
+        notchRestingState.addItems(withTitles: ["静止态 Compact", "额度预览态 Peek（默认）"])
         selectSavedNotchRestingState()
         notchRestingState.setAccessibilityLabel("刘海常驻形态")
         notchRestingState.setAccessibilityIdentifier("settings.notchRestingState")
@@ -201,7 +201,7 @@ final class PreferencesWindowController: NSWindowController {
         preview.updateAppearance(appearance)
     }
     private func selectSavedNotchRestingState() {
-        notchRestingState.selectItem(at: UserDefaults.standard.bool(forKey: NotchPresentationModel.alwaysShowKey) ? 1 : 0)
+        notchRestingState.selectItem(at: NotchPresentationModel.savedAlwaysShowQuota() ? 1 : 0)
     }
     @objc private func changed(_ sender: NSControl) {
         if sender === notchRestingState { onAlwaysShowQuota?(notchRestingState.indexOfSelectedItem == 1); return }

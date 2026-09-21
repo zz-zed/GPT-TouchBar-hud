@@ -15,6 +15,10 @@ enum NotchDetailPage: Int, CaseIterable {
 
 final class NotchPresentationModel: ObservableObject {
     static let alwaysShowKey = "notch.alwaysShowQuota"
+    static func savedAlwaysShowQuota(in defaults: UserDefaults = .standard) -> Bool {
+        guard defaults.object(forKey: alwaysShowKey) != nil else { return true }
+        return defaults.bool(forKey: alwaysShowKey)
+    }
     @Published private(set) var state: NotchPresentationState = .compact
     @Published private(set) var size: CGSize = .zero
     @Published private(set) var layout: NotchLayout?
@@ -28,7 +32,7 @@ final class NotchPresentationModel: ObservableObject {
     @Published private(set) var reduceTransparency = false
     @Published private(set) var lowPower = false
     @Published private(set) var content = NotchContentAdapter(.initial, tasksEnabled: true)
-    private(set) var alwaysShowQuota = false
+    private(set) var alwaysShowQuota: Bool
     private(set) var menuDepth = 0
     private(set) var pointerCaptured = false
     let scheduler: NotchDelayScheduler
@@ -40,10 +44,11 @@ final class NotchPresentationModel: ObservableObject {
     var onSettings: (() -> Void)?
     var onHide: (() -> Void)?
 
-    init(clock: NotchClock = NotchSystemClock(), alwaysShowQuota: Bool = false) {
+    init(clock: NotchClock = NotchSystemClock(), alwaysShowQuota: Bool = true) {
         scheduler = NotchDelayScheduler(clock: clock)
         self.alwaysShowQuota = alwaysShowQuota
         state = restingState
+        pillsVisible = alwaysShowQuota
     }
     func configure(_ layout: NotchLayout) {
         guard self.layout != layout else { return }

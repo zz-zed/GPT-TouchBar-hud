@@ -1,6 +1,6 @@
 # Native notch island
 
-The island renderer replaces the notch presentation layer while continuing to consume `AppDelegate.renderDisplayState()`. The existing floating HUD, Touch Bar, task authority, completion feedback and automatic updater are unchanged. The **刘海常驻形态** setting defaults to **静止态 Compact（默认）**, where hovering previews quota; **额度预览态 Peek** keeps quota visible at rest. Existing display and visibility preferences are not reset.
+The island renderer replaces the notch presentation layer while continuing to consume `AppDelegate.renderDisplayState()`. The existing floating HUD, Touch Bar, task authority, completion feedback and automatic updater are unchanged. The **刘海常驻形态** setting offers **静止态 Compact**, where hovering previews quota, and **额度预览态 Peek（默认）**, which keeps quota visible at rest. Missing preferences default to Peek; saved Compact and Peek choices remain unchanged, as do existing display and visibility preferences.
 
 Without a saved display mode, startup uses **自动**: valid notch geometry selects the island, otherwise presentation falls back to the floating HUD. A saved **桌面浮窗** or **刘海融合** choice takes precedence and survives restarts and display changes; selecting **自动** resumes detection. Startup shows the island if a notch is available and no visibility choice has been saved. An explicit hide stays hidden, and startup without a notch keeps the unconfigured floating HUD hidden. Previously saved modes are preserved because older versions did not record whether a saved value came from a manual selection or a visibility change.
 
@@ -19,9 +19,11 @@ The preview is a standalone native harness, not the installed app. It uses fixed
 Options may be combined:
 
 ```sh
-bash scripts/test-notch-presentation.sh --preview --width 640 --height 600 --notch-width 180 --physical-inset 38 --visual-height 24 --always-peek --english
+bash scripts/test-notch-presentation.sh --preview --width 640 --height 600 --notch-width 180 --physical-inset 38 --visual-height 24 --compact --english
 bash scripts/test-notch-presentation.sh --preview --reduced-motion --reduced-transparency --low-power
 ```
+
+The preview follows the product default and starts in Peek. Pass `--compact` to start in Compact; the earlier `--always-peek` option remains accepted for compatibility. If both are present, `--compact` takes precedence.
 
 `--debug-regions`: green = actual rendered path; orange = hover rectangle/tolerance; red = camera exclusion. The camera may hold hover but never receives clicks. Decorative glow and shadows remain outside the click path. Width/height are bounded to the actual desktop for the interactive preview. Automated geometry tests additionally cover negative origins, secondary-display coordinates and 1×/2× scales. No synthetic configuration is named after a calibrated Mac model.
 

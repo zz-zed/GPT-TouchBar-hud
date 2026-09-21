@@ -61,6 +61,8 @@ enum NotchHarness {
         DisplayLanguage.defaults = defaults
         defer { DisplayLanguage.defaults = .standard; defaults.removePersistentDomain(forName: suite) }
         if !CommandLine.arguments.contains("--preview") {
+            // Native interaction checks exercise Compact deliberately; product defaults are checked separately.
+            defaults.set(false, forKey: NotchPresentationModel.alwaysShowKey)
             modelChecks()
             geometryChecks()
             contentChecks()
@@ -82,7 +84,11 @@ enum NotchHarness {
             let notch = max(80, min(width / 2 - 1, number("--notch-width", 180)))
             let g = fixture(CGRect(origin: origin, size: CGSize(width: width, height: height)), inset: inset, notch: notch)
             _ = controller.show(in: g, visibleTopDelta: number("--visual-height", inset) + 1)
-            controller.model.setAlwaysShowQuota(args.contains("--always-peek"))
+            if args.contains("--compact") {
+                controller.model.setAlwaysShowQuota(false)
+            } else if args.contains("--always-peek") {
+                controller.model.setAlwaysShowQuota(true)
+            }
             controller.model.setEnvironment(reduceMotion: args.contains("--reduced-motion"), reduceTransparency: args.contains("--reduced-transparency"), lowPower: args.contains("--low-power"))
             if args.contains("--english") { DisplayLanguage.current = .english; controller.model.update(sample, tasksEnabled: true) }
             let layout = controller.model.layout!
