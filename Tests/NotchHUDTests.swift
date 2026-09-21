@@ -323,7 +323,8 @@ enum NotchHUDTests {
         controller.toggleExpanded()
         print("Native regular expanded size: \(controller.panel.frame.size)")
         let regularHeight = controller.view.preferredHeight
-        let titleField = descendants(controller.view).compactMap { $0 as? NSTextField }.first { $0.stringValue == "2 个任务执行中" }!
+        let expectedTaskTitle = NotchTaskPresentation(full.taskStatus).title
+        let titleField = descendants(controller.view).compactMap { $0 as? NSTextField }.first { $0.stringValue == expectedTaskTitle }!
         titleField.stringValue = String(repeating: "长任务状态需要换行。", count: 12)
         check(controller.view.preferredHeight > regularHeight, "long native content grows naturally")
         controller.update(full)
