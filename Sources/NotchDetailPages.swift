@@ -15,8 +15,8 @@ struct NotchDetailPages: View {
             }.clipped()
             footer
         }
-        .padding(.horizontal, 20).padding(.bottom, 12)
-        .padding(.top, max(layout.visualBarHeight, layout.physicalTopInset) + 10)
+        .padding(.horizontal, 24).padding(.bottom, 16)
+        .padding(.top, max(layout.visualBarHeight, layout.physicalTopInset) + 8)
         .foregroundColor(.white)
     }
     private var header: some View {

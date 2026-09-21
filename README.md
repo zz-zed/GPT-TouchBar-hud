@@ -272,7 +272,7 @@ Quiet HUD 需要从菜单栏手动显示，以单行胶囊呈现任务和额度�
 
 ![刘海紧凑状态原生模拟](Documentation/NotchIsland/evidence/synthetic-compact.png)
 
-![刘海展开状态原生模拟](Documentation/NotchIsland/evidence/synthetic-expanded.png)
+![刘海展开状态原生模拟](Documentation/NotchIsland/evidence/refined-synthetic-expanded.png)
 
 以上为正式渲染代码生成的演示画面，桌面、摄像头和额度数据均为模拟，不是实体刘海屏照片。
 

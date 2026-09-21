@@ -4,6 +4,8 @@ The island renderer replaces the notch presentation layer while continuing to co
 
 Without a saved display mode, startup uses **自动**: valid notch geometry selects the island, otherwise presentation falls back to the floating HUD. A saved **桌面浮窗** or **刘海融合** choice takes precedence and survives restarts and display changes; selecting **自动** resumes detection. Startup shows the island if a notch is available and no visibility choice has been saved. An explicit hide stays hidden, and startup without a notch keeps the unconfigured floating HUD hidden. Previously saved modes are preserved because older versions did not record whether a saved value came from a manual selection or a visibility change.
 
+The refined expanded panel is normally 520 × 250 pt for a 32 pt top inset, down from 800 × 280 pt (about 42% less rectangular area). Four continuous corner curves grow with the actual animated height: 26 pt at the top, 28 pt at the bottom. Compact/Peek keep their attached top edge. Narrow screens reserve additional footer height, and long detail content remains scrollable. The material rim uses the same corner geometry.
+
 ## Native preview
 
 From the repository root:

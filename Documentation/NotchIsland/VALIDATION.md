@@ -69,6 +69,12 @@ The unconfigured display mode now defaults to Automatic. Startup detects valid n
 
 The earlier files in `evidence/` describe the original island implementation run; this follow-up rebuilt `build/GPT TouchBar HUD.app`, so its current binary is no longer the artifact hashed in that earlier build manifest. Physical notch startup and display hotplug remain untested on actual notch hardware.
 
+## Expanded-panel refinement
+
+The standard expanded shell is reduced from 800 × 280 to 520 × 250 pt at a 32 pt physical inset. Its top corners now round continuously as the actual presentation height grows, and bottom corners increase from 14 to 28 pt. The material halo follows the same curves. Drawing, content clipping and input routing still share one path.
+
+`bash scripts/test-notch-presentation.sh` passed 359 assertions and 283 presented geometry samples for this refinement, including real click-through at all four expanded corners. The normal Chinese quota screen and all three narrow English long-content pages were visually inspected; the footer controls remain complete and long content scrolls. New previews use the `refined-` filename prefix; earlier images remain historical evidence. This does not establish physical-notch acceptance.
+
 ## Remaining physical acceptance
 
 Same-machine upstream comparison; physical black levels and camera seams; crowded real menu bars; display scaling and auto-hide; physical monitor unplug/replug; lock/sleep/wake and full-screen Space transitions; actual VoiceOver/trackpad interactions; sustained editor typing; macOS 11 and Intel runtime. Synthetic screenshots and CI wiring do not establish release readiness for those items.

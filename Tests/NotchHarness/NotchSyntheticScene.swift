@@ -160,7 +160,10 @@ extension NotchHarness {
         controller.model.animationsEnabled = false
         for (name, point) in [
             ("camera", CGPoint(x: frame.midX, y: frame.maxY - 10)),
-            ("rounded corner", CGPoint(x: frame.midX - controller.model.layout!.expandedSize.width / 2 + 0.1, y: frame.maxY - controller.model.layout!.expandedSize.height + 0.1)),
+            ("bottom-left rounded corner", CGPoint(x: frame.midX - controller.model.layout!.expandedSize.width / 2 + 0.1, y: frame.maxY - controller.model.layout!.expandedSize.height + 0.1)),
+            ("top-left rounded corner", CGPoint(x: frame.midX - controller.model.layout!.expandedSize.width / 2 + 0.1, y: frame.maxY - 0.1)),
+            ("top-right rounded corner", CGPoint(x: frame.midX + controller.model.layout!.expandedSize.width / 2 - 0.1, y: frame.maxY - 0.1)),
+            ("bottom-right rounded corner", CGPoint(x: frame.midX + controller.model.layout!.expandedSize.width / 2 - 0.1, y: frame.maxY - controller.model.layout!.expandedSize.height + 0.1)),
             ("decoration", CGPoint(x: frame.midX - controller.model.layout!.expandedSize.width / 2 - 3, y: frame.maxY - 70))
         ] {
             controller.model.click(); pump(0.06)
