@@ -41,7 +41,7 @@ private final class NotchDebugWindow: NSObject, NSWindowDelegate {
     private let screen = NSSegmentedControl(labels: ["180 × 32 @2x", "140 × 24 @1x", "220 × 38 @2x"], trackingMode: .selectOne, target: nil, action: nil)
     private let background = NSSegmentedControl(labels: ["蓝底", "浅底", "深底"], trackingMode: .selectOne, target: nil, action: nil)
     private let status = NSTextField(labelWithString: "")
-    private let desktop = NotchHUDController()
+    private let desktop = LegacyNotchHUDController()
     private var cameraPanel: NSPanel?
 
     override init() {

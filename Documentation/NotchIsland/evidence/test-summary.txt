@@ -1,0 +1,22 @@
+island:
+PASS: 356 native island checks; 239 presented frames
+PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration.
+
+legacy:
+PASS: 202762 notch fusion and V2 checks
+
+design:
+PASS: 158 design integration checks
+
+updater:
+PASS: 73 update policy checks
+PASS: updater shell syntax and invalid-target rejection
+
+hooks:
+✔ Test run with 41 tests in 7 suites passed after 0.869 seconds.
+
+build:
+/Users/didi/.codex/worktrees/cf09/TouchBarCodexToken/build/GPT TouchBar HUD.app
+
+SwiftPM build:
+Build complete! (5.85秒)

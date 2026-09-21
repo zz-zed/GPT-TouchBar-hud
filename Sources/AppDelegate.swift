@@ -251,6 +251,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             controller.onQuit = { [weak self] in self?.quitApp() }
             controller.onDisplayMode = { [weak self] mode in self?.setDisplayMode(mode) }
             controller.onMenuMode = { [weak self] mode in self?.setMenuMode(mode) }
+            controller.onAlwaysShowQuota = { [weak self] enabled in
+                UserDefaults.standard.set(enabled, forKey: NotchPresentationModel.alwaysShowKey)
+                self?.notchHUD.setAlwaysShowQuota(enabled)
+            }
             controller.onVisibility = { [weak self] visible in
                 if visible { self?.showHUDWindow() } else { self?.closeHUD() }
             }

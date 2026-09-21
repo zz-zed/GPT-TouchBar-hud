@@ -1,0 +1,1322 @@
+{
+  "animationSamples" : [
+    {
+      "height" : 54.085372533154043,
+      "width" : 304.44533329853141
+    },
+    {
+      "height" : 62.592171764678994,
+      "width" : 323.10540903219908
+    },
+    {
+      "height" : 67.135812700494796,
+      "width" : 333.07210527850464
+    },
+    {
+      "height" : 76.671721993854362,
+      "width" : 353.98958372845482
+    },
+    {
+      "height" : 81.616488513855018,
+      "width" : 364.83616835297232
+    },
+    {
+      "height" : 91.753010612611888,
+      "width" : 387.07112005347119
+    },
+    {
+      "height" : 200.08395813967815,
+      "width" : 624.70029527413271
+    },
+    {
+      "height" : 220.38844995233256,
+      "width" : 669.2391805406005
+    },
+    {
+      "height" : 239.28184923097444,
+      "width" : 710.68276605504047
+    },
+    {
+      "height" : 255.23612492887537,
+      "width" : 745.67924177946838
+    },
+    {
+      "height" : 266.23799274105261,
+      "width" : 769.81237117392175
+    },
+    {
+      "height" : 274.11572030123773,
+      "width" : 787.0925477575538
+    },
+    {
+      "height" : 278.61939813638446,
+      "width" : 796.97158300884348
+    },
+    {
+      "height" : 281.20773201953216,
+      "width" : 802.64921862349001
+    },
+    {
+      "height" : 281.95695159908678,
+      "width" : 804.29266802380334
+    },
+    {
+      "height" : 281.94179790650969,
+      "width" : 804.25942766589219
+    },
+    {
+      "height" : 281.6035709715984,
+      "width" : 803.51751051834503
+    },
+    {
+      "height" : 281.18548680272636,
+      "width" : 802.6004226640448
+    },
+    {
+      "height" : 280.80481214537372,
+      "width" : 801.76539438340069
+    },
+    {
+      "height" : 280.47998585283915,
+      "width" : 801.05287219332467
+    },
+    {
+      "height" : 280.30896113760809,
+      "width" : 800.67772120507584
+    },
+    {
+      "height" : 280.17339743965636,
+      "width" : 800.38035567408497
+    },
+    {
+      "height" : 280.08549472817356,
+      "width" : 800.1875368230908
+    },
+    {
+      "height" : 280.03238093617597,
+      "width" : 800.07102915032192
+    },
+    {
+      "height" : 280.00543588775849,
+      "width" : 800.01192388282561
+    },
+    {
+      "height" : 279.99004038421083,
+      "width" : 799.9781531008498
+    },
+    {
+      "height" : 279.98433294117001,
+      "width" : 799.96563354837281
+    },
+    {
+      "height" : 279.98470108927461,
+      "width" : 799.96644109905401
+    },
+    {
+      "height" : 279.98873304247763,
+      "width" : 799.97528538349934
+    },
+    {
+      "height" : 279.99172974027078,
+      "width" : 799.98185878511003
+    },
+    {
+      "height" : 279.99504993189191,
+      "width" : 799.98914178608538
+    },
+    {
+      "height" : 279.99704670252629,
+      "width" : 799.99352179908965
+    },
+    {
+      "height" : 279.99829166874099,
+      "width" : 799.99625269272178
+    },
+    {
+      "height" : 279.99918592790777,
+      "width" : 799.99821429347458
+    },
+    {
+      "height" : 279.99918592790777,
+      "width" : 799.99821429347469
+    },
+    {
+      "height" : 32.300871462672305,
+      "width" : 256.6599761116683
+    },
+    {
+      "height" : 32.085594383513481,
+      "width" : 256.18775542190053
+    },
+    {
+      "height" : 32.029519525007387,
+      "width" : 256.06475250646781
+    },
+    {
+      "height" : 31.81556980687299,
+      "width" : 255.5954434473343
+    },
+    {
+      "height" : 31.795753713359534,
+      "width" : 255.55197588736931
+    },
+    {
+      "height" : 31.747508933573982,
+      "width" : 255.44614862848488
+    },
+    {
+      "height" : 31.741688549934867,
+      "width" : 255.43338133534098
+    },
+    {
+      "height" : 31.736003710783642,
+      "width" : 255.42091136558992
+    },
+    {
+      "height" : 31.737998939971366,
+      "width" : 255.42528799735655
+    },
+    {
+      "height" : 31.754946862276253,
+      "width" : 255.46246408499306
+    },
+    {
+      "height" : 31.760811478418915,
+      "width" : 255.47532840427374
+    },
+    {
+      "height" : 31.787910275744682,
+      "width" : 255.53477092743995
+    },
+    {
+      "height" : 31.825041568253972,
+      "width" : 255.61622021423452
+    },
+    {
+      "height" : 31.832426308794876,
+      "width" : 255.63241899993713
+    },
+    {
+      "height" : 31.860832220461788,
+      "width" : 255.69472874165811
+    },
+    {
+      "height" : 31.867553584823398,
+      "width" : 255.70947237961261
+    },
+    {
+      "height" : 31.892548858106696,
+      "width" : 255.76430072100823
+    },
+    {
+      "height" : 31.898291437857619,
+      "width" : 255.77689734755864
+    },
+    {
+      "height" : 31.91915688378478,
+      "width" : 255.82266671281823
+    },
+    {
+      "height" : 31.923849304926456,
+      "width" : 255.83295976564514
+    },
+    {
+      "height" : 31.940601315995362,
+      "width" : 255.86970611250595
+    },
+    {
+      "height" : 31.944305638419745,
+      "width" : 255.87783172298523
+    },
+    {
+      "height" : 31.957340958242927,
+      "width" : 255.90642532775868
+    },
+    {
+      "height" : 31.960182660563998,
+      "width" : 255.91265873930166
+    },
+    {
+      "height" : 31.967801022910631,
+      "width" : 255.92936998573944
+    },
+    {
+      "height" : 31.970058057632556,
+      "width" : 255.93432090061336
+    },
+    {
+      "height" : 31.979486476796211,
+      "width" : 255.95500259426265
+    },
+    {
+      "height" : 31.981039736068318,
+      "width" : 255.95840974363372
+    },
+    {
+      "height" : 31.986317612847454,
+      "width" : 255.96998702172991
+    },
+    {
+      "height" : 31.987427103090297,
+      "width" : 255.97242074226259
+    },
+    {
+      "height" : 31.991155560470041,
+      "width" : 255.98059929393429
+    },
+    {
+      "height" : 31.99450207329815,
+      "width" : 255.98794003175078
+    },
+    {
+      "height" : 31.995029382767402,
+      "width" : 255.98909671058655
+    },
+    {
+      "height" : 31.996758415306925,
+      "width" : 255.99288942712485
+    },
+    {
+      "height" : 31.997107683048942,
+      "width" : 255.99365556281703
+    },
+    {
+      "height" : 31.998235806399922,
+      "width" : 255.99613015597401
+    },
+    {
+      "height" : 31.998459674177646,
+      "width" : 255.99662122077677
+    },
+    {
+      "height" : 31.999169344048752,
+      "width" : 255.99817791597792
+    },
+    {
+      "height" : 31.999306977808576,
+      "width" : 255.99847982228977
+    },
+    {
+      "height" : 31.999642840911328,
+      "width" : 255.99921655425709
+    },
+    {
+      "height" : 31.999732415677041,
+      "width" : 255.99941304083995
+    },
+    {
+      "height" : 32.000050005563125,
+      "width" : 256.00010968962232
+    },
+    {
+      "height" : 32.000092351544247,
+      "width" : 256.00020257758092
+    },
+    {
+      "height" : 32.000210171872325,
+      "width" : 256.00046102217152
+    },
+    {
+      "height" : 32.000229038050186,
+      "width" : 256.0005024060456
+    },
+    {
+      "height" : 32.000273490437451,
+      "width" : 256.00059991450797
+    },
+    {
+      "height" : 32.000273490437451,
+      "width" : 256.00059991450792
+    },
+    {
+      "height" : 62.592447586107369,
+      "width" : 323.10601405984835
+    },
+    {
+      "height" : 96.906876509432323,
+      "width" : 398.37637427875484
+    },
+    {
+      "height" : 107.29991758907533,
+      "width" : 421.17401277603608
+    },
+    {
+      "height" : 117.70904430976066,
+      "width" : 444.00693590528147
+    },
+    {
+      "height" : 133.13493037740403,
+      "width" : 477.84436340849902
+    },
+    {
+      "height" : 148.0974014535571,
+      "width" : 510.66526770457676
+    },
+    {
+      "height" : 166.98435102191883,
+      "width" : 552.09470546743478
+    },
+    {
+      "height" : 184.37189188793928,
+      "width" : 590.23511768967319
+    },
+    {
+      "height" : 210.72558880902443,
+      "width" : 648.04322706495668
+    },
+    {
+      "height" : 231.790954735382,
+      "width" : 694.25112651632185
+    },
+    {
+      "height" : 247.95054193038163,
+      "width" : 729.69796294406297
+    },
+    {
+      "height" : 247.9505419303816,
+      "width" : 729.69796294406297
+    },
+    {
+      "height" : 230.18247478242628,
+      "width" : 690.72284790983826
+    },
+    {
+      "height" : 478.18247478242631,
+      "width" : 1234.7228479098383
+    },
+    {
+      "height" : 413.21521934645216,
+      "width" : 1092.2140295341533
+    },
+    {
+      "height" : 351.41381512203475,
+      "width" : 956.64965897736647
+    },
+    {
+      "height" : 318.08568706007736,
+      "width" : 883.5427974221052
+    },
+    {
+      "height" : 299.9915953762499,
+      "width" : 843.85253179306414
+    },
+    {
+      "height" : 289.65273112006116,
+      "width" : 821.17373277948889
+    },
+    {
+      "height" : 284.16831676441393,
+      "width" : 809.14340451548856
+    },
+    {
+      "height" : 281.48660252530658,
+      "width" : 803.26093457164029
+    },
+    {
+      "height" : 280.30716475665275,
+      "width" : 800.67378075652869
+    },
+    {
+      "height" : 279.87129755041656,
+      "width" : 799.71768494930086
+    },
+    {
+      "height" : 279.7681159630975,
+      "width" : 799.4913511448591
+    },
+    {
+      "height" : 279.79754235056191,
+      "width" : 799.55589934961972
+    },
+    {
+      "height" : 279.85534841205555,
+      "width" : 799.6826997425735
+    },
+    {
+      "height" : 279.91266121780518,
+      "width" : 799.80841815518556
+    },
+    {
+      "height" : 279.94918909564683,
+      "width" : 799.88854382270915
+    },
+    {
+      "height" : 279.97449387511335,
+      "width" : 799.94405108089381
+    },
+    {
+      "height" : 279.98738693330534,
+      "width" : 799.97233262789564
+    },
+    {
+      "height" : 279.99488830933069,
+      "width" : 799.988787259177
+    },
+    {
+      "height" : 279.9981034737292,
+      "width" : 799.99583987785763
+    },
+    {
+      "height" : 279.99963843943067,
+      "width" : 799.99920689939631
+    },
+    {
+      "height" : 280.00012676677829,
+      "width" : 800.00027806906212
+    },
+    {
+      "height" : 280.00024840413329,
+      "width" : 800.00054488648584
+    },
+    {
+      "height" : 280.0002184567208,
+      "width" : 800.00047919538758
+    },
+    {
+      "height" : 280,
+      "width" : 800
+    },
+    {
+      "height" : 32,
+      "width" : 256
+    },
+    {
+      "height" : 32.616694858017183,
+      "width" : 257.35275001113439
+    },
+    {
+      "height" : 33.798117045901392,
+      "width" : 259.94425674584818
+    },
+    {
+      "height" : 35.495144707207601,
+      "width" : 263.66676903516498
+    },
+    {
+      "height" : 37.661391084898696,
+      "width" : 268.41853528300362
+    },
+    {
+      "height" : 40.253096190480051,
+      "width" : 274.10356583718203
+    },
+    {
+      "height" : 43.229020800641706,
+      "width" : 280.63140046592378
+    },
+    {
+      "height" : 46.55034285465814,
+      "width" : 287.91688110054042
+    },
+    {
+      "height" : 50.180556313834529,
+      "width" : 295.8799299787338
+    },
+    {
+      "height" : 54.085372533154043,
+      "width" : 304.44533329853141
+    },
+    {
+      "height" : 32,
+      "width" : 256
+    },
+    {
+      "height" : 280,
+      "width" : 800
+    },
+    {
+      "height" : 32,
+      "width" : 256
+    },
+    {
+      "height" : 32,
+      "width" : 448
+    },
+    {
+      "height" : 280,
+      "width" : 800
+    },
+    {
+      "height" : 32,
+      "width" : 256
+    },
+    {
+      "height" : 280,
+      "width" : 800
+    },
+    {
+      "height" : 32,
+      "width" : 256
+    },
+    {
+      "height" : 280,
+      "width" : 800
+    },
+    {
+      "height" : 253.88938892647738,
+      "width" : 742.72511119356329
+    },
+    {
+      "height" : 207.21133760771744,
+      "width" : 640.33454701047685
+    },
+    {
+      "height" : 166.33992158235725,
+      "width" : 550.68111830968689
+    },
+    {
+      "height" : 147.64806459778745,
+      "width" : 509.67962556934026
+    },
+    {
+      "height" : 125.26964890700344,
+      "width" : 460.59148792503987
+    },
+    {
+      "height" : 115.25194670934519,
+      "width" : 438.61717342695079
+    },
+    {
+      "height" : 101.70140326367243,
+      "width" : 408.89340070741054
+    },
+    {
+      "height" : 93.627984505953918,
+      "width" : 391.18396601306023
+    },
+    {
+      "height" : 86.290467315668138,
+      "width" : 375.08876701501401
+    },
+    {
+      "height" : 79.653205747531899,
+      "width" : 360.52961260748936
+    },
+    {
+      "height" : 76.584728929784632,
+      "width" : 353.798760233076
+    },
+    {
+      "height" : 63.528250322879899,
+      "width" : 325.15874264373662
+    },
+    {
+      "height" : 59.268791111075274,
+      "width" : 315.8154127597781
+    },
+    {
+      "height" : 57.323306941185336,
+      "width" : 311.54789909679374
+    },
+    {
+      "height" : 53.773914240240629,
+      "width" : 303.76213446246345
+    },
+    {
+      "height" : 52.159541731285771,
+      "width" : 300.22093024927216
+    },
+    {
+      "height" : 50.645273915020653,
+      "width" : 296.89931052327125
+    },
+    {
+      "height" : 46.654611202147549,
+      "width" : 288.14559876600123
+    },
+    {
+      "height" : 45.493000167149432,
+      "width" : 285.59754875374722
+    },
+    {
+      "height" : 41.575293245389872,
+      "width" : 277.00386905440382
+    },
+    {
+      "height" : 40.758381169920199,
+      "width" : 275.2119328888574
+    },
+    {
+      "height" : 38.034486853169369,
+      "width" : 269.23693890372658
+    },
+    {
+      "height" : 37.473636702444992,
+      "width" : 268.00668696020216
+    },
+    {
+      "height" : 35.626630295744718,
+      "width" : 263.95518903582729
+    },
+    {
+      "height" : 35.251656045226525,
+      "width" : 263.13266487340024
+    },
+    {
+      "height" : 34.034234810478097,
+      "width" : 260.46219248750049
+    },
+    {
+      "height" : 33.791154084348676,
+      "width" : 259.928983152765
+    },
+    {
+      "height" : 33.56921110594385,
+      "width" : 259.44214049045763
+    },
+    {
+      "height" : 33.366890378430867,
+      "width" : 258.99834018494528
+    },
+    {
+      "height" : 33.182766979389072,
+      "width" : 258.59445659995038
+    },
+    {
+      "height" : 33.015502376724186,
+      "width" : 258.22755360055635
+    },
+    {
+      "height" : 32.86384033763008,
+      "width" : 257.89487557931761
+    },
+    {
+      "height" : 32.726602939104509,
+      "width" : 257.5938387051325
+    },
+    {
+      "height" : 32.602686686985095,
+      "width" : 257.3220224101608
+    },
+    {
+      "height" : 32.491058749086562,
+      "width" : 257.07716112702849
+    },
+    {
+      "height" : 32.390753306779175,
+      "width" : 256.85713628583812
+    },
+    {
+      "height" : 32.300868028237034,
+      "width" : 256.65996857806829
+    },
+    {
+      "height" : 32.220560665595372,
+      "width" : 256.48381049227362
+    },
+    {
+      "height" : 32.149045777377438,
+      "width" : 256.32693912456978
+    },
+    {
+      "height" : 32.085591576773083,
+      "width" : 256.1877492651796
+    },
+    {
+      "height" : 32.029516905666725,
+      "width" : 256.06474676081734
+    },
+    {
+      "height" : 31.980188333712022,
+      "width" : 255.95654215136835
+    },
+    {
+      "height" : 31.937017381227236,
+      "width" : 255.86184457817592
+    },
+    {
+      "height" : 31.899457864232659,
+      "width" : 255.77945596025233
+    },
+    {
+      "height" : 31.86700335956229,
+      "width" : 255.70826543387864
+    },
+    {
+      "height" : 31.839184787650879,
+      "width" : 255.6472440503311
+    },
+    {
+      "height" : 31.815568110318566,
+      "width" : 255.59543972586027
+    },
+    {
+      "height" : 31.79575214064397,
+      "width" : 255.55197243754174
+    },
+    {
+      "height" : 31.779366461827692,
+      "width" : 255.5160296582028
+    },
+    {
+      "height" : 31.766069451797705,
+      "width" : 255.48686202329839
+    },
+    {
+      "height" : 31.755546410191869,
+      "width" : 255.46377922235649
+    },
+    {
+      "height" : 31.747507784266929,
+      "width" : 255.4461461074244
+    },
+    {
+      "height" : 31.741687490226042,
+      "width" : 255.43337901081861
+    },
+    {
+      "height" : 31.737841326421687,
+      "width" : 255.42494226440908
+    },
+    {
+      "height" : 31.735745474879423,
+      "width" : 255.42034491263894
+    },
+    {
+      "height" : 31.735195087593638,
+      "width" : 255.4191376114959
+    },
+    {
+      "height" : 31.736002954069363,
+      "width" : 255.42090970570075
+    },
+    {
+      "height" : 31.737998246621885,
+      "width" : 255.42528647646111
+    },
+    {
+      "height" : 31.741025339994849,
+      "width" : 255.43192655224698
+    },
+    {
+      "height" : 31.744942701918632,
+      "width" : 255.44051947517653
+    },
+    {
+      "height" : 31.749621851299565,
+      "width" : 255.45078341575402
+    },
+    {
+      "height" : 31.754946380807809,
+      "width" : 255.4624630288688
+    },
+    {
+      "height" : 31.760811040714941,
+      "width" : 255.47532744414889
+    },
+    {
+      "height" : 31.767120880920743,
+      "width" : 255.48916838395519
+    },
+    {
+      "height" : 31.773790448201026,
+      "width" : 255.50379840250548
+    },
+    {
+      "height" : 31.780743035803908,
+      "width" : 255.51904923982795
+    },
+    {
+      "height" : 31.787909982619823,
+      "width" : 255.53477028445639
+    },
+    {
+      "height" : 31.795230019249885,
+      "width" : 255.55082713899981
+    },
+    {
+      "height" : 31.802648658397374,
+      "width" : 255.56710028293628
+    },
+    {
+      "height" : 31.810117627107246,
+      "width" : 255.58348382720305
+    },
+    {
+      "height" : 31.817594338479182,
+      "width" : 255.59988435537377
+    },
+    {
+      "height" : 31.825041400578726,
+      "width" : 255.61621984643079
+    },
+    {
+      "height" : 31.832426160369465,
+      "width" : 255.63241867435886
+    },
+    {
+      "height" : 31.839720280586022,
+      "width" : 255.64841867999519
+    },
+    {
+      "height" : 31.84689934756247,
+      "width" : 255.66416631078221
+    },
+    {
+      "height" : 31.853942508124362,
+      "width" : 255.67961582427279
+    },
+    {
+      "height" : 31.860832133742775,
+      "width" : 255.69472855143579
+    },
+    {
+      "height" : 31.867553510237627,
+      "width" : 255.70947221600511
+    },
+    {
+      "height" : 31.874094551403317,
+      "width" : 255.72382030630399
+    },
+    {
+      "height" : 31.880445535013081,
+      "width" : 255.73775149615767
+    },
+    {
+      "height" : 31.886598859739109,
+      "width" : 255.75124911168575
+    },
+    {
+      "height" : 31.892548821603128,
+      "width" : 255.76430064093586
+    },
+    {
+      "height" : 31.898291408647367,
+      "width" : 255.77689728348446
+    },
+    {
+      "height" : 31.903824112587699,
+      "width" : 255.78903353728901
+    },
+    {
+      "height" : 31.909145756280651,
+      "width" : 255.80070682022836
+    },
+    {
+      "height" : 31.914256335901797,
+      "width" : 255.81191712391342
+    },
+    {
+      "height" : 31.919156876797302,
+      "width" : 255.82266669749072
+    },
+    {
+      "height" : 31.92384930203113,
+      "width" : 255.832959759294
+    },
+    {
+      "height" : 31.928336312708609,
+      "width" : 255.84280223432847
+    },
+    {
+      "height" : 31.932621279212668,
+      "width" : 255.85220151569217
+    },
+    {
+      "height" : 31.93670814254213,
+      "width" : 255.86116624815679
+    },
+    {
+      "height" : 31.940601324991491,
+      "width" : 255.86970613223923
+    },
+    {
+      "height" : 280,
+      "width" : 800
+    },
+    {
+      "height" : 32,
+      "width" : 256
+    },
+    {
+      "height" : 280,
+      "width" : 800
+    },
+    {
+      "height" : 32,
+      "width" : 256
+    },
+    {
+      "height" : 280,
+      "width" : 800
+    },
+    {
+      "height" : 32,
+      "width" : 256
+    },
+    {
+      "height" : 32,
+      "width" : 256
+    },
+    {
+      "height" : 24,
+      "width" : 256
+    },
+    {
+      "height" : 280,
+      "width" : 352
+    }
+  ],
+  "checks" : [
+    "new preference defaults to Compact",
+    "hover starts shell before pills",
+    "pills do not enter before 60ms",
+    "pills enter at 60ms",
+    "click starts shell immediately and mounts hidden content",
+    "details wait until 220ms",
+    "220ms content overlaps preview",
+    "250ms preview exits",
+    "expanded blank click does not toggle",
+    "data refresh preserves animation generation and intent",
+    "pagination preserves shell size",
+    "own menu holds Expanded after pointer leaves",
+    "nested menu hold is reference counted",
+    "exit retains fading detail layer",
+    "shell waits only 20ms",
+    "shell overlaps content fade",
+    "detail unmounts after 100ms",
+    "cancelled first Peek generation cannot reveal pills in second Peek",
+    "current Peek callback remains valid",
+    "cancelled first Expanded generation cannot reveal second visit early",
+    "current Expanded reveals normally",
+    "always-show preference preserves current Expanded intent",
+    "always-show resting state is Peek",
+    "disabling always-show returns rest to Compact",
+    "hide cancels even hostile late callbacks",
+    "screen change cancels old expansion",
+    "Reduce Motion removes staged movement and perpetual sweep",
+    "Reduce Transparency is delivered to renderer",
+    "low-power rest has no dynamic decoration",
+    "low-power hover permits active decoration",
+    "invisible state stops sweep",
+    "drag capture holds Expanded",
+    "capture release outside collapses",
+    "pending callbacks do not retain destroyed model",
+    "bounded carrier 400.0\/(0.0, 0.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 400.0\/(0.0, 0.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 400.0\/(-1600.0, -900.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 400.0\/(-1600.0, -900.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 400.0\/(2400.0, 300.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 400.0\/(2400.0, 300.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 640.0\/(0.0, 0.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 640.0\/(0.0, 0.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 640.0\/(-1600.0, -900.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 640.0\/(-1600.0, -900.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 640.0\/(2400.0, 300.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 640.0\/(2400.0, 300.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 900.0\/(0.0, 0.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 900.0\/(0.0, 0.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 900.0\/(-1600.0, -900.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 900.0\/(-1600.0, -900.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 900.0\/(2400.0, 300.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 900.0\/(2400.0, 300.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 1512.0\/(0.0, 0.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 1512.0\/(0.0, 0.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 1512.0\/(-1600.0, -900.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 1512.0\/(-1600.0, -900.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 1512.0\/(2400.0, 300.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 1512.0\/(2400.0, 300.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 2560.0\/(0.0, 0.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 2560.0\/(0.0, 0.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 2560.0\/(-1600.0, -900.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 2560.0\/(-1600.0, -900.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 2560.0\/(2400.0, 300.0)\/1.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "bounded carrier 2560.0\/(2400.0, 300.0)\/2.0",
+    "visual height independent of hardware",
+    "top and center anchored",
+    "mark centers independent of state",
+    "all states fit carrier",
+    "all states fit carrier",
+    "all states fit carrier",
+    "autohide uses physical fallback",
+    "stale visible frame cannot extend height",
+    "missing quotas and task count remain unknown",
+    "monitoring off does not mean zero",
+    "task badge reuses existing semantics",
+    "remaining quotas preserved across task states",
+    "task badge reuses existing semantics",
+    "remaining quotas preserved across task states",
+    "task badge reuses existing semantics",
+    "remaining quotas preserved across task states",
+    "task badge reuses existing semantics",
+    "remaining quotas preserved across task states",
+    "reset card fallback is not a quota percentage",
+    "stale quota is visibly marked on connection error",
+    "authoritative Hook zero overrides conflicting legacy count",
+    "missing quotas and task count remain unknown",
+    "monitoring off does not mean zero",
+    "task badge reuses existing semantics",
+    "remaining quotas preserved across task states",
+    "task badge reuses existing semantics",
+    "remaining quotas preserved across task states",
+    "task badge reuses existing semantics",
+    "remaining quotas preserved across task states",
+    "task badge reuses existing semantics",
+    "remaining quotas preserved across task states",
+    "reset card fallback is not a quota percentage",
+    "stale quota is visibly marked on connection error",
+    "authoritative Hook zero overrides conflicting legacy count",
+    "synthetic geometry presents",
+    "panel cannot take key\/main status",
+    "nonactivating style retained",
+    "existing window level retained",
+    "stable compact (actual=compact, visible=true)",
+    "compact preserves carrier frame",
+    "compact actual hosting geometry matches",
+    "stable peek (actual=peek, visible=true)",
+    "peek preserves carrier frame",
+    "peek actual hosting geometry matches",
+    "stable expanded (actual=expanded, visible=true)",
+    "expanded preserves carrier frame",
+    "expanded actual hosting geometry matches",
+    "show\/hover\/expand did not change foreground app",
+    "expanded panel remains non-key",
+    "rounded corner passes through",
+    "decoration passes through",
+    "camera passes through",
+    "camera retains hover",
+    "actual SwiftUI animation publishes intermediate geometry",
+    "animation never resizes NSPanel",
+    "expanded edge currently receives input",
+    "stationary pointer becomes click-through as shell shrinks",
+    "stationary cursor outside shrunken shell remains collapsed",
+    "reverse starts from current presented size",
+    "second reversal never snaps to Compact endpoint",
+    "refresh during native animation preserves generation",
+    "interrupted animation settles with details",
+    "reversed geometry converges to expanded height",
+    "AppKit camera exclusion passes through",
+    "camera crossing preserves Expanded",
+    "native menu lease prevents hover collapse",
+    "quota page change does not move shell",
+    "activity page change does not move shell",
+    "usage page change does not move shell",
+    "hide blocks delayed content and window resurrection",
+    "hidden carrier ignores all mouse events",
+    "hidden controller reopens",
+    "reopen respects resting state",
+    "reopen republishes geometry after epoch invalidation",
+    "environment change cancels old content callbacks",
+    "refresh\/pages\/lifecycle preserve foreground focus",
+    "native harness preserves accessory activation policy",
+    "power notification publishes UI state on main thread",
+    "power notification publishes UI state on main thread",
+    "power notification publishes UI state on main thread",
+    "background power notification reaches main-queue observer",
+    "default facade creates island renderer",
+    "legacy launch switch creates no island window",
+    "real NSMenu delegate acquires hover hold",
+    "real open NSMenu keeps island expanded outside surface",
+    "real NSMenu close releases hover hold",
+    "menu close outside returns to rest",
+    "separate native click receiver ready",
+    "real first wing click expands without reaching underlying receiver",
+    "real detail blank click preserves Expanded",
+    "real island clicks do not activate app or steal keyboard focus",
+    "outside click begins with expanded island",
+    "real outside click reaches separate receiver process",
+    "real outside click collapses island",
+    "real stationary-pointer click after shrink reaches separate receiver",
+    "real camera click reaches separate receiver",
+    "real rounded corner click reaches separate receiver",
+    "real decoration click reaches separate receiver",
+    "narrow display presents bounded native content",
+    "narrow zh\/missing\/quota retains bounded shell",
+    "narrow zh\/missing\/activity retains bounded shell",
+    "narrow zh\/missing\/usage retains bounded shell",
+    "narrow zh\/disabled\/quota retains bounded shell",
+    "narrow zh\/disabled\/activity retains bounded shell",
+    "narrow zh\/disabled\/usage retains bounded shell",
+    "narrow zh\/long-stale\/quota retains bounded shell",
+    "narrow zh\/long-stale\/activity retains bounded shell",
+    "narrow zh\/long-stale\/usage retains bounded shell",
+    "narrow en\/missing\/quota retains bounded shell",
+    "narrow en\/missing\/activity retains bounded shell",
+    "narrow en\/missing\/usage retains bounded shell",
+    "narrow en\/disabled\/quota retains bounded shell",
+    "narrow en\/disabled\/activity retains bounded shell",
+    "narrow en\/disabled\/usage retains bounded shell",
+    "narrow en\/long-stale\/quota retains bounded shell",
+    "narrow en\/long-stale\/activity retains bounded shell",
+    "narrow en\/long-stale\/usage retains bounded shell",
+    "missing notch geometry safely declines presentation"
+  ],
+  "hardware" : "synthetic screen geometry; not physical notch acceptance",
+  "nativeClickDelivery" : "PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration.",
+  "os" : "Version 27.0 (Build 26A428)",
+  "passed" : 356
+}

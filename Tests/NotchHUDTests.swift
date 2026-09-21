@@ -108,7 +108,7 @@ enum NotchHUDTests {
         check(testFrame.contains(sample.frame(width: 340, height: 227)), "native fixture is inside the actual desktop")
         print("Native fixture: screen=\(testFrame), visibleFrame=\(testScreen.visibleFrame), anchor=\(sample.anchor)")
         fflush(stdout)
-        let controller = NotchHUDController()
+        let controller = LegacyNotchHUDController()
         controller.animationsEnabled = false
         check(controller.show(in: sample), "show notch")
         let panel = controller.panel
@@ -436,7 +436,7 @@ enum NotchHUDTests {
 }
 
 extension NotchHUDTests {
-    static func fusionChecks(controller: NotchHUDController, geometry: NotchHUDGeometry) throws {
+    static func fusionChecks(controller: LegacyNotchHUDController, geometry: NotchHUDGeometry) throws {
         let scene = NotchSimulationScene(frame: NSRect(x: 0, y: 0, width: 760, height: 340))
         let host = NSWindow(contentRect: scene.bounds, styleMask: .borderless, backing: .buffered, defer: false)
         host.contentView = scene

@@ -39,6 +39,7 @@ else
 fi
 cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
 cp Resources/AppIcon.icns "$RESOURCES_DIR/AppIcon.icns"
+cp Resources/ThirdPartyNotices.txt "$RESOURCES_DIR/ThirdPartyNotices.txt"
 cp Resources/gpt-touchbar-hud-launcher.sh "$RESOURCES_DIR/gpt-touchbar-hud-launcher.sh"
 cp Resources/install-update.sh "$RESOURCES_DIR/install-update.sh"
 chmod +x "$RESOURCES_DIR/gpt-touchbar-hud-launcher.sh" "$HELPERS_DIR/HookEmitter"
