@@ -15,7 +15,7 @@ final class PreferencesWindowController: NSWindowController {
     var onViewUpdate: (() -> Void)?
     private let menuMode = NSPopUpButton()
     private let visible = NSButton(checkboxWithTitle: "显示状态面板", target: nil, action: nil)
-    private let alwaysShowQuota = NSButton(checkboxWithTitle: "刘海始终显示额度", target: nil, action: nil)
+    private let notchRestingState = NSPopUpButton()
     private let displayMode = NSPopUpButton()
     private let modeAvailability = NSTextField(wrappingLabelWithString: "")
     var onPersistent: ((Bool) -> Void)?
@@ -65,7 +65,7 @@ final class PreferencesWindowController: NSWindowController {
         self.appearance = appearance
         displayMode.selectItem(at: HUDDisplayMode.allCases.firstIndex(of: HUDDisplayMode.load()) ?? 0)
         modeAvailability.stringValue = NotchHUDGeometry.current() == nil ? "当前无可用刘海屏，将回退桌面浮窗。" : "悬停查看额度，点击展开详情。"
-        alwaysShowQuota.state = UserDefaults.standard.bool(forKey: NotchPresentationModel.alwaysShowKey) ? .on : .off
+        selectSavedNotchRestingState()
         menuMode.selectItem(at: MenuBarDisplayMode.allCases.firstIndex(of: MenuBarDisplayMode.load()) ?? 0)
         visible.state = HUDPresentationPreferences().isVisible ? .on : .off
         color.selectItem(at: HUDAppearance.ColorChoice.allCases.firstIndex(of: appearance.colorChoice) ?? 0)
@@ -113,21 +113,24 @@ final class PreferencesWindowController: NSWindowController {
         displayMode.addItems(withTitles: HUDDisplayMode.allCases.map(\.title))
         displayMode.selectItem(at: HUDDisplayMode.allCases.firstIndex(of: HUDDisplayMode.load()) ?? 0)
         displayMode.setAccessibilityLabel("浮窗显示模式")
+        notchRestingState.addItems(withTitles: ["静止态 Compact（默认）", "额度预览态 Peek"])
+        selectSavedNotchRestingState()
+        notchRestingState.setAccessibilityLabel("刘海常驻形态")
+        notchRestingState.setAccessibilityIdentifier("settings.notchRestingState")
         menuMode.addItems(withTitles: MenuBarDisplayMode.allCases.map(\.title))
         menuMode.setAccessibilityLabel("菜单栏内容")
         modeAvailability.font = .systemFont(ofSize: 11)
         modeAvailability.textColor = .secondaryLabelColor
         language.addItems(withTitles: ["中文", "English"])
         color.addItems(withTitles: HUDAppearance.ColorChoice.allCases.map(\.title))
-        for control in [language, color, displayMode, menuMode] { control.target = self; control.action = #selector(changed(_:)) }
-        for control in [tasks, persistent, visible, automaticUpdates, alwaysShowQuota] { control.target = self; control.action = #selector(changed(_:)) }
-        alwaysShowQuota.setAccessibilityIdentifier("settings.notchAlwaysShowQuota")
+        for control in [language, color, displayMode, notchRestingState, menuMode] { control.target = self; control.action = #selector(changed(_:)) }
+        for control in [tasks, persistent, visible, automaticUpdates] { control.target = self; control.action = #selector(changed(_:)) }
         for slider in [backgroundSlider, foregroundSlider] { slider.target = self; slider.action = #selector(changed(_:)); slider.isContinuous = true }
         language.setAccessibilityLabel("信息语言")
         color.setAccessibilityLabel("浮窗颜色")
         backgroundSlider.setAccessibilityLabel("背景不透明度")
         foregroundSlider.setAccessibilityLabel("文字不透明度")
-        let general = column([row("显示模式", [displayMode]), modeAvailability, visible, alwaysShowQuota, row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, note("隐藏状态独立保存；自动菜单栏在面板显示时仅保留图标。")])
+        let general = column([row("显示模式", [displayMode]), modeAvailability, visible, row("刘海常驻形态", [notchRestingState]), note("Compact 悬停展示额度；Peek 常驻展示额度。"), row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, note("隐藏状态独立保存；自动菜单栏在面板显示时仅保留图标。")])
         let appearancePanel = column([row("浮窗颜色", [color]), row("背景不透明度", [backgroundSlider, backgroundValue]), row("文字不透明度", [foregroundSlider, foregroundValue]), note("数值越高越不透明；修改即时保存，保留已有偏好。")])
         let touch = column([persistent, availability])
         updateStatus.font = .systemFont(ofSize: 11)
@@ -197,8 +200,11 @@ final class PreferencesWindowController: NSWindowController {
         foregroundValue.stringValue = "\(Int(foregroundSlider.doubleValue))%"
         preview.updateAppearance(appearance)
     }
+    private func selectSavedNotchRestingState() {
+        notchRestingState.selectItem(at: UserDefaults.standard.bool(forKey: NotchPresentationModel.alwaysShowKey) ? 1 : 0)
+    }
     @objc private func changed(_ sender: NSControl) {
-        if sender === alwaysShowQuota { onAlwaysShowQuota?(alwaysShowQuota.state == .on); return }
+        if sender === notchRestingState { onAlwaysShowQuota?(notchRestingState.indexOfSelectedItem == 1); return }
         if sender === menuMode { onMenuMode?(MenuBarDisplayMode.allCases[menuMode.indexOfSelectedItem]); return }
         if sender === visible { onVisibility?(visible.state == .on); return }
         if sender === displayMode { onDisplayMode?(HUDDisplayMode.allCases[displayMode.indexOfSelectedItem]); return }

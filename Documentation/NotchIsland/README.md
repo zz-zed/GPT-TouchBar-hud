@@ -1,6 +1,6 @@
 # Native notch island
 
-The island renderer replaces the notch presentation layer while continuing to consume `AppDelegate.renderDisplayState()`. The existing floating HUD, Touch Bar, task authority, completion feedback and automatic updater are unchanged. The default resting presentation is Compact; the new setting **刘海始终显示额度** selects Peek at rest and does not reset existing display or visibility preferences.
+The island renderer replaces the notch presentation layer while continuing to consume `AppDelegate.renderDisplayState()`. The existing floating HUD, Touch Bar, task authority, completion feedback and automatic updater are unchanged. The **刘海常驻形态** setting defaults to **静止态 Compact（默认）**, where hovering previews quota; **额度预览态 Peek** keeps quota visible at rest. Existing display and visibility preferences are not reset.
 
 Without a saved display mode, startup uses **自动**: valid notch geometry selects the island, otherwise presentation falls back to the floating HUD. A saved **桌面浮窗** or **刘海融合** choice takes precedence and survives restarts and display changes; selecting **自动** resumes detection. Startup shows the island if a notch is available and no visibility choice has been saved. An explicit hide stays hidden, and startup without a notch keeps the unconfigured floating HUD hidden. Previously saved modes are preserved because older versions did not record whether a saved value came from a manual selection or a visibility change.
 
