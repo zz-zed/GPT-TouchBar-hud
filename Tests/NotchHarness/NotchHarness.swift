@@ -42,6 +42,16 @@ enum NotchHarness {
         view.cacheDisplay(in: view.bounds, to: bitmap)
         try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: "build/notch-island/\(name).png"))
     }
+    static func animationDiagnostics(_ controller: NotchIslandController, samples: [CGSize]) -> String {
+        let model = controller.model
+        let heights = samples.map(\.height)
+        return "os=\(ProcessInfo.processInfo.operatingSystemVersionString), hostReduceMotion=\(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion), "
+            + "animationsEnabled=\(model.animationsEnabled), reduceMotion=\(model.reduceMotion), state=\(model.state.rawValue), "
+            + "visible=\(model.visible)/\(controller.isVisible), panelVisible=\(controller.panel.isVisible), occlusion=\(controller.panel.occlusionState.rawValue), "
+            + "target=\(model.size), presented=\(String(describing: controller.bridge.snapshot?.size)), "
+            + "samples=\(samples.count), heightRange=\(String(describing: heights.min()))...\(String(describing: heights.max())), "
+            + "firstHeights=\(Array(heights.prefix(6))), lastHeights=\(Array(heights.suffix(3)))"
+    }
     static func main() throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
@@ -95,6 +105,9 @@ enum NotchHarness {
             withExtendedLifetime(context) {}
             return
         }
+        // Hosted CI runners enable Reduce Motion/Transparency. Keep this fixture
+        // deterministic without changing the user's system accessibility settings.
+        controller.model.setEnvironment(reduceMotion: false, reduceTransparency: false, lowPower: false)
         let frontPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         check(controller.show(in: fixture()), "synthetic geometry presents")
         controller.interaction.stop()
@@ -127,16 +140,36 @@ enum NotchHarness {
         check(!expanded.acceptsClick(CGPoint(x: layout.windowFrame.width / 2, y: 10)), "camera passes through")
         check(expanded.maintainsHover(CGPoint(x: layout.windowFrame.width / 2, y: 10)), "camera retains hover")
         controller.model.animationsEnabled = true
+        controller.model.setEnvironment(reduceMotion: true, reduceTransparency: true, lowPower: true)
         controller.model.collapse(animated: false)
         pump(0.05)
-        var samples: [CGSize] = []
+        var reducedMotionSamples: [CGSize] = []
         let previous = controller.bridge.onChange
+        controller.bridge.onChange = { geometry in previous?(geometry); reducedMotionSamples.append(geometry.size) }
+        controller.model.click()
+        check(!controller.model.motionEnabled && controller.model.detailsVisible && controller.model.scheduler.pendingCount == 0,
+              "native Reduce Motion expansion reveals details without staged callbacks")
+        pump(0.12)
+        check(controller.bridge.snapshot?.size == layout.expandedSize, "native Reduce Motion expansion publishes final geometry")
+        check(!reducedMotionSamples.contains { $0.height > layout.visualBarHeight + 2 && $0.height < layout.expandedSize.height - 2 },
+              "native Reduce Motion expansion has no intermediate geometry")
+        controller.bridge.onChange = previous
+        controller.model.setEnvironment(reduceMotion: false, reduceTransparency: false, lowPower: false)
+        controller.model.collapse(animated: false)
+        pump(0.05)
+        check(controller.model.motionEnabled && controller.model.visible && controller.isVisible,
+              "native animation fixture enables motion on a visible panel")
+        var samples: [CGSize] = []
         controller.bridge.onChange = { geometry in previous?(geometry); samples.append(geometry.size) }
         controller.model.click()
         pump(0.10)
         try snapshot(controller, "stage1-opening-100ms")
         pump(0.65)
-        check(samples.contains { $0.height > layout.visualBarHeight + 2 && $0.height < layout.expandedSize.height - 2 }, "actual SwiftUI animation publishes intermediate geometry")
+        let hasIntermediateGeometry = samples.contains { $0.height > layout.visualBarHeight + 2 && $0.height < layout.expandedSize.height - 2 }
+        if !hasIntermediateGeometry {
+            FileHandle.standardError.write(Data(("Native animation failure: " + animationDiagnostics(controller, samples: samples) + "\n").utf8))
+        }
+        check(hasIntermediateGeometry, "actual SwiftUI animation publishes intermediate geometry")
         check(controller.panel.frame == initialFrame && controller.frameChanges == 1, "animation never resizes NSPanel")
         try interactionAndRenderingChecks(controller)
         nativeMenuChecks(controller)
@@ -144,6 +177,9 @@ enum NotchHarness {
         try renderedContentChecks(controller)
         let report: [String: Any] = ["checks": checks, "passed": checks.count,
             "animationSamples": samples.map { ["width": $0.width, "height": $0.height] },
+            "reducedMotionSamples": reducedMotionSamples.map { ["width": $0.width, "height": $0.height] },
+            "hostReduceMotion": NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+            "hostReduceTransparency": NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
             "nativeClickDelivery": clickResult,
             "hardware": "synthetic screen geometry; not physical notch acceptance",
             "os": ProcessInfo.processInfo.operatingSystemVersionString]
