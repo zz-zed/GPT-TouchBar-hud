@@ -1,0 +1,99 @@
+{
+  "version": "0.1.29",
+  "build": "32",
+  "sourceCommit": "f9d91d979dfe24805e77fd4c05b96c26046747ca",
+  "tag": "v0.1.29",
+  "tagObject": "2349a68ef64ee4d5d8173b8dfd3fef5bb8d211a2",
+  "releaseURL": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.29",
+  "publishedAt": "2026-09-21T05:40:47Z",
+  "latestVerifiedAtUTC": "2026-09-21T05:42:16.861051+00:00",
+  "mainCI": {
+    "id": 35564237740,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/35564237740",
+    "conclusion": "success"
+  },
+  "tagCI": {
+    "id": 35564615249,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/35564615249",
+    "conclusion": "success"
+  },
+  "checks": {
+    "arm64": {
+      "taskStatusChecks": 41,
+      "updateChecks": 73,
+      "legacyGeometryChecks": 193547,
+      "nativeChecks": 418,
+      "presentedFrames": 137,
+      "hookTests": 41,
+      "realWindowServerClickDelivery": "passed",
+      "firstOpenHelper": "passed"
+    },
+    "x86_64": {
+      "taskStatusChecks": 41,
+      "updateChecks": 73,
+      "legacyGeometryChecks": 193547,
+      "nativeChecks": 418,
+      "presentedFrames": 89,
+      "hookTests": 41,
+      "realWindowServerClickDelivery": "passed",
+      "firstOpenHelper": "passed"
+    }
+  },
+  "assetVerification": {
+    "version": "0.1.29",
+    "build": "32",
+    "verifiedAtUTC": "2026-09-21T05:42:02.536546+00:00",
+    "assets": [
+      {
+        "name": "GPT-TouchBar-HUD-0.1.29-arm64.dmg",
+        "bytes": 3144558,
+        "sha256": "a802146dcc1a7abd4749f85f713fb9cf3da3d757a41163da64fda28086a5059e",
+        "architecture": "arm64",
+        "version": "0.1.29",
+        "build": "32",
+        "minimumSystem": "11.0",
+        "strictSignature": "passed",
+        "dmgIntegrity": "passed",
+        "readonlyMount": "passed",
+        "firstOpenHelperCDHash": "92822b17385bac8c3714f6f7a9657c557a6babfc",
+        "binarySHA256": {
+          "Contents/MacOS/GPTTouchBarHUD": "ae8a174c08627d32356c77ce600baf101a7e0b577184e55da5f901a65ab133b1",
+          "Contents/Helpers/HookEmitter": "f7d42845667e9a1d7b57da469edeb0e3d44838f5e3a8c1b8344730dec4dba6dd"
+        },
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/download/v0.1.29/GPT-TouchBar-HUD-0.1.29-arm64.dmg"
+      },
+      {
+        "name": "GPT-TouchBar-HUD-0.1.29-x86_64.dmg",
+        "bytes": 3225270,
+        "sha256": "e0605197dfabf39ad15e4575bf45b8364b874421a33c789beb453fc9fcc7bc91",
+        "architecture": "x86_64",
+        "version": "0.1.29",
+        "build": "32",
+        "minimumSystem": "11.0",
+        "strictSignature": "passed",
+        "dmgIntegrity": "passed",
+        "readonlyMount": "passed",
+        "firstOpenHelperCDHash": "df87f7916923d5239c6de8936ce6cfbf4d4f86c0",
+        "binarySHA256": {
+          "Contents/MacOS/GPTTouchBarHUD": "818d939f56d1dcdb793620d4ec37352bcdb95c604fbb4cc837ad8684e7430540",
+          "Contents/Helpers/HookEmitter": "a38fdb45760ed1caf89fdb9162c21e348c48fdffe6ec4d810fecfca30730ac86"
+        },
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/download/v0.1.29/GPT-TouchBar-HUD-0.1.29-x86_64.dmg"
+      }
+    ]
+  },
+  "priorUnpublishedTag": {
+    "object": "96de8c2b0fddaa4918c53eb3d1d2f99106abba84",
+    "commit": "f90c265bdf48f1859a5de3d4f95c75340277f6d0",
+    "failedRun": 35562841184,
+    "attempts": 2,
+    "reason": "Intel native click test used fixed delays before WindowServer routing was ready. No public release existed before guarded tag replacement."
+  },
+  "limitations": [
+    "Physical notch seams, black levels, full-screen, menu auto-hide, multiple displays, hotplug and wake remain unverified on hardware.",
+    "Actual macOS 11 runtime is unverified; both binaries declare minos 11.0.",
+    "Real installed-app auto-update network and restart end-to-end flow remains unverified.",
+    "Ad-hoc signed; not notarized."
+  ],
+  "installedAppModified": false
+}
