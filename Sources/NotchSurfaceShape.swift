@@ -5,18 +5,26 @@ import SwiftUI
 /// zero curvature at both straight-edge joins (unlike a circular quarter arc).
 /// Drawing, clipping, and AppKit containment all use this exact CGPath.
 struct NotchSurfaceShape: Shape {
-    func path(in rect: CGRect) -> Path { Path(Self.path(rect)) }
+    var topRadius: CGFloat = 0
+    var bottomRadius: CGFloat = 14
+    func path(in rect: CGRect) -> Path {
+        Path(Self.path(rect, topRadius: topRadius, bottomRadius: bottomRadius))
+    }
 
-    static func path(_ rect: CGRect) -> CGPath {
+    static func path(_ rect: CGRect, topRadius: CGFloat = 0, bottomRadius: CGFloat = 14) -> CGPath {
         let p = CGMutablePath()
-        let r = min(14, max(0, rect.width / 2), max(0, rect.height))
+        let top = min(max(0, topRadius), max(0, rect.width / 2), max(0, rect.height / 2))
+        let r = min(max(0, bottomRadius), max(0, rect.width / 2), max(0, rect.height - top))
         let l = rect.minX, t = rect.minY, x = rect.maxX, b = rect.maxY
-        p.move(to: CGPoint(x: l, y: t))
-        p.addLine(to: CGPoint(x: x, y: t))
+        p.move(to: CGPoint(x: l + top, y: t))
+        p.addLine(to: CGPoint(x: x - top, y: t))
+        p.addCurve(to: CGPoint(x: x, y: t + top), control1: CGPoint(x: x, y: t), control2: CGPoint(x: x, y: t))
         p.addLine(to: CGPoint(x: x, y: b - r))
         p.addCurve(to: CGPoint(x: x - r, y: b), control1: CGPoint(x: x, y: b), control2: CGPoint(x: x, y: b))
         p.addLine(to: CGPoint(x: l + r, y: b))
         p.addCurve(to: CGPoint(x: l, y: b - r), control1: CGPoint(x: l, y: b), control2: CGPoint(x: l, y: b))
+        p.addLine(to: CGPoint(x: l, y: t + top))
+        p.addCurve(to: CGPoint(x: l + top, y: t), control1: CGPoint(x: l, y: t), control2: CGPoint(x: l, y: t))
         p.closeSubpath()
         return p
     }
@@ -27,7 +35,14 @@ struct NotchPresentationGeometry: Equatable {
     let carrierWidth: CGFloat
     let exclusion: CGRect
     var rect: CGRect { CGRect(x: (carrierWidth - size.width) / 2, y: 0, width: size.width, height: size.height) }
-    var path: CGPath { NotchSurfaceShape.path(rect) }
+    // Derive the corner transition from the actual presented height, so reversals
+    // and reduced-motion updates use the same outline for drawing and hit testing.
+    private var expansion: CGFloat { max(0, min(1, (size.height - max(20, exclusion.height)) / 64)) }
+    var topCornerRadius: CGFloat { 26 * expansion }
+    var bottomCornerRadius: CGFloat { 14 + 14 * expansion }
+    var path: CGPath {
+        NotchSurfaceShape.path(rect, topRadius: topCornerRadius, bottomRadius: bottomCornerRadius)
+    }
     func acceptsClick(_ point: CGPoint) -> Bool { path.contains(point) && !exclusion.contains(point) }
     func maintainsHover(_ point: CGPoint) -> Bool {
         rect.insetBy(dx: -2, dy: -2).contains(point) || exclusion.contains(point)
@@ -81,12 +96,14 @@ struct NotchAnimatedSurface: AnimatableModifier {
             .background(
                 ZStack(alignment: .top) {
                     if haloMounted && !reduceTransparency {
-                        NotchMaterialHalo().frame(width: width + 18, height: height + 18)
-                            .clipShape(NotchSurfaceShape()).blur(radius: 8).opacity(haloVisible ? 0.55 : 0)
-                            .offset(y: -9)
+                        NotchMaterialHalo().frame(width: width + 8, height: height + 8)
+                            .clipShape(NotchSurfaceShape(topRadius: geometry.topCornerRadius + 4,
+                                                       bottomRadius: geometry.bottomCornerRadius + 4))
+                            .blur(radius: 6).opacity(haloVisible ? 0.18 : 0)
+                            .offset(y: -4)
                     }
                     shape.fill(Color.black)
-                        .shadow(color: NotchStyle.cobalt.opacity(0.35), radius: 14)
+                        .shadow(color: NotchStyle.cobalt.opacity(expanded ? 0.12 : 0.35), radius: 14)
                         .shadow(color: expanded ? Color.black.opacity(0.5) : .clear, radius: 20, y: 10)
                     shape.stroke(Color.white.opacity(expanded ? 0.12 : 0), lineWidth: 0.5)
                     NotchSweep(path: shape, carrier: layout.windowFrame.size, active: sweepActive)
