@@ -1,56 +1,91 @@
 # GPT TouchBar HUD
 
-**在 Mac 上随时查看 ChatGPT / Codex 的账号额度与用量，无需 Touch Bar。**
+![GPT TouchBar HUD：在菜单栏、刘海面板、桌面浮窗和 Touch Bar 查看 ChatGPT / Codex 额度与用量](Marketing/readme-hero-v4.png)
 
-不用反复切回账户页面：在菜单栏、刘海面板或桌面浮窗中查看剩余额度、重置时间和 Token 用量。配备 Touch Bar 的 Mac，还能在键盘上方显示额度条。
+> 主图为基于原生界面制作的展示示意，使用演示数据；刘海场景另附电脑效果模拟，具体排版与交互以原生截图和说明为准。
 
-**[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [安装说明](#安装与首次运行) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
+**[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
-提供 Apple Silicon 和 Intel 安装包。使用前需要安装并登录受支持的本机客户端。可选的任务状态提示只针对本机 Codex 任务，不代表全部 ChatGPT 会话。
+## 界面与使用场景
 
-## 看看效果
+### 刘海屏：平时看额度，点击看详情
 
-有有效刘海区域的屏幕，首次使用默认以 **额度预览态 Peek** 显示额度与重置时间，点击后展开详情。也可选择更简洁的 **静止态 Compact**，悬停时再查看额度。
+**额度预览态 Peek · 默认常驻形态**
 
-![默认 Peek：刘海两侧展示额度与重置时间](Documentation/NotchIsland/evidence/synthetic-peek.png)
+额度和重置时间分布在刘海两侧，无需打开详情即可查看。首次使用且没有历史偏好时默认采用这一形态。
 
-这是正式原生渲染代码生成的模拟画面；桌面、摄像头和数据均为演示，不是实体刘海屏照片。
+![刘海 Peek：两侧额度与重置时间预览](Marketing/readme-notch-peek-computer.png)
 
-| 展示方式 | 适合怎样使用 |
+**静止态 Compact · 更简洁的常驻选择**
+
+平时只保留两侧指示器，鼠标悬停后预览额度。在“设置 → 通用 → 刘海常驻形态”中切换，升级会保留已有选择。
+
+![刘海 Compact：两侧精简指示器](Marketing/readme-notch-compact-computer.png)
+
+**展开态 Expanded · 查看详细信息**
+
+点击面板展开“额度 / 活动 / 用量”，也可刷新、打开设置、隐藏面板或收起详情。收起后回到选定的常驻形态，任务状态变化不会自动展开面板。
+
+![刘海 Expanded：额度详情与操作](Marketing/readme-notch-expanded-computer.png)
+
+以上三图为基于原生界面制作的电脑效果模拟，使用演示数据，并非实机照片；真实布局与渲染细节可对照[使用指南中的原生截图](Documentation/USER-GUIDE.md#刘海融合面板)。
+
+### 所有支持的 Mac：菜单栏查看完整摘要
+
+点击菜单栏图标，查看额度、重置时间、昨日与累计 Token、点数和更新时间，并进入刷新、显示模式、设置与更新等操作。
+
+![菜单栏原生摘要：额度、重置时间、Token 与点数](Marketing/readme-native-menu-summary.png)
+
+上图展示菜单顶部的摘要区域。“菜单栏内容”支持自动、仅图标、单额度和完整额度；自动模式下，面板可见时只保留图标，面板隐藏后显示一项主要额度。
+
+### 桌面浮窗：任务与额度保持单行可见
+
+没有刘海，或希望使用独立浮窗时，可切换到桌面浮窗。它根据内容调整宽度，以单行展示任务状态与额度，并提供刷新按钮；颜色与透明度可在设置中调整。
+
+![桌面浮窗：执行中任务数、双额度与刷新](Marketing/readme-native-quiet.png)
+
+无刘海屏首次使用时，浮窗默认隐藏；从菜单栏选择“显示状态面板”打开。
+
+### Touch Bar：在键盘上方查看额度与用量
+
+配备 Touch Bar 的 Mac 可在左侧应用区域常驻显示额度、重置时间、Token 与点数，右侧系统控制条仍保留。其他 Mac 可使用上面三种展示方式，无需 Touch Bar。
+
+![Touch Bar：重置卡、周额度、Token 与点数](Marketing/readme-native-balanced-reset-alignment.png)
+
+常驻模式会占用其他 App 的左侧 Touch Bar 快捷按钮区域，可在“设置 → Touch Bar”关闭。菜单摘要、浮窗和 Touch Bar 图片均为原生视图的演示数据截图。
+
+### 实验性任务状态：查看本机任务提示
+
+任务提示可显示执行中数量、最近完成或未知状态。Hooks 实验提供配置审阅与覆盖范围提示；状态仅作为本机 Codex 任务的辅助信息。
+
+![Touch Bar 中的 Hooks 部分覆盖提示](Documentation/images/touchbar-hooks-partial.png)
+
+![Hooks 实验设置入口](Documentation/images/settings-experiment.png)
+
+Hooks 默认关闭，连接正常也不代表覆盖全部任务。配置与限制见 [Hooks 实验说明](Documentation/HOOKS-EXPERIMENT.md)。更多设置见[使用指南](Documentation/USER-GUIDE.md)。
+
+## 这是什么
+
+**GPT TouchBar HUD 是一个 Mac 上的 ChatGPT / Codex 账号额度与用量工具，无需 Touch Bar。**
+
+不用反复切回账户页面，就能在菜单栏、刘海面板或桌面浮窗中查看剩余额度、重置时间与用量；配备 Touch Bar 的机型还可以在键盘上方显示信息。应用在菜单栏运行，不在 Dock 常驻，也不需要一直打开主窗口。
+
+使用前需要安装并登录受支持的本机客户端。任务提示仅针对本机 Codex 任务，不代表全部 ChatGPT 会话。
+
+## 主要功能
+
+| 功能 | 可以做什么 |
 | --- | --- |
-| 菜单栏 | 查看图标或额度，点击查看完整摘要与操作；所有支持的 Mac 均可使用。 |
-| 刘海融合 | 在顶部预览额度，点击展开“额度 / 活动 / 用量”；需要有效刘海区域。 |
-| 桌面浮窗 | 用单行面板持续查看任务与额度，可按需显示或隐藏。 |
-| Touch Bar | 在键盘上方常驻额度条；仅限配备 Touch Bar 的机型。 |
+| 四种展示方式 | 按设备与习惯选择菜单栏、刘海融合、桌面浮窗或 Touch Bar。 |
+| 额度与重置提醒 | 查看账号提供的额度窗口、重置时间与可用重置次数。 |
+| Token 与点数 | 查看客户端返回的昨日、累计 Token 和剩余点数。 |
+| 刘海两种常驻形态 | 默认 Peek 直接预览额度，也可选择 Compact，悬停后预览、点击展开详情。 |
+| 外观与信息设置 | 选择菜单栏内容、信息语言，调整桌面浮窗颜色与透明度。 |
+| 本机任务提示（实验性） | 查看执行中、最近完成或未知状态；可选启用 Hooks 实验。 |
+| 自动检查更新 | 发现新版本时提示，确认后才下载安装，也可随时手动检查。 |
+| 随客户端启动 | 与 ChatGPT / Codex 启停联动，手动退出后本轮宿主会话内不再拉起。 |
 
-<details>
-<summary>更多界面：展开详情、精简状态、桌面浮窗与 Touch Bar</summary>
-
-**点击后展开详情**
-
-![刘海详情](Documentation/NotchIsland/evidence/refined-synthetic-expanded.png)
-
-**可选的静止态 Compact**
-
-![刘海精简状态](Documentation/NotchIsland/evidence/synthetic-compact.png)
-
-**桌面浮窗**
-
-![任务与双额度的单行浮窗](Marketing/readme-native-quiet.png)
-
-**菜单栏详情**
-
-![额度、重置时间与用量摘要](Marketing/readme-native-menu-summary.png)
-
-**Touch Bar**
-
-![重置卡、周额度与点数](Marketing/readme-native-balanced-reset-alignment.png)
-
-以上均为原生视图的演示数据截图，不是实体设备照片。更多交互与设置见[使用指南](Documentation/USER-GUIDE.md)。
-
-</details>
-
-## 安装与首次运行
+## 快速开始
 
 ### 安装前确认
 
@@ -101,7 +136,7 @@
 
 自动检查更新默认开启，只提示新版本，**不会自动下载或安装**。你确认“安装并重启”后才会下载安装；可在设置中关闭自动检查。安装路径要求与失败恢复见[更新说明](Documentation/UPDATING.md)。
 
-## 数据与功能范围
+## 能看哪些数据
 
 | 信息 | 覆盖范围 |
 | --- | --- |
@@ -164,7 +199,7 @@ Token 后的 `*` 表示刷新失败后保留的旧数据；任务 `?` 表示日�
 
 </details>
 
-## 隐私与兼容性
+## 隐私与联网
 
 - 无需配置 API Key，不保存密码或访问令牌，不上传本机会话日志。账号数据通过宿主已有登录态获取；自动检查更新会访问 GitHub。
 - 本地会保存偏好、更新状态和自动启动标记；启用 Hooks 或确认安装更新后还会产生相应配置、缓存或恢复材料，详见[数据与隐私](Documentation/DATA-AND-PRIVACY.md)。
@@ -183,7 +218,7 @@ Token 后的 `*` 表示刷新失败后保留的旧数据；任务 `?` 表示日�
 | [Hooks 实验](Documentation/HOOKS-EXPERIMENT.md) | 配置审阅、覆盖范围与清理边界。 |
 | [发布记录](https://github.com/zz-zed/GPT-TouchBar-hud/releases) | 正式安装包、变更说明与校验文件。 |
 
-## 贡献与许可证
+## 共享与许可证
 
 欢迎反馈问题或提交 Pull Request，开发前请阅读[贡献指南](CONTRIBUTING.md)。反馈时说明应用与 macOS 版本、处理器和复现步骤，勿提交账号凭据或完整会话内容。
 
