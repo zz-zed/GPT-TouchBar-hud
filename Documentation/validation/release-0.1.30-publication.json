@@ -1,0 +1,79 @@
+{
+  "version": "0.1.30",
+  "build": "33",
+  "sourceCommit": "5918205b4a1aa61490e09e26cee4eaf01f87ce9d",
+  "tag": "v0.1.30",
+  "tagObject": "b163a6f23df228eee66b7b04b440ded4a231dae7",
+  "releaseURL": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.30",
+  "publishedAt": "2026-09-21T06:49:09Z",
+  "latestVerified": true,
+  "mainCI": {
+    "id": 35568921551,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/35568921551",
+    "conclusion": "success"
+  },
+  "tagCI": {
+    "id": 35569583070,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/35569583070",
+    "conclusion": "success"
+  },
+  "checks": {
+    "arm64": {
+      "nativeChecks": 422,
+      "presentedFrames": 186,
+      "hookTests": 41
+    },
+    "x86_64": {
+      "nativeChecks": 422,
+      "presentedFrames": 100,
+      "hookTests": 41
+    }
+  },
+  "assetVerification": {
+    "version": "0.1.30",
+    "build": "33",
+    "verifiedAtUTC": "2026-09-21T06:50:05.808218+00:00",
+    "assets": [
+      {
+        "name": "GPT-TouchBar-HUD-0.1.30-arm64.dmg",
+        "bytes": 3145013,
+        "sha256": "d78ed7a45e5b7751ca8c34260940692f85374b60b5c8627a78eb0c844c93c14a",
+        "architecture": "arm64",
+        "version": "0.1.30",
+        "build": "33",
+        "minimumSystem": "11.0",
+        "strictSignature": "passed",
+        "dmgIntegrity": "passed",
+        "readonlyMount": "passed",
+        "firstOpenHelperCDHash": "609572c8c0700754ce3ec80ce4a1fc56007f5883",
+        "binarySHA256": {
+          "Contents/MacOS/GPTTouchBarHUD": "9192435a8a3fa88cd245db2f602c9cc6fb7818b217ed563d04266944e6475094",
+          "Contents/Helpers/HookEmitter": "f7d42845667e9a1d7b57da469edeb0e3d44838f5e3a8c1b8344730dec4dba6dd"
+        }
+      },
+      {
+        "name": "GPT-TouchBar-HUD-0.1.30-x86_64.dmg",
+        "bytes": 3225504,
+        "sha256": "ce664c38739387d40f71d6dea6e2fb33fb2e1fca2851bcc5c0adb9f204a68168",
+        "architecture": "x86_64",
+        "version": "0.1.30",
+        "build": "33",
+        "minimumSystem": "11.0",
+        "strictSignature": "passed",
+        "dmgIntegrity": "passed",
+        "readonlyMount": "passed",
+        "firstOpenHelperCDHash": "74d66d19c9eeedc09812c19d548b80af9919cf2b",
+        "binarySHA256": {
+          "Contents/MacOS/GPTTouchBarHUD": "2ca7e37d52f22090c169fa8aacf5a01c96e532ee1772404801bed688bd15b4eb",
+          "Contents/Helpers/HookEmitter": "a38fdb45760ed1caf89fdb9162c21e348c48fdffe6ec4d810fecfca30730ac86"
+        }
+      }
+    ]
+  },
+  "installedAppModified": false,
+  "limitations": [
+    "Physical notch, full-screen, multiple displays and wake remain hardware acceptance work.",
+    "Actual macOS 11 execution and installed-app automatic update end-to-end flow remain unverified.",
+    "Ad-hoc signed; not notarized."
+  ]
+}
