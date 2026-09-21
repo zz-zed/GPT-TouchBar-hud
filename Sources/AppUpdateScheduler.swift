@@ -79,7 +79,11 @@ struct AppUpdateSchedulePolicy {
     static let standard = AppUpdateSchedulePolicy(
         startupDelay: 30,
         successInterval: 24 * 60 * 60,
-        retryDelays: [5 * 60, 30 * 60, 2 * 60 * 60],
+        retryDelays: [
+            TimeInterval(5 * 60),
+            TimeInterval(30 * 60),
+            TimeInterval(2 * 60 * 60)
+        ],
         exhaustedRetryDelay: 24 * 60 * 60
     )
 
