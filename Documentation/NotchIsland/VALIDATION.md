@@ -59,6 +59,16 @@ The final raw summaries, native results and local build manifest are preserved i
 - `bash scripts/build-app.sh`: arm64 distribution App, strict ad-hoc signature, bundled helper and third-party notice.
 - `xcrun vtool -show-build`: App and helper minimum macOS 11.0.
 
+## Startup auto-detection follow-up
+
+The unconfigured display mode now defaults to Automatic. Startup detects valid notch geometry and initializes an absent visibility preference to shown when that mode can use the notch. Saved display modes and explicit hidden/visible preferences take precedence. Previously saved floating values are retained because older versions did not distinguish a manual mode choice from a mode written alongside visibility.
+
+- `bash scripts/test-notch-hud.sh`: passed 202,778 checks, including 16 additional assertions covering first launch with/without a notch, saved manual modes, hidden-state restoration, screen availability changes and opting back into Automatic. These preference cases use an isolated defaults suite and injected geometry availability.
+- `bash scripts/test-notch-presentation.sh`: the first run stopped at the existing foreground-focus preservation assertion. No cause was established. Re-running the same compiled `.build/notch-presentation/NotchHarness` without source changes passed all 356 checks with 220 presented geometry samples, including real WindowServer click delivery. The initial failure is not counted as a pass.
+- `bash scripts/build-app.sh`: rebuilt the local arm64 App and passed the script's strict signature and architecture checks. The installed App was not launched or replaced for startup testing.
+
+The earlier files in `evidence/` describe the original island implementation run; this follow-up rebuilt `build/GPT TouchBar HUD.app`, so its current binary is no longer the artifact hashed in that earlier build manifest. Physical notch startup and display hotplug remain untested on actual notch hardware.
+
 ## Remaining physical acceptance
 
 Same-machine upstream comparison; physical black levels and camera seams; crowded real menu bars; display scaling and auto-hide; physical monitor unplug/replug; lock/sleep/wake and full-screen Space transitions; actual VoiceOver/trackpad interactions; sustained editor typing; macOS 11 and Intel runtime. Synthetic screenshots and CI wiring do not establish release readiness for those items.

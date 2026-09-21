@@ -29,21 +29,55 @@ enum NotchHUDTests {
         defer { DisplayLanguage.defaults = oldDefaults; defaults.removePersistentDomain(forName: suite) }
         defaults.set("purple", forKey: "hud.color")
         var preferences = HUDPresentationPreferences(defaults: defaults)
-        check(preferences.mode == .floating && !preferences.isVisible, "existing default stays hidden desktop")
+        check(preferences.mode == .automatic && !preferences.isVisible, "unconfigured mode defaults to automatic")
+        check(preferences.usesNotch(hasGeometry: true), "first launch selects notch when available")
+        check(!preferences.usesNotch(hasGeometry: false), "first launch falls back to desktop without notch")
+        preferences.applyStartupVisibility(hasGeometry: false, defaults: defaults)
+        check(!preferences.isVisible, "first launch without notch keeps desktop hidden")
+        check(defaults.object(forKey: HUDPresentationPreferences.visibilityKey) == nil, "no notch does not record a manual hide")
+        preferences = HUDPresentationPreferences(defaults: defaults)
+        preferences.applyStartupVisibility(hasGeometry: true, defaults: defaults)
+        check(preferences.isVisible && preferences.usesNotch(hasGeometry: true), "first notch launch displays the detected form")
+        check(HUDPresentationPreferences(defaults: defaults).isVisible, "automatic first display survives restart")
+        check(defaults.object(forKey: HUDDisplayMode.defaultsKey) == nil, "detection does not save a manual choice")
         for mode in HUDDisplayMode.allCases {
             preferences.mode = mode
+            preferences.isVisible = false
             preferences.save(to: defaults)
-            let restored = HUDPresentationPreferences(defaults: defaults)
+            var restored = HUDPresentationPreferences(defaults: defaults)
+            restored.applyStartupVisibility(hasGeometry: true, defaults: defaults)
             check(restored.mode == mode && !restored.isVisible, "mode cannot unhide after restart")
             check(!restored.usesNotch(hasGeometry: false), "all modes fallback without geometry")
             check(restored.usesNotch(hasGeometry: true) == (mode != .floating), "selected form")
+            check(HUDDisplayMode.load(from: defaults) == mode, "screen detection never overwrites saved mode")
         }
         preferences.isVisible = true
         preferences.save(to: defaults)
         check(HUDPresentationPreferences(defaults: defaults).isVisible, "visible intent restored")
+        preferences.mode = .floating
+        preferences.save(to: defaults)
+        var manual = HUDPresentationPreferences(defaults: defaults)
+        for hasGeometry in [true, false, true] {
+            manual.applyStartupVisibility(hasGeometry: hasGeometry, defaults: defaults)
+            check(manual.isVisible && !manual.usesNotch(hasGeometry: hasGeometry), "manual desktop survives restart and screen changes")
+        }
+        manual.mode = .automatic
+        manual.save(to: defaults)
+        let automatic = HUDPresentationPreferences(defaults: defaults)
+        check(automatic.usesNotch(hasGeometry: true) && !automatic.usesNotch(hasGeometry: false), "choosing automatic restores screen detection")
+        defaults.removeObject(forKey: HUDPresentationPreferences.visibilityKey)
+        defaults.set(HUDDisplayMode.floating.rawValue, forKey: HUDDisplayMode.defaultsKey)
+        var legacyManual = HUDPresentationPreferences(defaults: defaults)
+        legacyManual.applyStartupVisibility(hasGeometry: true, defaults: defaults)
+        check(legacyManual.mode == .floating && !legacyManual.isVisible, "saved desktop mode is preserved without a visibility key")
+        defaults.removeObject(forKey: HUDDisplayMode.defaultsKey)
+        defaults.set(false, forKey: HUDPresentationPreferences.visibilityKey)
+        var hiddenAutomatic = HUDPresentationPreferences(defaults: defaults)
+        hiddenAutomatic.applyStartupVisibility(hasGeometry: true, defaults: defaults)
+        check(hiddenAutomatic.mode == .automatic && !hiddenAutomatic.isVisible, "saved hide wins even without a display mode")
         check(defaults.string(forKey: "hud.color") == "purple", "appearance preserved")
         defaults.set("future", forKey: HUDDisplayMode.defaultsKey)
-        check(HUDDisplayMode.load(from: defaults) == .floating, "unknown mode fallback")
+        check(HUDDisplayMode.load(from: defaults) == .automatic, "unknown mode uses automatic detection")
 
         var sample: NotchHUDGeometry!
         for origin in [NSPoint.zero, NSPoint(x: -1512, y: 280), NSPoint(x: 1920, y: -982)] {

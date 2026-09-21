@@ -4,7 +4,9 @@ enum HUDDisplayMode: String, CaseIterable {
     case automatic, floating, notch
     static let defaultsKey = "hud.displayMode"
     static func load(from defaults: UserDefaults = .standard) -> Self {
-        Self(rawValue: defaults.string(forKey: defaultsKey) ?? "") ?? .floating
+        // Screen detection resolves automatic at presentation time; never persist
+        // a detected form over a user's saved floating/notch preference.
+        Self(rawValue: defaults.string(forKey: defaultsKey) ?? "") ?? .automatic
     }
     var title: String {
         switch self { case .automatic: return "自动"; case .floating: return "桌面浮窗"; case .notch: return "刘海融合" }
@@ -23,6 +25,14 @@ struct HUDPresentationPreferences {
     func save(to defaults: UserDefaults = .standard) {
         defaults.set(mode.rawValue, forKey: HUDDisplayMode.defaultsKey)
         defaults.set(isVisible, forKey: Self.visibilityKey)
+    }
+    mutating func applyStartupVisibility(hasGeometry: Bool, defaults: UserDefaults = .standard) {
+        // Only initialize an absent visibility choice. A saved false is an
+        // explicit hide and must survive relaunch, wake and screen changes.
+        guard defaults.object(forKey: Self.visibilityKey) == nil,
+              usesNotch(hasGeometry: hasGeometry) else { return }
+        isVisible = true
+        defaults.set(true, forKey: Self.visibilityKey)
     }
     func usesNotch(hasGeometry: Bool) -> Bool { mode != .floating && hasGeometry }
 }
