@@ -32,9 +32,19 @@ extension NotchHarness {
         let geometry = fixture(CGRect(x: -1512, y: 240, width: 1512, height: 982))
         let layout = NotchLayout(geometry: geometry)
         let clock = NotchManualClock()
-        let model = NotchPresentationModel(clock: clock)
+        let preferenceSuite = "NotchModelChecks." + UUID().uuidString
+        let preferenceDefaults = UserDefaults(suiteName: preferenceSuite)!
+        defer { preferenceDefaults.removePersistentDomain(forName: preferenceSuite) }
+        check(NotchPresentationModel.savedAlwaysShowQuota(in: preferenceDefaults), "missing preference defaults to Peek")
+        preferenceDefaults.set(false, forKey: NotchPresentationModel.alwaysShowKey)
+        check(!NotchPresentationModel.savedAlwaysShowQuota(in: preferenceDefaults), "saved Compact preference is preserved")
+        preferenceDefaults.set(true, forKey: NotchPresentationModel.alwaysShowKey)
+        check(NotchPresentationModel.savedAlwaysShowQuota(in: preferenceDefaults), "saved Peek preference is preserved")
+        let defaultModel = NotchPresentationModel(clock: clock)
+        check(defaultModel.state == .peek && defaultModel.pillsVisible, "model default aligns with Peek")
+        let model = NotchPresentationModel(clock: clock, alwaysShowQuota: false)
         model.configure(layout); model.setVisible(true)
-        check(model.state == .compact && !model.pillsVisible, "new preference defaults to Compact")
+        check(model.state == .compact && !model.pillsVisible, "explicit Compact fixture starts collapsed")
         model.hover(true)
         check(model.state == .peek && !model.pillsVisible, "hover starts shell before pills")
         clock.advance(0.059)
@@ -107,7 +117,7 @@ extension NotchHarness {
         check(model.state == .compact, "capture release outside collapses")
         weak var destroyed: NotchPresentationModel?
         do {
-            let temporary = NotchPresentationModel(clock: clock)
+            let temporary = NotchPresentationModel(clock: clock, alwaysShowQuota: false)
             temporary.configure(layout); temporary.setVisible(true); temporary.click()
             destroyed = temporary
         }

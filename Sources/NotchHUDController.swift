@@ -44,7 +44,7 @@ final class NotchIslandController: NSObject, NSMenuDelegate {
 
     init(defaults: UserDefaults = .standard, clock: NotchClock = NotchSystemClock(), automaticallyTracksMouse: Bool = true) {
         self.automaticallyTracksMouse = automaticallyTracksMouse
-        model = NotchPresentationModel(clock: clock, alwaysShowQuota: defaults.bool(forKey: NotchPresentationModel.alwaysShowKey))
+        model = NotchPresentationModel(clock: clock, alwaysShowQuota: NotchPresentationModel.savedAlwaysShowQuota(in: defaults))
         host = NotchHostingView(model: model, bridge: bridge)
         interaction = NotchInteractionController(panel: panel, bridge: bridge, model: model)
         super.init()
