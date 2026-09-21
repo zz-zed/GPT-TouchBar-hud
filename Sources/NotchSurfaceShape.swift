@@ -96,14 +96,12 @@ struct NotchAnimatedSurface: AnimatableModifier {
             .background(
                 ZStack(alignment: .top) {
                     if haloMounted && !reduceTransparency {
-                        NotchMaterialHalo().frame(width: width + 8, height: height + 8)
-                            .clipShape(NotchSurfaceShape(topRadius: geometry.topCornerRadius + 4,
-                                                       bottomRadius: geometry.bottomCornerRadius + 4))
-                            .blur(radius: 6).opacity(haloVisible ? 0.18 : 0)
-                            .offset(y: -4)
+                        NotchMaterialHalo().frame(width: width + 18, height: height + 18)
+                            .clipShape(NotchSurfaceShape()).blur(radius: 8).opacity(haloVisible ? 0.55 : 0)
+                            .offset(y: -9)
                     }
                     shape.fill(Color.black)
-                        .shadow(color: NotchStyle.cobalt.opacity(expanded ? 0.12 : 0.35), radius: 14)
+                        .shadow(color: NotchStyle.cobalt.opacity(0.35), radius: 14)
                         .shadow(color: expanded ? Color.black.opacity(0.5) : .clear, radius: 20, y: 10)
                     shape.stroke(Color.white.opacity(expanded ? 0.12 : 0), lineWidth: 0.5)
                     NotchSweep(path: shape, carrier: layout.windowFrame.size, active: sweepActive)

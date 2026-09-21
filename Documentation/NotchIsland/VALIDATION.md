@@ -71,7 +71,7 @@ The earlier files in `evidence/` describe the original island implementation run
 
 ## Expanded-panel refinement
 
-The standard expanded shell is reduced from 800 × 280 to 520 × 250 pt at a 32 pt physical inset. Its top corners now round continuously as the actual presentation height grows, and bottom corners increase from 14 to 28 pt. The material halo follows the same curves. Drawing, content clipping and input routing still share one path.
+The standard expanded shell is reduced from 800 × 280 to 520 × 250 pt at a 32 pt physical inset. Its top corners now round continuously as the actual presentation height grows, and bottom corners increase from 14 to 28 pt. Content padding, material halo, shadows and the screen-top anchor retain their pre-polish values. Drawing, content clipping and input routing still share one path.
 
 `bash scripts/test-notch-presentation.sh` passed 359 assertions and 283 presented geometry samples for this refinement, including real click-through at all four expanded corners. The normal Chinese quota screen and all three narrow English long-content pages were visually inspected; the footer controls remain complete and long content scrolls. New previews use the `refined-` filename prefix; earlier images remain historical evidence. This does not establish physical-notch acceptance.
 
