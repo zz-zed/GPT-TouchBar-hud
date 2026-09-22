@@ -9,6 +9,7 @@ on:
       - "Package.swift"
       - "Sources/**"
       - "HookCore/**"
+      - "ResetNewsCore/**"
       - "HookHelper/**"
       - "Tests/**"
       - "Resources/**"
@@ -23,6 +24,7 @@ on:
       - "Package.swift"
       - "Sources/**"
       - "HookCore/**"
+      - "ResetNewsCore/**"
       - "HookHelper/**"
       - "Tests/**"
       - "Resources/**"
@@ -84,6 +86,14 @@ jobs:
       - name: Test update policy and installer guards
         run: bash scripts/test-app-update.sh
 
+      - name: Test reset forecast runtime and cache migration
+        env:
+          RESET_NEWS_CORE_DIR: ${{ runner.temp }}/reset-news-core-runtime-${{ matrix.arch }}
+        run: bash scripts/test-reset-news-runtime.sh
+
+      - name: Test independent Codex host lifecycle
+        run: bash scripts/test-host-lifecycle.sh
+
       - name: Test notch HUD geometry, layout, and menu presentation
         run: bash scripts/test-notch-hud.sh
 
@@ -106,7 +116,7 @@ jobs:
       - name: Test first-open helper with isolated app copy
         run: bash scripts/test-first-open.sh
 
-      - name: Verify hook state and transport behavior
+      - name: Verify HookCore and ResetNewsCore unit tests
         shell: bash
         run: bash scripts/test-hooks.sh
 

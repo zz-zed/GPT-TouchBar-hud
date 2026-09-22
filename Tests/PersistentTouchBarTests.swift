@@ -91,8 +91,28 @@ enum PersistentTouchBarTests {
         ))
         state.lastUpdated = Date()
         controller.update(with: state)
+        var openedMessages = 0
+        controller.onOpenMessages = { openedMessages += 1 }
+        controller.updateMessages(forecastCount: 4, available: true)
         let item = controller.touchBar(bar, makeItemForIdentifier: bar.defaultItemIdentifiers[0]) as! NSCustomTouchBarItem
         check(labels(in: item.view).contains("77%"), "Latest data reaches a lazily created system bar")
+        let messagesButton = buttons(in: item.view).first { $0.accessibilityIdentifier() == "touchbar.messages" }!
+        check(messagesButton.title == "Reset forecasts 4", "Persistent Touch Bar receives cached forecast count at creation")
+        check(messagesButton.image?.isTemplate == true && messagesButton.image?.size == NSSize(width: 18, height: 18),
+              "Persistent Touch Bar uses the shared forecast indicator")
+        messagesButton.performClick(nil)
+        check(openedMessages == 1, "Persistent Touch Bar forwards the local message details callback")
+        controller.updateMessages(forecastCount: 2, available: true)
+        check(messagesButton.title == "Reset forecasts 2", "Persistent forecast count updates without quota refresh")
+        controller.updateMessages(forecastCount: 0, available: true)
+        check(messagesButton.title == "Reset forecasts 0" && !messagesButton.isHidden,
+              "Available persistent entry keeps an explicit zero")
+        controller.updateMessages(forecastCount: 100, available: true)
+        check(messagesButton.title == "Reset forecasts 99+", "Persistent visual count compacts above 99")
+        check(messagesButton.toolTip == "Reset forecasts (100 upcoming)",
+              "Persistent tooltip retains the exact count above 99")
+        controller.updateMessages(forecastCount: 0, available: false)
+        check(messagesButton.isHidden, "Disabled messages without history hide the Touch Bar entry")
         state.weekly = LimitMeter(title: "周限额", shortTitle: "7d", window: RateLimitWindow(
             usedPercent: 50, windowDurationMins: 10080, resetsAt: nil
         ))
@@ -108,6 +128,31 @@ enum PersistentTouchBarTests {
         check(NSWorkspace.shared.frontmostApplication?.processIdentifier == frontmostPID, "Persistent HUD activation preserves the frontmost app")
 
         let hudView = hud.view
+        hud.onOpenMessages = { openedMessages += 1 }
+        let refreshButton = buttons(in: hudView).first { $0.accessibilityIdentifier() == "hud.refresh" }!
+        check(refreshButton.toolTip == "Refresh quotas", "HUD quota refresh remains clearly distinguished from forecasts")
+        hud.updateMessages(forecastCount: 0, available: true)
+        let hudMessages = buttons(in: hudView).first { $0.accessibilityIdentifier() == "hud.messages" }!
+        check(hudMessages.title == "Reset forecasts 0" && !hudMessages.isHidden,
+              "HUD displays the available zero-count forecast entry")
+        check(hudMessages.image?.isTemplate == true && hudMessages.image?.size == NSSize(width: 18, height: 18),
+              "HUD uses the shared 18-point template forecast icon")
+        hud.updateMessages(forecastCount: 3, available: true)
+        check(hudMessages.title == "Reset forecasts 3", "HUD names forecasts instead of showing an ambiguous count")
+        check(hudMessages.toolTip == "Reset forecasts (3 upcoming)", "HUD tooltip describes forecasts upcoming")
+        hudMessages.performClick(nil)
+        check(openedMessages == 2, "HUD forecast entry forwards its local details callback")
+        hud.updateMessages(forecastCount: 100, available: true)
+        check(hudMessages.title == "Reset forecasts 99+", "HUD visual count compacts above 99")
+        check(hudMessages.toolTip == "Reset forecasts (100 upcoming)", "HUD tooltip retains the exact count above 99")
+        hud.updateMessages(forecastCount: 3, available: true)
+        let focusedBar = hud.makeQuotaTouchBar()
+        let focusedItem = hud.touchBar(focusedBar, makeItemForIdentifier: focusedBar.defaultItemIdentifiers[0]) as! NSCustomTouchBarItem
+        let focusedMessages = buttons(in: focusedItem.view).first { $0.accessibilityIdentifier() == "touchbar.messages" }!
+        check(focusedMessages.title == "Reset forecasts 3", "Focused and persistent Touch Bars use the same forecast label")
+        focusedMessages.performClick(nil)
+        check(openedMessages == 3, "Focused Touch Bar forwards its local message details callback")
+        hud.updateMessages(forecastCount: 0, available: false)
         func closeButton(in view: NSView) -> NSButton? {
             if let button = view as? NSButton, button.toolTip == "隐藏浮窗" { return button }
             return view.subviews.lazy.compactMap { closeButton(in: $0) }.first
@@ -174,5 +219,9 @@ enum PersistentTouchBarTests {
 
     private static func labels(in view: NSView) -> [String] {
         (view as? NSTextField).map { [$0.stringValue] } ?? view.subviews.flatMap { labels(in: $0) }
+    }
+
+    private static func buttons(in view: NSView) -> [NSButton] {
+        (view as? NSButton).map { [$0] } ?? view.subviews.flatMap { buttons(in: $0) }
     }
 }

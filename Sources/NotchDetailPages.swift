@@ -11,6 +11,7 @@ struct NotchDetailPages: View {
                     page(.quota).frame(width: proxy.size.width, height: proxy.size.height)
                     page(.activity).frame(width: proxy.size.width, height: proxy.size.height)
                     page(.usage).frame(width: proxy.size.width, height: proxy.size.height)
+                    messages.frame(width: proxy.size.width, height: proxy.size.height)
                 }.offset(x: -CGFloat(model.page.rawValue) * proxy.size.width)
             }.clipped()
             footer
@@ -21,13 +22,16 @@ struct NotchDetailPages: View {
     }
     private var header: some View {
         HStack(spacing: 8) {
-            Text("GPT HUD").font(.system(size: 13, weight: .semibold))
-            Spacer(minLength: 4)
+            if layout.expandedSize.width >= 500 {
+                Text("GPT HUD").font(.system(size: 13, weight: .semibold))
+                Spacer(minLength: 4)
+            }
             ForEach(NotchDetailPage.allCases, id: \.rawValue) { page in
                 Button { model.selectPage(page) } label: {
-                    Text(page.title).font(.system(size: 12, weight: .medium))
+                    Text(page.title + (page == .messages && model.resetNews.forecastCount > 0 ? " \(ResetForecastIndicator.countText(model.resetNews.forecastCount))" : "")).font(.system(size: 12, weight: .medium))
+                        .lineLimit(1).minimumScaleFactor(0.6)
                         .foregroundColor(model.page == page ? .white : NotchStyle.secondary)
-                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .padding(.horizontal, 6).padding(.vertical, 4)
                         .background(model.page == page ? Color.white.opacity(0.12) : .clear).cornerRadius(5)
                 }.buttonStyle(PlainButtonStyle()).accessibilityIdentifier("notch.page.\(page.rawValue)")
             }
@@ -46,7 +50,7 @@ struct NotchDetailPages: View {
         HStack(spacing: 6) {
             if layout.expandedSize.width >= 500 { updateLabel }
             Spacer(minLength: 4)
-            NotchAction(title: DisplayLanguage.text("刷新", "Refresh"), identifier: "notch.refresh", reduceMotion: model.reduceMotion) { model.onRefresh?() }
+            NotchAction(title: DisplayLanguage.text("刷新额度", "Refresh quota"), identifier: "notch.refresh", reduceMotion: model.reduceMotion) { model.onRefresh?() }
                 .disabled(model.content.isRefreshing)
             NotchAction(title: DisplayLanguage.text("设置", "Settings"), identifier: "notch.settings", reduceMotion: model.reduceMotion) { model.onSettings?() }
             NotchAction(title: DisplayLanguage.text("隐藏", "Hide"), identifier: "notch.hide", reduceMotion: model.reduceMotion) { model.onHide?() }
@@ -64,12 +68,23 @@ struct NotchDetailPages: View {
                 case .quota: quota
                 case .activity: activity
                 case .usage: usage
+                case .messages: EmptyView()
                 }
             }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
         }
         .accessibilityHidden(model.page != page)
         .allowsHitTesting(model.page == page)
         .accessibilityIdentifier("notch.content.\(page.rawValue)")
+    }
+    private var messages: some View {
+        ResetNewsListView(state: model.resetNews, isVisible: model.messagesVisible,
+            onCheck: { model.onCheckMessages?() }, onMarkAllRead: { model.onMarkAllMessagesRead?() },
+            onSettings: { model.onMessageSettings?() }, onPageVisibility: model.resetNewsPageVisibilityChanged,
+            onVisibleItem: model.resetNewsCardVisible)
+            .padding(.vertical, 8)
+            .accessibilityHidden(!model.messagesVisible)
+            .allowsHitTesting(model.messagesVisible)
+            .accessibilityIdentifier("notch.content.3")
     }
     private var quota: some View {
         VStack(alignment: .leading, spacing: 12) {

@@ -1,4 +1,5 @@
 import AppKit
+import ResetNewsCore
 
 @main
 enum NotchHUDTests {
@@ -11,6 +12,37 @@ enum NotchHUDTests {
         guard !view.isHidden else { return [] }
         return [view] + view.subviews.flatMap(descendants)
     }
+    static func accessibilityElement(in root: Any, identifier: String) -> (any NSAccessibilityProtocol)? {
+        var visited = Set<ObjectIdentifier>()
+        func find(_ value: Any) -> (any NSAccessibilityProtocol)? {
+            guard let object = value as? NSObject, visited.insert(ObjectIdentifier(object)).inserted else { return nil }
+            if let element = object as? any NSAccessibilityProtocol {
+                if element.accessibilityIdentifier() == identifier { return element }
+                for child in element.accessibilityChildren() ?? [] {
+                    if let match = find(child) { return match }
+                }
+            }
+            if let view = object as? NSView {
+                for child in view.subviews { if let match = find(child) { return match } }
+            }
+            return nil
+        }
+        return find(root)
+    }
+    static func pressShoulder(in window: NSWindow, host: NSView, layout: NotchLayout) {
+        let point = host.convert(NSPoint(x: layout.markX(left: false), y: layout.visualBarHeight / 2), to: nil)
+        func event(_ type: NSEvent.EventType) -> NSEvent {
+            NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        }
+        // Queue release before down in case AppKit starts a synchronous tracking loop.
+        // These are process-local events targeting this fixture window only.
+        NSApp.postEvent(event(.leftMouseUp), atStart: false)
+        window.sendEvent(event(.leftMouseDown))
+        while let pending = NSApp.nextEvent(matching: [.leftMouseUp], until: Date(), inMode: .default, dequeue: true) {
+            window.sendEvent(pending)
+        }
+    }
     static func snapshot(_ view: NSView, _ name: String) throws {
         view.layoutSubtreeIfNeeded()
         guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
@@ -18,6 +50,56 @@ enum NotchHUDTests {
         }
         view.cacheDisplay(in: view.bounds, to: bitmap)
         try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: "build/\(name).png"))
+    }
+    static func peekDateChecks() {
+        let originalLanguage = DisplayLanguage.current
+        defer { DisplayLanguage.current = originalLanguage }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let date = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 10, minute: 0))!
+        for language in DisplayLanguage.allCases {
+            DisplayLanguage.current = language
+            var state = RateLimitDisplayState.initial
+            state.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: RateLimitWindow(
+                usedPercent: 28, windowDurationMins: 300, resetsAt: date.addingTimeInterval(-3_600).timeIntervalSince1970))
+            state.weekly = LimitMeter(title: "Weekly", shortTitle: "7d", window: RateLimitWindow(
+                usedPercent: 57, windowDurationMins: 10_080, resetsAt: date.timeIntervalSince1970))
+            let adapter = NotchContentAdapter(state, tasksEnabled: true)
+            let weekly = adapter.peek(left: false)
+            check(weekly.value == DisplayLanguage.text("周 43%", "7d 43%"), "Peek preserves the actual weekly remaining quota")
+            check(weekly.detail == "09/25 10:00", "Only right Peek uses the fixed short month/day 24-hour format")
+            check(weekly.help.contains("2026") && weekly.help.contains("10:00") && weekly.help.contains("43%")
+                && weekly.help.contains(DisplayLanguage.text("周限额剩余", "Weekly remaining"))
+                && weekly.help.contains(DisplayLanguage.text("重置", "Resets")), "Weekly help and accessibility retain year, remaining quota and reset meaning")
+            check(adapter.peek(left: true).detail == adapter.metrics.first?.date, "Left 5h Peek retains the original date wording")
+            check(adapter.peek(left: true).help == adapter.metrics.first!.compact + " · " + adapter.metrics.first!.date,
+                "Left 5h help remains unchanged")
+            check(adapter.metrics.last?.date == HUDMetric.rows(for: state).last?.date, "Shared detail rows retain their original full reset wording")
+            let next = calendar.date(from: DateComponents(year: 2027, month: 1, day: 2, hour: 23, minute: 45))!
+            state.weekly = LimitMeter(title: "Weekly", shortTitle: "7d", window: RateLimitWindow(
+                usedPercent: 57, windowDurationMins: 10_080, resetsAt: next.timeIntervalSince1970 * 1_000))
+            let changed = NotchContentAdapter(state, tasksEnabled: true).peek(left: false)
+            check(changed.detail == "01/02 23:45" && changed.help.contains("2027"), "Short date follows the real meter across years and millisecond epochs")
+            for invalid: Double? in [nil, .nan, .infinity, -.infinity] {
+                state.weekly = LimitMeter(title: "Weekly", shortTitle: "7d", window: RateLimitWindow(
+                    usedPercent: 57, windowDurationMins: 10_080, resetsAt: invalid))
+                let unknown = NotchContentAdapter(state, tasksEnabled: true).peek(left: false)
+                check(unknown.value == weekly.value && unknown.detail == DisplayLanguage.text("重置 --", "Resets —"),
+                    "Missing and nonfinite reset dates keep real quota and an unknown-time placeholder")
+                check(unknown.help.contains(DisplayLanguage.text("重置时间未知", "Reset time unknown")), "Unknown reset time stays explicit in help and accessibility")
+            }
+            state.weekly = nil
+            check(NotchContentAdapter(state, tasksEnabled: true).peek(left: false).value == "7d —",
+                "Absent weekly meter never falls back to the 5h meter")
+            state.fiveHour = nil
+            state.resetCredits = ResetCreditSummary(response: RateLimitResetCreditsResponse(availableCount: 3,
+                credits: [RateLimitResetCreditResponse(status: "available", expiresAt: date.timeIntervalSince1970)]))
+            let credits = NotchContentAdapter(state, tasksEnabled: true)
+            check(credits.peek(left: false).value == "7d —" && credits.peek(left: false).detail == DisplayLanguage.text("暂无数据", "No data"),
+                "Absent weekly data cannot borrow reset credits or their expiration")
+            check(credits.peek(left: true).value == credits.metrics.first?.compact && credits.peek(left: true).detail == credits.metrics.first?.date,
+                "Left reset-credit fallback stays unchanged")
+        }
     }
     static func main() throws {
         _ = NSApplication.shared
@@ -27,6 +109,7 @@ enum NotchHUDTests {
         let oldDefaults = DisplayLanguage.defaults
         DisplayLanguage.defaults = defaults
         defer { DisplayLanguage.defaults = oldDefaults; defaults.removePersistentDomain(forName: suite) }
+        peekDateChecks()
         defaults.set("purple", forKey: "hud.color")
         var preferences = HUDPresentationPreferences(defaults: defaults)
         check(preferences.mode == .automatic && !preferences.isVisible, "unconfigured mode defaults to automatic")
@@ -144,6 +227,151 @@ enum NotchHUDTests {
         check(testFrame.contains(sample.frame(width: 340, height: 227)), "native fixture is inside the actual desktop")
         print("Native fixture: screen=\(testFrame), visibleFrame=\(testScreen.visibleFrame), anchor=\(sample.anchor)")
         fflush(stdout)
+        let messages = ResetNewsViewState(enabled: true, status: .success, items: [
+            ResetNewsItem(id: "visible-message", sources: [.feed], originalText: "Upcoming reset",
+                facts: [.init(kind: .upcomingReset, effectiveAt: Date().addingTimeInterval(3_600))], firstSeenAt: Date()),
+            ResetNewsItem(id: "offscreen-message", sources: [.feed], originalText: "Another upcoming reset",
+                facts: [.init(kind: .upcomingReset, effectiveAt: Date().addingTimeInterval(7_200))], firstSeenAt: Date())
+        ])
+        check(NotchDetailPage.allCases.map(\.rawValue) == [0, 1, 2, 3], "Messages is the appended fourth page")
+        check(NotchDetailPage.messages.title == "重置预告", "Forecast tab uses the dedicated product name")
+        let forecastLayout = NotchLayout(geometry: sample)
+        for count in [0, 3, 120] {
+            var forecastState = messages
+            forecastState.items = (0..<count).map { index in
+                var item = messages.items[0]
+                item.id = "forecast-\(index)"
+                return item
+            }
+            for initialState in NotchPresentationState.allCases {
+                let forecastModel = NotchPresentationModel(alwaysShowQuota: false)
+                forecastModel.animationsEnabled = false
+                forecastModel.configure(forecastLayout)
+                forecastModel.setVisible(true)
+                var quotaState = RateLimitDisplayState.initial
+                quotaState.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: RateLimitWindow(usedPercent: 28, windowDurationMins: 300, resetsAt: nil))
+                forecastModel.update(quotaState, tasksEnabled: true)
+                forecastModel.updateResetNews(forecastState)
+                switch initialState {
+                case .compact: break
+                case .peek: forecastModel.hover(true)
+                case .expanded: forecastModel.click(); forecastModel.selectPage(.usage)
+                }
+                let previousPage = forecastModel.page
+                forecastModel.updateResetNews(forecastState)
+                check(forecastModel.state == initialState && forecastModel.page == previousPage, "Forecast data preserves \(initialState) and its selected page")
+                let nativeHost = NotchHostingView(model: forecastModel, bridge: NotchGeometryBridge())
+                let nativeWindow = NSWindow(contentRect: NSRect(x: testFrame.minX, y: testFrame.minY + 80, width: forecastLayout.windowFrame.width,
+                    height: forecastLayout.windowFrame.height), styleMask: .borderless, backing: .buffered, defer: false)
+                nativeWindow.isReleasedWhenClosed = false
+                nativeWindow.contentView = nativeHost
+                nativeWindow.orderFrontRegardless()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+                var quotaRefreshes = 0, forecastChecks = 0
+                forecastModel.onRefresh = { quotaRefreshes += 1 }
+                forecastModel.onCheckMessages = { forecastChecks += 1 }
+                if let entry = accessibilityElement(in: nativeHost, identifier: "notch.resetForecast") {
+                    check(entry.accessibilityLabel() == ResetForecastIndicator.accessibilityLabel(count), "Shoulder announces forecasts to review rather than account reset credits")
+                    check(entry.accessibilityFrame().width <= 38.5, "Forecast entry stays inside the unchanged 38 point shoulder")
+                    check(entry.accessibilityPerformPress(), "Native forecast shoulder supports press from \(initialState)")
+                } else {
+                    if count == 0 && initialState == .compact {
+                        print("SwiftUI AX tree unavailable; exercising fixture-window local mouse events instead.")
+                        fflush(stdout)
+                    }
+                    pressShoulder(in: nativeWindow, host: nativeHost, layout: forecastLayout)
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+                check(forecastModel.state == .expanded && forecastModel.page == .messages, "Native shoulder press opens forecasts directly from \(initialState)")
+                check(forecastModel.content.state.fiveHour?.remainingPercent == 72 && quotaRefreshes == 0 && forecastChecks == 0,
+                    "Opening forecasts neither changes account quota nor requests a refresh")
+                check(forecastModel.layout == forecastLayout && forecastModel.size == forecastLayout.expandedSize, "Forecast entry preserves existing geometry")
+                forecastModel.selectPage(.quota)
+                forecastModel.updateResetNews(forecastState)
+                check(forecastModel.page == .quota, "Later forecast updates cannot steal the quota page")
+                forecastModel.setVisible(false)
+                forecastModel.openResetForecasts()
+                check(forecastModel.state == .compact && forecastModel.page == .quota, "A hidden forecast entry cannot expand or switch pages")
+                nativeWindow.orderOut(nil)
+            }
+        }
+        let newsModel = NotchPresentationModel(alwaysShowQuota: false)
+        newsModel.animationsEnabled = false
+        newsModel.configure(NotchLayout(geometry: sample))
+        newsModel.setVisible(true)
+        newsModel.updateResetNews(messages)
+        var allReviewed = messages
+        allReviewed.readIDs = Set(messages.items.map(\.id))
+        newsModel.updateResetNews(allReviewed)
+        check(newsModel.resetNews.unreadCount == 0 && newsModel.resetNews.forecastCount == messages.items.count,
+            "Reviewing every forecast never reduces the notch total")
+        newsModel.updateResetNews(messages)
+        check(newsModel.state == .compact && newsModel.page == .quota, "Incoming messages do not expand or change the current page")
+        newsModel.click()
+        newsModel.selectPage(.usage)
+        newsModel.updateResetNews(messages)
+        check(newsModel.state == .expanded && newsModel.page == .usage, "Incoming messages do not steal an expanded usage page")
+        var readMessages: [String] = []
+        newsModel.onVisibleMessage = { readMessages.append($0) }
+        newsModel.resetNewsPageVisibilityChanged(true)
+        newsModel.resetNewsCardVisible("visible-message")
+        check(readMessages.isEmpty, "A mounted hidden messages page cannot mark a card read")
+        newsModel.selectPage(.messages)
+        newsModel.resetNewsPageVisibilityChanged(true)
+        let visibleIDs = ResetNewsCardVisibility.visibleIDs(frames: [
+            "visible-message": CGRect(x: 0, y: 20, width: 300, height: 100),
+            "offscreen-message": CGRect(x: 0, y: 400, width: 300, height: 100)
+        ], viewport: CGSize(width: 320, height: 220), pageVisible: newsModel.messagesVisible, state: messages)
+        visibleIDs.forEach(newsModel.resetNewsCardVisible)
+        check(readMessages == ["visible-message"], "Only the card intersecting the visible message viewport is read")
+        newsModel.resetNewsCardVisible("unknown-message")
+        check(readMessages.count == 1, "Unknown notification IDs cannot be marked read")
+        newsModel.collapse()
+        newsModel.resetNewsCardVisible("offscreen-message")
+        check(readMessages.count == 1, "A stale row callback after collapse cannot mark a card read")
+        newsModel.updateResetNews(messages)
+        check(newsModel.state == .compact && newsModel.page == .messages, "Message refresh preserves collapsed state and the last selected page")
+        check(ResetNewsCardVisibility.visibleIDs(frames: ["visible-message": CGRect(x: 0, y: 0, width: 100, height: 100)],
+            viewport: CGSize(width: 320, height: 220), pageVisible: false, state: messages).isEmpty,
+            "Hidden popovers and pages report no visible cards")
+        let popoverModel = ResetNewsPopoverModel()
+        popoverModel.state = messages
+        popoverModel.onVisibleItem = { readMessages.append($0) }
+        popoverModel.pageVisibilityChanged(true)
+        popoverModel.cardVisible("offscreen-message")
+        check(readMessages.count == 1, "Opening or mounting a hidden popover does not read history")
+        popoverModel.isVisible = true
+        popoverModel.cardVisible("offscreen-message")
+        check(readMessages == ["visible-message", "offscreen-message"], "A visible popover reports an individual local card ID")
+        popoverModel.isVisible = false
+        popoverModel.cardVisible("visible-message")
+        check(readMessages.count == 2, "Closing a popover rejects delayed visibility callbacks")
+        var revisionState = messages
+        revisionState.readIDs = Set(messages.items.map(\.id))
+        let unchangedFrames = ["visible-message": CGRect(x: 0, y: 20, width: 300, height: 100),
+            "offscreen-message": CGRect(x: 0, y: 400, width: 300, height: 100)]
+        var revisionReads: [String] = []
+        newsModel.onVisibleMessage = { revisionReads.append($0) }
+        newsModel.click()
+        newsModel.resetNewsPageVisibilityChanged(true)
+        newsModel.updateResetNews(revisionState)
+        revisionState.items[0].materialRevision += 1
+        revisionState.items[1].materialRevision += 1
+        revisionState.readIDs.removeAll()
+        newsModel.updateResetNews(revisionState)
+        ResetNewsCardVisibility.visibleIDs(frames: unchangedFrames, viewport: CGSize(width: 320, height: 220),
+            pageVisible: newsModel.messagesVisible, state: revisionState).forEach(newsModel.resetNewsCardVisible)
+        check(revisionReads == ["visible-message"], "An unchanged viewport reports only the visible revised card")
+        revisionState.readIDs.insert("visible-message")
+        newsModel.updateResetNews(revisionState)
+        newsModel.resetNewsCardVisible("visible-message")
+        check(revisionReads.count == 1, "Acknowledged revision no longer repeats its visible-card callback")
+        newsModel.collapse()
+        revisionState.items[0].materialRevision += 1
+        revisionState.readIDs.remove("visible-message")
+        newsModel.updateResetNews(revisionState)
+        newsModel.resetNewsCardVisible("visible-message")
+        check(revisionReads.count == 1, "A new revision cannot mark itself read after the page is hidden")
         let controller = LegacyNotchHUDController()
         controller.animationsEnabled = false
         check(controller.show(in: sample), "show notch")

@@ -11,6 +11,7 @@ DEPLOYMENT_TARGET="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' 
 # Native by default (matches architecture-specific CI). Opt in to a universal local artifact.
 read -r -a BUILD_ARCHS <<< "${HUD_BUILD_ARCHS:-$(uname -m)}"
 cd "$ROOT_DIR"
+RESET_NEWS_CORE_BUILD_DEFERRED=1 source scripts/reset-news-core-build.sh
 app_slices=()
 helper_slices=()
 for build_arch in "${BUILD_ARCHS[@]}"; do
@@ -22,7 +23,9 @@ for build_arch in "${BUILD_ARCHS[@]}"; do
     common=(-O -sdk "$SDK_PATH" -target "${build_arch}-apple-macosx${DEPLOYMENT_TARGET}" -module-cache-path "$output_dir/module-cache")
     swiftc "${common[@]}" -parse-as-library -emit-module -emit-library -static -module-name HookCore \
         HookCore/*.swift -emit-module-path "$output_dir/HookCore.swiftmodule" -o "$output_dir/libHookCore.a"
-    swiftc "${common[@]}" -I "$output_dir" -L "$output_dir" -lHookCore Sources/*.swift -o "$output_dir/GPTTouchBarHUD"
+    reset_news_core_build "$output_dir" "$SDK_PATH" "${build_arch}-apple-macosx${DEPLOYMENT_TARGET}"
+    swiftc "${common[@]}" -I "$output_dir" -L "$output_dir" -lHookCore -lResetNewsCore \
+        Sources/*.swift -o "$output_dir/GPTTouchBarHUD"
     swiftc "${common[@]}" -I "$output_dir" -L "$output_dir" -lHookCore HookHelper/main.swift -o "$output_dir/HookEmitter"
     app_slices+=("$output_dir/GPTTouchBarHUD")
     helper_slices+=("$output_dir/HookEmitter")
