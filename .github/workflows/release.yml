@@ -1,0 +1,104 @@
+name: Publish verified macOS release
+run-name: Publish ${{ inputs.tag || github.ref_name }} from verified main artifacts
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to retry without rebuilding
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify trusted same-commit build artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      source_sha: ${{ steps.tag.outputs.source_sha }}
+      version: ${{ steps.tag.outputs.version }}
+      build: ${{ steps.tag.outputs.build }}
+      tag: ${{ steps.tag.outputs.tag }}
+      tools_sha: ${{ steps.tag.outputs.tools_sha }}
+    steps:
+      - name: Check out trusted main verification code
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve tag to immutable main-ancestor commit
+        id: tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: python3 scripts/release_artifacts.py resolve-tag --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+
+      - name: Check out immutable tag source for version and notes only
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.tag.outputs.source_sha }}
+          path: release-source
+          persist-credentials: false
+
+      - name: Download and verify one trusted build (no compile, no fallback)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          SOURCE_SHA: ${{ steps.tag.outputs.source_sha }}
+        run: |
+          python3 scripts/release_artifacts.py prepare-release \
+            --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA" \
+            --source release-source --output release-stage
+
+      - name: Transfer verified files to the narrowly privileged publish job
+        uses: actions/upload-artifact@v7
+        with:
+          name: verified-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-stage
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish or safely resume matching draft
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Check out the same trusted verification code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify.outputs.tools_sha }}
+          persist-credentials: false
+
+      - name: Download this attempt's verified files
+        uses: actions/download-artifact@v8
+        with:
+          name: verified-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-stage
+
+      - name: Reverify provenance and publish without clobbering public releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+          VERSION: ${{ needs.verify.outputs.version }}
+          BUILD_NUMBER: ${{ needs.verify.outputs.build }}
+        run: |
+          python3 scripts/release_artifacts.py publish-release \
+            --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA" \
+            --version "$VERSION" --build "$BUILD_NUMBER" --directory release-stage

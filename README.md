@@ -6,7 +6,7 @@
 
 **[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
-> 当前版本：v0.1.32 / Build 35。安装包请前往 Release 页面下载，校验信息见[发布记录](Documentation/RELEASE-0.1.32.md)。
+> 当前版本：v0.1.33 / Build 36。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.33)。
 
 ## 界面与使用场景
 
@@ -54,7 +54,7 @@
 
 ![Touch Bar：重置卡、周额度、Token 与点数](Marketing/readme-native-balanced-reset-alignment.png)
 
-常驻模式会占用其他 App 的左侧 Touch Bar 快捷按钮区域，可在“设置 → Touch Bar”关闭。菜单摘要、浮窗和 Touch Bar 图片均为原生视图的演示数据截图。
+常驻模式会占用其他 App 的左侧 Touch Bar 快捷按钮区域，可在“设置 → Touch Bar”关闭。无 Touch Bar 的机型隐藏相关设置页和菜单入口；型号识别失败时保留入口。菜单摘要、浮窗和 Touch Bar 图片均为原生视图的演示数据截图。
 
 ### 实验性任务状态：查看本机任务提示
 

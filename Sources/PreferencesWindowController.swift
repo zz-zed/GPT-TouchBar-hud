@@ -1,6 +1,10 @@
 import AppKit
 
 final class PreferencesWindowController: NSWindowController {
+    private enum TabIdentifier: String {
+        case general, appearance, touchBar, experiments, updates, resetNews
+    }
+
     var onQuit: (() -> Void)?
     var onAppearance: ((HUDAppearance) -> Void)?
     var onLanguage: ((DisplayLanguage) -> Void)?
@@ -16,6 +20,7 @@ final class PreferencesWindowController: NSWindowController {
     var onResetNewsEnabled: ((Bool) -> Void)?
     var onResetNewsSound: ((Bool) -> Void)?
     var onCheckResetNews: (() -> Void)?
+    private let touchBarHardware: TouchBarHardware
     private let tabs = NSTabView()
     private let resetNewsEnabled = NSButton(checkboxWithTitle: "启用重置预告", target: nil, action: nil)
     private let resetNewsSound = NSButton(checkboxWithTitle: "预告提示音", target: nil, action: nil)
@@ -45,8 +50,9 @@ final class PreferencesWindowController: NSWindowController {
     private var updateAvailableVersion: String?
     private let preview: CompactQuotaHUDView
 
-    init(appearance: HUDAppearance) {
+    init(appearance: HUDAppearance, touchBarHardware: TouchBarHardware = .current) {
         self.appearance = appearance
+        self.touchBarHardware = touchBarHardware
         preview = CompactQuotaHUDView(initialAppearance: appearance, onRefresh: {}, onClose: {}, contextMenuProvider: { NSMenu() })
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 490, height: 480), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "设置 · GPT TouchBar HUD"
@@ -57,13 +63,15 @@ final class PreferencesWindowController: NSWindowController {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func showResetNewsTab() { tabs.selectTabViewItem(at: 5) }
+    func showResetNewsTab() {
+        tabs.selectTabViewItem(withIdentifier: TabIdentifier.resetNews.rawValue)
+    }
 
     func updateResetNews(_ state: ResetNewsViewState, soundEnabled: Bool) {
         resetNewsEnabled.title = DisplayLanguage.text("启用重置预告", "Enable reset forecasts")
         resetNewsSound.title = DisplayLanguage.text("预告提示音", "Forecast sound")
         resetNewsCheck.title = DisplayLanguage.text("检查预告", "Check forecasts")
-        tabs.tabViewItem(at: 5).label = DisplayLanguage.text("重置预告", "Reset forecasts")
+        tabs.tabViewItems.first { ($0.identifier as? String) == TabIdentifier.resetNews.rawValue }?.label = DisplayLanguage.text("重置预告", "Reset forecasts")
         resetNewsEnabled.state = state.enabled ? .on : .off
         resetNewsSound.state = soundEnabled ? .on : .off
         resetNewsStatus.stringValue = state.statusText
@@ -166,7 +174,6 @@ final class PreferencesWindowController: NSWindowController {
         foregroundSlider.setAccessibilityLabel("文字不透明度")
         let general = column([row("显示模式", [displayMode]), modeAvailability, visible, row("刘海常驻形态", [notchRestingState]), note("Compact 悬停展示额度；Peek 常驻展示额度。"), row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, note("隐藏状态独立保存；自动菜单栏在面板显示时仅保留图标。")])
         let appearancePanel = column([row("浮窗颜色", [color]), row("背景不透明度", [backgroundSlider, backgroundValue]), row("文字不透明度", [foregroundSlider, foregroundValue]), note("数值越高越不透明；修改即时保存，保留已有偏好。")])
-        let touch = column([persistent, availability])
         updateStatus.font = .systemFont(ofSize: 11)
         updateStatus.textColor = .secondaryLabelColor
         updateButton.target = self
@@ -189,8 +196,14 @@ final class PreferencesWindowController: NSWindowController {
         let resetNews = column([resetNewsEnabled, resetNewsSound,
             note("仅在 Codex 与 HUD App 运行时检查；首次开启会请求系统通知权限。提示音默认关闭。"),
             resetNewsPermission, resetNewsStatus, resetNewsTiming, resetNewsCheck])
-        for (title, view) in [("通用", general), ("外观", appearancePanel), ("Touch Bar", touch), ("实验", experiments), ("更新", updates), (DisplayLanguage.text("重置预告", "Reset forecasts"), resetNews)] {
-            let item = NSTabViewItem(identifier: title)
+        var panels: [(TabIdentifier, String, NSView)] = [(.general, "通用", general), (.appearance, "外观", appearancePanel)]
+        if touchBarHardware.shouldShowSettings {
+            panels.append((.touchBar, "Touch Bar", column([persistent, availability])))
+        }
+        panels += [(.experiments, "实验", experiments), (.updates, "更新", updates),
+                   (.resetNews, DisplayLanguage.text("重置预告", "Reset forecasts"), resetNews)]
+        for (identifier, title, view) in panels {
+            let item = NSTabViewItem(identifier: identifier.rawValue)
             item.label = title
             let host = NSView()
             host.addSubview(view)

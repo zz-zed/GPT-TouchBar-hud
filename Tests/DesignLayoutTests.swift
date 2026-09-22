@@ -22,6 +22,59 @@ enum DesignLayoutTests {
         view.cacheDisplay(in: view.bounds, to: bitmap)
         try bitmap.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "Design/ui-v2/native/\(name).png"))
     }
+    static func hardwareSettingsChecks(appearance: HUDAppearance, state: RateLimitDisplayState) {
+        let supportedModels = ["MacBookPro13,2", "MacBookPro13,3", "MacBookPro14,2", "MacBookPro14,3",
+            "MacBookPro15,1", "MacBookPro15,2", "MacBookPro15,3", "MacBookPro15,4",
+            "MacBookPro16,1", "MacBookPro16,2", "MacBookPro16,3", "MacBookPro16,4", "MacBookPro17,1", "Mac14,7"]
+        for model in supportedModels {
+            check(TouchBarHardware.detect(modelIdentifier: model) == .present, "Touch Bar model is recognized: \(model)")
+        }
+        for model in ["MacBookPro13,1", "MacBookPro14,1", "MacBookPro18,1", "Mac14,5", "MacBookAir10,1", "Macmini9,1", "iMac20,1", "MacPro7,1"] {
+            check(TouchBarHardware.detect(modelIdentifier: model) == .absent, "No Touch Bar on model: \(model)")
+        }
+        let unknownModels: [String?] = [nil, "", " \n", "MacBookPro", "MacBookPro13", "MacBookPro13,x", "Unrecognized1,1"]
+        for model in unknownModels {
+            check(TouchBarHardware.detect(modelIdentifier: model) == .unknown, "Failed model detection preserves unknown")
+        }
+        check(TouchBarHardware.detect(modelIdentifier: " Mac14,7\n") == .present, "Whitespace does not invalidate a known model")
+
+        let cases: [(TouchBarHardware, Bool)] = [(.present, true), (.absent, false), (.unknown, true)]
+        for (hardware, expectedTouchBar) in cases {
+            check(hardware.shouldShowSettings == expectedTouchBar, "Only confirmed absence hides Touch Bar settings")
+            for language in DisplayLanguage.allCases {
+                DisplayLanguage.current = language
+                let prefs = PreferencesWindowController(appearance: appearance, touchBarHardware: hardware)
+                let tabs = prefs.window!.contentView!.subviews.compactMap { $0 as? NSTabView }.first!
+                let expectedIDs = ["general", "appearance"] + (expectedTouchBar ? ["touchBar"] : []) + ["experiments", "updates", "resetNews"]
+                check(tabs.tabViewItems.compactMap { $0.identifier as? String } == expectedIDs, "Hardware controls only Touch Bar tab presence")
+                let allControls = tabs.tabViewItems.flatMap { buttons($0.view!) }
+                check(allControls.contains { $0.title == "Touch Bar 常驻" } == expectedTouchBar, "Absent hardware does not attach a persistence control")
+                prefs.update(appearance: appearance, state: state, taskEnabled: true, persistentEnabled: true, persistentAvailable: false)
+                prefs.showResetNewsTab()
+                let forecastTab = tabs.selectedTabViewItem!
+                check(forecastTab.identifier as? String == "resetNews", "Forecast jump uses stable identity for every hardware state")
+                check(forecastTab.label == DisplayLanguage.text("重置预告", "Reset forecasts"), "Forecast tab starts in the selected language")
+                prefs.updateResetNews(ResetNewsViewState(enabled: true, status: .success), soundEnabled: true)
+                let controls = buttons(forecastTab.view!)
+                let enabled = controls.first { $0.accessibilityIdentifier() == "settings.resetNewsEnabled" }!
+                let sound = controls.first { $0.accessibilityIdentifier() == "settings.resetNewsSound" }!
+                let manualCheck = controls.first { $0.accessibilityIdentifier() == "settings.checkResetNews" }!
+                check(enabled.state == .on && sound.state == .on && manualCheck.isEnabled, "Forecast state updates the correct tab after optional Touch Bar removal")
+                check(enabled.title == DisplayLanguage.text("启用重置预告", "Enable reset forecasts") && manualCheck.title == DisplayLanguage.text("检查预告", "Check forecasts"), "Forecast controls retain localized labels")
+                tabs.selectTabViewItem(withIdentifier: "updates")
+                DisplayLanguage.current = language == .chinese ? .english : .chinese
+                prefs.updateResetNews(ResetNewsViewState(), soundEnabled: false)
+                check(tabs.selectedTabViewItem?.identifier as? String == "updates", "Forecast language and state updates do not select another tab")
+                check(tabs.selectedTabViewItem?.label == "更新", "Forecast updates never rename the neighboring update tab")
+                check(forecastTab.label == DisplayLanguage.text("重置预告", "Reset forecasts") && enabled.title == DisplayLanguage.text("启用重置预告", "Enable reset forecasts"), "Forecast labels update by identity across language changes")
+                check(enabled.state == .off && sound.state == .off && !manualCheck.isEnabled, "Forecast controls update while another tab is selected")
+                prefs.showResetNewsTab()
+                check(tabs.selectedTabViewItem === forecastTab, "Forecast jump remains stable after language and state changes")
+                prefs.window?.orderOut(nil)
+            }
+        }
+        DisplayLanguage.current = .chinese
+    }
     static func main() throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
@@ -75,7 +128,8 @@ enum DesignLayoutTests {
         check(hud.frame.height == 40, "Messages preserve the single-line Quiet height")
         hud.updateMessages(forecastCount: 0, available: false)
 
-        let prefs = PreferencesWindowController(appearance: appearance)
+        hardwareSettingsChecks(appearance: appearance, state: state)
+        let prefs = PreferencesWindowController(appearance: appearance, touchBarHardware: .present)
         let originalSize = prefs.window!.frame.size
         prefs.update(appearance: appearance, state: state, taskEnabled: true, persistentEnabled: true, persistentAvailable: false)
         prefs.window?.contentView?.layoutSubtreeIfNeeded()
@@ -105,7 +159,7 @@ enum DesignLayoutTests {
         check(!checkMessages.isEnabled, "Message check remains inactive without Codex")
         DisplayLanguage.current = .english
         prefs.updateResetNews(ResetNewsViewState(), soundEnabled: false)
-        check(tabs.tabViewItem(at: 5).label == "Reset forecasts" && enableMessages.title == "Enable reset forecasts" && checkMessages.title == "Check forecasts", "English forecast controls use one feature name")
+        check(tabs.selectedTabViewItem?.identifier as? String == "resetNews" && tabs.selectedTabViewItem?.label == "Reset forecasts" && enableMessages.title == "Enable reset forecasts" && checkMessages.title == "Check forecasts", "English forecast controls use one feature name")
         DisplayLanguage.current = .chinese
         prefs.updateResetNews(ResetNewsViewState(), soundEnabled: false)
         tabs.selectTabViewItem(at: 2)

@@ -1,6 +1,7 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, NSMenuDelegate, RateLimitStoreDelegate {
+    private let touchBarHardware = TouchBarHardware.current
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let store = RateLimitStore()
     private let appUpdater = AppUpdater()
@@ -301,9 +302,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             menuModes.submenu?.addItem(item)
         }
         menu.addItem(menuModes)
-        let persistent = makePersistentTouchBarMenuItem()
-        persistentTouchBarMenuItem = persistent
-        menu.addItem(persistent)
+        if touchBarHardware.shouldShowSettings {
+            let persistent = makePersistentTouchBarMenuItem()
+            persistentTouchBarMenuItem = persistent
+            menu.addItem(persistent)
+        }
         menu.addItem(.separator())
         menu.addItem(menuAction("设置…", #selector(openPreferences(_:)), key: ","))
         menu.addItem(.separator())
@@ -326,7 +329,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     @objc private func openPreferences(_ sender: AnyObject?) {
         if preferences == nil {
-            let controller = PreferencesWindowController(appearance: hudAppearance)
+            let controller = PreferencesWindowController(appearance: hudAppearance, touchBarHardware: touchBarHardware)
             controller.onAppearance = { [weak self] appearance in
                 self?.hudAppearance = appearance
                 self?.applyHUDAppearance()

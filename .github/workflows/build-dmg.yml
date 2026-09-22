@@ -1,7 +1,13 @@
 name: Build macOS DMG
+run-name: Build DMG source ${{ inputs.source_sha || github.sha }}
 
 on:
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full 40-character main ancestor SHA to rebuild (both architectures)
+        required: true
+        type: string
   pull_request:
     branches:
       - main
@@ -15,32 +21,44 @@ on:
       - "Resources/**"
       - "scripts/**"
       - ".github/workflows/build-dmg.yml"
+      - ".github/workflows/release.yml"
   push:
     branches:
       - main
-    tags:
-      - "v*"
-    paths:
-      - "Package.swift"
-      - "Sources/**"
-      - "HookCore/**"
-      - "ResetNewsCore/**"
-      - "HookHelper/**"
-      - "Tests/**"
-      - "Resources/**"
-      - "scripts/**"
-      - ".github/workflows/build-dmg.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: build-dmg-${{ github.ref }}
-  cancel-in-progress: true
+  group: build-dmg-${{ github.event_name }}-${{ inputs.source_sha || github.sha }}
+  cancel-in-progress: false
 
 jobs:
+  source:
+    name: Validate source revision
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve immutable source (manual recovery only from main)
+        id: source
+        env:
+          SOURCE_SHA_INPUT: ${{ inputs.source_sha }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
+            test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          fi
+          SOURCE_SHA="$(python3 scripts/release_artifacts.py resolve-source)"
+          echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build DMG (${{ matrix.arch }})
+    needs: source
     strategy:
       fail-fast: false
       matrix:
@@ -55,30 +73,37 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+
+      - name: Check out trusted workflow tooling
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .release-tools
+          persist-credentials: false
 
       - name: Read build metadata
         id: metadata
         shell: bash
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
         run: |
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)"
           ACTUAL_ARCH="$(uname -m)"
-          RELEASE_TAG=""
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            RELEASE_TAG="${GITHUB_REF#refs/tags/}"
-          fi
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           if [[ "$ACTUAL_ARCH" != "$EXPECTED_ARCH" ]]; then
             echo "Expected runner architecture $EXPECTED_ARCH, got $ACTUAL_ARCH" >&2
-            exit 1
-          fi
-          if [[ -n "$RELEASE_TAG" && "$RELEASE_TAG" != "v$VERSION" ]]; then
-            echo "Release tag $RELEASE_TAG does not match app version v$VERSION" >&2
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "arch=$ACTUAL_ARCH" >> "$GITHUB_OUTPUT"
           echo "Building version $VERSION for $ACTUAL_ARCH"
+
+      - name: Test release provenance and refusal rules (offline)
+        run: bash .release-tools/scripts/test-release-workflows.sh
 
       - name: Test local task status parser
         run: bash scripts/test-task-status.sh
@@ -132,70 +157,27 @@ jobs:
           lipo "build/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD" \
             -verify_arch "${{ steps.metadata.outputs.arch }}"
 
-      - name: Upload DMG
+      - name: Record immutable build provenance
+        id: provenance
+        env:
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          ARCH: ${{ matrix.arch }}
+          DMG_PATH: ${{ steps.package.outputs.dmg }}
+        run: |
+          OUTPUT="build/release-upload/$ARCH"
+          mkdir -p "$OUTPUT"
+          cp "$DMG_PATH" "$OUTPUT/"
+          python3 .release-tools/scripts/release_artifacts.py create-manifest \
+            --source . --output "$OUTPUT" --arch "$ARCH" \
+            --repository "$GITHUB_REPOSITORY" --workflow-sha "$WORKFLOW_SHA"
+          echo "name=release-$SOURCE_SHA-$ARCH-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          echo "path=$OUTPUT" >> "$GITHUB_OUTPUT"
+
+      - name: Upload architecture DMG, checksum, and manifest
         uses: actions/upload-artifact@v7
         with:
-          name: GPT-TouchBar-HUD-${{ steps.metadata.outputs.version }}-${{ steps.metadata.outputs.arch }}
-          path: ${{ steps.package.outputs.dmg }}
+          name: ${{ steps.provenance.outputs.name }}
+          path: ${{ steps.provenance.outputs.path }}
           if-no-files-found: error
           retention-days: 30
-
-  publish-release-assets:
-    name: Create GitHub Release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Check out release notes
-        uses: actions/checkout@v7
-
-      - name: Download architecture-specific DMGs
-        uses: actions/download-artifact@v8
-        with:
-          pattern: GPT-TouchBar-HUD-*
-          path: release-assets
-          merge-multiple: true
-
-      - name: Verify release assets and create checksums
-        shell: bash
-        run: |
-          TAG="${{ github.ref_name }}"
-          VERSION="${TAG#v}"
-          test -f "release-assets/GPT-TouchBar-HUD-$VERSION-arm64.dmg"
-          test -f "release-assets/GPT-TouchBar-HUD-$VERSION-x86_64.dmg"
-          cd release-assets
-          sha256sum *.dmg > SHA256SUMS.txt
-
-      - name: Create GitHub Release with installers
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          IS_DRAFT="$(gh release view "$RELEASE_TAG" \
-            --json isDraft \
-            --jq '.isDraft' \
-            --repo "$GITHUB_REPOSITORY" 2>/dev/null || true)"
-          if [[ -z "$IS_DRAFT" ]]; then
-            gh release create "$RELEASE_TAG" \
-              --draft \
-              --verify-tag \
-              --notes-file RELEASE_NOTES.md \
-              --title "GPT TouchBar HUD $RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY"
-            IS_DRAFT="true"
-          fi
-          gh release upload "$RELEASE_TAG" \
-            release-assets/*.dmg \
-            release-assets/SHA256SUMS.txt \
-            --clobber \
-            --repo "$GITHUB_REPOSITORY"
-          if [[ "$IS_DRAFT" == "true" ]]; then
-            gh release edit "$RELEASE_TAG" \
-              --draft=false \
-              --latest \
-              --repo "$GITHUB_REPOSITORY"
-          fi
