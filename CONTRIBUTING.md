@@ -69,6 +69,10 @@ bash scripts/test-touchbar.sh --smoke-system
 
 涉及应用、资源或构建脚本的 PR，GitHub Actions 会分别构建和校验 Apple Silicon 与 Intel 安装包。远端检查通过不能替代实体 Touch Bar 的目视验证。
 
+发布采用“构建一次，验证后发布同一份产物”，PR 产物不可用于正式发布。维护者操作与失败恢复见[发布流程](Documentation/RELEASING.md)。
+
+正式版本说明遵循[发布说明规范](Documentation/RELEASING.md#正式发布说明规范)，仅包含本次新增功能、优化和注意事项；不包含方案选择、讨论过程或内部验证结论。
+
 ## 实现要求
 
 - 保持 macOS 11 和 Swift 5.8 的现有最低兼容范围，除非 PR 已明确讨论调整原因。

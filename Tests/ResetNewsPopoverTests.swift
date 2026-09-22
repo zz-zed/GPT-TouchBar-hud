@@ -26,11 +26,64 @@ enum ResetNewsPopoverTests {
         let height = min(bitmap.pixelsHigh, Int(100 * CGFloat(bitmap.pixelsHigh) / bitmap.size.height))
         return Array(UnsafeBufferPointer(start: bitmap.bitmapData!, count: height * bitmap.bytesPerRow))
     }
+    static func crossEntryChecks() {
+        let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        status.button!.title = "预告测试"
+        defer { NSStatusBar.system.removeStatusItem(status) }
+        let floating = NSPanel(contentRect: CGRect(x: 300, y: 300, width: 100, height: 30),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        floating.isReleasedWhenClosed = false
+        floating.level = .floating
+        let button = NSButton(title: "预告", target: nil, action: nil)
+        floating.contentView = button
+        floating.orderFrontRegardless(); pump()
+        defer { floating.orderOut(nil) }
+        let controller = ResetNewsPopoverController()
+        var windows: [NSWindow] = []
+        for iteration in 0..<3 {
+            controller.show(relativeTo: button); pump()
+            check(controller.presentedWindow?.isVisible == true, "Floating entry opens details")
+            windows.append(controller.presentedWindow!)
+            // Match the menu action's deferred opening with the real status-item anchor.
+            DispatchQueue.main.async { controller.show(relativeTo: status.button!) }
+            pump()
+            let current = controller.presentedWindow!
+            windows.append(current)
+            check(current.isVisible, "Menu entry replaces floating details")
+            check(windows.filter { $0 !== current }.allSatisfy { !$0.isVisible }, "Switching entry leaves no orphan popup")
+            if iteration == 0 {
+                NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: current)
+            } else if iteration == 1 {
+                let event = NSEvent.mouseEvent(with: .leftMouseDown, location: .zero,
+                    modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: floating.windowNumber, context: nil, eventNumber: 9, clickCount: 1, pressure: 1)!
+                NSApp.sendEvent(event)
+            } else {
+                controller.close()
+            }
+            pump()
+            check(windows.allSatisfy { !$0.isVisible }, "Cross-entry popup closes after focus loss, outside click or explicit close")
+            check(!controller.model.isVisible && !controller.model.pageVisible, "Cross-entry close clears reading visibility")
+        }
+        controller.show(relativeTo: status.button!)
+        if let window = controller.presentedWindow { windows.append(window) }
+        controller.show(relativeTo: button)
+        if let window = controller.presentedWindow { windows.append(window) }
+        controller.show(relativeTo: status.button!)
+        pump()
+        let latest = controller.presentedWindow!
+        check(latest.isVisible, "Rapid menu-floating-menu switching keeps the latest presentation")
+        check(windows.filter { $0 !== latest }.allSatisfy { !$0.isVisible }, "Rapid replacement retires every older window")
+        controller.close(); pump()
+        check(!latest.isVisible && windows.allSatisfy { !$0.isVisible }, "Rapid cross-entry presentation remains closable")
+        controller.close()
+    }
     static func main() throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         NSApp.appearance = NSAppearance(named: .aqua)
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        crossEntryChecks()
         for visible in [CGRect(x: 0, y: 0, width: 1680, height: 1020), CGRect(x: -1920, y: -30, width: 1920, height: 1050),
                         CGRect(x: -400, y: 200, width: 360, height: 300)] {
             for anchor in [CGRect(x: visible.maxX - 30, y: visible.maxY, width: 24, height: 24),
@@ -108,7 +161,60 @@ enum ResetNewsPopoverTests {
                     let after = image(content)
                     check(headerPixels(before) == headerPixels(after), "Title and actions remain pixel-identical while only the card list scrolls")
                     try save(after, "\(screenIndex)-\(name)-scrolled")
+                    check(popover.isVisible, "Scrolling inside details does not dismiss the popup")
                 }
+                // Exercise the real notification wiring, including reopen/cleanup,
+                // without switching the user's foreground application in this fixture.
+                let unrelatedWindow = NSWindow(contentRect: .zero, styleMask: .borderless, backing: .buffered, defer: false)
+                unrelatedWindow.isReleasedWhenClosed = false
+                NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: unrelatedWindow)
+                check(popover.isVisible, "Another window losing focus does not close details")
+                controller.model.pageVisibilityChanged(true)
+                NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: popover)
+                pump()
+                check(!popover.isVisible && !controller.model.isVisible && !controller.model.pageVisible,
+                    "Details losing key focus closes the popup and clears reading visibility")
+                controller.show(relativeTo: anchor); pump()
+                check(controller.presentedWindow?.isVisible == true, "Details can reopen after losing focus")
+                NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
+                pump()
+                check(controller.presentedWindow?.isVisible != true && !controller.model.isVisible,
+                    "Application deactivation closes reopened details")
+                controller.show(relativeTo: anchor); pump()
+                check(controller.presentedWindow?.isVisible == true, "Details can reopen after app deactivation")
+                let reopened = controller.presentedWindow!
+                NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.didActivateApplicationNotification,
+                    object: NSWorkspace.shared, userInfo: [NSWorkspace.applicationUserInfoKey: NSRunningApplication.current])
+                check(reopened.isVisible, "Activating the popup's own app does not dismiss it")
+                let reopenedContent = reopened.contentView!
+                // Window (4,4) can fall in the native popover's rounded chrome,
+                // not inside its content. Click the content's top padding instead.
+                let contentPoint = CGPoint(x: reopenedContent.bounds.midX,
+                    y: reopenedContent.isFlipped ? reopenedContent.bounds.minY + 8 : reopenedContent.bounds.maxY - 8)
+                let windowPoint = reopenedContent.convert(contentPoint, to: nil)
+                let hitPoint = reopenedContent.convert(contentPoint, to: reopenedContent.superview)
+                let hit = reopenedContent.hitTest(hitPoint)
+                check(reopenedContent.bounds.contains(contentPoint), "Internal click is inside the actual content bounds")
+                check(hit != nil && (hit === reopenedContent || hit!.isDescendant(of: reopenedContent)),
+                    "Internal click hit-tests to the actual content subtree")
+                check(!(hit is NSControl), "Internal click targets noninteractive header padding")
+                let oldPoint = reopenedContent.convert(CGPoint(x: 4, y: 4), from: nil)
+                print("\(screenIndex)-\(name) internal click: legacyWindowPoint=(4,4), legacyContentPoint=\(oldPoint), legacyInsideContent=\(reopenedContent.bounds.contains(oldPoint)), contentPoint=\(contentPoint), windowPoint=\(windowPoint), hit=\(String(describing: hit.map { type(of: $0) }))")
+                fflush(stdout)
+                for type: NSEvent.EventType in [.leftMouseDown, .leftMouseUp] {
+                    let event = NSEvent.mouseEvent(with: type, location: windowPoint,
+                        modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                        windowNumber: reopened.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1)!
+                    check(event.window === reopened, "Internal click event targets the current native popup window")
+                    NSApp.sendEvent(event)
+                }
+                pump()
+                check(reopened.isVisible, "A click within details keeps the popup open")
+                let outside = NSEvent.mouseEvent(with: .leftMouseDown, location: .zero,
+                    modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: anchorWindow.windowNumber, context: nil, eventNumber: 2, clickCount: 1, pressure: 1)!
+                NSApp.sendEvent(outside); pump()
+                check(!reopened.isVisible && !controller.model.isVisible, "A click in another app window closes details")
                 controller.close(); anchorWindow.orderOut(nil)
             }
         }

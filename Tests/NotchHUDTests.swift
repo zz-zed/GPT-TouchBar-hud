@@ -659,7 +659,7 @@ enum NotchHUDTests {
         try fusionChecks(controller: controller, geometry: sample)
         try HookPresentationIntegrationChecks.run(geometry: sample)
 
-        let prefs = PreferencesWindowController(appearance: HUDAppearance.load())
+        let prefs = PreferencesWindowController(appearance: HUDAppearance.load(), touchBarHardware: .present)
         prefs.update(appearance: HUDAppearance.load(), state: full, taskEnabled: true, persistentEnabled: false, persistentAvailable: false)
         prefs.showWindow(nil)
         prefs.window!.appearance = NSAppearance(named: .aqua)
