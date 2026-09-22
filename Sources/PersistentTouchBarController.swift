@@ -16,6 +16,9 @@ final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
     private var hasPresented = false
     private var currentState = RateLimitDisplayState.initial
     private var limitsView: TouchBarRateLimitsView?
+    private var messageForecastCount = 0
+    private var messagesAvailable = false
+    var onOpenMessages: (() -> Void)? { didSet { limitsView?.onOpenMessages = onOpenMessages } }
     private lazy var quotaBar: NSTouchBar = {
         let bar = NSTouchBar()
         bar.delegate = self
@@ -96,11 +99,18 @@ final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
         currentState = state
         limitsView?.update(with: state)
     }
+    func updateMessages(forecastCount: Int, available: Bool) {
+        messageForecastCount = forecastCount
+        messagesAvailable = available
+        limitsView?.updateMessages(forecastCount: forecastCount, available: available)
+    }
 
     func touchBar(_ touchBar: NSTouchBar, makeItemForIdentifier identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem? {
         guard identifier == Self.limitsIdentifier else { return nil }
         let view = TouchBarRateLimitsView()
         view.update(with: currentState)
+        view.onOpenMessages = onOpenMessages
+        view.updateMessages(forecastCount: messageForecastCount, available: messagesAvailable)
         limitsView = view
         let item = NSCustomTouchBarItem(identifier: identifier)
         item.view = view

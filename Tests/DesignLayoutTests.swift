@@ -1,4 +1,6 @@
 import AppKit
+import SwiftUI
+import ResetNewsCore
 
 @main
 enum DesignLayoutTests {
@@ -44,7 +46,7 @@ enum DesignLayoutTests {
         hud.update(with: state)
         host.layoutSubtreeIfNeeded()
         let fullWidth = hud.frame.width
-        check(buttons(hud).count == 1, "Quiet only has refresh; no close button")
+        check(buttons(hud).filter { !$0.isHidden }.count == 1, "Disabled messages keep Quiet at one refresh button")
         check(hud.frame.height == 40, "Quiet height")
         for label in labels(hud) { check(label.frame.width + 1 >= label.fittingSize.width, "HUD text fits: \(label.stringValue)") }
         try snapshot(hud, name: "quiet")
@@ -62,6 +64,16 @@ enum DesignLayoutTests {
         host.layoutSubtreeIfNeeded()
         check(labels(hud).contains { $0.stringValue.contains("3次") }, "Reset count is visible")
         check(hud.frame.width > 0 && !hud.hasAmbiguousLayout, "Reset layout is determined")
+        var openedMessages = 0
+        hud.onOpenMessages = { openedMessages += 1 }
+        hud.updateMessages(forecastCount: 3, available: true)
+        host.layoutSubtreeIfNeeded()
+        let hudMessages = buttons(hud).first { $0.accessibilityIdentifier() == "hud.messages" }!
+        check(hudMessages.title == "重置预告 3" && hudMessages.toolTip == "重置预告（3 条）", "Quiet counts forecasts upcoming, not reset credits")
+        hudMessages.performClick(nil)
+        check(openedMessages == 1, "Quiet message button opens local details")
+        check(hud.frame.height == 40, "Messages preserve the single-line Quiet height")
+        hud.updateMessages(forecastCount: 0, available: false)
 
         let prefs = PreferencesWindowController(appearance: appearance)
         let originalSize = prefs.window!.frame.size
@@ -69,6 +81,33 @@ enum DesignLayoutTests {
         prefs.window?.contentView?.layoutSubtreeIfNeeded()
         check(prefs.window!.frame.size == originalSize, "Preview must not resize preferences window")
         let tabs = prefs.window!.contentView!.subviews.compactMap { $0 as? NSTabView }.first!
+        check(tabs.tabViewItems.map(\.label) == ["通用", "外观", "Touch Bar", "实验", "更新", "重置预告"], "Forecast settings preserve existing tab indices")
+        prefs.showResetNewsTab()
+        prefs.updateResetNews(ResetNewsViewState(), soundEnabled: false)
+        let resetControls = buttons(tabs.selectedTabViewItem!.view!)
+        let enableMessages = resetControls.first { $0.accessibilityIdentifier() == "settings.resetNewsEnabled" }!
+        let soundMessages = resetControls.first { $0.accessibilityIdentifier() == "settings.resetNewsSound" }!
+        let checkMessages = resetControls.first { $0.accessibilityIdentifier() == "settings.checkResetNews" }!
+        check(enableMessages.title == "启用重置预告" && soundMessages.title == "预告提示音" && checkMessages.title == "检查预告", "Chinese forecast controls use one feature name")
+        check(enableMessages.state == .off && soundMessages.state == .off, "Messages and sounds default off")
+        check(!checkMessages.isEnabled, "Disabled messages cannot manually check")
+        var enabledValue: Bool?, soundValue: Bool?, manualChecks = 0
+        prefs.onResetNewsEnabled = { enabledValue = $0 }
+        prefs.onResetNewsSound = { soundValue = $0 }
+        prefs.onCheckResetNews = { manualChecks += 1 }
+        enableMessages.performClick(nil)
+        soundMessages.performClick(nil)
+        check(enabledValue == true && soundValue == true, "Message settings send explicit enable and sound callbacks")
+        prefs.updateResetNews(ResetNewsViewState(enabled: true, status: .success), soundEnabled: true)
+        checkMessages.performClick(nil)
+        check(manualChecks == 1 && checkMessages.isEnabled, "Message manual check has its own callback")
+        prefs.updateResetNews(ResetNewsViewState(enabled: true, status: .codexNotRunning), soundEnabled: false)
+        check(!checkMessages.isEnabled, "Message check remains inactive without Codex")
+        DisplayLanguage.current = .english
+        prefs.updateResetNews(ResetNewsViewState(), soundEnabled: false)
+        check(tabs.tabViewItem(at: 5).label == "Reset forecasts" && enableMessages.title == "Enable reset forecasts" && checkMessages.title == "Check forecasts", "English forecast controls use one feature name")
+        DisplayLanguage.current = .chinese
+        prefs.updateResetNews(ResetNewsViewState(), soundEnabled: false)
         tabs.selectTabViewItem(at: 2)
         prefs.window?.contentView?.layoutSubtreeIfNeeded()
         let persistent = buttons(prefs.window!.contentView!).first { $0.title == "Touch Bar 常驻" }
@@ -110,6 +149,81 @@ enum DesignLayoutTests {
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         try snapshot(prefs.window!.contentView!, name: "settings")
         prefs.window!.orderOut(nil)
+
+        var messageState = ResetNewsViewState(enabled: true, status: .success, items: (0..<12).map { index in
+            ResetNewsItem(id: "message-\(index)", sources: [.feed], originalText: "Reset announcement",
+                facts: [.init(kind: .extraResetCredits, scope: "Pro", count: 2, validityText: "7 天")],
+                publishedAt: Date(timeIntervalSince1970: 1_790_000_000), firstSeenAt: Date())
+        })
+        var visibleMessageIDs = Set<String>()
+        var visibleMessageCallbacks: [String] = []
+        var messagePageVisible = false
+        func messageList(visible: Bool) -> ResetNewsListView {
+            ResetNewsListView(state: messageState, isVisible: visible, onCheck: {}, onMarkAllRead: {}, onSettings: {},
+                onPageVisibility: { messagePageVisible = $0 }, onVisibleItem: {
+                    visibleMessageIDs.insert($0)
+                    visibleMessageCallbacks.append($0)
+                })
+        }
+        let messageHost = NSHostingView(rootView: messageList(visible: false))
+        let messageWindow = NSWindow(contentRect: NSRect(x: 60, y: 60, width: 420, height: 480),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        messageWindow.appearance = NSAppearance(named: .aqua)
+        messageHost.wantsLayer = true
+        messageHost.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        messageWindow.contentView = messageHost
+        messageWindow.orderFrontRegardless()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        check(visibleMessageIDs.isEmpty && !messagePageVisible, "Mounted SwiftUI list does not read cards until its message surface is visible")
+        messageHost.rootView = messageList(visible: true)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        check(messagePageVisible && !visibleMessageIDs.isEmpty, "Visible SwiftUI message cards report IDs through the shared list callback")
+        check(visibleMessageIDs.count < messageState.items.count && !visibleMessageIDs.contains("message-11"), "Lazy scroll history outside the viewport stays unread")
+        try snapshot(messageHost, name: "reset-messages")
+        messageState.readIDs = Set(messageState.items.map(\.id))
+        visibleMessageIDs.removeAll()
+        visibleMessageCallbacks.removeAll()
+        messageHost.rootView = messageList(visible: true)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        check(visibleMessageCallbacks.isEmpty, "Acknowledging visible cards does not cause a read callback loop")
+
+        // Both edits replace one digit and keep the same card layout. The page
+        // remains visible throughout; no remount or scrolling may drive this.
+        messageState.items[11].facts[0].count = 3
+        messageState.items[11].materialRevision += 1
+        messageState.readIDs.remove("message-11")
+        messageHost.rootView = messageList(visible: true)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        check(visibleMessageCallbacks.isEmpty, "An offscreen material revision remains unread")
+        messageState.items[0].facts[0].count = 3
+        messageState.items[0].materialRevision += 1
+        messageState.readIDs.remove("message-0")
+        messageHost.rootView = messageList(visible: true)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        check(visibleMessageCallbacks == ["message-0"], "A same-height revision of a continuously visible card reports its local ID again")
+        messageState.readIDs.insert("message-0")
+        messageHost.rootView = messageList(visible: true)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        check(visibleMessageCallbacks == ["message-0"], "Reading the revised card settles without repeated callbacks")
+        messageHost.rootView = messageList(visible: false)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        visibleMessageCallbacks.removeAll()
+        messageState.items[0].facts[0].count = 4
+        messageState.items[0].materialRevision += 1
+        messageState.readIDs.remove("message-0")
+        messageHost.rootView = messageList(visible: false)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        check(visibleMessageCallbacks.isEmpty, "A hidden message page never reads a same-height revision")
+        messageWindow.orderOut(nil)
+        prefs.updateResetNews(messageState, soundEnabled: false)
+        prefs.showResetNewsTab()
+        prefs.showWindow(nil)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        try snapshot(prefs.window!.contentView!, name: "settings-reset-messages")
+        for control in tabs.selectedTabViewItem!.view!.subviews {
+            check(tabs.selectedTabViewItem!.view!.bounds.contains(control.frame), "Message settings content fits inside its existing tab height")
+        }
+        prefs.window?.orderOut(nil)
 
         let bar = TouchBarRateLimitsView()
         host.addSubview(bar)

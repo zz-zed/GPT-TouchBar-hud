@@ -1,0 +1,38 @@
+{
+  "version": "0.1.32",
+  "build": "35",
+  "generated_at": "2026-09-22T15:12:41+08:00",
+  "source_head": "bb6b56d2bb6ae6c7cbeec21860d0d10af067a033",
+  "source_state": "uncommitted working tree; see release-0.1.32-source-inputs.json",
+  "host_arch": "arm64",
+  "intel_validation": "local cross-build failed: CLT compatibility libraries lack x86_64 slices; native Intel CI and hardware not run; no Intel artifact",
+  "published": false,
+  "artifacts": [
+    {
+      "path": "dist/GPT-TouchBar-HUD-0.1.32-arm64.dmg",
+      "bytes": 3500489,
+      "sha256": "2aefa8d1b434942256d025fc2667b2920d60652025b6ceb753bca7746d101dee",
+      "binaries": [
+        {
+          "path": "Contents/MacOS/GPTTouchBarHUD",
+          "arch": "arm64",
+          "minos": "11.0",
+          "sha256": "d6664b89c95f0a344ad06b3b5eccf76a4b6a084f4ab87f7fc662c4fedd59da86"
+        },
+        {
+          "path": "Contents/Helpers/HookEmitter",
+          "arch": "arm64",
+          "minos": "11.0",
+          "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99"
+        }
+      ],
+      "app_cdhash": "12551bd9ecfdff28f7b6055c833bf3d86fedf1e9",
+      "app_file_count": 8,
+      "signature": "ad-hoc; strict verification passed",
+      "dmg_integrity": "passed",
+      "readonly_mount": "passed",
+      "saved_app_matches": true,
+      "first_open_helper_binding": "passed"
+    }
+  ]
+}

@@ -1,0 +1,326 @@
+[
+  {
+    "path": "HookCore/HookConfiguration.swift",
+    "sha256": "6a9fb5d1735578336efbbe9a3cd3e999ebf4138f2e91974e8be1ac689c6f94fd"
+  },
+  {
+    "path": "HookCore/HookConnectionController.swift",
+    "sha256": "f54fd7be60e3c2fd3f935444b866eecac34bc15a6e2ae49f9c9676e2e6067b27"
+  },
+  {
+    "path": "HookCore/HookHelperInstaller.swift",
+    "sha256": "0c7d36ec21ae6d1c652fb96591ce823399e0c134b6e5a1c2355884bf44ed3daf"
+  },
+  {
+    "path": "HookCore/HookHostPreflight.swift",
+    "sha256": "575a089cb783891d9d38ab003663e12b327fdc937c0df2b3e9e2f9b5f64b4f4c"
+  },
+  {
+    "path": "HookCore/HookIPC.swift",
+    "sha256": "76ea07e5431bec6ffa801ddcda05b25f1e615a63ab062cbd0385af956626805d"
+  },
+  {
+    "path": "HookCore/HookPaths.swift",
+    "sha256": "89f938aeddf726b219aacf63da04365fad5fd0ec24946e4f9b6fa4e97f6fe84a"
+  },
+  {
+    "path": "HookCore/HookProtocol.swift",
+    "sha256": "6817087cccdaa53facef2f1aeb5a8631dd2374a9ab698be33073852340f9a1ee"
+  },
+  {
+    "path": "HookCore/HookTaskDisplayAdapter.swift",
+    "sha256": "99c03c226008ef0508b233e1543def4c13aff58fe79f594109710610ec058c6e"
+  },
+  {
+    "path": "HookCore/HookVerificationSchedule.swift",
+    "sha256": "e92a30c51577ada67473d90af16134b1db7f04b94dcb0f7aca1cebddc0eb0998"
+  },
+  {
+    "path": "HookCore/TaskActivitySnapshot.swift",
+    "sha256": "268b81103e4d2618b3a526782ed616f9259c4d871df905bcc3fed41bc3d5049e"
+  },
+  {
+    "path": "HookCore/TaskEvidenceResolver.swift",
+    "sha256": "2b35042c78bceaac796f66b8adc4ab1dba227d253768762999877240edecdab5"
+  },
+  {
+    "path": "HookCore/TaskStateReducer.swift",
+    "sha256": "9ddbcec87af026d5c51b24798120652d52261f00b627b1883657b9b28d7fca9b"
+  },
+  {
+    "path": "HookHelper/main.swift",
+    "sha256": "33df97b448f215ab6a4864161a6dc455b1498d10fa371edb702fb895fc225a0e"
+  },
+  {
+    "path": "Package.swift",
+    "sha256": "45f6ab6a230346c7c81cd2da220ff77a0ead01ca51e4d3d58d274637bcf2c70a"
+  },
+  {
+    "path": "ResetNewsCore/ResetForecastDatePresentation.swift",
+    "sha256": "ef24c137920affee9946d26d13e4aa7e6cfcd9bac9d7eb45acb810b53d634018"
+  },
+  {
+    "path": "ResetNewsCore/ResetForecastPolicy.swift",
+    "sha256": "771c7e6bd2da7802ba3697ffa71a5b0c9ddb3cc2b07b7a631295d7deff405ca6"
+  },
+  {
+    "path": "ResetNewsCore/ResetNewsModels.swift",
+    "sha256": "ad837480559887f3907f0df57b32387b79c31672ce07662b28c97282025e13ff"
+  },
+  {
+    "path": "ResetNewsCore/ResetNewsReducer.swift",
+    "sha256": "d8ff57e533e6cb12eca093f4c3a00835442a2a4c44385a7220dedc8edebb3f20"
+  },
+  {
+    "path": "ResetNewsCore/ResetNewsRules.swift",
+    "sha256": "e0e63bd5efb0ad6d1ce2cd0d8167a976c1dfe36085d8a499ca35bd32e04ff103"
+  },
+  {
+    "path": "ResetNewsCore/ResetNewsSourceDecoder.swift",
+    "sha256": "642215cb6fd18d572f0809c3f8a7f8c9c8405677bcd2df5d64f064ea1a65fd49"
+  },
+  {
+    "path": "Resources/AppIcon.icns",
+    "sha256": "0a5d1372b809f33738829c961ce5495ebe99d5b83dcc3f3f93c213853dd9d572"
+  },
+  {
+    "path": "Resources/AppIcon.png",
+    "sha256": "5f7cb3a6b3ed55223b0b62a66af3d1e130a8003da12291f4b643dc7cc0b69ea7"
+  },
+  {
+    "path": "Resources/Info.plist",
+    "sha256": "64e2d3038d478ef69b8d91861ac21b752a5fe0c4823708c2ba3760dc9e7602ee"
+  },
+  {
+    "path": "Resources/ThirdPartyNotices.txt",
+    "sha256": "e0c2e9f8cf0ce6452e350c404696b590ae55bf00b8926dfd33d4161d5b8f3dee"
+  },
+  {
+    "path": "Resources/first-open-guide.txt",
+    "sha256": "3166f8571832fb0d4ff143b2111e73c8dec1c9eecf00c9e95eaedca8c784b4b4"
+  },
+  {
+    "path": "Resources/first-open.command",
+    "sha256": "a442f7de2d2cdd422c2db1db17ac3cd627b990e91f10ceed8ad38faca6df7819"
+  },
+  {
+    "path": "Resources/gpt-touchbar-hud-launcher.sh",
+    "sha256": "1b1304d7c93fe51704eb5517a5412aa11be60e14d22f1672ccc30de5e806c860"
+  },
+  {
+    "path": "Resources/install-update.sh",
+    "sha256": "7860b440d3acb78d247fe4fb00f04c027cf9236dd2dc1d38e92d8976fa7b9b1c"
+  },
+  {
+    "path": "Sources/AccountTokenUsage.swift",
+    "sha256": "d468a13d06ae645fd77dc686494885aa65ae93afdf1a3d16f1cbd7bf06c2d13e"
+  },
+  {
+    "path": "Sources/AppDelegate.swift",
+    "sha256": "d5dea99db7c5647115cf8eb4045868a9c43897f4da1e5cced6f97ec715867402"
+  },
+  {
+    "path": "Sources/AppIdentity.swift",
+    "sha256": "b8776507575a9d999467208fe94c3e7cd2ef04fc45dbc4c9347a4b0514a5e05f"
+  },
+  {
+    "path": "Sources/AppUpdateModels.swift",
+    "sha256": "e0f4804611e040e75f53af3731948cecb25397adfaf1a4cdf9e39a4e22b26fd1"
+  },
+  {
+    "path": "Sources/AppUpdateScheduler.swift",
+    "sha256": "91d1cc25657a81619146405be023e4dffb764d8b46e003900e9116d0b5938300"
+  },
+  {
+    "path": "Sources/AppUpdater.swift",
+    "sha256": "3a9433137f29a8d0b39cdbf6632e6a21113a422543c58d3c4d497ce6acd92031"
+  },
+  {
+    "path": "Sources/CodexAppServerClient.swift",
+    "sha256": "c60227f3f88243ffdeaaf0527c715604052356e103ba1d18bab9b5592d4e347c"
+  },
+  {
+    "path": "Sources/CompactHUDPanel.swift",
+    "sha256": "8dba1b09fd458e161d70c6537e0c8f09b3735a5d7c8b30174cebd768098e635d"
+  },
+  {
+    "path": "Sources/CompactHUDViewController.swift",
+    "sha256": "8998d7476d31e305f3b6c85a3ea5cc38f7427ffdb0fd6e3b5abfa3a6f829a4d9"
+  },
+  {
+    "path": "Sources/DesignTokens.swift",
+    "sha256": "d69fb3926b88733e93937d58afb90f44bad08d2396b358468a647668438c6efd"
+  },
+  {
+    "path": "Sources/HUDAppearance.swift",
+    "sha256": "d4893b51d744e12795d5b1afe092ceb49dea55e43d3113eb4b6e84f32bf3915d"
+  },
+  {
+    "path": "Sources/HUDPresentation.swift",
+    "sha256": "eedc5af5ae22a6bb78030ab7186b3115d0a5ddd3f39a4fe57152dd53d9345790"
+  },
+  {
+    "path": "Sources/HookExperimentPreferencesController.swift",
+    "sha256": "6286fbd065bfe18f8c179d0f6c674a9db7516daf2e08ea0d845a11b75914655e"
+  },
+  {
+    "path": "Sources/HostAutoLauncher.swift",
+    "sha256": "30acd186bf0fa5bd77b1f43339f0543b20616ede7c89e4e4e90b9d0ec91460da"
+  },
+  {
+    "path": "Sources/HostLifecycleMonitor.swift",
+    "sha256": "a8d31a45bbc568912d7d95caaec774c4938683ce16a72a20016bb5c6f16101b2"
+  },
+  {
+    "path": "Sources/LimitModels.swift",
+    "sha256": "b9ff2556105b47046ffd598af8546f0e36ade65f7987475b95ef1917ea45c5e4"
+  },
+  {
+    "path": "Sources/LocalTokenUsageReader.swift",
+    "sha256": "4e735217e2359156e5a165bec0362352bff138b9cb162a0cb191f7af3a9f0f40"
+  },
+  {
+    "path": "Sources/NotchContentAdapter.swift",
+    "sha256": "f466dda55b6f4472458fdc685a665edaf8b1520a0fa7ca60cf17faa9352878f1"
+  },
+  {
+    "path": "Sources/NotchDetailPages.swift",
+    "sha256": "218bc8983e31c592ab7d29933f81915b27192d41ad890c71c0a7aee5dddfbabc"
+  },
+  {
+    "path": "Sources/NotchHUDController.swift",
+    "sha256": "353b0dfcc89c96fd68bc5544440e96117001b1fc1ca74a08d27cee6376940c87"
+  },
+  {
+    "path": "Sources/NotchHostingView.swift",
+    "sha256": "7aacac5765a375667944c08a39a6438917a9d99e03bf1382d9c69c636871b42f"
+  },
+  {
+    "path": "Sources/NotchInteractionController.swift",
+    "sha256": "88a877d252c4a51fbca34b38383574f515096b84bc184942398b8c27b534d99e"
+  },
+  {
+    "path": "Sources/NotchLayout.swift",
+    "sha256": "86b197c735033b2751d5138bf6f400de775bbe28c06b17edb896bbd4f62f9a29"
+  },
+  {
+    "path": "Sources/NotchLegacyHUDController.swift",
+    "sha256": "1f8a877d541a9418aaf508591d94adb584c6ff02ccd5350b5e27d93c7182de68"
+  },
+  {
+    "path": "Sources/NotchMotion.swift",
+    "sha256": "ec4c7111644f3438d2e0f50238a94a9a572ea88d7fda7a3604e2456f4838e9c0"
+  },
+  {
+    "path": "Sources/NotchPresentationModel.swift",
+    "sha256": "2855af363ec66e8a0cee817096fceaf63e0b64394510efb58ef7212635a332e4"
+  },
+  {
+    "path": "Sources/NotchRootView.swift",
+    "sha256": "f2d475eaeffbabbf85c1f61cdc20f8ccd638d6b897b748576e5e2121721143c5"
+  },
+  {
+    "path": "Sources/NotchStyleTokens.swift",
+    "sha256": "1d95c49d5d0636e853eaf750ac5a29701ba484b1d93688712ba5930ebee50d5d"
+  },
+  {
+    "path": "Sources/NotchSurfaceShape.swift",
+    "sha256": "d9e85f21185bbd2b404b53c3191e906e462840b0025efe594a080b6809f00682"
+  },
+  {
+    "path": "Sources/PersistentTouchBarController.swift",
+    "sha256": "ef9bbabfd0ecef74bcd15ca4e54c1208adb8b67a0ff1c01d053a35022fa7370e"
+  },
+  {
+    "path": "Sources/PreferencesWindowController.swift",
+    "sha256": "aaf63ef96dc0fb7816bb6e47939efef78bf7fa1fd5a1f4461ad5db4547a1c468"
+  },
+  {
+    "path": "Sources/RateLimitStore.swift",
+    "sha256": "1926664f455412a1520677b1a08f34175383b37400c223cf4691316233a73882"
+  },
+  {
+    "path": "Sources/ResetForecastIndicator.swift",
+    "sha256": "36ad0dd6da591d386690db08915a457ac2884898604069d83e944ea70589a712"
+  },
+  {
+    "path": "Sources/ResetNewsFeedClient.swift",
+    "sha256": "1d93019680892e9c877bd3ff229e253806d4835bc1c3b5f5136aea2d987764d8"
+  },
+  {
+    "path": "Sources/ResetNewsListView.swift",
+    "sha256": "f741bc87acea997d3a75eb676388ad1b1706782c8105c40981f04a1a79feec2d"
+  },
+  {
+    "path": "Sources/ResetNewsMonitor.swift",
+    "sha256": "86efc972f942efbb133accbc2af03e7316f4ba99bb1ff7a453659c4115fcced5"
+  },
+  {
+    "path": "Sources/ResetNewsNotificationController.swift",
+    "sha256": "91bba773014bf75dffd459be503a29cfcb62bca3890f298db1eb8132bcb8edcd"
+  },
+  {
+    "path": "Sources/ResetNewsPopoverController.swift",
+    "sha256": "7098ae2d03448d2b8956e5d08af49958bd04395a736c56300ac5b6f035919c42"
+  },
+  {
+    "path": "Sources/ResetNewsRepository.swift",
+    "sha256": "09f3ad31f79570aad58837b2a881d29d19ef09cc85967ccb2a573d6863f14160"
+  },
+  {
+    "path": "Sources/ResetNewsViewState.swift",
+    "sha256": "9f99a5441d6503e82879c897846ba33ba7c4d156d31b4d2bb6ac848e5102c2cc"
+  },
+  {
+    "path": "Sources/SegmentedBatteryBar.swift",
+    "sha256": "05fe7a9c0f531c9d8ea9374439834c9375a4d7186367ce24de02460f97165e0e"
+  },
+  {
+    "path": "Sources/StatusSummaryView.swift",
+    "sha256": "82132eab7de4c9b76bf32f0751b8eab2acb96998b4324bb6b460b48fd57fc21e"
+  },
+  {
+    "path": "Sources/SystemTouchBarPresenter.swift",
+    "sha256": "1ae8355ea62b6a16ecb9174e822f82b2604722b39847179771f34d70c71367cb"
+  },
+  {
+    "path": "Sources/TaskCompletionFeedbackController.swift",
+    "sha256": "580458ed7e6b31807fa89332e29ebdaba4d52b218c12fce7c23c63724896dcfa"
+  },
+  {
+    "path": "Sources/TaskMonitoringCoordinator.swift",
+    "sha256": "12cf2f59531423595ac0c1dc54283bd34c772f377b782b8145c4b3d529389943"
+  },
+  {
+    "path": "Sources/TaskStatusAppearance.swift",
+    "sha256": "36c17daac4c89cee24f60c34e85676873e1d923b0c89b0f89d99873e2432004e"
+  },
+  {
+    "path": "Sources/TaskStatusMonitor.swift",
+    "sha256": "2df20c7ca53202b86bc8cad193b3527c117c2569d2ad498a298b09eaf7243257"
+  },
+  {
+    "path": "Sources/TokenUsageScanner.swift",
+    "sha256": "16798d7cec01693d9711c2db7d3d60e5e687570d9755196bd00370935c47c8d6"
+  },
+  {
+    "path": "Sources/TouchBarRateLimitsView.swift",
+    "sha256": "eb783687b77641997f7360bf55cf22f5af0e90a1c7698a4290f4eaf8ee05e6f6"
+  },
+  {
+    "path": "Sources/main.swift",
+    "sha256": "224254be55ec254ac7a7f3adf1ab26494fd67cec23b0b8cdf26c86a15adc7514"
+  },
+  {
+    "path": "scripts/build-app.sh",
+    "sha256": "f9601215f5a40ad1799bbc1ca3d4b9b65b80a4c2c20ac66ac75632f336b98e1d"
+  },
+  {
+    "path": "scripts/package-dmg.sh",
+    "sha256": "97717cb1c88690040fde2ca26bdc107e9bb5d1d5860b0ac483b81f6dc1085e59"
+  },
+  {
+    "path": "scripts/reset-news-core-build.sh",
+    "sha256": "03f860d8a41834518023127074ae667c041e1dc4db9cb8ed417e6508e87192ec"
+  }
+]

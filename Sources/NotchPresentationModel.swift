@@ -3,12 +3,13 @@ import SwiftUI
 
 enum NotchPresentationState: String, CaseIterable { case compact, peek, expanded }
 enum NotchDetailPage: Int, CaseIterable {
-    case quota, activity, usage
+    case quota, activity, usage, messages
     var title: String {
         switch self {
         case .quota: return DisplayLanguage.text("额度", "Quota")
         case .activity: return DisplayLanguage.text("活动", "Activity")
         case .usage: return DisplayLanguage.text("用量", "Usage")
+        case .messages: return DisplayLanguage.text("重置预告", "Reset forecasts")
         }
     }
 }
@@ -32,6 +33,9 @@ final class NotchPresentationModel: ObservableObject {
     @Published private(set) var reduceTransparency = false
     @Published private(set) var lowPower = false
     @Published private(set) var content = NotchContentAdapter(.initial, tasksEnabled: true)
+    @Published private(set) var resetNews = ResetNewsViewState()
+    private(set) var resetNewsPageVisible = false
+    var messagesVisible: Bool { visible && state == .expanded && detailsVisible && page == .messages }
     private(set) var alwaysShowQuota: Bool
     private(set) var menuDepth = 0
     private(set) var pointerCaptured = false
@@ -43,6 +47,10 @@ final class NotchPresentationModel: ObservableObject {
     var onRefresh: (() -> Void)?
     var onSettings: (() -> Void)?
     var onHide: (() -> Void)?
+    var onCheckMessages: (() -> Void)?
+    var onMarkAllMessagesRead: (() -> Void)?
+    var onMessageSettings: (() -> Void)?
+    var onVisibleMessage: ((String) -> Void)?
 
     init(clock: NotchClock = NotchSystemClock(), alwaysShowQuota: Bool = true) {
         scheduler = NotchDelayScheduler(clock: clock)
@@ -59,6 +67,13 @@ final class NotchPresentationModel: ObservableObject {
     func update(_ state: RateLimitDisplayState, tasksEnabled: Bool) {
         // No geometry or transition writes: data refresh cannot erase interaction intent.
         content = NotchContentAdapter(state, tasksEnabled: tasksEnabled)
+    }
+    func updateResetNews(_ state: ResetNewsViewState) { resetNews = state }
+    func resetNewsPageVisibilityChanged(_ visible: Bool) { resetNewsPageVisible = visible && messagesVisible }
+    func resetNewsCardVisible(_ id: String) {
+        guard messagesVisible, resetNewsPageVisible, resetNews.items.contains(where: { $0.id == id }),
+              !resetNews.readIDs.contains(id) else { return }
+        onVisibleMessage?(id)
     }
     func setEnvironment(reduceMotion: Bool, reduceTransparency: Bool, lowPower: Bool) {
         let motionChanged = self.reduceMotion != reduceMotion
@@ -80,6 +95,7 @@ final class NotchPresentationModel: ObservableObject {
             menuDepth = 0
             state = restingState
             detailsVisible = false
+            resetNewsPageVisible = false
             detailsMounted = false
             pillsVisible = alwaysShowQuota
             if let layout { size = layout.size(for: restingState) }
@@ -100,6 +116,13 @@ final class NotchPresentationModel: ObservableObject {
     func click() {
         guard visible, state != .expanded else { return }
         transition(to: .expanded)
+    }
+    func openResetForecasts() {
+        guard visible else { return }
+        // Only this explicit shoulder action selects the forecast page. Neither
+        // data updates nor the general expansion gesture changes the page.
+        click()
+        selectPage(.messages)
     }
     func collapse(animated: Bool = true) { transition(to: restingState, animated: animated) }
     func outsideClick() { if menuDepth == 0 { collapse() } }

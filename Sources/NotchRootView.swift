@@ -40,6 +40,9 @@ struct NotchRootView: View {
                     .allowsHitTesting(model.detailsVisible && model.state == .expanded)
                     .accessibilityHidden(!model.detailsVisible || model.state != .expanded)
             }
+            // The shoulder stays above mounted details so Expanded cannot
+            // intercept its click with the details' transparent top padding.
+            resetForecastButton(layout)
         }.frame(width: layout.windowFrame.width, height: layout.windowFrame.height, alignment: .top)
     }
     private func marks(_ layout: NotchLayout) -> some View {
@@ -48,12 +51,26 @@ struct NotchRootView: View {
                 .font(.system(size: 20)).foregroundColor(.white)
                 .frame(width: 20, height: 20)
                 .position(x: layout.markX(left: true), y: layout.visualBarHeight / 2)
-            Image(systemName: model.content.tasksEnabled ? model.content.task.appearance.notchSymbol : "gauge")
-                .font(.system(size: 20)).foregroundColor(Color(model.content.task.appearance.color ?? .white))
-                .frame(width: 20, height: 20)
-                .position(x: layout.markX(left: false), y: layout.visualBarHeight / 2)
-                .accessibilityLabel(model.content.taskTitle)
         }
+    }
+    private func resetForecastButton(_ layout: NotchLayout) -> some View {
+        let count = model.resetNews.forecastCount
+        return Button(action: model.openResetForecasts) {
+            HStack(spacing: 1) {
+                Image(nsImage: ResetForecastIndicator.image(size: 16)).renderingMode(.template)
+                    .resizable().frame(width: 16, height: 16)
+                Text(ResetForecastIndicator.countText(count))
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced)).fixedSize()
+            }
+            .foregroundColor(count > 0 ? NotchStyle.accent : Color.white.opacity(0.6))
+            .frame(width: 38, height: layout.visualBarHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .position(x: layout.markX(left: false), y: layout.visualBarHeight / 2)
+        .accessibilityLabel(ResetForecastIndicator.accessibilityLabel(count))
+        .accessibilityIdentifier("notch.resetForecast")
+        .help(ResetForecastIndicator.accessibilityLabel(count))
     }
     private func peek(_ layout: NotchLayout) -> some View {
         ZStack(alignment: .topLeading) {
@@ -64,25 +81,18 @@ struct NotchRootView: View {
     private func pill(left: Bool, layout: NotchLayout) -> some View {
         let info = model.content.peek(left: left)
         let direction: CGFloat = left ? -1 : 1
-        return VStack(spacing: 0) {
+        let content = VStack(spacing: 0) {
             Text(info.value).font(.system(size: 11, weight: .semibold, design: .monospaced)).foregroundColor(NotchStyle.accent)
-            Text(info.detail).font(.system(size: 8)).foregroundColor(NotchStyle.secondary)
+            Text(info.detail).font(.system(size: left ? 8 : 9)).foregroundColor(NotchStyle.secondary)
         }
         .lineLimit(1).minimumScaleFactor(0.65)
         .frame(width: max(0, layout.pillSlotWidth - 8), height: layout.visualBarHeight)
         .position(x: layout.windowFrame.width / 2 + direction * (layout.notchWidth / 2 + 38 + layout.pillSlotWidth / 2), y: layout.visualBarHeight / 2)
         .offset(x: model.pillsVisible || model.reduceMotion ? 0 : direction * 6)
-        .help(info.value + " · " + info.detail)
-    }
-}
-
-private extension TaskStatusAppearance {
-    var notchSymbol: String {
-        switch self {
-        case .running: return "arrow.triangle.2.circlepath"
-        case .completed: return "checkmark.circle.fill"
-        case .unknown: return "questionmark.circle"
-        case .idle: return "circle.dotted"
+        .help(info.help)
+        return Group {
+            if left { content }
+            else { content.accessibilityElement(children: .ignore).accessibilityLabel(info.help) }
         }
     }
 }

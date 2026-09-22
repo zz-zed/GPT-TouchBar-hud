@@ -5,6 +5,10 @@ final class TouchBarRateLimitsView: NSView {
     static var contentWidth: CGFloat { DisplayLanguage.current == .english ? 460 : 600 }
     private let chatGPTIconView = NSImageView()
     private let taskBadge = NSTextField(labelWithString: "")
+    private let messagesButton = NSButton(title: "", target: nil, action: nil)
+    var onOpenMessages: (() -> Void)?
+    private var currentState = RateLimitDisplayState.initial
+    private var messageForecastCount = 0
     private var hasRunningTasks = false
     private var itemVisibility: Bool?
     private var itemVisibilityObservation: NSKeyValueObservation?
@@ -95,6 +99,10 @@ final class TouchBarRateLimitsView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
+        currentState = state
+        let forecastAccessibilityLabel = ResetForecastIndicator.accessibilityLabel(messageForecastCount)
+        messagesButton.toolTip = forecastAccessibilityLabel
+        messagesButton.setAccessibilityLabel(forecastAccessibilityLabel)
         let status = state.displayedTaskStatus
         taskBadge.stringValue = status?.badge ?? ""
         taskBadge.isHidden = status == nil
@@ -168,10 +176,41 @@ final class TouchBarRateLimitsView: NSView {
             balanceValue.frame = NSRect(x: total + 12, y: 2, width: balanceWidth, height: 13)
             total += 12 + balanceWidth
         }
-        widthConstraint.constant = ceil(total + 2)
+        if !messagesButton.isHidden {
+            let count = ResetForecastIndicator.countText(messageForecastCount)
+            messagesButton.title = DisplayLanguage.text("重置预告 \(count)", "Reset forecasts \(count)")
+            var width = max(46, ceil(messagesButton.fittingSize.width))
+            if total + 8 + width + 4 > Self.contentWidth {
+                messagesButton.title = DisplayLanguage.text("预告 \(count)", "Forecast \(count)")
+                width = max(46, ceil(messagesButton.fittingSize.width))
+            }
+            if total + 8 + width + 4 > Self.contentWidth {
+                messagesButton.title = count
+                width = max(46, ceil(messagesButton.fittingSize.width))
+            }
+            messagesButton.frame = NSRect(x: total + 8, y: 3, width: width, height: 24)
+            total += 8 + width
+        }
+        // Borderless NSButton alignment can extend one point past its assigned
+        // alignment rect on each side; keep that visible frame inside the item.
+        widthConstraint.constant = ceil(total + 4)
         toolTip = state.statusText
-        setAccessibilityLabel(([status?.label].compactMap { $0 } + rows.map { "\($0.0) \($0.1) \($0.2)" } + usageLabels.map(\.stringValue) + (hasBalance ? [balanceValue.stringValue] : [])).joined(separator: ", "))
+        setAccessibilityLabel(([status?.label].compactMap { $0 } + rows.map { "\($0.0) \($0.1) \($0.2)" } + usageLabels.map(\.stringValue) + (hasBalance ? [balanceValue.stringValue] : []) + (messagesButton.isHidden ? [] : [messagesButton.title])).joined(separator: ", "))
     }
+
+    func updateMessages(forecastCount: Int, available: Bool) {
+        messageForecastCount = max(0, forecastCount)
+        messagesButton.isHidden = !available
+        messagesButton.contentTintColor = messageForecastCount > 0
+            ? DesignTokens.accent
+            : NSColor.white.withAlphaComponent(0.84)
+        let accessibilityLabel = ResetForecastIndicator.accessibilityLabel(forecastCount)
+        messagesButton.toolTip = accessibilityLabel
+        messagesButton.setAccessibilityLabel(accessibilityLabel)
+        update(with: currentState)
+    }
+
+    @objc private func messagesClicked() { onOpenMessages?() }
 
     private func configure() {
         translatesAutoresizingMaskIntoConstraints = false
@@ -191,6 +230,18 @@ final class TouchBarRateLimitsView: NSView {
         taskBadge.frame = NSRect(x: 4, y: 0, width: 20, height: 11)
         taskBadge.setAccessibilityIdentifier("touchbar.task-badge")
         addSubview(taskBadge)
+        messagesButton.isHidden = true
+        messagesButton.font = .systemFont(ofSize: 10, weight: .medium)
+        messagesButton.image = ResetForecastIndicator.image()
+        messagesButton.imagePosition = .imageLeft
+        messagesButton.imageScaling = .scaleProportionallyDown
+        messagesButton.contentTintColor = NSColor.white.withAlphaComponent(0.84)
+        messagesButton.isBordered = false
+        messagesButton.setButtonType(.momentaryChange)
+        messagesButton.target = self
+        messagesButton.action = #selector(messagesClicked)
+        messagesButton.setAccessibilityIdentifier("touchbar.messages")
+        addSubview(messagesButton)
         rowViews.forEach { addSubview($0) }
         usageLabels.forEach { addSubview($0) }
         addSubview(balanceTitle)

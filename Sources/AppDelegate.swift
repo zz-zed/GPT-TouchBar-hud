@@ -5,6 +5,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private let store = RateLimitStore()
     private let appUpdater = AppUpdater()
     private let taskMonitor = TaskMonitoringCoordinator()
+    private let resetNewsMonitor = ResetNewsMonitor()
+    private var latestResetNewsState = ResetNewsViewState()
+    private var resetNewsRuntimeRunning = false
+    private var resetNewsMenuItem: NSMenuItem?
+    private lazy var resetNewsPopover: ResetNewsPopoverController = {
+        let controller = ResetNewsPopoverController()
+        controller.model.onCheck = { [weak self] in self?.resetNewsMonitor.checkNow() }
+        controller.model.onMarkAllRead = { [weak self] in self?.resetNewsMonitor.markAllRead() }
+        controller.model.onSettings = { [weak self] in self?.openResetNewsPreferences() }
+        controller.model.onVisibleItem = { [weak self] id in self?.resetNewsMonitor.markRead([id]) }
+        return controller
+    }()
     private var hookPreferences: HookExperimentPreferencesController?
     private lazy var completionFeedback: TaskCompletionFeedbackController = {
         let controller = TaskCompletionFeedbackController()
@@ -38,6 +50,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         controller.onSettings = { [weak self] in self?.openPreferences(nil) }
         controller.onHide = { [weak self] in self?.closeHUD() }
         controller.onVisibilityChanged = { [weak self] in self?.renderDisplayState() }
+        controller.onCheckMessages = { [weak self] in self?.resetNewsMonitor.checkNow() }
+        controller.onMarkAllMessagesRead = { [weak self] in self?.resetNewsMonitor.markAllRead() }
+        controller.onMessageSettings = { [weak self] in self?.openResetNewsPreferences() }
+        controller.onVisibleMessage = { [weak self] id in self?.resetNewsMonitor.markRead([id]) }
         return controller
     }()
     private var hudAppearance = HUDAppearance.load()
@@ -72,6 +88,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         hudPreferences.applyStartupVisibility(hasGeometry: !DisplayTargetResolver.candidates().isEmpty)
 
         store.delegate = self
+        resetNewsRuntimeRunning = true
+        resetNewsMonitor.onStateChange = { [weak self] state in
+            self?.latestResetNewsState = state
+            self?.renderResetNews()
+        }
+        resetNewsMonitor.onOpenDetails = { [weak self] ids in self?.openResetNews(itemIDs: ids) }
+        latestResetNewsState = resetNewsMonitor.state
+        hudController.onOpenMessages = { [weak self] in
+            guard let self else { return }
+            self.openResetNews(relativeTo: self.hudController.messageAnchorView)
+        }
+        hudController.onOpenTouchBarMessages = { [weak self] in self?.openResetNews() }
+        persistentTouchBar.onOpenMessages = { [weak self] in self?.openResetNews() }
         appUpdater.onInstall = { [weak self] in self?.quitApp() }
         appUpdater.onStateChange = { [weak self] in self?.updateUpdatePresentation() }
         taskMonitor.onUpdate = { [weak self] status in
@@ -99,6 +128,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
         taskMonitor.prepareForHost(displayEnabled: taskStatusEnabled)
         lifecycleMonitor.start()
+        updateResetNewsGate()
+        renderResetNews()
 
         if lifecycleMonitor.hostIsRunningNow() {
             hostDidStart()
@@ -126,6 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             systemSleeping = false
             taskMonitor.resume()
             appUpdater.didWake()
+            updateResetNewsGate()
         }
         screenConfigurationChanged()
     }
@@ -135,17 +167,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         if notification.name == NSWorkspace.sessionDidResignActiveNotification { sessionInactive = true }
         notchHUD.hide()
         hudWindow.orderOut(nil)
+        resetNewsPopover.close()
+        updateResetNewsGate()
         renderDisplayState()
     }
     @objc private func resumePanels(_ notification: Notification) {
         if notification.name.rawValue == "com.apple.screenIsUnlocked" { screenLocked = false }
         if notification.name == NSWorkspace.sessionDidBecomeActiveNotification { sessionInactive = false }
+        updateResetNewsGate()
         screenConfigurationChanged()
     }
     func menuWillOpen(_ menu: NSMenu) { notchHUD.collapse() }
 
     func applicationWillTerminate(_ notification: Notification) {
         completionFeedback.reset()
+        stopResetNews()
         notchHUD.hide()
         taskMonitor.stop()
         persistentTouchBar.stop()
@@ -168,6 +204,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         persistentTouchBar.update(with: state)
         summaryMenuItem?.view = StatusSummaryView(state: state)
         preferences?.update(appearance: hudAppearance, state: state, taskEnabled: taskStatusEnabled, persistentEnabled: persistentTouchBar.isEnabled, persistentAvailable: persistentTouchBar.isAvailable, appUpdate: appUpdater.viewState)
+    }
+
+    private func renderResetNews() {
+        let state = latestResetNewsState
+        let available = state.enabled || !state.items.isEmpty
+        resetNewsMenuItem?.title = ResetForecastIndicator.accessibilityLabel(state.forecastCount)
+        hudController.updateMessages(forecastCount: state.forecastCount, available: available)
+        persistentTouchBar.updateMessages(forecastCount: state.forecastCount, available: available)
+        notchHUD.updateResetNews(state)
+        resetNewsPopover.update(state)
+        preferences?.updateResetNews(state, soundEnabled: resetNewsMonitor.soundEnabled)
+    }
+
+    private func updateResetNewsGate() {
+        resetNewsMonitor.updateGate(codexRunning: lifecycleMonitor.codexIsRunningNow(),
+            hudRunning: resetNewsRuntimeRunning, suspended: sessionSuspended)
+    }
+
+    private func stopResetNews() {
+        resetNewsRuntimeRunning = false
+        resetNewsMonitor.stop()
+        resetNewsPopover.close()
+    }
+
+    private func openResetNews(relativeTo source: NSView? = nil, itemIDs: [String] = []) {
+        guard !sessionSuspended, let anchor = source.flatMap({ $0.window?.isVisible == true && $0.window?.isOnActiveSpace == true && !$0.isHidden ? $0 : nil }) ?? statusItem.button else { return }
+        resetNewsPopover.update(latestResetNewsState)
+        resetNewsPopover.show(relativeTo: anchor, itemIDs: itemIDs)
+    }
+
+    @objc private func openResetNewsFromMenu(_ sender: AnyObject?) {
+        let anchor = (sender as? NSMenuItem)?.representedObject as? NSView
+        DispatchQueue.main.async { [weak self] in self?.openResetNews(relativeTo: anchor) }
+    }
+
+    private func openResetNewsPreferences() {
+        resetNewsPopover.close()
+        notchHUD.collapse(animated: false)
+        openPreferences(nil)
+        preferences?.showResetNewsTab()
     }
 
     private func configureStatusItem() {
@@ -202,6 +278,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         menu.addItem(summary)
         menu.addItem(.separator())
         menu.addItem(menuAction("刷新额度", #selector(refreshQuotaFromMenu(_:)), key: "r"))
+        let messages = menuAction(ResetForecastIndicator.accessibilityLabel(latestResetNewsState.forecastCount), #selector(openResetNewsFromMenu(_:)))
+        resetNewsMenuItem = messages
+        menu.addItem(messages)
         let visibility = menuAction("显示浮窗", #selector(toggleHUDWindow(_:)))
         hudVisibilityMenuItem = visibility
         menu.addItem(visibility)
@@ -236,6 +315,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private func makeHUDContextMenu() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(menuAction("刷新额度", #selector(refreshQuotaFromMenu(_:)), key: "r"))
+        let forecasts = menuAction(ResetForecastIndicator.accessibilityLabel(latestResetNewsState.forecastCount), #selector(openResetNewsFromMenu(_:)))
+        forecasts.representedObject = hudController.messageAnchorView
+        menu.addItem(forecasts)
         menu.addItem(menuAction("隐藏浮窗", #selector(hideHUDFromContextMenu(_:))))
         menu.addItem(.separator())
         menu.addItem(menuAction("设置…", #selector(openPreferences(_:)), key: ","))
@@ -262,6 +344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             controller.onLanguage = { [weak self] language in
                 DisplayLanguage.current = language
                 self?.renderDisplayState()
+                self?.renderResetNews()
             }
             controller.onHookExperiment = { [weak self] in self?.openHookPreferences() }
             controller.onTaskStatus = { [weak self] enabled in self?.setTaskStatusEnabled(enabled) }
@@ -275,9 +358,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             }
             controller.onCheckForUpdates = { [weak self] in self?.appUpdater.check() }
             controller.onViewUpdate = { [weak self] in self?.appUpdater.presentAvailableUpdate() }
+            controller.onResetNewsEnabled = { [weak self] enabled in self?.resetNewsMonitor.setEnabled(enabled) }
+            controller.onResetNewsSound = { [weak self] enabled in
+                self?.resetNewsMonitor.setSoundEnabled(enabled)
+                self?.renderResetNews()
+            }
+            controller.onCheckResetNews = { [weak self] in self?.resetNewsMonitor.checkNow() }
             preferences = controller
         }
         renderDisplayState()
+        preferences?.updateResetNews(latestResetNewsState, soundEnabled: resetNewsMonitor.soundEnabled)
         NSApp.activate(ignoringOtherApps: true)
         preferences?.showWindow(sender)
         preferences?.window?.makeKeyAndOrderFront(sender)
@@ -361,6 +451,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     @objc private func viewAvailableAppUpdate(_ sender: AnyObject?) { appUpdater.presentAvailableUpdate() }
 
     private func configureLifecycleMonitor() {
+        lifecycleMonitor.onCodexStarted = { [weak self] in self?.updateResetNewsGate() }
+        lifecycleMonitor.onCodexStopped = { [weak self] in self?.updateResetNewsGate() }
         lifecycleMonitor.onHostStarted = { [weak self] in
             self?.hostDidStart()
         }
@@ -473,6 +565,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func hostDidStop() {
         completionFeedback.reset()
+        stopResetNews()
         taskMonitor.hostUnavailable()
         notchHUD.hide()
         taskMonitor.stop()
@@ -551,6 +644,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func quitApp() {
         completionFeedback.reset()
+        stopResetNews()
         notchHUD.hide()
         HostAutoLauncher.markManualQuit()
         persistentTouchBar.stop()

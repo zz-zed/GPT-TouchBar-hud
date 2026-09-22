@@ -8,6 +8,10 @@ final class NotchHUDController {
     var onSettings: (() -> Void)? { didSet { island?.onSettings = onSettings; legacy?.onSettings = onSettings } }
     var onHide: (() -> Void)? { didSet { island?.model.onHide = onHide; legacy?.onHide = onHide } }
     var onVisibilityChanged: (() -> Void)? { didSet { island?.onVisibilityChanged = onVisibilityChanged; legacy?.onVisibilityChanged = onVisibilityChanged } }
+    var onCheckMessages: (() -> Void)? { didSet { island?.model.onCheckMessages = onCheckMessages } }
+    var onMarkAllMessagesRead: (() -> Void)? { didSet { island?.model.onMarkAllMessagesRead = onMarkAllMessagesRead } }
+    var onMessageSettings: (() -> Void)? { didSet { island?.model.onMessageSettings = onMessageSettings } }
+    var onVisibleMessage: ((String) -> Void)? { didSet { island?.model.onVisibleMessage = onVisibleMessage } }
     var isExpanded: Bool { island.map { $0.model.state == .expanded } ?? legacy?.isExpanded ?? false }
     var isVisible: Bool { island?.isVisible ?? legacy?.isVisible ?? false }
     init(useLegacy: Bool = ProcessInfo.processInfo.environment["GPT_HUD_NOTCH_RENDERER"] == "legacy") {
@@ -25,6 +29,7 @@ final class NotchHUDController {
     func collapse(animated: Bool = true) { island?.model.collapse(animated: animated); legacy?.collapse(animated: animated) }
     func environmentChanged() { island?.environmentChanged(); legacy?.environmentChanged() }
     func setAlwaysShowQuota(_ enabled: Bool) { island?.model.setAlwaysShowQuota(enabled) }
+    func updateResetNews(_ state: ResetNewsViewState) { island?.model.updateResetNews(state) }
 }
 
 final class NotchIslandController: NSObject, NSMenuDelegate {

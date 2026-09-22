@@ -117,13 +117,18 @@ Hooks 默认关闭。只有审阅并应用计划后才写配置和安装稳定 h
 
 Hooks helper 不转发或持久化提示词、回复、工具参数、工作目录或转录路径；事件和缓存保存任务生命周期元数据。实验不绕过宿主的信任机制。
 
+重置预告默认开启，保留用户明确关闭的选择。只有 Codex 与 HUD App 同时运行且未休眠时，才通过 HTTPS 读取公开公告源的 feed 和 timeline JSON；请求包含应用版本和中文语言参数，不携带 ChatGPT 账号信息、登录凭据或任务内容。该请求使用临时网络会话，不依赖浏览器登录，也不将 HTTP 响应缓存持久化到磁盘；筛选后的预告会另存为下表所列本地缓存。打开预告详情或点击通知本身只读取本地缓存，不触发联网。
+
+系统通知受 macOS 权限控制，提示音默认关闭。通知包含公开预告摘要和本地条目 ID，不包含账号额度；已送达的通知由 macOS 通知中心管理。
+
 自动检查更新开启且应用位于受支持安装路径时，会访问本仓库公开的 GitHub Release API，并在 User-Agent 中包含应用版本；必要时按规则回退最新 Release 页面。检查不携带 ChatGPT 账号信息或任务内容，不自动下载附件。只有用户主动确认安装后才下载。开发构建、测试和刘海模拟入口不启动自动检查；在设置 → 更新中可关闭该功能。
 
 ## 本机保存哪些内容？
 
 | 内容 | 位置或保存方式 | 清理注意事项 |
 | --- | --- | --- |
-| 界面、任务显示、更新偏好和检查状态 | 应用的 UserDefaults。 | 删除后会失去已保存设置。 |
+| 界面、任务显示、重置预告、提示音、更新偏好和检查状态 | 应用的 UserDefaults。 | 删除后会失去已保存设置；重置预告恢复默认开启，提示音恢复默认关闭。 |
+| 重置预告缓存、阅读标记、来源基线与去重记录 | `~/Library/Application Support/io.github.zz-zed.GPTTouchBarHUD/ResetNews/state-v1.json`。保存公开公告正文、来源链接、摘要、安排日期及来源副本；不保存账号额度或凭据。 | 关闭预告不会删除缓存，删除 App 也不会自动移除。确认 HUD 已退出后，可单独清理该文件或 `ResetNews` 子目录。 |
 | 随宿主自动启动的注册项 | `~/Library/LaunchAgents/io.github.zz-zed.GPTTouchBarHUD.CodexLauncher.plist`。 | 卸载时应停用并清理。 |
 | 当前应用手动退出标记 | `~/Library/Application Support/GPT TouchBar HUD/manual-quit.lock`。 | 与下面不带空格的 Hooks 目录不同。 |
 | 旧项目兼容退出标记 | `~/Library/Application Support/TouchBarCodexToken/manual-quit.lock`。 | 仍使用旧项目时不要批量删除其目录或偏好。 |
@@ -132,10 +137,12 @@ Hooks helper 不转发或持久化提示词、回复、工具参数、工作目�
 | Hooks 稳定 helper、安装回执与回滚材料 | `~/Library/Application Support/GPTTouchBarHUD/Hooks/`。 | 不随删除 App 自动移除；用户修改过的内容需单独审阅。 |
 | Hooks socket、锁和 `state.json` 元数据缓存 | `~/.gpt-touchbar-hud-hooks/`。 | 与账号用量内存缓存不同；停用实验后再审阅清理。 |
 
+预告缓存只保留本地当天及未来可确定日期的安排，读取和保存时会清理历史卡片、无效事实与对应阅读标记。清理后仍保留有限的通知去重记录（最长 90 天、最多 500 条）和防止旧来源回滚的终态元数据；后者仅含条目 ID、版本时间、保留截止时间与修订号，不带历史正文。删除整个预告缓存也会清除这些记录，下一次成功检查会重新建立静默基线。此操作不会删除应用偏好、Hooks 数据或 macOS 通知中心已经送达的通知，也不会更改账号额度；不要把上层应用支持目录作为预告清理范围。
+
 Hooks 配置清理、稳定 helper 清理、应用卸载是不同操作。关闭实验不会自动删除配置、备份或 helper；详细步骤见[卸载与清理](UNINSTALL.md)。
 
 ## 实现与验证入口
 
 额度接入见[客户端实现](../Sources/CodexAppServerClient.swift)，应用目录与身份见[应用标识](../Sources/AppIdentity.swift)，启动注册见[自动启动实现](../Sources/HostAutoLauncher.swift)。
 
-Hooks 写入与隐私边界见[实验说明](HOOKS-EXPERIMENT.md)；发布与真机验收范围见[v0.1.30 发布记录](RELEASE-0.1.30.md)。
+重置预告的联网与缓存实现见[公开源读取](../Sources/ResetNewsFeedClient.swift)和[本地缓存](../Sources/ResetNewsRepository.swift)。Hooks 写入与隐私边界见[实验说明](HOOKS-EXPERIMENT.md)；当前候选版本与真机验收范围见[v0.1.32 本地发布准备记录](RELEASE-PREPARATION-0.1.32.md)。

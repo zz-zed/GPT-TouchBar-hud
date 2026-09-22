@@ -14,11 +14,13 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "GPTTouchBarHUD",
-            dependencies: ["HookCore"],
+            dependencies: ["HookCore", "ResetNewsCore"],
             path: "Sources"
         ),
         .target(name: "HookCore", path: "HookCore"),
+        .target(name: "ResetNewsCore", path: "ResetNewsCore"),
         .executableTarget(name: "HookEmitter", dependencies: ["HookCore"], path: "HookHelper"),
-        .testTarget(name: "HookCoreTests", dependencies: ["HookCore"], path: "Tests/HookCoreTests")
+        .testTarget(name: "HookCoreTests", dependencies: ["HookCore"], path: "Tests/HookCoreTests"),
+        .testTarget(name: "ResetNewsCoreTests", dependencies: ["ResetNewsCore"], path: "Tests/ResetNewsCoreTests")
     ]
 )

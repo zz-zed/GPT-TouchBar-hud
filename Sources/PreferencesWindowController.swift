@@ -13,6 +13,16 @@ final class PreferencesWindowController: NSWindowController {
     var onAutomaticUpdates: ((Bool) -> Void)?
     var onCheckForUpdates: (() -> Void)?
     var onViewUpdate: (() -> Void)?
+    var onResetNewsEnabled: ((Bool) -> Void)?
+    var onResetNewsSound: ((Bool) -> Void)?
+    var onCheckResetNews: (() -> Void)?
+    private let tabs = NSTabView()
+    private let resetNewsEnabled = NSButton(checkboxWithTitle: "启用重置预告", target: nil, action: nil)
+    private let resetNewsSound = NSButton(checkboxWithTitle: "预告提示音", target: nil, action: nil)
+    private let resetNewsStatus = NSTextField(wrappingLabelWithString: "重置预告已关闭")
+    private let resetNewsPermission = NSTextField(wrappingLabelWithString: "系统通知权限：尚未请求")
+    private let resetNewsTiming = NSTextField(wrappingLabelWithString: "尚未检查")
+    private let resetNewsCheck = NSButton(title: "检查预告", target: nil, action: nil)
     private let menuMode = NSPopUpButton()
     private let visible = NSButton(checkboxWithTitle: "显示状态面板", target: nil, action: nil)
     private let notchRestingState = NSPopUpButton()
@@ -46,6 +56,31 @@ final class PreferencesWindowController: NSWindowController {
         configure()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func showResetNewsTab() { tabs.selectTabViewItem(at: 5) }
+
+    func updateResetNews(_ state: ResetNewsViewState, soundEnabled: Bool) {
+        resetNewsEnabled.title = DisplayLanguage.text("启用重置预告", "Enable reset forecasts")
+        resetNewsSound.title = DisplayLanguage.text("预告提示音", "Forecast sound")
+        resetNewsCheck.title = DisplayLanguage.text("检查预告", "Check forecasts")
+        tabs.tabViewItem(at: 5).label = DisplayLanguage.text("重置预告", "Reset forecasts")
+        resetNewsEnabled.state = state.enabled ? .on : .off
+        resetNewsSound.state = soundEnabled ? .on : .off
+        resetNewsStatus.stringValue = state.statusText
+        let permission: String
+        switch state.notificationPermission {
+        case .notRequested: permission = "尚未请求"
+        case .allowed: permission = "已允许"
+        case .denied: permission = "未允许；可在系统设置的通知中调整"
+        case .unavailable: permission = "暂不可用"
+        }
+        resetNewsPermission.stringValue = "系统通知权限：" + permission
+        func date(_ value: Date?) -> String {
+            value.map { DateFormatter.localizedString(from: $0, dateStyle: .short, timeStyle: .short) } ?? "无"
+        }
+        resetNewsTiming.stringValue = "最近检查：\(date(state.lastAttempt))\n最近成功：\(date(state.lastSuccess))\n下次检查：\(date(state.nextCheck))"
+        resetNewsCheck.isEnabled = state.enabled && ![.checking, .codexNotRunning, .idle].contains(state.status)
+    }
 
     func update(
         appearance: HUDAppearance,
@@ -106,7 +141,6 @@ final class PreferencesWindowController: NSWindowController {
 
     private func configure() {
         guard let content = window?.contentView else { return }
-        let tabs = NSTabView()
         tabs.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(tabs)
         NSLayoutConstraint.activate([tabs.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20), tabs.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20), tabs.topAnchor.constraint(equalTo: content.topAnchor, constant: 16), tabs.heightAnchor.constraint(equalToConstant: 340)])
@@ -124,7 +158,7 @@ final class PreferencesWindowController: NSWindowController {
         language.addItems(withTitles: ["中文", "English"])
         color.addItems(withTitles: HUDAppearance.ColorChoice.allCases.map(\.title))
         for control in [language, color, displayMode, notchRestingState, menuMode] { control.target = self; control.action = #selector(changed(_:)) }
-        for control in [tasks, persistent, visible, automaticUpdates] { control.target = self; control.action = #selector(changed(_:)) }
+        for control in [tasks, persistent, visible, automaticUpdates, resetNewsEnabled, resetNewsSound] { control.target = self; control.action = #selector(changed(_:)) }
         for slider in [backgroundSlider, foregroundSlider] { slider.target = self; slider.action = #selector(changed(_:)); slider.isContinuous = true }
         language.setAccessibilityLabel("信息语言")
         color.setAccessibilityLabel("浮窗颜色")
@@ -142,7 +176,20 @@ final class PreferencesWindowController: NSWindowController {
         let updates = column([automaticUpdates, updateStatus, updateButton, note("启动后约 30 秒按需检查；成功后 24 小时内不重复请求。手动检查可找回已跳过版本。")])
         let hookButton = NSButton(title: "配置 Hooks 实验…", target: self, action: #selector(openHookExperiment))
         let experiments = column([note("Hooks 任务监测默认关闭。可审阅配置后启用，随时恢复日志模式。"), hookButton])
-        for (title, view) in [("通用", general), ("外观", appearancePanel), ("Touch Bar", touch), ("实验", experiments), ("更新", updates)] {
+        resetNewsEnabled.setAccessibilityIdentifier("settings.resetNewsEnabled")
+        resetNewsSound.setAccessibilityIdentifier("settings.resetNewsSound")
+        resetNewsCheck.setAccessibilityIdentifier("settings.checkResetNews")
+        resetNewsCheck.target = self
+        resetNewsCheck.action = #selector(checkResetNewsClicked)
+        resetNewsCheck.isEnabled = false
+        for label in [resetNewsStatus, resetNewsPermission, resetNewsTiming] {
+            label.font = .systemFont(ofSize: 11)
+            label.textColor = .secondaryLabelColor
+        }
+        let resetNews = column([resetNewsEnabled, resetNewsSound,
+            note("仅在 Codex 与 HUD App 运行时检查；首次开启会请求系统通知权限。提示音默认关闭。"),
+            resetNewsPermission, resetNewsStatus, resetNewsTiming, resetNewsCheck])
+        for (title, view) in [("通用", general), ("外观", appearancePanel), ("Touch Bar", touch), ("实验", experiments), ("更新", updates), (DisplayLanguage.text("重置预告", "Reset forecasts"), resetNews)] {
             let item = NSTabViewItem(identifier: title)
             item.label = title
             let host = NSView()
@@ -168,6 +215,7 @@ final class PreferencesWindowController: NSWindowController {
     }
     @objc private func quitClicked() { onQuit?() }
     @objc private func openHookExperiment() { onHookExperiment?() }
+    @objc private func checkResetNewsClicked() { onCheckResetNews?() }
     @objc private func updateClicked() {
         if updateAvailableVersion != nil { onViewUpdate?() }
         else { onCheckForUpdates?() }
@@ -212,6 +260,8 @@ final class PreferencesWindowController: NSWindowController {
         if sender === tasks { onTaskStatus?(tasks.state == .on); return }
         if sender === persistent { onPersistent?(persistent.state == .on); return }
         if sender === automaticUpdates { onAutomaticUpdates?(automaticUpdates.state == .on); return }
+        if sender === resetNewsEnabled { onResetNewsEnabled?(resetNewsEnabled.state == .on); return }
+        if sender === resetNewsSound { onResetNewsSound?(resetNewsSound.state == .on); return }
         appearance.colorChoice = HUDAppearance.ColorChoice.allCases[color.indexOfSelectedItem]
         appearance.backgroundOpacity = backgroundSlider.doubleValue / 100
         appearance.contentOpacity = foregroundSlider.doubleValue / 100

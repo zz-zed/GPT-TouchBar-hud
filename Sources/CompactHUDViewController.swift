@@ -12,6 +12,15 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     private let onRefresh: () -> Void
     private let onClose: () -> Void
     private let onPresentTouchBar: () -> Bool
+    var onOpenMessages: (() -> Void)? {
+        didSet { hudView.onOpenMessages = onOpenMessages; touchBarView.onOpenMessages = onOpenTouchBarMessages ?? onOpenMessages }
+    }
+    var onOpenTouchBarMessages: (() -> Void)? {
+        didSet { touchBarView.onOpenMessages = onOpenTouchBarMessages ?? onOpenMessages }
+    }
+    private var messageForecastCount = 0
+    private var messagesAvailable = false
+    var messageAnchorView: NSView { hudView.messageAnchorView }
 
     init(
         initialAppearance: HUDAppearance,
@@ -41,6 +50,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         view = hudView
         view.frame = NSRect(x: 0, y: 0, width: 250, height: DesignTokens.hudHeight)
         update(with: currentState)
+        updateMessages(forecastCount: messageForecastCount, available: messagesAvailable)
     }
 
     override func makeTouchBar() -> NSTouchBar? {
@@ -86,6 +96,12 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     func updateAppearance(_ appearance: HUDAppearance) {
         hudView.updateAppearance(appearance)
     }
+    func updateMessages(forecastCount: Int, available: Bool) {
+        messageForecastCount = forecastCount
+        messagesAvailable = available
+        hudView.updateMessages(forecastCount: forecastCount, available: available)
+        touchBarView.updateMessages(forecastCount: forecastCount, available: available)
+    }
 
     @objc private func closeClicked() {
         onClose()
@@ -97,6 +113,11 @@ final class CompactQuotaHUDView: NSView {
 
     private let firstItem = CompactQuotaItemView()
     private let taskLabel = NSTextField(labelWithString: "")
+    private let messagesButton = NSButton(title: "", target: nil, action: nil)
+    var messageAnchorView: NSView { messagesButton }
+    var onOpenMessages: (() -> Void)?
+    private var forecastCount = 0
+    private var metricCount = 2
     private let secondItem = CompactQuotaItemView()
     private let refreshButton = CompactIconButton(
         symbolName: "arrow.clockwise",
@@ -177,7 +198,10 @@ final class CompactQuotaHUDView: NSView {
     func update(with state: RateLimitDisplayState) {
         refreshButton.isEnabled = !state.isRefreshing
         refreshButton.image = NSImage(systemSymbolName: state.isRefreshing ? "ellipsis" : (state.errorMessage == nil ? "arrow.clockwise" : "exclamationmark.arrow.circlepath"), accessibilityDescription: state.statusText)
-        refreshButton.toolTip = state.statusText
+        let refreshLabel = DisplayLanguage.text("刷新额度", "Refresh quotas")
+        refreshButton.toolTip = refreshLabel
+        refreshButton.setAccessibilityLabel(refreshLabel)
+        updateForecastPresentation()
         let taskStatus = state.displayedTaskStatus
         taskLabel.isHidden = taskStatus == nil
         taskLabel.stringValue = taskStatus?.label ?? ""
@@ -223,6 +247,24 @@ final class CompactQuotaHUDView: NSView {
         layer?.borderColor = NSColor.white.withAlphaComponent(solid ? 0.7 : 0.18).cgColor
     }
 
+    func updateMessages(forecastCount: Int, available: Bool) {
+        self.forecastCount = max(0, forecastCount)
+        messagesButton.isHidden = !available
+        updateForecastPresentation()
+        setMetricCount(metricCount)
+    }
+
+    private func updateForecastPresentation() {
+        let count = ResetForecastIndicator.countText(forecastCount)
+        messagesButton.title = DisplayLanguage.text("重置预告 \(count)", "Reset forecasts \(count)")
+        messagesButton.contentTintColor = forecastCount > 0
+            ? DesignTokens.accent
+            : NSColor.white.withAlphaComponent(0.84)
+        let accessibilityLabel = ResetForecastIndicator.accessibilityLabel(forecastCount)
+        messagesButton.toolTip = accessibilityLabel
+        messagesButton.setAccessibilityLabel(accessibilityLabel)
+    }
+
     private func configure() {
         wantsLayer = true
         layer?.backgroundColor = hudAppearance.backgroundColor.cgColor
@@ -234,11 +276,23 @@ final class CompactQuotaHUDView: NSView {
 
         refreshButton.target = self
         refreshButton.action = #selector(refreshClicked)
+        refreshButton.setAccessibilityIdentifier("hud.refresh")
+        messagesButton.image = ResetForecastIndicator.image()
+        messagesButton.imagePosition = .imageLeft
+        messagesButton.imageScaling = .scaleProportionallyDown
+        messagesButton.isBordered = false
+        messagesButton.contentTintColor = NSColor.white.withAlphaComponent(0.84)
+        messagesButton.font = .systemFont(ofSize: 10, weight: .medium)
+        messagesButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        messagesButton.target = self
+        messagesButton.action = #selector(messagesClicked)
+        messagesButton.isHidden = true
+        messagesButton.setAccessibilityIdentifier("hud.messages")
 
         taskLabel.isHidden = true
         taskLabel.font = .systemFont(ofSize: 11, weight: .medium)
         taskLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        let stack = NSStackView(views: [taskLabel, firstItem, secondItem, refreshButton])
+        let stack = NSStackView(views: [taskLabel, firstItem, secondItem, refreshButton, messagesButton])
         contentStack = stack
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .horizontal
@@ -264,10 +318,11 @@ final class CompactQuotaHUDView: NSView {
     }
 
     private func setMetricCount(_ count: Int) {
+        metricCount = count
         let showsSecondItem = count > 1
         secondItem.isHidden = !showsSecondItem
 
-        let visibleItems = [taskLabel, firstItem, secondItem, refreshButton].filter { !$0.isHidden }
+        let visibleItems = [taskLabel, firstItem, secondItem, refreshButton, messagesButton].filter { !$0.isHidden }
         let targetWidth = ceil(visibleItems.reduce(CGFloat(0)) { $0 + $1.fittingSize.width }
             + CGFloat(max(0, visibleItems.count - 1)) * DesignTokens.hudSpacing + DesignTokens.hudInset * 2)
         guard widthConstraint?.constant != targetWidth else {
@@ -292,6 +347,7 @@ final class CompactQuotaHUDView: NSView {
     @objc private func refreshClicked() {
         onRefresh()
     }
+    @objc private func messagesClicked() { onOpenMessages?() }
 
     @objc private func closeClicked() {
         onClose()
