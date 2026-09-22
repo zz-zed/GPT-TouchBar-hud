@@ -1,0 +1,143 @@
+{
+  "version": "0.1.32",
+  "build": "35",
+  "sourceCommit": "3c90c87f1e72f61ebbb990116427da47cf68ccc7",
+  "tag": "v0.1.32",
+  "releaseURL": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.32",
+  "publishedAt": "2026-09-22T07:59:51Z",
+  "latestVerified": true,
+  "releaseNotesMatch": true,
+  "githubAssetDigestsVerified": true,
+  "mainCI": {
+    "id": 35699932917,
+    "conclusion": "success"
+  },
+  "tagCI": {
+    "id": 35700826664,
+    "attempt": 2,
+    "conclusion": "success",
+    "firstAttemptIntelFailure": "Legacy native animation completion assertion; one failed-job rerun passed without source or assertion changes"
+  },
+  "assetVerification": {
+    "version": "0.1.32",
+    "build": "35",
+    "verifiedAtUTC": "2026-09-22T08:01:04Z",
+    "comparedWithLocalCandidates": false,
+    "installedAppModified": false,
+    "assets": [
+      {
+        "name": "GPT-TouchBar-HUD-0.1.32-arm64.dmg",
+        "bytes": 3556067,
+        "sha256": "47b16863c7203498c0a70f5d9807c0f0278e0d5f14cbe03836038c282ded98bc",
+        "architecture": "arm64",
+        "checksum": "passed",
+        "dmgIntegrity": "passed",
+        "version": "0.1.32",
+        "build": "35",
+        "minimumSystem": "11.0",
+        "bundleIdentifier": "io.github.zz-zed.GPTTouchBarHUD",
+        "strictSignature": "passed",
+        "readonlyMount": "passed",
+        "appSignature": {
+          "identifier": "io.github.zz-zed.GPTTouchBarHUD",
+          "cdhash": "b7d27ca6c41bbd4aa8ed06ca855679ec6fe4f348",
+          "signature": "adhoc",
+          "teamIdentifier": "not set"
+        },
+        "binaries": [
+          {
+            "path": "Contents/MacOS/GPTTouchBarHUD",
+            "architecture": "arm64",
+            "minimumOS": "11.0",
+            "sha256": "1c5cecb37e4a43de19b8e2ff6471ae00eb4a157a4b72980f9ab3aa7499c81b23",
+            "strictSignature": "passed",
+            "identifier": "io.github.zz-zed.GPTTouchBarHUD",
+            "cdhash": "b7d27ca6c41bbd4aa8ed06ca855679ec6fe4f348",
+            "signature": "adhoc",
+            "teamIdentifier": "not set"
+          },
+          {
+            "path": "Contents/Helpers/HookEmitter",
+            "architecture": "arm64",
+            "minimumOS": "11.0",
+            "sha256": "f7d42845667e9a1d7b57da469edeb0e3d44838f5e3a8c1b8344730dec4dba6dd",
+            "strictSignature": "passed",
+            "identifier": "com.gpt-touchbar-hud.hook-emitter",
+            "cdhash": "9dab262bf8402418a4a56690c3395516c921f00b",
+            "signature": "adhoc",
+            "teamIdentifier": "not set"
+          }
+        ],
+        "binarySHA256": {
+          "Contents/MacOS/GPTTouchBarHUD": "1c5cecb37e4a43de19b8e2ff6471ae00eb4a157a4b72980f9ab3aa7499c81b23",
+          "Contents/Helpers/HookEmitter": "f7d42845667e9a1d7b57da469edeb0e3d44838f5e3a8c1b8344730dec4dba6dd"
+        },
+        "firstOpenHelperCDHash": "b7d27ca6c41bbd4aa8ed06ca855679ec6fe4f348",
+        "firstOpenHelperSyntax": "passed",
+        "firstOpenHelperSHA256": "7a41f3bd95953f211cdcd0f12672eefa48cb34ce7c45aaeaa932bae13c57a6da",
+        "applicationsLink": "/Applications",
+        "detached": true
+      },
+      {
+        "name": "GPT-TouchBar-HUD-0.1.32-x86_64.dmg",
+        "bytes": 3668076,
+        "sha256": "6f6e6165024e89dcffab7f6ac76c680fd4f239f41e3c24df84a903be6127740a",
+        "architecture": "x86_64",
+        "checksum": "passed",
+        "dmgIntegrity": "passed",
+        "version": "0.1.32",
+        "build": "35",
+        "minimumSystem": "11.0",
+        "bundleIdentifier": "io.github.zz-zed.GPTTouchBarHUD",
+        "strictSignature": "passed",
+        "readonlyMount": "passed",
+        "appSignature": {
+          "identifier": "io.github.zz-zed.GPTTouchBarHUD",
+          "cdhash": "ee593a43116702504bb26cbbd6d5176a7081cf77",
+          "signature": "adhoc",
+          "teamIdentifier": "not set"
+        },
+        "binaries": [
+          {
+            "path": "Contents/MacOS/GPTTouchBarHUD",
+            "architecture": "x86_64",
+            "minimumOS": "11.0",
+            "sha256": "b3fed057c228e31e1a52c4cfb8a850eddc4e8f6e5ba99330a090c29dcbca1df6",
+            "strictSignature": "passed",
+            "identifier": "io.github.zz-zed.GPTTouchBarHUD",
+            "cdhash": "ee593a43116702504bb26cbbd6d5176a7081cf77",
+            "signature": "adhoc",
+            "teamIdentifier": "not set"
+          },
+          {
+            "path": "Contents/Helpers/HookEmitter",
+            "architecture": "x86_64",
+            "minimumOS": "11.0",
+            "sha256": "a38fdb45760ed1caf89fdb9162c21e348c48fdffe6ec4d810fecfca30730ac86",
+            "strictSignature": "passed",
+            "identifier": "com.gpt-touchbar-hud.hook-emitter",
+            "cdhash": "f24a9a609c03cc5838c0b95ad2a195bd2294824b",
+            "signature": "adhoc",
+            "teamIdentifier": "not set"
+          }
+        ],
+        "binarySHA256": {
+          "Contents/MacOS/GPTTouchBarHUD": "b3fed057c228e31e1a52c4cfb8a850eddc4e8f6e5ba99330a090c29dcbca1df6",
+          "Contents/Helpers/HookEmitter": "a38fdb45760ed1caf89fdb9162c21e348c48fdffe6ec4d810fecfca30730ac86"
+        },
+        "firstOpenHelperCDHash": "ee593a43116702504bb26cbbd6d5176a7081cf77",
+        "firstOpenHelperSyntax": "passed",
+        "firstOpenHelperSHA256": "628c06d4fe1ebc153ebc31dc01cbebb9ddccadf8a01eea1af33d124330b8b0d5",
+        "applicationsLink": "/Applications",
+        "detached": true
+      }
+    ],
+    "checksumManifestSHA256": "274f85f6b8c1f55b96a10bd0ac719d08295b8d8e46c002aab694880bb080ca7d",
+    "status": "passed"
+  },
+  "installedAppModified": false,
+  "limitations": [
+    "Physical notch hardware acceptance, actual macOS 11 runtime and installed-app update end-to-end remain unverified.",
+    "Ad-hoc signed; not notarized."
+  ]
+}

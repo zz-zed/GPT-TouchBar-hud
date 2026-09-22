@@ -6,7 +6,7 @@
 
 **[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
-> 当前源码版本：v0.1.32 / Build 35。安装包请前往 Release 页面下载。
+> 当前版本：v0.1.32 / Build 35。安装包请前往 Release 页面下载，校验信息见[发布记录](Documentation/RELEASE-0.1.32.md)。
 
 ## 界面与使用场景
 
