@@ -17,15 +17,30 @@ enum AccountTokenUsageSmoke {
                 print("lifetimeTokens=\(display.cumulativeTokens.map(String.init) ?? "null")")
                 print("\(display.yesterdayText); \(display.cumulativeText)")
                 completed = true
-            } else if let status = display.status {
-                print("FAIL: \(status)"); failed = true; completed = true
+            } else if display.status != nil {
+                print("FAIL: account/usage/read with account validation"); failed = true; completed = true
             }
         }
         client.start { result in
             guard case .success = result else {
                 print("FAIL: app-server initialization"); failed = true; completed = true; return
             }
-            usage.refresh()
+            print("default runtime discovery and app-server initialization: success")
+            client.readRateLimits { result in
+                switch result {
+                case .success(let response):
+                    let snapshots = response.rateLimitsByLimitId.map { Array($0.values) } ?? [response.rateLimits]
+                    let windowCount = snapshots.reduce(0) { count, snapshot in
+                        count + (snapshot.primary == nil ? 0 : 1) + (snapshot.secondary == nil ? 0 : 1)
+                    }
+                    print("account/rateLimits/read typed decoding: success")
+                    print("rateLimitGroups=\(snapshots.count); rateLimitWindows=\(windowCount)")
+                    usage.refresh()
+                case .failure:
+                    print("FAIL: account/rateLimits/read typed decoding")
+                    failed = true; completed = true
+                }
+            }
         }
         let deadline = Date().addingTimeInterval(65)
         while !completed && Date() < deadline {
@@ -34,6 +49,7 @@ enum AccountTokenUsageSmoke {
         usage.invalidate()
         client.stop()
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        if !completed { print("FAIL: live check timed out") }
         if !completed || failed { exit(1) }
     }
 }

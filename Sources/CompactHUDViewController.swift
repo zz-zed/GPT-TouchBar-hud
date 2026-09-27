@@ -89,8 +89,16 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
             return
         }
 
-        hudView.update(with: state)
+        // The controller also owns the responder-chain Touch Bar. Its updates
+        // must continue independently of the floating window's visibility.
+        if hudView.window?.isVisible != false { hudView.update(with: state) }
         touchBarView.update(with: state)
+    }
+
+    func prepareToShow() {
+        _ = view
+        hudView.update(with: currentState)
+        hudView.updateMessages(forecastCount: messageForecastCount, available: messagesAvailable)
     }
 
     func updateAppearance(_ appearance: HUDAppearance) {
@@ -99,7 +107,9 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     func updateMessages(forecastCount: Int, available: Bool) {
         messageForecastCount = forecastCount
         messagesAvailable = available
-        hudView.updateMessages(forecastCount: forecastCount, available: available)
+        if hudView.window?.isVisible != false {
+            hudView.updateMessages(forecastCount: forecastCount, available: available)
+        }
         touchBarView.updateMessages(forecastCount: forecastCount, available: available)
     }
 
@@ -109,6 +119,19 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
 }
 
 final class CompactQuotaHUDView: NSView {
+    private struct Content: Equatable {
+        let fivePercent: Int?
+        let weeklyPercent: Int?
+        let credits: String?
+        let refreshing: Bool
+        let hasError: Bool
+        let task: String?
+        let appearance: TaskStatusAppearance
+        let language: DisplayLanguage
+    }
+    private var renderedContent: Content?
+    private var forecastLanguage: DisplayLanguage?
+    private(set) var layoutUpdateCount = 0
     weak var touchBarProvider: CompactHUDViewController?
 
     private let firstItem = CompactQuotaItemView()
@@ -196,13 +219,24 @@ final class CompactQuotaHUDView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
+        let taskStatus = state.displayedTaskStatus
+        toolTip = state.statusText
+        taskLabel.toolTip = taskStatus?.detail
+        let next = Content(fivePercent: state.fiveHour.map { Int($0.remainingPercent.rounded()) },
+                           weeklyPercent: state.weekly.map { Int($0.remainingPercent.rounded()) },
+                           credits: state.resetCredits.flatMap { $0.availableCount > 0 ? $0.compactText : nil },
+                           refreshing: state.isRefreshing, hasError: state.errorMessage != nil,
+                           task: taskStatus?.label, appearance: TaskStatusAppearance(taskStatus),
+                           language: DisplayLanguage.current)
+        guard next != renderedContent else { return }
+        renderedContent = next
+        layoutUpdateCount += 1
         refreshButton.isEnabled = !state.isRefreshing
         refreshButton.image = NSImage(systemSymbolName: state.isRefreshing ? "ellipsis" : (state.errorMessage == nil ? "arrow.clockwise" : "exclamationmark.arrow.circlepath"), accessibilityDescription: state.statusText)
         let refreshLabel = DisplayLanguage.text("刷新额度", "Refresh quotas")
         refreshButton.toolTip = refreshLabel
         refreshButton.setAccessibilityLabel(refreshLabel)
         updateForecastPresentation()
-        let taskStatus = state.displayedTaskStatus
         taskLabel.isHidden = taskStatus == nil
         taskLabel.stringValue = taskStatus?.label ?? ""
         taskLabel.toolTip = taskStatus?.detail
@@ -248,7 +282,11 @@ final class CompactQuotaHUDView: NSView {
     }
 
     func updateMessages(forecastCount: Int, available: Bool) {
-        self.forecastCount = max(0, forecastCount)
+        let count = max(0, forecastCount)
+        guard self.forecastCount != count || messagesButton.isHidden != !available ||
+                forecastLanguage != DisplayLanguage.current else { return }
+        self.forecastCount = count
+        forecastLanguage = DisplayLanguage.current
         messagesButton.isHidden = !available
         updateForecastPresentation()
         setMetricCount(metricCount)

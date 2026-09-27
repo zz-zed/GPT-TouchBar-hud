@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 """Discovery-only probe in a temporary CODEX_HOME; no trust, task, model or global config writes."""
 import json, os, pathlib, select, subprocess, sys, tempfile, time
-runtime = sys.argv[1] if len(sys.argv) > 1 else '/Applications/ChatGPT.app/Contents/Resources/codex'
+def locate_runtime():
+    for host in ['ChatGPT.app', 'Codex.app', 'GPT.app']:
+        for layout in ['Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex', 'Contents/Resources/codex']:
+            candidate = pathlib.Path('/Applications') / host / layout
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate)
+    sys.exit('No bundled Codex runtime found in /Applications')
+
+runtime = sys.argv[1] if len(sys.argv) > 1 else locate_runtime()
 with tempfile.TemporaryDirectory(prefix='hud-discovery-', dir='/private/tmp') as temporary:
     base = pathlib.Path(temporary); os.chmod(base, 0o700)
     config = {'hooks': {event: [{'hooks': [{'type': 'command', 'command': "'/nonexistent/HookEmitter' 'emit' '--owner=gpt-touchbar-hud-v1' '--socket' '/nonexistent/events.sock'", 'timeout': 1}]}]

@@ -108,6 +108,9 @@ jobs:
       - name: Test local task status parser
         run: bash scripts/test-task-status.sh
 
+      - name: Test bundled runtime discovery and account usage
+        run: bash scripts/test-account-token-usage.sh
+
       - name: Test update policy and installer guards
         run: bash scripts/test-app-update.sh
 
@@ -121,6 +124,9 @@ jobs:
 
       - name: Test concurrent application launches and crash recovery
         run: bash scripts/test-single-instance.sh
+
+      - name: Test idle rendering and app-server connection bounds
+        run: bash scripts/test-idle-performance.sh
 
       - name: Test expanded status menu
         run: bash scripts/test-status-menu.sh

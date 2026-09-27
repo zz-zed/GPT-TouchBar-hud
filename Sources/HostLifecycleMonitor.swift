@@ -44,6 +44,8 @@ struct HostApplicationIdentity {
 }
 
 final class HostLifecycleMonitor {
+    static let pollInterval: TimeInterval = 30
+    static let pollTolerance: TimeInterval = 5
     var onHostStarted: (() -> Void)?
     var onHostStopped: (() -> Void)?
     var onCodexStarted: (() -> Void)?
@@ -87,6 +89,11 @@ final class HostLifecycleMonitor {
             name: NSWorkspace.didTerminateApplicationNotification,
             object: nil
         )
+
+        notificationCenter.addObserver(self, selector: #selector(resumeMonitoring),
+                                       name: NSWorkspace.didWakeNotification, object: nil)
+        notificationCenter.addObserver(self, selector: #selector(resumeMonitoring),
+                                       name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
 
         timer = pollTimerFactory { [weak self] in
             self?.poll()
@@ -146,6 +153,8 @@ final class HostLifecycleMonitor {
         transition(to: runningStateProvider())
     }
 
+    @objc private func resumeMonitoring() { poll() }
+
     private func transition(to snapshot: HostLifecycleSnapshot) {
         for change in reducer.transition(to: snapshot) {
             switch change {
@@ -169,10 +178,13 @@ final class HostLifecycleMonitor {
         )
     }
 
-    private static func makePollTimer(_ poll: @escaping () -> Void) -> Timer {
-        Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+    static func makePollTimer(_ poll: @escaping () -> Void) -> Timer {
+        let timer = Timer(timeInterval: pollInterval, repeats: true) { _ in
             poll()
         }
+        timer.tolerance = pollTolerance
+        RunLoop.main.add(timer, forMode: .common)
+        return timer
     }
 
     static func isSupportedHost(_ app: NSRunningApplication) -> Bool {

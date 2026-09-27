@@ -49,7 +49,7 @@ enum MenuBarDisplayMode: String, CaseIterable {
     func resolved(panelVisible: Bool) -> Self { self == .automatic ? (panelVisible ? .icon : .single) : self }
 }
 
-struct HUDMetric {
+struct HUDMetric: Equatable {
     let title: String
     let compactTitle: String
     let value: String
@@ -96,8 +96,8 @@ struct MenuBarPresentation {
     }
 
     func apply(to statusItem: NSStatusItem) {
-        statusItem.length = statusItemLength
-        statusItem.button?.title = title
+        if statusItem.length != statusItemLength { statusItem.length = statusItemLength }
+        if statusItem.button?.title != title { statusItem.button?.title = title }
     }
 }
 
@@ -186,7 +186,7 @@ struct DisplayTargetResolver {
 
 /// Display adapter only. The legacy source reports local observations, not complete coverage.
 /// A future activity snapshot must supply coverage/health here, never through UI inference.
-struct NotchTaskPresentation {
+struct NotchTaskPresentation: Equatable {
     let badge: String
     let title: String
     let note: String?

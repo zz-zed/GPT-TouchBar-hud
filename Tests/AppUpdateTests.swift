@@ -63,8 +63,27 @@ final class FakeReleaseFetcher: AppReleaseFetching {
         testRequestDeduplication(release: release)
         testSkipping(release: release)
         testRuntimeIsolation()
+        testReleaseNotesPresentation()
         try testInstaller()
         print("PASS: \(count) update policy checks")
+    }
+
+    static func testReleaseNotesPresentation() {
+        let markdown = "## 优化\n\n- 修复**重置预告**的关闭问题。\n- 保留 `Touch Bar` 设置。\n\n## 注意事项\n\n- 请先阅读[安装说明](https://example.com/install)。"
+        let text = AppUpdateReleaseNotes.plainText(markdown)
+        check(text == "优化\n\n• 修复重置预告的关闭问题。\n• 保留 Touch Bar 设置。\n\n注意事项\n\n• 请先阅读安装说明（https://example.com/install）。", "Release headings, bullets, emphasis and links become readable text")
+        check(AppUpdateReleaseNotes.plainText("  \n\t") == "", "Empty release notes preserve fallback behavior")
+        check(AppUpdateReleaseNotes.plainText("普通 C#、snake_case 与 2 * 3 不应改变。") == "普通 C#、snake_case 与 2 * 3 不应改变。", "Plain text punctuation and identifiers survive formatting")
+        check(AppUpdateReleaseNotes.plainText("1. 安装\n2. 重启") == "1. 安装\n2. 重启", "Ordered instructions retain numbering")
+        check(AppUpdateReleaseNotes.plainText("优化\n----\n\n注意事项\n====") == "优化\n\n注意事项", "Setext headings do not leak decoration")
+        check(AppUpdateReleaseNotes.plainText("### Changes\n\n* _Important_ and *useful*\n+ **Fixed**") == "Changes\n\n• Important and useful\n• Fixed", "Alternate bullets and emphasis remain readable")
+        check(AppUpdateReleaseNotes.plainText("```sh\n# a comment\necho **literal**\n```") == "# a comment\necho **literal**", "Code fence contents are preserved literally")
+        check(AppUpdateReleaseNotes.plainText("## 优化\r\n\r\n- 修复") == "优化\n\n• 修复", "CRLF release notes normalize line breaks")
+        check(AppUpdateReleaseNotes.plainText("`**literal**` 与 `snake_case`") == "**literal** 与 snake_case", "Inline code remains literal rather than losing meaningful characters")
+        check(AppUpdateReleaseNotes.plainText("[指南](https://example.com/a_(b)?key=snake_case)") == "指南（https://example.com/a_(b)?key=snake_case）", "Link addresses retain parentheses and underscores")
+        check(AppUpdateReleaseNotes.plainText("https://example.com/snake_case_path") == "https://example.com/snake_case_path", "Bare URLs remain unchanged")
+        let unicode = String(repeating: "改进👨‍👩‍👧‍👦", count: 400)
+        check(AppUpdateReleaseNotes.plainText(unicode) == unicode, "Formatter preserves long Unicode text before presentation truncation")
     }
 
     static func testPersistentState() {

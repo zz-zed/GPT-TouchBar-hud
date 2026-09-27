@@ -32,6 +32,7 @@ final class NotchPresentationModel: ObservableObject {
     @Published private(set) var reduceMotion = false
     @Published private(set) var reduceTransparency = false
     @Published private(set) var lowPower = false
+    @Published private(set) var sweepFeedbackVisible = false
     @Published private(set) var content = NotchContentAdapter(.initial, tasksEnabled: true)
     @Published private(set) var resetNews = ResetNewsViewState()
     private(set) var resetNewsPageVisible = false
@@ -40,10 +41,12 @@ final class NotchPresentationModel: ObservableObject {
     private(set) var menuDepth = 0
     private(set) var pointerCaptured = false
     let scheduler: NotchDelayScheduler
+    private let feedbackScheduler: NotchDelayScheduler
+    static let sweepFeedbackDuration: TimeInterval = 1.2
     var animationsEnabled = true
     var restingState: NotchPresentationState { alwaysShowQuota ? .peek : .compact }
     var motionEnabled: Bool { animationsEnabled && !reduceMotion }
-    var sweepActive: Bool { visible && !reduceMotion && (!lowPower || hovering || content.isRefreshing || content.hasError) }
+    var sweepActive: Bool { visible && motionEnabled && !lowPower && sweepFeedbackVisible }
     var onRefresh: (() -> Void)?
     var onSettings: (() -> Void)?
     var onHide: (() -> Void)?
@@ -54,6 +57,7 @@ final class NotchPresentationModel: ObservableObject {
 
     init(clock: NotchClock = NotchSystemClock(), alwaysShowQuota: Bool = true) {
         scheduler = NotchDelayScheduler(clock: clock)
+        feedbackScheduler = NotchDelayScheduler(clock: clock)
         self.alwaysShowQuota = alwaysShowQuota
         state = restingState
         pillsVisible = alwaysShowQuota
@@ -66,9 +70,16 @@ final class NotchPresentationModel: ObservableObject {
     }
     func update(_ state: RateLimitDisplayState, tasksEnabled: Bool) {
         // No geometry or transition writes: data refresh cannot erase interaction intent.
-        content = NotchContentAdapter(state, tasksEnabled: tasksEnabled)
+        let next = NotchContentAdapter(state, tasksEnabled: tasksEnabled)
+        let shouldSignal = next.isRefreshing != content.isRefreshing ||
+            (next.hasError && next.state.errorMessage != content.state.errorMessage) ||
+            (next.task.appearance == .completed && content.task.appearance != .completed)
+        if !content.hasSamePresentation(as: next) { content = next }
+        if shouldSignal { showSweepFeedback() }
     }
-    func updateResetNews(_ state: ResetNewsViewState) { resetNews = state }
+    func updateResetNews(_ state: ResetNewsViewState) {
+        if resetNews != state { resetNews = state }
+    }
     func resetNewsPageVisibilityChanged(_ visible: Bool) { resetNewsPageVisible = visible && messagesVisible }
     func resetNewsCardVisible(_ id: String) {
         guard messagesVisible, resetNewsPageVisible, resetNews.items.contains(where: { $0.id == id }),
@@ -77,9 +88,10 @@ final class NotchPresentationModel: ObservableObject {
     }
     func setEnvironment(reduceMotion: Bool, reduceTransparency: Bool, lowPower: Bool) {
         let motionChanged = self.reduceMotion != reduceMotion
-        self.reduceMotion = reduceMotion
-        self.reduceTransparency = reduceTransparency
-        self.lowPower = lowPower
+        if self.reduceMotion != reduceMotion { self.reduceMotion = reduceMotion }
+        if self.reduceTransparency != reduceTransparency { self.reduceTransparency = reduceTransparency }
+        if self.lowPower != lowPower { self.lowPower = lowPower }
+        if reduceMotion || lowPower { stopSweepFeedback() }
         if motionChanged && reduceMotion { transition(to: state, animated: false, force: true) }
     }
     func setVisible(_ visible: Bool) {
@@ -88,6 +100,7 @@ final class NotchPresentationModel: ObservableObject {
     }
     func reset(visible: Bool) {
         scheduler.cancelAll()
+        stopSweepFeedback()
         withoutMotion {
             self.visible = visible
             hovering = false
@@ -111,11 +124,13 @@ final class NotchPresentationModel: ObservableObject {
         hovering = inside
         if inside {
             if state == .compact { transition(to: .peek) }
+            showSweepFeedback()
         } else if menuDepth == 0 && !pointerCaptured { collapse() }
     }
     func click() {
         guard visible, state != .expanded else { return }
         transition(to: .expanded)
+        showSweepFeedback()
     }
     func openResetForecasts() {
         guard visible else { return }
@@ -138,6 +153,19 @@ final class NotchPresentationModel: ObservableObject {
     func selectPage(_ page: NotchDetailPage) {
         guard state == .expanded, self.page != page else { return }
         animate(NotchMotion.page) { self.page = page }
+        showSweepFeedback()
+    }
+    private func showSweepFeedback() {
+        guard visible, motionEnabled, !lowPower else { return }
+        feedbackScheduler.cancelAll()
+        if !sweepFeedbackVisible { sweepFeedbackVisible = true }
+        feedbackScheduler.after(Self.sweepFeedbackDuration) { [weak self] in
+            self?.sweepFeedbackVisible = false
+        }
+    }
+    private func stopSweepFeedback() {
+        feedbackScheduler.cancelAll()
+        if sweepFeedbackVisible { sweepFeedbackVisible = false }
     }
     private func animate(_ animation: Animation, _ body: () -> Void) {
         if motionEnabled { withAnimation(animation, body) } else { withoutMotion(body) }

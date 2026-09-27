@@ -14,6 +14,9 @@ enum HostLifecycleMonitorTests {
         testReducerSuppressesDuplicateChanges()
         testApplicationClassification()
         testMonitorCallbacksAndLifecycleAreDeterministic()
+        let timer = HostLifecycleMonitor.makePollTimer({})
+        check(timer.timeInterval == 30 && timer.tolerance == 5, "Fallback checks allow 30 seconds plus timer coalescing")
+        timer.invalidate()
         print("PASS: \(checks) host lifecycle checks")
     }
 
@@ -84,9 +87,10 @@ enum HostLifecycleMonitorTests {
         var timerCreations = 0
         var stateReads = 0
         var changes: [HostLifecycleChange] = []
+        let notifications = NotificationCenter()
 
         let monitor = HostLifecycleMonitor(
-            notificationCenter: NotificationCenter(),
+            notificationCenter: notifications,
             runningStateProvider: {
                 stateReads += 1
                 return snapshot
@@ -108,14 +112,16 @@ enum HostLifecycleMonitorTests {
         check(stateReads == 1, "Repeated start calls establish one baseline")
 
         snapshot = HostLifecycleSnapshot(hostIsRunning: true, codexIsRunning: true)
-        poll?()
+        notifications.post(name: NSWorkspace.didWakeNotification, object: nil)
+        check(changes == [.codexStarted], "Wake reconciles immediately without waiting for the fallback timer")
         poll?()
         check(changes == [.codexStarted], "Codex start is delivered once while ChatGPT stays running")
         check(monitor.hostIsRunningNow(), "Synchronous aggregate query uses the current snapshot")
         check(monitor.codexIsRunningNow(), "Synchronous Codex query uses the current snapshot")
 
         snapshot = HostLifecycleSnapshot(hostIsRunning: true, codexIsRunning: false)
-        poll?()
+        notifications.post(name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
+        check(changes == [.codexStarted, .codexStopped], "Session resume reconciles immediately")
         poll?()
         check(changes == [.codexStarted, .codexStopped], "Codex stop is delivered once while ChatGPT stays running")
 
@@ -123,6 +129,7 @@ enum HostLifecycleMonitorTests {
         monitor.stop()
         monitor.stop()
         poll?()
+        notifications.post(name: NSWorkspace.didWakeNotification, object: nil)
         check(stateReads == readsBeforeStop, "A stale poll callback is inert after stop")
 
         monitor.start()

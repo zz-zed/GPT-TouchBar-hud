@@ -61,9 +61,8 @@ final class HookExperimentPreferencesController: NSWindowController {
             let result = Result { () -> HookConfigurationPlan in
                 let plan = try HookConfiguration.plan(target: target, helper: helper, socket: socket, removing: removing)
                 if !removing {
-                    let candidates = ["/Applications/ChatGPT.app/Contents/Resources/codex", "/Applications/Codex.app/Contents/Resources/codex", "/Applications/GPT.app/Contents/Resources/codex"]
-                    guard let path = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { throw HookFailure.unavailable }
-                    _ = try HookHostPreflight.discover(runtime: URL(fileURLWithPath: path), plan: plan)
+                    guard let runtime = CodexRuntimeLocator.locate() else { throw HookFailure.unavailable }
+                    _ = try HookHostPreflight.discover(runtime: runtime, plan: plan)
                 }
                 return plan
             }
