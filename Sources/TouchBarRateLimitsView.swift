@@ -2,6 +2,18 @@ import AppKit
 import QuartzCore
 
 final class TouchBarRateLimitsView: NSView {
+    private struct LayoutContent: Equatable {
+        let badge: String?
+        let appearance: TaskStatusAppearance
+        let rowText: [String]
+        let percentages: [Double?]
+        let usageText: [String]
+        let balance: String?
+        let forecasts: Int?
+        let language: DisplayLanguage
+    }
+    private var renderedLayout: LayoutContent?
+    private(set) var layoutUpdateCount = 0
     static var contentWidth: CGFloat { DisplayLanguage.current == .english ? 460 : 600 }
     private let chatGPTIconView = NSImageView()
     private let taskBadge = NSTextField(labelWithString: "")
@@ -104,10 +116,6 @@ final class TouchBarRateLimitsView: NSView {
         messagesButton.toolTip = forecastAccessibilityLabel
         messagesButton.setAccessibilityLabel(forecastAccessibilityLabel)
         let status = state.displayedTaskStatus
-        taskBadge.stringValue = status?.badge ?? ""
-        taskBadge.isHidden = status == nil
-        taskBadge.frame.size.width = max(20, ceil(taskBadge.fittingSize.width))
-        taskBadge.backgroundColor = TaskStatusAppearance(status).color ?? .clear
         hasRunningTasks = status?.hasRunningTasks ?? false
         chatGPTIconView.setAccessibilityLabel(status?.label ?? "ChatGPT")
         chatGPTIconView.toolTip = status?.detail ?? "ChatGPT"
@@ -126,6 +134,32 @@ final class TouchBarRateLimitsView: NSView {
         if rows.isEmpty && state.lastUpdated == nil {
             rows = [("5h", "--", DisplayLanguage.text("重置 --", "Reset --"), 0), ("7d", "--", DisplayLanguage.text("重置 --", "Reset --"), 0)]
         }
+        let next = LayoutContent(badge: status?.badge, appearance: TaskStatusAppearance(status),
+                                 rowText: rows.flatMap { [$0.0, $0.1, $0.2] }, percentages: rows.map { $0.3 },
+                                 usageText: [state.tokenUsage?.yesterdayText ?? DisplayLanguage.text("昨日 --", "Yday --"),
+                                             state.tokenUsage?.cumulativeText ?? DisplayLanguage.text("累计 --", "Total --")],
+                                 balance: state.creditBalance?.displayText,
+                                 forecasts: messagesButton.isHidden ? nil : messageForecastCount,
+                                 language: DisplayLanguage.current)
+        // Metadata can change without affecting text widths or bar geometry.
+        let statusText = state.statusText
+        toolTip = statusText
+        usageLabels.forEach { $0.toolTip = state.tokenUsage?.toolTip }
+        for (index, row) in rowViews.enumerated() where index < rows.count {
+            row.toolTip = statusText
+            row.date.toolTip = index == 0 && state.fiveHour == nil
+                ? (state.resetCredits?.expirationText ?? rows[index].2) : rows[index].2
+        }
+        defer {
+            setAccessibilityLabel(([status?.label].compactMap { $0 } + rows.map { "\($0.0) \($0.1) \($0.2)" } + usageLabels.map(\.stringValue) + (next.balance == nil ? [] : [balanceValue.stringValue]) + (messagesButton.isHidden ? [] : [messagesButton.title])).joined(separator: ", "))
+        }
+        guard next != renderedLayout else { return }
+        renderedLayout = next
+        layoutUpdateCount += 1
+        taskBadge.stringValue = status?.badge ?? ""
+        taskBadge.isHidden = status == nil
+        taskBadge.frame.size.width = max(20, ceil(taskBadge.fittingSize.width))
+        taskBadge.backgroundColor = next.appearance.color ?? .clear
         for index in rowViews.indices {
             let row = rowViews[index]
             row.isHidden = index >= rows.count
@@ -195,11 +229,12 @@ final class TouchBarRateLimitsView: NSView {
         // alignment rect on each side; keep that visible frame inside the item.
         widthConstraint.constant = ceil(total + 4)
         toolTip = state.statusText
-        setAccessibilityLabel(([status?.label].compactMap { $0 } + rows.map { "\($0.0) \($0.1) \($0.2)" } + usageLabels.map(\.stringValue) + (hasBalance ? [balanceValue.stringValue] : []) + (messagesButton.isHidden ? [] : [messagesButton.title])).joined(separator: ", "))
     }
 
     func updateMessages(forecastCount: Int, available: Bool) {
-        messageForecastCount = max(0, forecastCount)
+        let count = max(0, forecastCount)
+        guard messageForecastCount != count || messagesButton.isHidden != !available else { return }
+        messageForecastCount = count
         messagesButton.isHidden = !available
         messagesButton.contentTintColor = messageForecastCount > 0
             ? DesignTokens.accent
@@ -329,7 +364,7 @@ private final class BalancedRowView: NSView {
 }
 
 private final class BalancedProgressView: NSView {
-    var percent: Double = 0 { didSet { needsDisplay = true } }
+    var percent: Double = 0 { didSet { if percent != oldValue { needsDisplay = true } } }
     override func draw(_ dirtyRect: NSRect) {
         NSColor.darkGray.setFill()
         NSBezierPath(roundedRect: bounds, xRadius: 2, yRadius: 2).fill()

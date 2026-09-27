@@ -7,7 +7,8 @@ import HookCore
         try HookPaths.ensurePrivateDirectory(directory)
         defer { try? FileManager.default.removeItem(at: directory) }
         let plan = try HookConfiguration.plan(target: directory.appendingPathComponent("hooks.json"), helper: directory.appendingPathComponent("not-installed"), socket: directory.appendingPathComponent("events.sock"))
-        let report = try HookHostPreflight.discover(runtime: URL(fileURLWithPath: "/Applications/ChatGPT.app/Contents/Resources/codex"), plan: plan)
+        guard let runtime = CodexRuntimeLocator.locate() else { throw HookFailure.unavailable }
+        let report = try HookHostPreflight.discover(runtime: runtime, plan: plan)
         precondition(report.discoveredEvents == 4 && report.awaitingTrust)
         print("PASS: native isolated discovery; 4 events, awaiting host trust, no hooks executed")
     }

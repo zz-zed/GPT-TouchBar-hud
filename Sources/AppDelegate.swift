@@ -592,6 +592,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             hudWindow.orderOut(nil)
         } else {
             notchHUD.hide()
+            hudController.prepareToShow()
             hudWindow.orderFrontPinned()
             hudWindow.recoverPositionIfOffscreen()
         }

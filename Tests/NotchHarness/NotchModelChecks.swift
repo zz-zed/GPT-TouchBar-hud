@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import HookCore
 
 /// A deliberately hostile clock can deliver cancelled work to prove generation guards.
@@ -108,7 +109,7 @@ extension NotchHarness {
         model.reset(visible: true)
         check(!model.sweepActive, "low-power rest has no dynamic decoration")
         model.hover(true)
-        check(model.sweepActive, "low-power hover permits active decoration")
+        check(!model.sweepActive, "low-power hover keeps decorative animation disabled")
         model.setVisible(false)
         check(!model.sweepActive, "invisible state stops sweep")
         model.setVisible(true); model.hover(true); model.click(); model.setCaptured(true); model.hover(false)
@@ -123,6 +124,58 @@ extension NotchHarness {
         }
         check(destroyed == nil, "pending callbacks do not retain destroyed model")
         clock.advance(1)
+        performanceChecks(layout)
+    }
+
+    private static func performanceChecks(_ layout: NotchLayout) {
+        let clock = NotchManualClock()
+        let model = NotchPresentationModel(clock: clock)
+        model.configure(layout); model.setVisible(true)
+        check(!model.sweepActive, "visible idle Peek has no animation clock")
+        model.hover(true)
+        check(model.sweepActive, "pointer entry plays brief feedback")
+        clock.advance(1.3)
+        check(!model.sweepActive && model.hovering, "stationary pointer cannot keep feedback running")
+        model.click(); clock.advance(1.3)
+        check(!model.sweepActive && model.state == .expanded, "expanded idle detail stops decoration")
+        var value = sample
+        value.isRefreshing = true
+        model.update(value, tasksEnabled: true)
+        check(model.sweepActive, "refresh transition plays feedback")
+        clock.advance(1.3)
+        check(!model.sweepActive, "a slow request does not keep decoration running")
+        value.isRefreshing = false; value.errorMessage = "Offline"
+        model.update(value, tasksEnabled: true)
+        check(model.sweepActive, "new error plays feedback once")
+        clock.advance(1.3)
+        model.update(value, tasksEnabled: true)
+        check(!model.sweepActive, "unchanged error cannot restart animation")
+        value.errorMessage = nil
+        value.taskStatus = TaskStatusSummary(runningCount: 1)
+        model.update(value, tasksEnabled: true)
+        var publications = 0
+        let observation = model.$content.dropFirst().sink { _ in publications += 1 }
+        for index in 0..<60 {
+            value.taskStatus?.legacyDiagnostics = LegacyTaskDiagnostics(lastSuccessfulCheck: Date(timeIntervalSince1970: Double(index * 60)))
+            model.update(value, tasksEnabled: true)
+        }
+        check(publications == 0, "60 diagnostic-only snapshots cause no content publications")
+        value.taskStatus = TaskStatusSummary(recentlyCompletedCount: 1)
+        model.update(value, tasksEnabled: true)
+        check(publications == 1 && model.sweepActive, "completion still updates content and feedback")
+        model.setEnvironment(reduceMotion: false, reduceTransparency: false, lowPower: true)
+        check(!model.sweepActive, "entering low power immediately stops feedback")
+        model.setEnvironment(reduceMotion: false, reduceTransparency: false, lowPower: false)
+        check(!model.sweepActive, "leaving low power does not replay cancelled feedback")
+        model.hover(false); model.hover(true)
+        model.setVisible(false); model.setVisible(true); clock.advance(2)
+        check(!model.sweepActive, "hide and reopen reject stale feedback callbacks")
+        let language = DisplayLanguage.current
+        DisplayLanguage.current = language == .chinese ? .english : .chinese
+        model.update(value, tasksEnabled: true)
+        check(publications == 2, "language change invalidates equal data")
+        DisplayLanguage.current = language
+        observation.cancel()
     }
 
     static func geometryChecks() {

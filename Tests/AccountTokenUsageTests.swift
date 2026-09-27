@@ -25,7 +25,69 @@ enum AccountTokenUsageTests {
         checks += 1
     }
 
+    static func checkRuntimeDiscovery() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent("RuntimeDiscovery-" + UUID().uuidString)
+        try manager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: root) }
+        let nested = "Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        let legacy = "Contents/Resources/codex"
+
+        func fixture(_ name: String) throws -> URL {
+            let directory = root.appendingPathComponent(name)
+            try manager.createDirectory(at: directory, withIntermediateDirectories: true)
+            return directory
+        }
+        func executable(in directory: URL, host: String, layout: String, permissions: Int = 0o755) throws -> URL {
+            let url = directory.appendingPathComponent(host).appendingPathComponent(layout)
+            try manager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("#!/bin/sh\nexit 0\n".utf8).write(to: url)
+            try manager.setAttributes([.posixPermissions: permissions], ofItemAtPath: url.path)
+            return url
+        }
+
+        for host in ["ChatGPT.app", "Codex.app", "GPT.app"] {
+            for (name, layout) in [("nested", nested), ("legacy", legacy)] {
+                let directory = try fixture(host + "-" + name)
+                let expected = try executable(in: directory, host: host, layout: layout)
+                check(CodexRuntimeLocator.locate(in: directory) == expected, "Discover \(host) \(name) runtime")
+            }
+            let directory = try fixture(host + "-both")
+            _ = try executable(in: directory, host: host, layout: legacy)
+            let expected = try executable(in: directory, host: host, layout: nested)
+            check(CodexRuntimeLocator.locate(in: directory) == expected, "Prefer nested layout inside \(host)")
+        }
+
+        let ordered = try fixture("host-priority")
+        _ = try executable(in: ordered, host: "GPT.app", layout: nested)
+        let codex = try executable(in: ordered, host: "Codex.app", layout: legacy)
+        check(CodexRuntimeLocator.locate(in: ordered) == codex, "Codex legacy precedes GPT nested")
+        let chatGPT = try executable(in: ordered, host: "ChatGPT.app", layout: legacy)
+        check(CodexRuntimeLocator.locate(in: ordered) == chatGPT, "ChatGPT legacy precedes other hosts")
+
+        let invalid = try fixture("invalid-candidates")
+        let blocked = try executable(in: invalid, host: "ChatGPT.app", layout: nested, permissions: 0o644)
+        check(!manager.isExecutableFile(atPath: blocked.path), "Fixture really lacks executable permission")
+        let fallback = try executable(in: invalid, host: "ChatGPT.app", layout: legacy)
+        check(CodexRuntimeLocator.locate(in: invalid) == fallback, "Skip non-executable nested file")
+        try manager.removeItem(at: blocked)
+        try manager.createDirectory(at: blocked, withIntermediateDirectories: true)
+        try manager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: blocked.path)
+        check(manager.isExecutableFile(atPath: blocked.path), "Fixture directory has search permission")
+        check(CodexRuntimeLocator.locate(in: invalid) == fallback, "Skip directory with executable permission")
+        try manager.setAttributes([.posixPermissions: 0o644], ofItemAtPath: fallback.path)
+        check(CodexRuntimeLocator.locate(in: invalid) == nil, "No usable runtime among invalid candidates")
+        let nextHost = try executable(in: invalid, host: "Codex.app", layout: nested)
+        check(CodexRuntimeLocator.locate(in: invalid) == nextHost, "Continue to next host after invalid candidates")
+
+        let empty = try fixture("empty")
+        check(CodexRuntimeLocator.locate(in: empty) == nil, "Empty applications directory has no runtime")
+        check(CodexRuntimeLocator.locate(in: root.appendingPathComponent("missing")) == nil,
+              "Missing applications directory has no runtime")
+    }
+
     static func main() throws {
+        try checkRuntimeDiscovery()
         let languageSuite = "GPTTouchBarHUD.tests." + UUID().uuidString
         DisplayLanguage.defaults = UserDefaults(suiteName: languageSuite)!
         defer { DisplayLanguage.defaults.removePersistentDomain(forName: languageSuite) }

@@ -611,6 +611,28 @@ class MemoryGitHub:
         return copy.deepcopy(asset)
 
 
+class ReleaseNotesTests(OfflineCase):
+    def test_rejects_level_one_titles_in_release_body(self):
+        for notes in ("# GPT TouchBar HUD v0.1.33\n\nChanges.\n", "\ufeff# Title\n",
+                      "Intro.\n\n   # Title\n", "#\n", "#\tTitle\r\n",
+                      "Release title\n===\n"):
+            with self.subTest(notes=notes), self.assertRaisesRegex(release.ReleaseError, "omit level-1 titles"):
+                release.validate_release_notes(notes)
+
+    def test_accepts_sections_and_preserves_body_without_rewriting(self):
+        notes = "本版调整设置。\n\n## 改进\n\n- One change.\n\n### Details\n#42 is an issue reference.\n"
+        original = notes
+        self.assertIsNone(release.validate_release_notes(notes))
+        self.assertEqual(notes, original)
+
+    def test_literal_titles_in_code_blocks_are_not_release_headings(self):
+        for notes in ("```sh\n# shell comment\n```\n\n## Changes\n",
+                      "~~~~text\n# literal\nTitle\n===\n~~~~\n",
+                      "    # indented code\n"):
+            with self.subTest(notes=notes):
+                release.validate_release_notes(notes)
+
+
 class ReleaseOrchestrationTests(OfflineCase):
     def setUp(self):
         super().setUp()
@@ -619,7 +641,7 @@ class ReleaseOrchestrationTests(OfflineCase):
         root = Path(temporary.name)
         self.source, self.output = root / "source", root / "stage"
         self.source.mkdir()
-        self.notes = "# Immutable tag notes\n\nFixture release only.\n"
+        self.notes = "## Changes\n\nFixture release only.\n"
         (self.source / "RELEASE_NOTES.md").write_text(self.notes, encoding="utf-8")
         run = run_fixture()
         artifacts = artifacts_fixture(run)
@@ -666,6 +688,27 @@ class ReleaseOrchestrationTests(OfflineCase):
         self.assertEqual([call[0] for call in self.api.writes], ["POST", "upload", "upload", "upload", "upload", "PATCH"])
         self.assertTrue(any(path.endswith("RELEASE_NOTES.md?ref=" + SOURCE_SHA) for _, path, _ in self.api.requests))
         self.assertFalse(any("ref=main" in path for _, path, _ in self.api.requests))
+
+    def test_prepare_rejects_duplicate_title_before_download_or_api_access(self):
+        notes = "# GPT TouchBar HUD " + TAG + "\n\n## Changes\n\nFixture.\n"
+        (self.source / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
+        with self.assertRaisesRegex(release.ReleaseError, "omit level-1 titles"):
+            self.prepare()
+        self.assertFalse(self.output.exists())
+        self.assertEqual(self.api.requests, [])
+        self.assertEqual(self.api.writes, [])
+        self.assertEqual((self.source / "RELEASE_NOTES.md").read_text(encoding="utf-8"), notes)
+
+    def test_publish_revalidates_immutable_title_before_any_release_write(self):
+        self.prepare()
+        notes = "# GPT TouchBar HUD " + TAG + "\n\n## Changes\n\nFixture.\n"
+        # Simulate staging produced before this validation rule existed.
+        self.api.notes = notes
+        (self.output / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
+        with self.assertRaisesRegex(release.ReleaseError, "omit level-1 titles"):
+            self.publish()
+        self.assertEqual(self.api.writes, [])
+        self.assertEqual((self.output / "RELEASE_NOTES.md").read_text(encoding="utf-8"), notes)
 
     def test_latest_failed_run_never_downloads_or_falls_back(self):
         older = run_fixture(100)

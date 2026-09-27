@@ -1,14 +1,18 @@
 import Foundation
 
 enum CodexAppServerError: LocalizedError {
+    case runtimeNotFound
     case processUnavailable
     case malformedResponse
     case serverError(String)
     case missingResult
     case requestTimedOut
+    case responseTooLarge
 
     var errorDescription: String? {
         switch self {
+        case .runtimeNotFound:
+            return "未找到客户端内置的 Codex 程序，请确认 ChatGPT / Codex 已安装在 /Applications。"
         case .processUnavailable:
             return "Codex app-server is not running."
         case .malformedResponse:
@@ -19,6 +23,38 @@ enum CodexAppServerError: LocalizedError {
             return "Codex app-server response did not include a result."
         case .requestTimedOut:
             return "Codex app-server 请求超时。"
+        case .responseTooLarge:
+            return "Codex app-server 响应超过大小限制。"
+        }
+    }
+}
+
+/// Bound each newline-delimited frame, not the total size of a batch of frames.
+struct AppServerLineBuffer {
+    static let maximumFrameBytes = 16 * 1024 * 1024
+    let limit: Int
+    private(set) var pending = Data()
+
+    init(limit: Int = maximumFrameBytes) {
+        precondition(limit > 0)
+        self.limit = limit
+    }
+    mutating func reset() { pending = Data() }
+    mutating func append(_ data: Data, onLine: (Data) -> Void) throws {
+        var start = data.startIndex
+        while start < data.endIndex {
+            let newline = data[start...].firstIndex(of: 0x0A)
+            let end = newline ?? data.endIndex
+            guard data.distance(from: start, to: end) <= limit - pending.count else {
+                reset()
+                throw CodexAppServerError.responseTooLarge
+            }
+            pending.append(contentsOf: data[start..<end])
+            guard let newline else { return }
+            let line = pending
+            reset()
+            if !line.isEmpty { onLine(line) }
+            start = data.index(after: newline)
         }
     }
 }
@@ -28,26 +64,47 @@ protocol AccountUsageClient: AnyObject {
     func readTokenUsage(completion: @escaping (Result<AccountTokenUsageResponse, Error>) -> Void)
 }
 
+enum CodexRuntimeLocator {
+    /// Keep host priority stable while supporting both bundle layouts.
+    static func locate(in applicationsDirectory: URL = URL(fileURLWithPath: "/Applications"),
+                       fileManager: FileManager = .default) -> URL? {
+        let layouts = [
+            "Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+            "Contents/Resources/codex"
+        ]
+        for host in ["ChatGPT.app", "Codex.app", "GPT.app"] {
+            for layout in layouts {
+                let candidate = applicationsDirectory.appendingPathComponent(host).appendingPathComponent(layout)
+                var isDirectory: ObjCBool = false
+                if fileManager.fileExists(atPath: candidate.path, isDirectory: &isDirectory),
+                   !isDirectory.boolValue, fileManager.isExecutableFile(atPath: candidate.path) {
+                    return candidate
+                }
+            }
+        }
+        return nil
+    }
+}
+
 final class CodexAppServerClient: AccountUsageClient {
     typealias JSONDictionary = [String: Any]
 
-    private let codexCandidates = [
-        "/Applications/ChatGPT.app/Contents/Resources/codex",
-        "/Applications/Codex.app/Contents/Resources/codex",
-        "/Applications/GPT.app/Contents/Resources/codex"
-    ].map(URL.init(fileURLWithPath:))
     private let queue = DispatchQueue(label: "GPTTouchBarHUD.CodexAppServerClient")
 
     private var process: Process?
     private var inputPipe: Pipe?
     private var outputPipe: Pipe?
     private var errorPipe: Pipe?
-    private var outputBuffer = Data()
+    private var outputBuffer = AppServerLineBuffer()
+    private var connectionGeneration = 0
+    private let executableURL: URL?
     private var nextRequestId = 1
     private var pendingResponses: [Int: (Result<Any, Error>) -> Void] = [:]
 
     var onRateLimitsUpdated: (() -> Void)?
     var onAccountUpdated: (() -> Void)?
+
+    init(executableURL: URL? = nil) { self.executableURL = executableURL }
 
     func readAccountIdentity(completion: @escaping (Result<String?, Error>) -> Void) {
         request(method: "account/read", params: ["refreshToken": false]) { result in
@@ -100,16 +157,25 @@ final class CodexAppServerClient: AccountUsageClient {
     }
 
     func stop() {
-        queue.async {
-            self.outputPipe?.fileHandleForReading.readabilityHandler = nil
-            self.errorPipe?.fileHandleForReading.readabilityHandler = nil
-            self.inputPipe?.fileHandleForWriting.closeFile()
-            if self.process?.isRunning == true {
-                self.process?.terminate()
-            }
-            self.process = nil
-            self.failPendingResponses(CodexAppServerError.processUnavailable)
-        }
+        queue.async { self.closeConnection(CodexAppServerError.processUnavailable) }
+    }
+
+    /// Queue-confined cleanup also invalidates callbacks already queued by old pipes.
+    private func closeConnection(_ error: Error) {
+        connectionGeneration += 1
+        process?.terminationHandler = nil
+        outputPipe?.fileHandleForReading.readabilityHandler = nil
+        errorPipe?.fileHandleForReading.readabilityHandler = nil
+        try? inputPipe?.fileHandleForWriting.close()
+        // Release read handles with their pipes. An in-flight readability callback
+        // retains its handle until it finishes; do not close it underneath the read.
+        if process?.isRunning == true { process?.terminate() }
+        process = nil
+        inputPipe = nil
+        outputPipe = nil
+        errorPipe = nil
+        outputBuffer.reset()
+        failPendingResponses(error)
     }
 
     func readRateLimits(completion: @escaping (Result<GetAccountRateLimitsResponse, Error>) -> Void) {
@@ -133,10 +199,9 @@ final class CodexAppServerClient: AccountUsageClient {
     }
 
     private func launchProcess() throws {
-        guard let codexURL = codexCandidates.first(where: {
-            FileManager.default.isExecutableFile(atPath: $0.path)
-        }) else {
-            throw CodexAppServerError.processUnavailable
+        closeConnection(CodexAppServerError.processUnavailable)
+        guard let codexURL = executableURL ?? CodexRuntimeLocator.locate() else {
+            throw CodexAppServerError.runtimeNotFound
         }
 
         let process = Process()
@@ -149,6 +214,7 @@ final class CodexAppServerClient: AccountUsageClient {
         process.standardInput = inputPipe
         process.standardOutput = outputPipe
         process.standardError = errorPipe
+        let generation = connectionGeneration
 
         outputPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
@@ -156,7 +222,8 @@ final class CodexAppServerClient: AccountUsageClient {
                 return
             }
             self?.queue.async {
-                self?.consumeOutput(data)
+                guard let self, self.connectionGeneration == generation else { return }
+                self.consumeOutput(data)
             }
         }
 
@@ -166,7 +233,8 @@ final class CodexAppServerClient: AccountUsageClient {
 
         process.terminationHandler = { [weak self] _ in
             self?.queue.async {
-                self?.failPendingResponses(CodexAppServerError.processUnavailable)
+                guard let self, self.connectionGeneration == generation else { return }
+                self.closeConnection(CodexAppServerError.processUnavailable)
             }
         }
 
@@ -249,17 +317,8 @@ final class CodexAppServerClient: AccountUsageClient {
     }
 
     private func consumeOutput(_ data: Data) {
-        outputBuffer.append(data)
-
-        while let newlineRange = outputBuffer.firstRange(of: Data([0x0A])) {
-            let line = outputBuffer.subdata(in: outputBuffer.startIndex..<newlineRange.lowerBound)
-            outputBuffer.removeSubrange(outputBuffer.startIndex..<newlineRange.upperBound)
-
-            guard !line.isEmpty else {
-                continue
-            }
-            consumeLine(line)
-        }
+        do { try outputBuffer.append(data) { self.consumeLine($0) } }
+        catch { closeConnection(error) }
     }
 
     private func consumeLine(_ data: Data) {

@@ -261,9 +261,12 @@ final class AppUpdater: NSObject {
         } else {
             alert.messageText = "发现新版本 \(release.tag_name)"
         }
-        let notes = release.body?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let notes = release.body.map(AppUpdateReleaseNotes.plainText)
         if let notes, !notes.isEmpty {
             alert.informativeText = String(notes.prefix(1_500))
+            if notes.count > 1_500 {
+                alert.informativeText += "…\n\n完整版本说明：\n\(release.releasePageURL.absoluteString)"
+            }
         } else {
             alert.informativeText = "当前版本 \(Self.version)。完整版本说明：\n\(release.releasePageURL.absoluteString)"
         }

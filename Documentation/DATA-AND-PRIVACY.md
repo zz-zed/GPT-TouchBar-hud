@@ -6,11 +6,14 @@
 
 额度和 Token 数据通过 ChatGPT / Codex 客户端随附的本机 `codex app-server` 获取。本工具以子进程方式启动 `codex app-server --listen stdio://`，通过 JSON-RPC 读取数据，不直接处理登录凭据。
 
-按顺序查找以下本机程序：
+按 ChatGPT、Codex、GPT 的顺序查找宿主。每个宿主内优先查找新版内嵌程序，再回退旧版路径；只使用存在且可执行的文件：
 
 ```text
+/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex
 /Applications/ChatGPT.app/Contents/Resources/codex
+/Applications/Codex.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex
 /Applications/Codex.app/Contents/Resources/codex
+/Applications/GPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex
 /Applications/GPT.app/Contents/Resources/codex
 ```
 
@@ -43,17 +46,22 @@ Token 请求失败后按 5、10、20、30 分钟逐步退避。短暂失败时�
 
 先确认实际使用的客户端安装在系统 `/Applications` 中、已经登录，随后通过本工具菜单栏“刷新额度”重试。
 
+ChatGPT `26.924.22138` 已将内置程序移至 `codex-cli/CodexCLI.app/Contents/MacOS/codex`。仅识别旧路径的 HUD 会无法启动数据服务；需使用包含新路径兼容修复的 HUD 并重新启动，单纯刷新无法恢复。此适配同时用于 Hooks 设置中的宿主能力检查。
+
 持续显示 `--` 时，区分“所有数据都缺失”和“只缺某个接口的数据”。前者需要检查本机运行程序和登录态；后者可能是当前客户端或账号没有提供对应字段。应用不会用任务日志伪造缺失的账号 Token 统计。
 
 需要进一步确认本机运行程序是否存在时，可在终端运行以下**只读检查**。它不会启动 app-server、修改设置或输出账号凭据：
 
 ```bash
 for runtime in \
+  "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex" \
   "/Applications/ChatGPT.app/Contents/Resources/codex" \
+  "/Applications/Codex.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex" \
   "/Applications/Codex.app/Contents/Resources/codex" \
+  "/Applications/GPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex" \
   "/Applications/GPT.app/Contents/Resources/codex"
 do
-  if [ -x "$runtime" ]; then
+  if [ -f "$runtime" ] && [ -x "$runtime" ]; then
     printf '可执行：%s\n' "$runtime"
   else
     printf '不存在或不可执行：%s\n' "$runtime"

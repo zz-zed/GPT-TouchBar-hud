@@ -3,6 +3,7 @@ import AppKit
 /// Presentation only; all authority, coverage, completion, quota and token rules
 /// come from the existing application snapshot. No extra fetchers or task inference.
 struct NotchContentAdapter {
+    private let language = DisplayLanguage.current
     let state: RateLimitDisplayState
     let tasksEnabled: Bool
     let metrics: [HUDMetric]
@@ -30,6 +31,18 @@ struct NotchContentAdapter {
         updated = state.isRefreshing ? DisplayLanguage.text("刷新中…", "Refreshing…") : state.lastUpdated.map {
             DisplayLanguage.text("更新于 ", "Updated ") + DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .short)
         } ?? DisplayLanguage.text("尚未更新", "Not updated")
+    }
+    /// Compare what the renderer consumes, excluding diagnostic timestamps and IDs.
+    func hasSamePresentation(as other: Self) -> Bool {
+        language == other.language && tasksEnabled == other.tasksEnabled &&
+        metrics == other.metrics && task == other.task && taskDetail == other.taskDetail &&
+        updated == other.updated && isRefreshing == other.isRefreshing &&
+        state.errorMessage == other.state.errorMessage &&
+        weeklyPeekDate == other.weeklyPeekDate &&
+        state.fiveHour == other.state.fiveHour &&
+        state.resetCredits == other.state.resetCredits &&
+        state.creditBalance == other.state.creditBalance &&
+        state.tokenUsage == other.state.tokenUsage
     }
     func peek(left: Bool) -> (value: String, detail: String, help: String) {
         let row: HUDMetric?

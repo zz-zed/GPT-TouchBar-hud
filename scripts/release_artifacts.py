@@ -311,12 +311,34 @@ def source_metadata(directory):
     return info["CFBundleShortVersionString"], info["CFBundleVersion"]
 
 
+def validate_release_notes(notes):
+    """The release name supplies the title; validate the immutable body, never rewrite it."""
+    fence = None
+    previous_text = False
+    for number, line in enumerate(notes.lstrip("\ufeff").splitlines(), 1):
+        marker = re.fullmatch(r" {0,3}(`{3,}|~{3,})(.*)", line)
+        if fence is not None:
+            if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
+                fence = None
+            continue
+        if marker:
+            fence = marker[1]
+            previous_text = False
+            continue
+        atx_title = re.match(r" {0,3}#(?:[ \t]|$)", line) is not None
+        setext_title = previous_text and re.fullmatch(r" {0,3}=+[ \t]*", line) is not None
+        require(not atx_title and not setext_title,
+                f"RELEASE_NOTES.md line {number}: omit level-1 titles; the release name already supplies the title. Use ## for sections.")
+        previous_text = bool(line.strip()) and not line.startswith(("    ", "\t"))
+
+
 def prepare_release(api, tag, source_sha, source, output):
     sha(source_sha)
     require(git("rev-parse", "HEAD", cwd=source) == source_sha, "Source checkout is not the immutable tag commit")
     version, build = source_metadata(source)
     validate_tag(tag, version)
     file_record(Path(source) / "RELEASE_NOTES.md")
+    validate_release_notes((Path(source) / "RELEASE_NOTES.md").read_text(encoding="utf-8"))
     output = Path(output)
     require(not output.exists() or not any(output.iterdir()), "Release staging directory must be empty")
     output.mkdir(parents=True, exist_ok=True)
@@ -397,6 +419,7 @@ def publish_release(api, directory, tag, source_sha, version, build):
     content = api.request("GET", f"{api.prefix}/contents/RELEASE_NOTES.md?ref={source_sha}")
     require(content and content.get("encoding") == "base64", "Immutable release notes are unavailable")
     notes = base64.b64decode(content["content"]).decode("utf-8")
+    validate_release_notes(notes)
     require((directory / "RELEASE_NOTES.md").read_text(encoding="utf-8") == notes, "Notes must come from tag commit")
     names = [f"GPT-TouchBar-HUD-{version}-{arch}.dmg" for arch in ARCHES] + ["SHA256SUMS.txt", "build-manifest.json"]
     for arch in ARCHES:

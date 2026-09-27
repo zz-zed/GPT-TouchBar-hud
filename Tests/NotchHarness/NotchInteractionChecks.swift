@@ -66,8 +66,12 @@ extension NotchHarness {
         check(NSWorkspace.shared.frontmostApplication?.processIdentifier == frontPID && !controller.panel.isKeyWindow, "refresh/pages/lifecycle preserve foreground focus")
         check(NSApp.activationPolicy() == .accessory, "native harness preserves accessory activation policy")
         if #available(macOS 12.0, *) {
+            let actualLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+            model.setEnvironment(reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+                                 reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
+                                 lowPower: !actualLowPower)
             var publications = 0
-            let observer = model.objectWillChange.sink {
+            let observer = model.$lowPower.dropFirst().sink { _ in
                 check(Thread.isMainThread, "power notification publishes UI state on main thread")
                 publications += 1
             }
@@ -75,7 +79,12 @@ extension NotchHarness {
                 NotificationCenter.default.post(name: .NSProcessInfoPowerStateDidChange, object: ProcessInfo.processInfo)
             }
             pump(0.06)
-            check(publications > 0, "background power notification reaches main-queue observer")
+            check(publications == 1 && model.lowPower == actualLowPower, "background power notification reconciles changed state on main")
+            DispatchQueue.global().async {
+                NotificationCenter.default.post(name: .NSProcessInfoPowerStateDidChange, object: ProcessInfo.processInfo)
+            }
+            pump(0.06)
+            check(publications == 1, "unchanged power notification does not republish state")
             observer.cancel()
         }
         let facade = NotchHUDController(useLegacy: false)

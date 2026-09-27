@@ -6,7 +6,7 @@
 
 **[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
-> 当前版本：v0.1.33 / Build 36。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.33)。
+> 当前版本：v0.1.34 / Build 37。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.34)。
 
 ## 界面与使用场景
 
