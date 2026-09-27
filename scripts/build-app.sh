@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="$ROOT_DIR/build/GPT TouchBar HUD.app"
+APP_DIR="${HUD_APP_DIR:-$ROOT_DIR/build/GPT TouchBar HUD.app}"
 MACOS_DIR="$APP_DIR/Contents/MacOS"
 RESOURCES_DIR="$APP_DIR/Contents/Resources"
 HELPERS_DIR="$APP_DIR/Contents/Helpers"

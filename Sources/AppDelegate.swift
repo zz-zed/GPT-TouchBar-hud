@@ -9,7 +9,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private let resetNewsMonitor = ResetNewsMonitor()
     private var latestResetNewsState = ResetNewsViewState()
     private var resetNewsRuntimeRunning = false
-    private var resetNewsMenuItem: NSMenuItem?
     private lazy var resetNewsPopover: ResetNewsPopoverController = {
         let controller = ResetNewsPopoverController()
         controller.model.onCheck = { [weak self] in self?.resetNewsMonitor.checkNow() }
@@ -65,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private var menuTaskAppearance: TaskStatusAppearance = .idle
     private lazy var persistentTouchBar = PersistentTouchBarController()
     private var summaryMenuItem: NSMenuItem?
+    private var collapseDetailsMenuItem: NSMenuItem?
     private var preferences: PreferencesWindowController?
     private lazy var hudController = CompactHUDViewController(
         initialAppearance: hudAppearance,
@@ -178,7 +178,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         updateResetNewsGate()
         screenConfigurationChanged()
     }
-    func menuWillOpen(_ menu: NSMenu) { notchHUD.collapse() }
+    private var summaryState = RateLimitDisplayState.initial
+    private var statusMenuOpen = false
+    func menuWillOpen(_ menu: NSMenu) {
+        notchHUD.collapse()
+        statusMenuOpen = true
+        collapseDetailsMenuItem?.isHidden = !notchHUD.isExpanded
+        let summary = summaryMenuItem?.view as? StatusSummaryView
+        summary?.update(summaryState, news: latestResetNewsState)
+    }
+    func menuDidClose(_ menu: NSMenu) {
+        statusMenuOpen = false
+    }
 
     func applicationWillTerminate(_ notification: Notification) {
         completionFeedback.reset()
@@ -203,14 +214,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         hudController.update(with: state)
         notchHUD.update(state, taskDisplayEnabled: taskStatusEnabled)
         persistentTouchBar.update(with: state)
-        summaryMenuItem?.view = StatusSummaryView(state: state)
+        summaryState = state
+        if statusMenuOpen { (summaryMenuItem?.view as? StatusSummaryView)?.update(state, news: latestResetNewsState) }
         preferences?.update(appearance: hudAppearance, state: state, taskEnabled: taskStatusEnabled, persistentEnabled: persistentTouchBar.isEnabled, persistentAvailable: persistentTouchBar.isAvailable, appUpdate: appUpdater.viewState)
     }
 
     private func renderResetNews() {
         let state = latestResetNewsState
         let available = state.enabled || !state.items.isEmpty
-        resetNewsMenuItem?.title = ResetForecastIndicator.accessibilityLabel(state.forecastCount)
+        if statusMenuOpen {
+            (summaryMenuItem?.view as? StatusSummaryView)?.update(summaryState, news: state)
+        }
         hudController.updateMessages(forecastCount: state.forecastCount, available: available)
         persistentTouchBar.updateMessages(forecastCount: state.forecastCount, available: available)
         notchHUD.updateResetNews(state)
@@ -238,6 +252,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     @objc private func openResetNewsFromMenu(_ sender: AnyObject?) {
         let anchor = (sender as? NSMenuItem)?.representedObject as? NSView
         DispatchQueue.main.async { [weak self] in self?.openResetNews(relativeTo: anchor) }
+    }
+
+    @objc private func openMenuForecast() {
+        guard latestResetNewsState.forecastCount > 0, !sessionSuspended else { return }
+        statusItem.menu?.cancelTracking()
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let anchor = self.statusItem.button, !self.sessionSuspended else { return }
+            self.resetNewsPopover.update(self.latestResetNewsState)
+            self.resetNewsPopover.show(relativeTo: anchor, onBack: { [weak self] in
+                guard let self, !self.sessionSuspended else { return }
+                DispatchQueue.main.async { [weak self] in self?.statusItem.button?.performClick(nil) }
+            })
+        }
     }
 
     private func openResetNewsPreferences() {
@@ -274,18 +301,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         let summary = NSMenuItem()
         var state = latestQuotaState
         state.taskStatus = taskStatusEnabled ? completionFeedback.applying(to: latestTaskStatus) : nil
-        summary.view = StatusSummaryView(state: state)
+        let summaryView = StatusSummaryView(state: state)
+        summaryView.update(state, news: latestResetNewsState)
+        summaryView.onRefresh = { [weak self] in self?.refreshQuotaNow() }
+        summaryView.onForecast = { [weak self] in self?.openMenuForecast() }
+        summary.view = summaryView
+        summaryState = state
         summaryMenuItem = summary
         menu.addItem(summary)
         menu.addItem(.separator())
-        menu.addItem(menuAction("刷新额度", #selector(refreshQuotaFromMenu(_:)), key: "r"))
-        let messages = menuAction(ResetForecastIndicator.accessibilityLabel(latestResetNewsState.forecastCount), #selector(openResetNewsFromMenu(_:)))
-        resetNewsMenuItem = messages
-        menu.addItem(messages)
+        // The visible refresh control lives in the summary; keep the menu shortcut available.
+        let refresh = menuAction("刷新额度", #selector(refreshQuotaFromMenu(_:)), key: "r")
+        refresh.isHidden = true
+        refresh.allowsKeyEquivalentWhenHidden = true
+        menu.addItem(refresh)
+        let forecastShortcut = menuAction("查看重置预告", #selector(openMenuForecast), key: "p")
+        forecastShortcut.keyEquivalentModifierMask = [.command, .shift]
+        forecastShortcut.isHidden = true
+        forecastShortcut.allowsKeyEquivalentWhenHidden = true
+        menu.addItem(forecastShortcut)
         let visibility = menuAction("显示浮窗", #selector(toggleHUDWindow(_:)))
         hudVisibilityMenuItem = visibility
         menu.addItem(visibility)
-        menu.addItem(menuAction("收起详情", #selector(collapseNotch(_:))))
+        let collapse = menuAction("收起详情", #selector(collapseNotch(_:)))
+        collapse.isHidden = !notchHUD.isExpanded
+        collapseDetailsMenuItem = collapse
+        menu.addItem(collapse)
+        let displayPreferences = NSMenuItem(title: "显示与偏好", action: nil, keyEquivalent: "")
+        let preferencesMenu = NSMenu()
+        displayPreferences.submenu = preferencesMenu
         let forms = NSMenuItem(title: "显示形式", action: nil, keyEquivalent: "")
         forms.submenu = NSMenu()
         for (index, mode) in HUDDisplayMode.allCases.enumerated() {
@@ -293,7 +337,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             item.tag = index
             forms.submenu?.addItem(item)
         }
-        menu.addItem(forms)
+        preferencesMenu.addItem(forms)
         let menuModes = NSMenuItem(title: "菜单栏内容", action: nil, keyEquivalent: "")
         menuModes.submenu = NSMenu()
         for (index, mode) in MenuBarDisplayMode.allCases.enumerated() {
@@ -301,15 +345,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             item.tag = index
             menuModes.submenu?.addItem(item)
         }
-        menu.addItem(menuModes)
+        preferencesMenu.addItem(menuModes)
         if touchBarHardware.shouldShowSettings {
             let persistent = makePersistentTouchBarMenuItem()
             persistentTouchBarMenuItem = persistent
-            menu.addItem(persistent)
+            preferencesMenu.addItem(persistent)
         }
-        menu.addItem(.separator())
-        menu.addItem(menuAction("设置…", #selector(openPreferences(_:)), key: ","))
-        menu.addItem(.separator())
+        preferencesMenu.addItem(.separator())
+        preferencesMenu.addItem(menuAction("设置…", #selector(openPreferences(_:)), key: ","))
+        menu.addItem(displayPreferences)
         addUpdateMenuItems(to: menu)
         menu.addItem(menuAction("退出", #selector(quitFromMenu(_:)), key: "q"))
         return menu
@@ -407,19 +451,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(openMenuForecast) { return latestResetNewsState.forecastCount > 0 }
+
         if menuItem.action == #selector(selectDisplayMode(_:)) {
             menuItem.state = HUDDisplayMode.allCases[menuItem.tag] == hudDisplayMode ? .on : .off
         }
         if menuItem.action == #selector(selectMenuMode(_:)) {
             menuItem.state = MenuBarDisplayMode.allCases[menuItem.tag] == menuDisplayMode ? .on : .off
         }
-        if menuItem.action == #selector(collapseNotch(_:)) { return notchHUD.isExpanded }
+        if menuItem.action == #selector(collapseNotch(_:)) {
+            menuItem.isHidden = !notchHUD.isExpanded
+            return notchHUD.isExpanded
+        }
         if menuItem.action == #selector(refreshQuotaFromMenu(_:)) {
             menuItem.title = latestQuotaState.isRefreshing ? "正在刷新…" : "刷新额度"
             return !latestQuotaState.isRefreshing
         }
         if menuItem.action == #selector(checkForAppUpdates(_:)) {
-            menuItem.title = appUpdater.isChecking ? "正在检查更新…" : (appUpdater.canCheck ? "检查更新…" : "正在安装更新…")
+            updateUpdateMenuItems()
             return appUpdater.canCheck
         }
         if menuItem.action == #selector(viewAvailableAppUpdate(_:)) {
@@ -435,15 +484,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func addUpdateMenuItems(to menu: NSMenu) {
-        let version = NSMenuItem(title: AppUpdater.versionLabel, action: nil, keyEquivalent: "")
-        version.isEnabled = false
-        menu.addItem(version)
         let available = NSMenuItem(title: "", action: #selector(viewAvailableAppUpdate(_:)), keyEquivalent: "")
         available.target = self
         availableUpdateMenuItem = available
         menu.addItem(available)
         let check = NSMenuItem(title: "检查更新…", action: #selector(checkForAppUpdates(_:)), keyEquivalent: "")
         check.target = self
+        check.toolTip = AppUpdater.versionLabel
         checkUpdatesMenuItem = check
         menu.addItem(check)
         updateUpdateMenuItems()
@@ -639,10 +686,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         if let version = state.availableVersion {
             availableUpdateMenuItem?.title = "新版本 \(version) 可用…"
         }
-        checkUpdatesMenuItem?.title = state.isInstalling
+        let actionTitle = state.isInstalling
             ? "正在安装更新…"
             : (state.isChecking ? "正在检查更新…" : "检查更新…")
-        checkUpdatesMenuItem?.isEnabled = !state.isInstalling
+        if let check = checkUpdatesMenuItem {
+            let title = NSMutableAttributedString(string: actionTitle)
+            title.append(NSAttributedString(string: "   \(AppUpdater.version)", attributes: [
+                .font: NSFont.menuFont(ofSize: 11),
+                .foregroundColor: NSColor.secondaryLabelColor
+            ]))
+            check.title = "\(actionTitle)  \(AppUpdater.version)"
+            check.attributedTitle = title
+            check.toolTip = AppUpdater.versionLabel
+            check.isEnabled = !state.isInstalling
+        }
     }
 
     private func quitApp() {

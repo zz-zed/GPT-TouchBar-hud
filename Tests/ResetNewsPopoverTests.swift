@@ -76,6 +76,14 @@ enum ResetNewsPopoverTests {
         check(windows.filter { $0 !== latest }.allSatisfy { !$0.isVisible }, "Rapid replacement retires every older window")
         controller.close(); pump()
         check(!latest.isVisible && windows.allSatisfy { !$0.isVisible }, "Rapid cross-entry presentation remains closable")
+        var backCount = 0
+        controller.show(relativeTo: button, onBack: { backCount += 1 }); pump()
+        check(controller.model.onBack != nil, "Menu entry exposes a return action")
+        controller.model.onBack?(); pump()
+        check(backCount == 1 && controller.presentedWindow == nil, "Return closes details before reopening the menu")
+        check(controller.model.onBack == nil, "Closing releases the old return action")
+        controller.show(relativeTo: button); pump()
+        check(controller.model.onBack == nil, "Other entry points do not inherit menu return behavior")
         controller.close()
     }
     static func main() throws {
