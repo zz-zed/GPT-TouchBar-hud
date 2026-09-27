@@ -119,6 +119,9 @@ jobs:
       - name: Test independent Codex host lifecycle
         run: bash scripts/test-host-lifecycle.sh
 
+      - name: Test concurrent application launches and crash recovery
+        run: bash scripts/test-single-instance.sh
+
       - name: Test expanded status menu
         run: bash scripts/test-status-menu.sh
 
