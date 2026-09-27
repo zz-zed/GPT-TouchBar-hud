@@ -119,6 +119,9 @@ jobs:
       - name: Test independent Codex host lifecycle
         run: bash scripts/test-host-lifecycle.sh
 
+      - name: Test expanded status menu
+        run: bash scripts/test-status-menu.sh
+
       - name: Test notch HUD geometry, layout, and menu presentation
         run: bash scripts/test-notch-hud.sh
 

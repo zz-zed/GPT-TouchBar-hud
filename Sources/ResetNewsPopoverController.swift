@@ -6,6 +6,7 @@ final class ResetNewsPopoverModel: ObservableObject {
     @Published var isVisible = false
     @Published var focusedItemID: String?
     @Published var contentSize = CGSize(width: 420, height: 480)
+    var onBack: (() -> Void)?
     var onCheck: (() -> Void)?
     var onMarkAllRead: (() -> Void)?
     var onSettings: (() -> Void)?
@@ -24,6 +25,10 @@ private struct ResetNewsPopoverContent: View {
     let isCurrentPresentation: () -> Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if model.onBack != nil {
+                Button("返回菜单") { if isCurrentPresentation() { model.onBack?() } }
+                    .font(.system(size: 11)).accessibilityIdentifier("resetNews.backToMenu")
+            }
             Text(ResetForecastIndicator.accessibilityLabel(model.state.forecastCount)).font(.system(size: 16, weight: .semibold))
                 .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("resetNews.heading")
@@ -93,7 +98,7 @@ final class ResetNewsPopoverController: NSObject, NSPopoverDelegate {
         return popover
     }
     func update(_ state: ResetNewsViewState) { model.state = state }
-    func show(relativeTo anchor: NSView, itemIDs: [String] = []) {
+    func show(relativeTo anchor: NSView, itemIDs: [String] = [], onBack: (() -> Void)? = nil) {
         guard let anchorWindow = anchor.window else { return }
         let anchorRect = anchorWindow.convertToScreen(anchor.convert(anchor.bounds, to: nil))
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(CGPoint(x: anchorRect.midX, y: anchorRect.midY)) })
@@ -102,6 +107,9 @@ final class ResetNewsPopoverController: NSObject, NSPopoverDelegate {
         // Do not reparent a closing popover's content between HUD and menu-bar
         // anchors. Each presentation owns its native window and delegate cycle.
         close()
+        model.onBack = onBack.map { callback in
+            { [weak self] in self?.close(); callback() }
+        }
         self.placement = placement
         let localIDs = Set(model.state.items.map(\.id))
         model.focusedItemID = itemIDs.first { localIDs.contains($0) }
@@ -122,6 +130,7 @@ final class ResetNewsPopoverController: NSObject, NSPopoverDelegate {
         placement = nil
         removePresentationObservers()
         model.isVisible = false
+        model.onBack = nil
         model.pageVisibilityChanged(false)
         closingPopover?.delegate = nil
         closingPopover?.close()
@@ -150,7 +159,12 @@ final class ResetNewsPopoverController: NSObject, NSPopoverDelegate {
                     self?.closeIfCurrent(presentation)
                 }
             let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
-            localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: clicks) { [weak self, weak presentation] event in
+            localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: clicks.union(.keyDown)) { [weak self, weak presentation] event in
+                if event.type == .keyDown {
+                    if event.keyCode == 53, let self, let presentation, self.popover === presentation,
+                       let back = self.model.onBack { back(); return nil }
+                    return event
+                }
                 if let self, let presentation, self.popover === presentation, event.window !== self.presentedWindow { self.close() }
                 return event
             }
