@@ -1,5 +1,27 @@
 import Foundation
 
+final class MockReleaseURLProtocol: URLProtocol {
+    static var response: ((URLRequest) -> (status: Int, url: URL, headers: [String: String]))?
+    static var requestedHosts: [String] = []
+    static let lock = NSLock()
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let fixture = Self.response?(request) else { preconditionFailure("Missing release fixture") }
+        Self.lock.lock()
+        Self.requestedHosts.append(request.url!.host!)
+        Self.lock.unlock()
+        let response = HTTPURLResponse(url: fixture.url, statusCode: fixture.status,
+                                       httpVersion: "HTTP/1.1", headerFields: fixture.headers)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
 final class FakeReleaseFetcher: AppReleaseFetching {
     private(set) var requestCount = 0
     private var completion: ((Result<AppRelease, AppUpdateFetchFailure>) -> Void)?
@@ -61,6 +83,7 @@ final class FakeReleaseFetcher: AppReleaseFetching {
         testPersistentState()
         testSchedulePolicy()
         testRequestDeduplication(release: release)
+        testGitHubRateLimitFallback()
         testSkipping(release: release)
         testRuntimeIsolation()
         testReleaseNotesPresentation()
@@ -167,6 +190,58 @@ final class FakeReleaseFetcher: AppReleaseFetching {
         check(engine.request(.automatic) == .started, "Engine accepts later request after completion")
         fetcher.complete(.failure(AppUpdateFetchFailure("offline")))
         check(fetcher.requestCount == 2, "Failure releases the in-flight request lock")
+    }
+
+    static func testGitHubRateLimitFallback() {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockReleaseURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let fetcher = GitHubReleaseFetcher(session: session, version: "0.1.34")
+        let reset = Date().addingTimeInterval(1800)
+        let page = URL(string: "https://github.com/\(AppRelease.repository)/releases/tag/v0.1.34")!
+        MockReleaseURLProtocol.requestedHosts = []
+        MockReleaseURLProtocol.response = { request in
+            if request.url!.host == "api.github.com" {
+                return (403, request.url!, ["X-RateLimit-Remaining": "0", "X-RateLimit-Reset": String(Int(reset.timeIntervalSince1970))])
+            }
+            return (200, page, [:])
+        }
+        let first = awaitFetch(fetcher)
+        if case let .success(release) = first {
+            check(release.tag_name == "v0.1.34", "API rate limit falls back to the latest Release page")
+        } else { check(false, "API rate limit must not end the check when the page works") }
+        check(MockReleaseURLProtocol.requestedHosts == ["api.github.com", "github.com"], "Fallback fetches the Release page")
+
+        let second = awaitFetch(fetcher)
+        if case .success = second { check(true, "Page fallback remains available") }
+        else { check(false, "Cached API limit must still use the page") }
+        check(MockReleaseURLProtocol.requestedHosts == ["api.github.com", "github.com", "github.com"],
+              "Known API limit avoids another API request")
+
+        MockReleaseURLProtocol.requestedHosts = []
+        MockReleaseURLProtocol.response = { request in
+            if request.url!.host == "api.github.com" {
+                return (403, request.url!, ["X-RateLimit-Remaining": "0", "X-RateLimit-Reset": String(Int(reset.timeIntervalSince1970))])
+            }
+            return (503, request.url!, [:])
+        }
+        let failed = awaitFetch(GitHubReleaseFetcher(session: session, version: "0.1.34"))
+        if case let .failure(error) = failed {
+            check(error.retryAfter != nil && abs(error.retryAfter!.timeIntervalSince(reset)) < 1,
+                  "If both sources fail, preserve the API reset time")
+        } else { check(false, "Both failed sources must report an error") }
+    }
+
+    static func awaitFetch(_ fetcher: GitHubReleaseFetcher) -> Result<AppRelease, AppUpdateFetchFailure> {
+        var result: Result<AppRelease, AppUpdateFetchFailure>?
+        fetcher.fetchLatest { result = $0 }
+        let deadline = Date().addingTimeInterval(5)
+        while result == nil && Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
+        guard let result else { preconditionFailure("Release fetch timed out") }
+        return result
     }
 
     static func testRuntimeIsolation() {
