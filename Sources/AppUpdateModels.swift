@@ -46,8 +46,17 @@ struct AppRelease: Decodable {
     }
     static let repository = "zz-zed/GPT-TouchBar-hud"
     static let page = URL(string: "https://github.com/\(repository)/releases/latest")!
+    static let api = URL(string: "https://api.github.com/repos/\(repository)/releases/latest")!
+
+    var isStableVersion: Bool { !draft && !prerelease && AppVersion(tag_name) != nil }
+
+    static func isTrustedURL(_ url: URL, host: String = "github.com") -> Bool {
+        url.scheme == "https" && url.host == host && url.user == nil && url.password == nil
+            && (url.port == nil || url.port == 443) && url.query == nil && url.fragment == nil
+    }
+
     static func fromLatestPageURL(_ url: URL) -> AppRelease? {
-        guard url.scheme == "https", url.host == "github.com", url.user == nil, url.password == nil else { return nil }
+        guard isTrustedURL(url) else { return nil }
         let prefix = "/\(repository)/releases/tag/"
         guard url.path.hasPrefix(prefix) else { return nil }
         let tag = String(url.path.dropFirst(prefix.count))
@@ -70,14 +79,13 @@ struct AppRelease: Decodable {
     var checksums: Asset? { assets.first { $0.name == "SHA256SUMS.txt" && trusted($0) } }
     private func trusted(_ asset: Asset) -> Bool {
         let url = asset.browser_download_url
-        return url.scheme == "https" && url.host == "github.com" && url.user == nil && url.password == nil
+        return Self.isTrustedURL(url)
             && url.path == "/\(Self.repository)/releases/download/\(tag_name)/\(asset.name)"
     }
 
     var releasePageURL: URL {
         guard let html_url,
-              html_url.scheme == "https", html_url.host == "github.com",
-              html_url.user == nil, html_url.password == nil,
+              Self.isTrustedURL(html_url),
               html_url.path == "/\(Self.repository)/releases/tag/\(tag_name)" else {
             return URL(string: "https://github.com/\(Self.repository)/releases/tag/\(tag_name)")!
         }

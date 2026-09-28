@@ -1,5 +1,14 @@
 import Foundation
 
+protocol RateLimitClient: QuotaSnapshotClient, AccountUsageClient {
+    var onRateLimitsUpdated: (() -> Void)? { get set }
+    var onAccountUpdated: (() -> Void)? { get set }
+    func start(completion: @escaping (Result<Void, Error>) -> Void)
+    func stop()
+}
+
+extension CodexAppServerClient: RateLimitClient {}
+
 protocol RateLimitStoreDelegate: AnyObject {
     func rateLimitStore(_ store: RateLimitStore, didUpdate state: RateLimitDisplayState)
 }
@@ -7,13 +16,19 @@ protocol RateLimitStoreDelegate: AnyObject {
 final class RateLimitStore {
     weak var delegate: RateLimitStoreDelegate?
 
-    private let client = CodexAppServerClient()
+    private let client: RateLimitClient
+    private lazy var quotaReader = VerifiedQuotaReader(client: client)
     private lazy var accountUsage = AccountTokenUsageStore(client: client)
+    private(set) var verifiedAccountKey: String?
+    private(set) var currentLimitID = "codex"
     private var timer: Timer?
     private var state = RateLimitDisplayState.initial
     private var refreshInFlight = false
     private var isStarted = false
     private var generation = 0
+    private var requestGeneration = 0
+
+    init(client: RateLimitClient = CodexAppServerClient()) { self.client = client }
 
     func start() {
         guard !isStarted else {
@@ -31,8 +46,13 @@ final class RateLimitStore {
         }
         client.onAccountUpdated = { [weak self] in
             guard let self, self.isStarted else { return }
+            self.requestGeneration += 1
+            self.refreshInFlight = false
+            self.verifiedAccountKey = nil
+            self.state = .initial
             self.accountUsage.invalidate()
-            self.accountUsage.refresh()
+            self.publish()
+            self.refresh()
         }
 
         client.onRateLimitsUpdated = { [weak self] in
@@ -57,7 +77,9 @@ final class RateLimitStore {
     func stop() {
         isStarted = false
         generation += 1
+        requestGeneration += 1
         refreshInFlight = false
+        verifiedAccountKey = nil
         accountUsage.invalidate()
         state.tokenUsage = nil
         timer?.invalidate()
@@ -73,22 +95,38 @@ final class RateLimitStore {
         }
 
         refreshInFlight = true
+        requestGeneration += 1
         state.isRefreshing = true
         state.errorMessage = nil
         publish()
         let revision = generation
+        let requestRevision = requestGeneration
 
-        client.readRateLimits { [weak self] result in
-            guard let self, self.isStarted, self.generation == revision else {
+        quotaReader.read { [weak self] result in
+            guard let self, self.isStarted, self.generation == revision,
+                  self.requestGeneration == requestRevision else {
                 return
             }
 
             self.refreshInFlight = false
 
             switch result {
-            case .success(let response):
-                self.apply(response)
+            case .success(let snapshot):
+                if let previous = self.verifiedAccountKey, let next = snapshot.accountKey, previous != next {
+                    self.state = .initial
+                    self.verifiedAccountKey = nil
+                    self.accountUsage.invalidate()
+                    self.publish()
+                    self.accountUsage.refresh()
+                }
+                self.verifiedAccountKey = snapshot.accountKey
+                self.apply(snapshot.response)
             case .failure(let error):
+                if error is QuotaIdentityError {
+                    self.verifiedAccountKey = nil
+                    self.state = .initial
+                    self.accountUsage.invalidate()
+                }
                 self.state.isRefreshing = false
                 self.state.errorMessage = error.localizedDescription
                 self.publish()
@@ -105,6 +143,7 @@ final class RateLimitStore {
 
     private func apply(_ response: GetAccountRateLimitsResponse) {
         let snapshot = response.rateLimitsByLimitId?["codex"] ?? response.rateLimits
+        currentLimitID = snapshot.limitId ?? "codex"
         let windows = classifyWindows(primary: snapshot.primary, secondary: snapshot.secondary)
 
         state.fiveHour = windows.fiveHour

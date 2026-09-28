@@ -8,6 +8,7 @@
 
 > 当前版本：v0.1.35 / Build 38。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.35)。
 
+
 ## 界面与使用场景
 
 ### 刘海屏：平时看额度，点击看详情

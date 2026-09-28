@@ -80,24 +80,35 @@ struct HUDMetric: Equatable {
 struct MenuBarPresentation {
     let title: String
     let statusItemLength: CGFloat
+    let hasUpdate: Bool
 
-    init(state: RateLimitDisplayState, mode: MenuBarDisplayMode, panelVisible: Bool) {
+    init(state: RateLimitDisplayState, mode: MenuBarDisplayMode, panelVisible: Bool, hasUpdate: Bool = false) {
+        self.hasUpdate = hasUpdate
         let resolved = mode.resolved(panelVisible: panelVisible)
         let all = HUDMetric.rows(for: state)
         let rows = resolved == .single ? Array(all.prefix(1)) : all
         if resolved == .icon {
-            title = ""
-            statusItemLength = NSStatusItem.squareLength
+            title = hasUpdate ? " ↑" : ""
+            statusItemLength = hasUpdate ? NSStatusItem.variableLength : NSStatusItem.squareLength
             return
         }
         let suffix = state.errorMessage == nil ? "" : " !"
-        title = " " + (rows.isEmpty ? "--" : rows.map(\.compact).joined(separator: "  ")) + suffix
+        title = " " + (rows.isEmpty ? "--" : rows.map(\.compact).joined(separator: "  ")) + suffix + (hasUpdate ? "  ↑" : "")
         statusItemLength = NSStatusItem.variableLength
     }
 
     func apply(to statusItem: NSStatusItem) {
         if statusItem.length != statusItemLength { statusItem.length = statusItemLength }
-        if statusItem.button?.title != title { statusItem.button?.title = title }
+        guard let button = statusItem.button else { return }
+        let styled = NSMutableAttributedString(string: title, attributes: [
+            .font: button.font ?? NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
+            .foregroundColor: NSColor.labelColor
+        ])
+        if hasUpdate {
+            styled.addAttributes([.foregroundColor: NSColor.systemBlue, .font: NSFont.systemFont(ofSize: 13, weight: .bold)],
+                                 range: NSRange(location: (title as NSString).length - 1, length: 1))
+        }
+        if button.attributedTitle != styled { button.attributedTitle = styled }
     }
 }
 

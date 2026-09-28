@@ -9,6 +9,7 @@ final class AppUpdater: NSObject {
     private let now: () -> Date
     private let automaticChecksAvailable: Bool
     private let fetcher: AppReleaseFetching
+    private let notifications: AppUpdateNotificationController
     private var installationInProgress = false
     private var started = false
     private var launchedAt: Date?
@@ -46,7 +47,8 @@ final class AppUpdater: NSObject {
         policy: AppUpdateSchedulePolicy,
         now: @escaping () -> Date,
         automaticChecksAvailable: Bool,
-        fetcher: AppReleaseFetching? = nil
+        fetcher: AppReleaseFetching? = nil,
+        notifications: AppUpdateNotificationController = AppUpdateNotificationController()
     ) {
         self.session = session
         self.preferences = preferences
@@ -54,8 +56,15 @@ final class AppUpdater: NSObject {
         self.now = now
         self.automaticChecksAvailable = automaticChecksAvailable
         self.fetcher = fetcher ?? GitHubReleaseFetcher(session: session, version: Self.version)
+        self.notifications = notifications
         super.init()
         reconcilePersistentVersions()
+        syncNotifications()
+        notifications.onStateChange = { [weak self] in self?.notifyStateChanged() }
+        notifications.onOpenRelease = { [weak self] version in
+            guard let self, self.viewState.availableVersion == version else { return }
+            self.presentAvailableUpdate()
+        }
     }
 
     var onInstall: (() -> Void)?
@@ -66,6 +75,20 @@ final class AppUpdater: NSObject {
     }
     var canCheck: Bool { !installationInProgress }
     var isChecking: Bool { checker.isChecking }
+    var notificationsEnabled: Bool { notifications.enabled }
+    var notificationPermission: ResetNewsNotificationPermission { notifications.permission }
+
+    func setNotificationsEnabled(_ enabled: Bool, userInitiated: Bool) {
+        notifications.setEnabled(enabled, userInitiated: userInitiated)
+    }
+
+    func refreshNotificationPermission() { notifications.refreshPermission() }
+
+    private func syncNotifications(origins: Set<AppUpdateCheckOrigin> = []) {
+        let state = preferences.state
+        notifications.update(availableVersion: visibleAvailableVersion(in: state), currentVersion: Self.version,
+                             skippedVersion: state.skippedVersion, origins: origins)
+    }
     var viewState: AppUpdateViewState {
         let state = preferences.state
         return AppUpdateViewState(
@@ -82,6 +105,7 @@ final class AppUpdater: NSObject {
         guard !started else { return }
         started = true
         launchedAt = now()
+        if automaticChecksAvailable { notifications.refreshPermission() }
         scheduleAutomaticCheck()
         notifyStateChanged()
     }
@@ -127,6 +151,7 @@ final class AppUpdater: NSObject {
         }
         let expected = viewState.availableVersion
         if let latestRelease, latestRelease.tag_name == expected {
+            syncNotifications(origins: [.manual])
             offer(latestRelease)
         } else {
             request(.manual)
@@ -161,6 +186,7 @@ final class AppUpdater: NSObject {
             state = policy.recordingSuccess(in: state, at: date)
             state.availableVersion = nil
             preferences.state = state
+            syncNotifications(origins: origins)
             notifyStateChanged()
             scheduleAutomaticCheck()
             if AppUpdatePresentationPolicy.shouldPresentResult(for: origins) {
@@ -174,6 +200,7 @@ final class AppUpdater: NSObject {
                 skippedVersion: state.skippedVersion
             )
             preferences.state = state
+            syncNotifications(origins: origins)
             notifyStateChanged()
             scheduleAutomaticCheck()
             if AppUpdatePresentationPolicy.shouldPresentResult(for: origins) { offer(release) }
@@ -203,6 +230,7 @@ final class AppUpdater: NSObject {
         let response = alert.runModal()
         if response == .alertThirdButtonReturn {
             preferences.state = AppUpdateAvailabilityPolicy.skipping(release.tag_name, in: preferences.state)
+            syncNotifications()
             notifyStateChanged()
             return
         }

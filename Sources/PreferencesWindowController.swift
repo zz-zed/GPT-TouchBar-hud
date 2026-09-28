@@ -2,7 +2,7 @@ import AppKit
 
 final class PreferencesWindowController: NSWindowController {
     private enum TabIdentifier: String {
-        case general, appearance, touchBar, experiments, updates, resetNews
+        case general, appearance, touchBar, experiments, updates, resetNews, quotaAlerts
     }
 
     var onQuit: (() -> Void)?
@@ -17,9 +17,22 @@ final class PreferencesWindowController: NSWindowController {
     var onAutomaticUpdates: ((Bool) -> Void)?
     var onCheckForUpdates: (() -> Void)?
     var onViewUpdate: (() -> Void)?
+    var onUpdateNotifications: ((Bool) -> Void)?
+    var onAuthorizeUpdateNotifications: (() -> Void)?
     var onResetNewsEnabled: ((Bool) -> Void)?
     var onResetNewsSound: ((Bool) -> Void)?
     var onCheckResetNews: (() -> Void)?
+    var onQuotaAlerts: ((QuotaAlertConfiguration) -> Void)?
+    var onAutoLaunch: ((Bool) -> Void)?
+    var onConnectionDiagnostics: (() -> Void)?
+    private let autoLaunch = NSButton(checkboxWithTitle: "随 ChatGPT / Codex 启动", target: nil, action: nil)
+    private let autoLaunchStatus = NSTextField(wrappingLabelWithString: "关闭后仍可手动打开应用。")
+    private let quotaAlertsEnabled = NSButton(checkboxWithTitle: "启用个人低额度提醒", target: nil, action: nil)
+    private let quotaAlertsSound = NSButton(checkboxWithTitle: "提醒提示音", target: nil, action: nil)
+    private let fiveHourThreshold = NSPopUpButton()
+    private let weeklyThreshold = NSPopUpButton()
+    private let quotaAlertsPermission = NSTextField(wrappingLabelWithString: "系统通知权限：尚未请求")
+    private let quotaThresholds = [10, 20, 30, 50]
     private let touchBarHardware: TouchBarHardware
     private let tabs = NSTabView()
     private let resetNewsEnabled = NSButton(checkboxWithTitle: "启用重置预告", target: nil, action: nil)
@@ -45,6 +58,9 @@ final class PreferencesWindowController: NSWindowController {
     private let foregroundValue = NSTextField(labelWithString: "")
     private let availability = NSTextField(wrappingLabelWithString: "")
     private let automaticUpdates = NSButton(checkboxWithTitle: "自动检查更新", target: nil, action: nil)
+    private let updateNotifications = NSButton(checkboxWithTitle: "发现新版本时通知我", target: nil, action: nil)
+    private let updateNotificationPermission = NSTextField(wrappingLabelWithString: "")
+    private let authorizeUpdateNotifications = NSButton(title: "允许系统通知…", target: nil, action: nil)
     private let updateStatus = NSTextField(wrappingLabelWithString: "")
     private let updateButton = NSButton(title: "检查更新…", target: nil, action: nil)
     private var updateAvailableVersion: String?
@@ -54,7 +70,7 @@ final class PreferencesWindowController: NSWindowController {
         self.appearance = appearance
         self.touchBarHardware = touchBarHardware
         preview = CompactQuotaHUDView(initialAppearance: appearance, onRefresh: {}, onClose: {}, contextMenuProvider: { NSMenu() })
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 490, height: 480), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 560), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "设置 · GPT TouchBar HUD"
         window.isReleasedWhenClosed = false
         super.init(window: window)
@@ -65,6 +81,47 @@ final class PreferencesWindowController: NSWindowController {
 
     func showResetNewsTab() {
         tabs.selectTabViewItem(withIdentifier: TabIdentifier.resetNews.rawValue)
+    }
+
+    func showQuotaAlertsTab() {
+        tabs.selectTabViewItem(withIdentifier: TabIdentifier.quotaAlerts.rawValue)
+    }
+
+    func updateUpdateNotifications(enabled: Bool, permission: ResetNewsNotificationPermission) {
+        updateNotifications.state = enabled ? .on : .off
+        let description: String
+        switch permission {
+        case .notRequested: description = "尚未允许系统通知，可点击下方按钮开启；菜单栏仍会显示更新标记。"
+        case .allowed: description = "系统通知已允许；每个版本提醒一次，无提示音。"
+        case .denied: description = "系统通知未允许，请前往系统设置 → 通知开启；菜单栏仍会显示更新标记。"
+        case .unavailable: description = "系统通知暂不可用；菜单栏仍会显示更新标记。"
+        }
+        updateNotificationPermission.stringValue = enabled ? description : "已关闭系统提醒；自动检查和菜单栏更新标记仍可使用。"
+        authorizeUpdateNotifications.isHidden = !enabled || permission != .notRequested
+    }
+
+    func updateAutoLaunch(enabled: Bool, error: String? = nil) {
+        autoLaunch.state = enabled ? .on : .off
+        autoLaunchStatus.stringValue = error ?? "关闭后仍可手动打开应用；重启后保留选择。"
+        autoLaunchStatus.toolTip = error
+        autoLaunchStatus.textColor = error == nil ? .secondaryLabelColor : .systemRed
+    }
+
+    func updateQuotaAlerts(_ configuration: QuotaAlertConfiguration, permission: ResetNewsNotificationPermission) {
+        quotaAlertsEnabled.state = configuration.enabled ? .on : .off
+        quotaAlertsSound.state = configuration.soundEnabled ? .on : .off
+        fiveHourThreshold.selectItem(at: quotaThresholds.firstIndex(of: configuration.fiveHourThreshold) ?? 1)
+        weeklyThreshold.selectItem(at: quotaThresholds.firstIndex(of: configuration.weeklyThreshold) ?? 1)
+        for control in [fiveHourThreshold, weeklyThreshold] { control.isEnabled = configuration.enabled }
+        quotaAlertsSound.isEnabled = configuration.enabled
+        let text: String
+        switch permission {
+        case .notRequested: text = "尚未请求；开启提醒时请求"
+        case .allowed: text = "已允许"
+        case .denied: text = "未允许；请在系统设置的通知中允许本应用"
+        case .unavailable: text = "暂不可用，请稍后重新打开设置"
+        }
+        quotaAlertsPermission.stringValue = "系统通知权限：" + text
     }
 
     func updateResetNews(_ state: ResetNewsViewState, soundEnabled: Bool) {
@@ -151,7 +208,7 @@ final class PreferencesWindowController: NSWindowController {
         guard let content = window?.contentView else { return }
         tabs.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(tabs)
-        NSLayoutConstraint.activate([tabs.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20), tabs.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20), tabs.topAnchor.constraint(equalTo: content.topAnchor, constant: 16), tabs.heightAnchor.constraint(equalToConstant: 340)])
+        NSLayoutConstraint.activate([tabs.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20), tabs.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20), tabs.topAnchor.constraint(equalTo: content.topAnchor, constant: 16), tabs.heightAnchor.constraint(equalToConstant: 420)])
         displayMode.addItems(withTitles: HUDDisplayMode.allCases.map(\.title))
         displayMode.selectItem(at: HUDDisplayMode.allCases.firstIndex(of: HUDDisplayMode.load()) ?? 0)
         displayMode.setAccessibilityLabel("浮窗显示模式")
@@ -166,13 +223,21 @@ final class PreferencesWindowController: NSWindowController {
         language.addItems(withTitles: ["中文", "English"])
         color.addItems(withTitles: HUDAppearance.ColorChoice.allCases.map(\.title))
         for control in [language, color, displayMode, notchRestingState, menuMode] { control.target = self; control.action = #selector(changed(_:)) }
-        for control in [tasks, persistent, visible, automaticUpdates, resetNewsEnabled, resetNewsSound] { control.target = self; control.action = #selector(changed(_:)) }
+        for control in [tasks, persistent, visible, automaticUpdates, updateNotifications, resetNewsEnabled, resetNewsSound, autoLaunch, quotaAlertsEnabled, quotaAlertsSound] { control.target = self; control.action = #selector(changed(_:)) }
         for slider in [backgroundSlider, foregroundSlider] { slider.target = self; slider.action = #selector(changed(_:)); slider.isContinuous = true }
         language.setAccessibilityLabel("信息语言")
         color.setAccessibilityLabel("浮窗颜色")
         backgroundSlider.setAccessibilityLabel("背景不透明度")
         foregroundSlider.setAccessibilityLabel("文字不透明度")
-        let general = column([row("显示模式", [displayMode]), modeAvailability, visible, row("刘海常驻形态", [notchRestingState]), note("Compact 悬停展示额度；Peek 常驻展示额度。"), row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, note("隐藏状态独立保存；自动菜单栏在面板显示时仅保留图标。")])
+        autoLaunch.setAccessibilityIdentifier("settings.hostAutoLaunch")
+        autoLaunchStatus.font = .systemFont(ofSize: 11)
+        autoLaunchStatus.maximumNumberOfLines = 2
+        autoLaunchStatus.lineBreakMode = .byTruncatingTail
+        autoLaunchStatus.textColor = .secondaryLabelColor
+        autoLaunch.state = HostAutoLauncher.isEnabled ? .on : .off
+        let diagnostics = NSButton(title: "连接检查与诊断…", target: self, action: #selector(openConnectionDiagnostics))
+        diagnostics.setAccessibilityIdentifier("settings.connectionDiagnostics")
+        let general = column([autoLaunch, autoLaunchStatus, row("显示模式", [displayMode]), modeAvailability, visible, row("刘海常驻形态", [notchRestingState]), note("Compact 悬停展示额度；Peek 常驻展示额度。"), row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, diagnostics])
         let appearancePanel = column([row("浮窗颜色", [color]), row("背景不透明度", [backgroundSlider, backgroundValue]), row("文字不透明度", [foregroundSlider, foregroundValue]), note("数值越高越不透明；修改即时保存，保留已有偏好。")])
         updateStatus.font = .systemFont(ofSize: 11)
         updateStatus.textColor = .secondaryLabelColor
@@ -180,7 +245,16 @@ final class PreferencesWindowController: NSWindowController {
         updateButton.action = #selector(updateClicked)
         automaticUpdates.setAccessibilityIdentifier("settings.automaticUpdates")
         updateButton.setAccessibilityIdentifier("settings.checkForUpdates")
-        let updates = column([automaticUpdates, updateStatus, updateButton, note("启动后约 30 秒按需检查；成功后 24 小时内不重复请求。手动检查可找回已跳过版本。")])
+        updateNotifications.setAccessibilityIdentifier("settings.updateNotifications")
+        updateNotificationPermission.setAccessibilityIdentifier("settings.updateNotificationPermission")
+        updateNotificationPermission.font = .systemFont(ofSize: 11)
+        updateNotificationPermission.textColor = .secondaryLabelColor
+        authorizeUpdateNotifications.target = self
+        authorizeUpdateNotifications.action = #selector(authorizeUpdateNotificationsClicked)
+        authorizeUpdateNotifications.setAccessibilityIdentifier("settings.authorizeUpdateNotifications")
+        let updates = column([automaticUpdates, updateStatus, updateButton, updateNotifications, updateNotificationPermission, authorizeUpdateNotifications,
+                              note("发现新版本后显示菜单栏更新标记。“稍后”保留入口；“跳过此版本”隐藏该版本提醒。"),
+                              note("启动后约 30 秒按需检查；成功后 24 小时内不重复请求。手动检查可找回已跳过版本。")])
         let hookButton = NSButton(title: "配置 Hooks 实验…", target: self, action: #selector(openHookExperiment))
         let experiments = column([note("Hooks 任务监测默认关闭。可审阅配置后启用，随时恢复日志模式。"), hookButton])
         resetNewsEnabled.setAccessibilityIdentifier("settings.resetNewsEnabled")
@@ -196,12 +270,30 @@ final class PreferencesWindowController: NSWindowController {
         let resetNews = column([resetNewsEnabled, resetNewsSound,
             note("仅在 Codex 与 HUD App 运行时检查；首次开启会请求系统通知权限。提示音默认关闭。"),
             resetNewsPermission, resetNewsStatus, resetNewsTiming, resetNewsCheck])
+        quotaAlertsEnabled.setAccessibilityIdentifier("settings.quotaAlertsEnabled")
+        quotaAlertsSound.setAccessibilityIdentifier("settings.quotaAlertsSound")
+        for (control, label, identifier) in [(fiveHourThreshold, "5 小时额度提醒阈值", "settings.fiveHourThreshold"),
+                                              (weeklyThreshold, "周额度提醒阈值", "settings.weeklyThreshold")] {
+            control.addItems(withTitles: quotaThresholds.map { "剩余 \($0)%" })
+            control.selectItem(at: 1)
+            control.target = self
+            control.action = #selector(changed(_:))
+            control.setAccessibilityLabel(label)
+            control.setAccessibilityIdentifier(identifier)
+        }
+        quotaAlertsPermission.font = .systemFont(ofSize: 11)
+        quotaAlertsPermission.textColor = .secondaryLabelColor
+        let alerts = column([quotaAlertsEnabled, row("5 小时额度", [fiveHourThreshold]), row("周额度", [weeklyThreshold]),
+                             quotaAlertsSound, quotaAlertsPermission,
+                             note("开启后的第一组数据用于建立基线。之后剩余额度从阈值以上降至阈值或以下时提醒；每个账号、每个额度周期最多提醒一次。"),
+                             note("关闭、休眠或数据中断后重新建立基线。重置时间或账号无法确认时暂停提醒。公开重置预告可在对应设置页单独管理。")])
         var panels: [(TabIdentifier, String, NSView)] = [(.general, "通用", general), (.appearance, "外观", appearancePanel)]
         if touchBarHardware.shouldShowSettings {
             panels.append((.touchBar, "Touch Bar", column([persistent, availability])))
         }
         panels += [(.experiments, "实验", experiments), (.updates, "更新", updates),
-                   (.resetNews, DisplayLanguage.text("重置预告", "Reset forecasts"), resetNews)]
+                   (.resetNews, DisplayLanguage.text("重置预告", "Reset forecasts"), resetNews),
+                   (.quotaAlerts, "额度提醒", alerts)]
         for (identifier, title, view) in panels {
             let item = NSTabViewItem(identifier: identifier.rawValue)
             item.label = title
@@ -229,10 +321,13 @@ final class PreferencesWindowController: NSWindowController {
     @objc private func quitClicked() { onQuit?() }
     @objc private func openHookExperiment() { onHookExperiment?() }
     @objc private func checkResetNewsClicked() { onCheckResetNews?() }
+    @objc private func openConnectionDiagnostics() { onConnectionDiagnostics?() }
     @objc private func updateClicked() {
         if updateAvailableVersion != nil { onViewUpdate?() }
         else { onCheckForUpdates?() }
     }
+
+    @objc private func authorizeUpdateNotificationsClicked() { onAuthorizeUpdateNotifications?() }
 
     private func row(_ title: String, _ controls: [NSView]) -> NSView {
         let label = NSTextField(labelWithString: title)
@@ -265,6 +360,14 @@ final class PreferencesWindowController: NSWindowController {
         notchRestingState.selectItem(at: NotchPresentationModel.savedAlwaysShowQuota() ? 1 : 0)
     }
     @objc private func changed(_ sender: NSControl) {
+        if sender === autoLaunch { onAutoLaunch?(autoLaunch.state == .on); return }
+        if sender === quotaAlertsEnabled || sender === quotaAlertsSound || sender === fiveHourThreshold || sender === weeklyThreshold {
+            onQuotaAlerts?(QuotaAlertConfiguration(enabled: quotaAlertsEnabled.state == .on,
+                fiveHourThreshold: quotaThresholds[max(0, fiveHourThreshold.indexOfSelectedItem)],
+                weeklyThreshold: quotaThresholds[max(0, weeklyThreshold.indexOfSelectedItem)],
+                soundEnabled: quotaAlertsSound.state == .on))
+            return
+        }
         if sender === notchRestingState { onAlwaysShowQuota?(notchRestingState.indexOfSelectedItem == 1); return }
         if sender === menuMode { onMenuMode?(MenuBarDisplayMode.allCases[menuMode.indexOfSelectedItem]); return }
         if sender === visible { onVisibility?(visible.state == .on); return }
@@ -273,6 +376,7 @@ final class PreferencesWindowController: NSWindowController {
         if sender === tasks { onTaskStatus?(tasks.state == .on); return }
         if sender === persistent { onPersistent?(persistent.state == .on); return }
         if sender === automaticUpdates { onAutomaticUpdates?(automaticUpdates.state == .on); return }
+        if sender === updateNotifications { onUpdateNotifications?(updateNotifications.state == .on); return }
         if sender === resetNewsEnabled { onResetNewsEnabled?(resetNewsEnabled.state == .on); return }
         if sender === resetNewsSound { onResetNewsSound?(resetNewsSound.state == .on); return }
         appearance.colorChoice = HUDAppearance.ColorChoice.allCases[color.indexOfSelectedItem]

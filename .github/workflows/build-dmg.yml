@@ -111,8 +111,21 @@ jobs:
       - name: Test bundled runtime discovery and account usage
         run: bash scripts/test-account-token-usage.sh
 
+      - name: Test verified quota ownership and alert policy
+        run: |
+          bash scripts/test-verified-quota.sh
+          bash scripts/test-quota-alerts.sh
+
+      - name: Test opt-out of host launch and connection diagnostics
+        run: |
+          bash scripts/test-host-auto-launcher.sh
+          bash scripts/test-connection-diagnostics.sh
+
       - name: Test update policy and installer guards
-        run: bash scripts/test-app-update.sh
+        run: |
+          bash scripts/test-app-update.sh
+          bash scripts/test-github-release-fallback.sh
+          bash scripts/test-app-update-notifications.sh
 
       - name: Test reset forecast runtime and cache migration
         env:

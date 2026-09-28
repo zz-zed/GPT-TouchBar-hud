@@ -1,6 +1,20 @@
 import AppKit
 import ResetNewsCore
 
+private final class DiagnosticsPreviewClient: ConnectionDiagnosticsClient {
+    func start(completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func stop() {}
+    func readAccountIdentity(completion: @escaping (Result<String?, Error>) -> Void) { completion(.success("preview-only")) }
+    func readRateLimits(completion: @escaping (Result<GetAccountRateLimitsResponse, Error>) -> Void) {
+        completion(.success(GetAccountRateLimitsResponse(rateLimits: RateLimitSnapshot(limitId: "codex", limitName: nil,
+            primary: RateLimitWindow(usedPercent: 10, windowDurationMins: 300, resetsAt: 1900000000), secondary: nil, credits: nil),
+            rateLimitsByLimitId: nil, rateLimitResetCredits: nil)))
+    }
+    func readTokenUsage(completion: @escaping (Result<AccountTokenUsageResponse, Error>) -> Void) {
+        completion(.success(AccountTokenUsageResponse(summary: .init(lifetimeTokens: 100), dailyUsageBuckets: nil)))
+    }
+}
+
 @main
 enum NotchHUDTests {
     static var checks = 0
@@ -102,6 +116,7 @@ enum NotchHUDTests {
         }
     }
     static func main() throws {
+        try AppUpdateIntegrationChecks.run()
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let suite = "NotchHUDTests." + UUID().uuidString
@@ -522,6 +537,31 @@ enum NotchHUDTests {
         check(MenuBarPresentation(state: full, mode: .automatic, panelVisible: true).statusItemLength == NSStatusItem.squareLength, "automatic visible panel uses square status item")
         check(MenuBarPresentation(state: full, mode: .automatic, panelVisible: false).statusItemLength == NSStatusItem.variableLength, "automatic hidden panel uses variable status item")
 
+        let taskImage = nativeButton.image
+        for mode in MenuBarDisplayMode.allCases {
+            let normal = MenuBarPresentation(state: full, mode: mode, panelVisible: true)
+            let update = MenuBarPresentation(state: full, mode: mode, panelVisible: true, hasUpdate: true)
+            let normalWidth = applyToNativeStatusItem(normal)
+            check(applyToNativeStatusItem(update) > normalWidth, "update marker gets space in every menu mode")
+            check(nativeButton.title.hasSuffix("↑"), "available update remains visible with panel open")
+            check(nativeButton.image === taskImage, "update marker preserves task image")
+            let color = nativeButton.attributedTitle.attribute(.foregroundColor, at: nativeButton.attributedTitle.length - 1, effectiveRange: nil) as? NSColor
+            check(color == .systemBlue, "update arrow is independently blue")
+            check(applyToNativeStatusItem(normal) == normalWidth, "skip or install restores prior status width")
+        }
+        MenuBarPresentation(state: full, mode: .icon, panelVisible: true, hasUpdate: true).apply(to: nativeStatusItem)
+        // NSStatusBar lays out its cell on the next run-loop turn after switching from square width.
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        nativeButton.layoutSubtreeIfNeeded()
+        check(nativeButton.bounds.height >= nativeButton.fittingSize.height, "update indicator fits native menu-bar height")
+        try snapshot(nativeButton, "update-reminder-status")
+        let updateRow = NSMenuItem(title: "", action: NSSelectorFromString("viewAvailableAppUpdate:"), keyEquivalent: "")
+        AppUpdateMenuPresentation.apply(to: updateRow, version: "v0.1.36", enabled: true)
+        check(updateRow.title.contains("v0.1.36") && updateRow.title.contains("查看更新"), "update entry shows version and action")
+        check(updateRow.view == nil && updateRow.action != nil, "update entry keeps native menu keyboard navigation")
+        AppUpdateMenuPresentation.apply(to: updateRow, version: "v0.1.36", enabled: false)
+        check(!updateRow.isEnabled, "install in progress disables update entry")
+
         for language in DisplayLanguage.allCases {
             DisplayLanguage.current = language
             for count in [0, 2, 12, 100] {
@@ -676,6 +716,19 @@ enum NotchHUDTests {
         general.wantsLayer = true
         general.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         try snapshot(general, "notch-settings-general")
+        let autoLaunch = descendants(general).compactMap { $0 as? NSButton }.first { $0.accessibilityIdentifier() == "settings.hostAutoLaunch" }!
+        var launchChoice: Bool?
+        prefs.onAutoLaunch = { launchChoice = $0 }
+        prefs.updateAutoLaunch(enabled: true)
+        autoLaunch.performClick(nil)
+        check(launchChoice == false, "Disable launch is routed to app without writing preferences from the view")
+        prefs.updateAutoLaunch(enabled: true, error: "启动项未能停用，请重试。")
+        check(autoLaunch.state == .on, "Failed launch update restores actual saved state")
+        prefs.updateAutoLaunch(enabled: false)
+        var diagnosticRequested = false
+        prefs.onConnectionDiagnostics = { diagnosticRequested = true }
+        descendants(general).compactMap { $0 as? NSButton }.first { $0.accessibilityIdentifier() == "settings.connectionDiagnostics" }!.performClick(nil)
+        check(diagnosticRequested, "Connection diagnostic entry is actionable")
         let quit = descendants(content).compactMap { $0 as? NSButton }.first { $0.accessibilityIdentifier() == "settings.quit" }!
         var quitRequested = false
         prefs.onQuit = { quitRequested = true }
@@ -696,6 +749,74 @@ enum NotchHUDTests {
         experiments.wantsLayer = true
         experiments.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         try snapshot(experiments, "integrated-settings-experiment")
+        tabs.selectTabViewItem(withIdentifier: "updates")
+        prefs.updateUpdateNotifications(enabled: true, permission: .notRequested)
+        prefs.update(appearance: HUDAppearance.load(), state: full, taskEnabled: true, persistentEnabled: false, persistentAvailable: false,
+                     appUpdate: AppUpdateViewState(automaticChecksEnabled: true, automaticChecksAvailable: true, availableVersion: "v0.1.36", lastSuccess: Date(), isChecking: false, isInstalling: false))
+        content.layoutSubtreeIfNeeded()
+        let updates = tabs.selectedTabViewItem!.view!
+        let updateButtons = descendants(updates).compactMap { $0 as? NSButton }
+        let notify = updateButtons.first { $0.accessibilityIdentifier() == "settings.updateNotifications" }!
+        let authorize = updateButtons.first { $0.accessibilityIdentifier() == "settings.authorizeUpdateNotifications" }!
+        var notifyChoice: Bool?
+        var authorizationRequested = false
+        var updateOpened = false
+        prefs.onUpdateNotifications = { notifyChoice = $0 }
+        prefs.onAuthorizeUpdateNotifications = { authorizationRequested = true }
+        prefs.onViewUpdate = { updateOpened = true }
+        authorize.performClick(nil)
+        check(authorizationRequested, "notification permission requires explicit user action")
+        notify.performClick(nil)
+        check(notifyChoice == false, "notification switch routes independently from automatic checking")
+        updateButtons.first { $0.accessibilityIdentifier() == "settings.checkForUpdates" }!.performClick(nil)
+        check(updateOpened, "available update button opens version details")
+        prefs.updateUpdateNotifications(enabled: true, permission: .allowed)
+        check(authorize.isHidden, "allowed notification permission hides authorization button")
+        prefs.updateUpdateNotifications(enabled: true, permission: .denied)
+        check(authorize.isHidden, "denied notification permission does not repeatedly request authorization")
+        prefs.updateUpdateNotifications(enabled: true, permission: .notRequested)
+        content.layoutSubtreeIfNeeded()
+        for control in descendants(updates) where control is NSControl {
+            check(updates.bounds.insetBy(dx: -1, dy: -1).contains(control.convert(control.bounds, to: updates)), "update settings controls fit tab")
+        }
+        updates.wantsLayer = true
+        updates.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        try snapshot(updates, "update-reminder-settings")
+        prefs.showQuotaAlertsTab()
+        prefs.updateQuotaAlerts(QuotaAlertConfiguration(), permission: .notRequested)
+        content.layoutSubtreeIfNeeded()
+        let alerts = tabs.selectedTabViewItem!.view!
+        let alertControls = descendants(alerts).compactMap { $0 as? NSControl }
+        let fiveThreshold = alertControls.compactMap { $0 as? NSPopUpButton }.first { $0.accessibilityIdentifier() == "settings.fiveHourThreshold" }!
+        let enabled = alertControls.compactMap { $0 as? NSButton }.first { $0.accessibilityIdentifier() == "settings.quotaAlertsEnabled" }!
+        check(!fiveThreshold.isEnabled && enabled.state == .off, "Alert defaults off with disabled thresholds")
+        var alertChoice: QuotaAlertConfiguration?
+        prefs.onQuotaAlerts = { alertChoice = $0 }
+        enabled.performClick(nil)
+        check(alertChoice?.enabled == true && alertChoice?.fiveHourThreshold == 20, "Opt-in sends configuration without directly requesting permission")
+        prefs.updateQuotaAlerts(alertChoice!, permission: .denied)
+        fiveThreshold.selectItem(at: 3)
+        NSApp.sendAction(fiveThreshold.action!, to: fiveThreshold.target, from: fiveThreshold)
+        check(alertChoice?.fiveHourThreshold == 50 && alertChoice?.weeklyThreshold == 20, "Thresholds are independent")
+        content.layoutSubtreeIfNeeded()
+        for control in alertControls {
+            check(alerts.bounds.insetBy(dx: -1, dy: -1).contains(control.convert(control.bounds, to: alerts)), "Alert settings controls fit tab")
+        }
+        alerts.wantsLayer = true
+        alerts.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        try snapshot(alerts, "iteration1-quota-alerts")
+        let diagnosticRunner = ConnectionDiagnosticsRunner(locateRuntime: { URL(fileURLWithPath: "/preview/Codex.app/codex") },
+            makeClient: { _ in DiagnosticsPreviewClient() },
+            environment: { _ in ConnectionDiagnosticsEnvironment(appVersion: "0.1.35", operatingSystem: OperatingSystemVersion(majorVersion: 15, minorVersion: 0, patchVersion: 0), architecture: .arm64, host: .codex, hostVersion: "26.9") })
+        let diagnosticWindow = ConnectionDiagnosticsWindowController(runner: diagnosticRunner)
+        diagnosticWindow.showWindow(nil)
+        diagnosticWindow.startCheck()
+        diagnosticWindow.window!.appearance = NSAppearance(named: .aqua)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        check(diagnosticRunner.report?.isRunning == false, "Diagnostic preview completes from fixture data")
+        try snapshot(diagnosticWindow.window!.contentView!, "iteration1-connection-diagnostics")
+        diagnosticWindow.close()
         prefs.window!.orderOut(nil)
         print("PASS: \(checks) notch fusion and V2 checks")
     }
