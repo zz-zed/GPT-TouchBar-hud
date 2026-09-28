@@ -1,0 +1,51 @@
+{
+  "version": "0.1.36",
+  "build": "39",
+  "sourceCommit": "e79af25eb5e70210b26834b418a8bb7d3f48efcb",
+  "tag": "v0.1.36",
+  "releaseURL": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.36",
+  "publishedAt": "2026-09-28T12:42:21Z",
+  "verifiedAtUTC": "2026-09-28T12:44:50+00:00",
+  "latestVerified": true,
+  "releaseNotesMatch": true,
+  "mainCI": {
+    "id": 36421418136,
+    "conclusion": "success"
+  },
+  "tagCI": {
+    "id": 36423493169,
+    "conclusion": "success"
+  },
+  "assets": [
+    {
+      "name": "GPT-TouchBar-HUD-0.1.36-arm64.dmg",
+      "bytes": 3742767,
+      "sha256": "02643cbaa479e0ba64801cec22b34066bb906ab31021e0de230fba38de433b17"
+    },
+    {
+      "name": "GPT-TouchBar-HUD-0.1.36-x86_64.dmg",
+      "bytes": 3869365,
+      "sha256": "8d8a08166729977ff9d92e454ebd16a74872834cf0b4b8a7b13599e4ac230e03"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 201,
+      "sha256": "ab6b04c902df93a914fe906cd3f15ecae64c473c7b52fc6c097692b45557cfdc"
+    },
+    {
+      "name": "build-manifest.json",
+      "bytes": 4010,
+      "sha256": "d12cd2ba4934555a82314aab6bcd9fdc291cb556a12c1f0611d5f36663c735d6"
+    }
+  ],
+  "readOnlyMountsVerified": true,
+  "dmgIntegrityVerified": true,
+  "bundleVersionAndBuildVerified": true,
+  "architectureAndMinimumSystemVerified": true,
+  "strictSignaturesVerified": true,
+  "firstOpenHelperBindingVerified": true,
+  "installedAppModifiedDuringPublication": false,
+  "githubAPIFailureFallbackTestsPassed": true,
+  "manualUpdateDiscoveryVerified": false,
+  "automaticTimerAndUpgradeRestartVerified": false
+}
