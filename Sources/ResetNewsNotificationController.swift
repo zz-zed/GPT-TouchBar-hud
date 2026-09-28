@@ -22,19 +22,65 @@ protocol ResetNewsNotificationChannel: AnyObject {
     func removePending(prefix: String)
 }
 
+/// Both notification features share one delegate, so enabling one cannot steal the other's clicks.
+/// Registering handlers does not touch the system center; enabled channels install the delegate.
+final class HUDSystemNotificationRouter: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = HUDSystemNotificationRouter()
+    private var handlers: [String: ([AnyHashable: Any]) -> Void] = [:]
+
+    func register(prefix: String, onOpen: @escaping ([AnyHashable: Any]) -> Void) {
+        handlers[prefix] = onOpen
+    }
+
+    func install(on center: UNUserNotificationCenter) { center.delegate = self }
+
+    /// Kept independent of UNNotificationResponse so routing is testable without a real notification.
+    func open(identifier: String, actionIdentifier: String, userInfo: [AnyHashable: Any]) {
+        guard actionIdentifier == UNNotificationDefaultActionIdentifier,
+              let prefix = handlers.keys.filter({ identifier.hasPrefix($0) }).max(by: { $0.count < $1.count }) else { return }
+        handlers[prefix]?(userInfo)
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler(notification.request.content.sound == nil ? [.banner, .list] : [.banner, .list, .sound])
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        let identifier = response.notification.request.identifier
+        let action = response.actionIdentifier
+        let info = response.notification.request.content.userInfo
+        DispatchQueue.main.async { [weak self] in self?.open(identifier: identifier, actionIdentifier: action, userInfo: info) }
+        completionHandler()
+    }
+}
+
 /// The channel itself is lazy; an enabled monitor requests permission through enable().
-final class ResetNewsSystemNotificationChannel: NSObject, ResetNewsNotificationChannel, UNUserNotificationCenterDelegate {
+final class ResetNewsSystemNotificationChannel: ResetNewsNotificationChannel {
     var onOpen: (([String]) -> Void)?
     private lazy var center = UNUserNotificationCenter.current()
 
+    init() {
+        HUDSystemNotificationRouter.shared.register(prefix: ResetNewsNotificationController.identifierPrefix) { [weak self] info in
+            guard let ids = info["resetNewsItemIDs"] as? [String] else { return }
+            self?.onOpen?(ids)
+        }
+    }
+
+    private func prepareRouter() {
+        HUDSystemNotificationRouter.shared.install(on: center)
+    }
+
     func requestAuthorization(completion: @escaping (ResetNewsNotificationPermission) -> Void) {
-        center.delegate = self
+        prepareRouter()
         center.requestAuthorization(options: [.alert, .sound]) { granted, error in
             DispatchQueue.main.async { completion(error == nil ? (granted ? .allowed : .denied) : .unavailable) }
         }
     }
 
     func readPermission(completion: @escaping (ResetNewsNotificationPermission) -> Void) {
+        prepareRouter()
         center.getNotificationSettings { settings in
             let permission: ResetNewsNotificationPermission
             switch settings.authorizationStatus {
@@ -48,6 +94,7 @@ final class ResetNewsSystemNotificationChannel: NSObject, ResetNewsNotificationC
     }
 
     func add(_ payload: ResetNewsNotificationPayload, completion: @escaping (Error?) -> Void) {
+        prepareRouter()
         let content = UNMutableNotificationContent()
         content.title = payload.title
         content.body = payload.body
@@ -65,24 +112,6 @@ final class ResetNewsSystemNotificationChannel: NSObject, ResetNewsNotificationC
         }
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
-                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        guard notification.request.identifier.hasPrefix(ResetNewsNotificationController.identifierPrefix) else {
-            completionHandler(notification.request.content.sound == nil ? [.banner, .list] : [.banner, .list, .sound])
-            return
-        }
-        completionHandler(notification.request.content.sound == nil ? [.banner, .list] : [.banner, .list, .sound])
-    }
-
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
-                                withCompletionHandler completionHandler: @escaping () -> Void) {
-        if response.notification.request.identifier.hasPrefix(ResetNewsNotificationController.identifierPrefix),
-           response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-           let ids = response.notification.request.content.userInfo["resetNewsItemIDs"] as? [String] {
-            DispatchQueue.main.async { [weak self] in self?.onOpen?(ids) }
-        }
-        completionHandler()
-    }
 }
 
 final class ResetNewsNotificationController {

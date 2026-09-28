@@ -1,0 +1,212 @@
+{
+  "checked_on": "2026-09-28",
+  "status": "local_unreleased",
+  "backend": {
+    "checkedAt": "2026-09-28T12:00:37.084526+00:00",
+    "faultInjectionChecks": 152,
+    "existingUpdatePolicyChecks": 90,
+    "shellSyntaxAndInvalidTargetGuard": "passed",
+    "productionFetcher": "live-fetcher-discovery.json",
+    "publicAssets": "public-asset-verification.json",
+    "urlSessionHEAD": "urlsession-asset-head.json",
+    "payloadVerification": "downloaded-payload-verification.json",
+    "isolatedHelper": "helper-isolation-results.json",
+    "notExecuted": [
+      "in-place installation into /Applications or ~/Applications",
+      "LaunchServices opening of a downloaded app",
+      "real post-update application health check"
+    ],
+    "fixes": [
+      "Invalid API version and untrusted final API origin now fall back to Release page.",
+      "Retry-After supports HTTP-date and numeric seconds, including 503 responses; the later rate limit boundary is retained.",
+      "Release and asset source URLs reject unexpected ports, query components and fragments."
+    ]
+  },
+  "live_discovery": {
+    "assets": [
+      {
+        "name": "GPT-TouchBar-HUD-0.1.35-arm64.dmg",
+        "size": 0
+      },
+      {
+        "name": "GPT-TouchBar-HUD-0.1.35-x86_64.dmg",
+        "size": 0
+      },
+      {
+        "name": "SHA256SUMS.txt",
+        "size": 0
+      }
+    ],
+    "checkedAt": "2026-09-28T11:59:29Z",
+    "discovery": "release-page-fallback",
+    "page": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.35",
+    "status": "success",
+    "tag": "v0.1.35"
+  },
+  "public_assets": {
+    "checkedAt": "2026-09-28T11:59:57.165029+00:00",
+    "tag": "v0.1.35",
+    "sourceSHA": "e7b38ef3eeb88103eb36ba17a9e2973da294a699",
+    "apiStatus": 403,
+    "apiRateLimitRemaining": 0,
+    "releasePageStatus": 200,
+    "artifacts": [
+      {
+        "name": "GPT-TouchBar-HUD-0.1.35-arm64.dmg",
+        "manifestSize": 3628959,
+        "manifestSHA256": "ac1ab892e2e288db455985bc8df9f790daa0eb27a0fe1b36ce163620a5a78ff7",
+        "matchesChecksumFile": true,
+        "downloadedVerified": true
+      },
+      {
+        "name": "GPT-TouchBar-HUD-0.1.35-x86_64.dmg",
+        "manifestSize": 3741018,
+        "manifestSHA256": "97d39a6fecc0cd44b7bd0af7222dd4bebd8d56f69e1664efd6e278eeb2910f64",
+        "matchesChecksumFile": true,
+        "downloadedVerified": false
+      }
+    ],
+    "notes": [
+      "arm64 actual download matches size and SHA-256 from both public manifest and checksum file.",
+      "x86_64 metadata checked; actual download not performed.",
+      "The app updater uses SHA256SUMS and archive validation; build-manifest is independently checked here, not consumed by AppUpdater."
+    ]
+  },
+  "asset_head": [
+    {
+      "acceptedByAppUpdaterSizeRule": true,
+      "architecture": "arm64",
+      "errorCode": 0,
+      "expectedContentLength": 3628959,
+      "finalHost": "release-assets.githubusercontent.com",
+      "requestedHost": "github.com",
+      "responseBodyBytes": 0,
+      "statusCode": 200
+    },
+    {
+      "acceptedByAppUpdaterSizeRule": true,
+      "architecture": "x86_64",
+      "errorCode": 0,
+      "expectedContentLength": 3741018,
+      "finalHost": "release-assets.githubusercontent.com",
+      "requestedHost": "github.com",
+      "responseBodyBytes": 0,
+      "statusCode": 200
+    }
+  ],
+  "payload": {
+    "downloaded_archive": "GPT-TouchBar-HUD-0.1.35-arm64.dmg",
+    "expected_bundle_identifier": "io.github.zz-zed.GPTTouchBarHUD",
+    "real_application_launched": false,
+    "formal_installation_touched": false,
+    "bundle_identifier": "io.github.zz-zed.GPTTouchBarHUD",
+    "version": "0.1.35",
+    "build": "38",
+    "minimum_system": "11.0",
+    "architectures": "arm64",
+    "source_strict_signature_passed": true,
+    "binary_minos": [
+      "11.0"
+    ],
+    "staged_copy_strict_signature_passed": true,
+    "readonly_volume_detached": true
+  },
+  "installer_fixture": {
+    "original_helper_sha256": "7860b440d3acb78d247fe4fb00f04c027cf9236dd2dc1d38e92d8976fa7b9b1c",
+    "original_helper_unchanged": true,
+    "real_app_open_calls": 0,
+    "formal_installation_touched": false,
+    "home_environment_changed": false,
+    "test_copy_changes": [
+      "replace target allowlist with exact generated fixture target",
+      "replace three absolute open invocations with fixture recorder"
+    ],
+    "boundary": "Actual zsh helper control flow and filesystem moves; LaunchServices and formal installation are deliberately not exercised.",
+    "results": [
+      {
+        "scenario": "success",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "scenario": "launch-failure",
+        "exit_code": 5,
+        "passed": true
+      },
+      {
+        "scenario": "wait-for-old-process",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "scenario": "invalid-pid",
+        "exit_code": 2,
+        "passed": true
+      },
+      {
+        "scenario": "outside-staging",
+        "exit_code": 2,
+        "passed": true
+      },
+      {
+        "scenario": "symlink-staging",
+        "exit_code": 2,
+        "passed": true
+      },
+      {
+        "scenario": "missing-payload",
+        "exit_code": 2,
+        "passed": true
+      }
+    ]
+  },
+  "checks": {
+    "release_policy": 90,
+    "github_fault_injection": 152,
+    "notification_policy": 61,
+    "release_workflow": 64,
+    "app_updater_integration": "passed",
+    "native_ui": "passed; 203958 checks in the combined existing harness, including pixel loops"
+  },
+  "not_performed": [
+    "formal installation replacement",
+    "real notification permission or delivery",
+    "actual app restart and health check",
+    "Intel runtime test",
+    "macOS 11 hardware test",
+    "remote CI or publication"
+  ],
+  "candidate": {
+    "signature": {
+      "exit_code": 0,
+      "output": ""
+    },
+    "architecture": {
+      "exit_code": 0,
+      "output": "arm64\n"
+    },
+    "minimum_system": {
+      "exit_code": 0,
+      "output": "/Users/didi/Desktop/codex-space/TouchBarCodexToken/build/update-reminders-2026-09-28/candidate/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    },
+    "archive": "build/update-reminders-2026-09-28/GPT-TouchBar-HUD-update-reminders-arm64.zip",
+    "sha256": "758fd9e05bd5f4956f01c4d17e3820edd125a357ff5ed62da551b82850fe1d15",
+    "app_executable_sha256": "8f6430bfbcab988adda0dc99bb2c962d8bd9fc422c0b68cf09561394fd8445a1",
+    "formal_installation_touched": false
+  },
+  "visual_verification": {
+    "status_image": "build/update-reminders-2026-09-28/status-final.png",
+    "settings_image": "build/update-reminders-2026-09-28/settings-final.png",
+    "status_image_size_pixels": [
+      103,
+      44
+    ],
+    "status_arrow_pixel_bounds": [
+      64,
+      11,
+      79,
+      29
+    ],
+    "notice": "Fixture v0.1.36 is synthetic; no release was published."
+  }
+}

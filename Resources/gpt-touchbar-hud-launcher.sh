@@ -11,6 +11,13 @@ if [[ -z "$APP_BUNDLE" || ! -d "$APP_BUNDLE" ]]; then
     exit 0
 fi
 
+# A saved opt-out also protects against a stale or restored registration.
+# Missing preferences preserve the existing enabled-by-default behavior.
+AUTO_LAUNCH_ENABLED="$(/usr/bin/defaults read io.github.zz-zed.GPTTouchBarHUD hostAutoLaunchEnabled 2>/dev/null || true)"
+case "$AUTO_LAUNCH_ENABLED" in
+    0|false|FALSE|NO) exit 0 ;;
+esac
+
 supported_host_is_running() {
     /usr/bin/pgrep -x "Codex" >/dev/null 2>&1 ||
         /usr/bin/pgrep -x "ChatGPT" >/dev/null 2>&1 ||

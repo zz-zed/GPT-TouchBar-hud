@@ -7,6 +7,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private let appUpdater = AppUpdater()
     private let taskMonitor = TaskMonitoringCoordinator()
     private let resetNewsMonitor = ResetNewsMonitor()
+    private let quotaAlerts = QuotaAlertMonitor()
+    private var connectionDiagnostics: ConnectionDiagnosticsWindowController?
+    private var autoLaunchError: String?
     private var latestResetNewsState = ResetNewsViewState()
     private var resetNewsRuntimeRunning = false
     private lazy var resetNewsPopover: ResetNewsPopoverController = {
@@ -60,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private var hudVisibilityMenuItem: NSMenuItem?
     private var persistentTouchBarMenuItem: NSMenuItem?
     private var availableUpdateMenuItem: NSMenuItem?
+    private var updateMenuSeparator: NSMenuItem?
     private var checkUpdatesMenuItem: NSMenuItem?
     private var menuTaskAppearance: TaskStatusAppearance = .idle
     private lazy var persistentTouchBar = PersistentTouchBarController()
@@ -89,6 +93,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         hudPreferences.applyStartupVisibility(hasGeometry: !DisplayTargetResolver.candidates().isEmpty)
 
         store.delegate = self
+        quotaAlerts.onStateChange = { [weak self] in self?.updateQuotaAlertPreferences() }
+        quotaAlerts.onOpenSettings = { [weak self] in
+            self?.openPreferences(nil)
+            self?.preferences?.showQuotaAlertsTab()
+        }
         resetNewsRuntimeRunning = true
         resetNewsMonitor.onStateChange = { [weak self] state in
             self?.latestResetNewsState = state
@@ -124,7 +133,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(resumePanels), name: NSNotification.Name("com.apple.screenIsUnlocked"), object: nil)
         configureStatusItem()
         configureLifecycleMonitor()
-        HostAutoLauncher.installOrUpdate()
+        if case .failure(let error) = HostAutoLauncher.installOrUpdate() {
+            autoLaunchError = error.localizedDescription
+        }
         HostAutoLauncher.clearManualQuitLock()
 
         taskMonitor.prepareForHost(displayEnabled: taskStatusEnabled)
@@ -192,6 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        quotaAlerts.suspend()
         completionFeedback.reset()
         stopResetNews()
         notchHUD.hide()
@@ -204,6 +216,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     func rateLimitStore(_ store: RateLimitStore, didUpdate state: RateLimitDisplayState) {
         latestQuotaState = state
+        if state.errorMessage != nil || state.lastUpdated == nil {
+            quotaAlerts.invalidateBaseline()
+        } else if !state.isRefreshing {
+            quotaAlerts.update(state: state, accountKey: store.verifiedAccountKey, limitID: store.currentLimitID)
+        }
         renderDisplayState()
     }
 
@@ -217,6 +234,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         summaryState = state
         if statusMenuOpen { (summaryMenuItem?.view as? StatusSummaryView)?.update(state, news: latestResetNewsState) }
         preferences?.update(appearance: hudAppearance, state: state, taskEnabled: taskStatusEnabled, persistentEnabled: persistentTouchBar.isEnabled, persistentAvailable: persistentTouchBar.isAvailable, appUpdate: appUpdater.viewState)
+        preferences?.updateAutoLaunch(enabled: HostAutoLauncher.isEnabled, error: autoLaunchError)
+        updateQuotaAlertPreferences()
+    }
+
+    private func updateQuotaAlertPreferences() {
+        preferences?.updateQuotaAlerts(quotaAlerts.configuration, permission: quotaAlerts.permission)
     }
 
     private func renderResetNews() {
@@ -233,6 +256,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func updateResetNewsGate() {
+        if sessionSuspended || !lifecycleMonitor.hostIsRunningNow() { quotaAlerts.suspend() }
+        else { quotaAlerts.resume() }
         resetNewsMonitor.updateGate(codexRunning: lifecycleMonitor.codexIsRunningNow(),
             hudRunning: resetNewsRuntimeRunning, suspended: sessionSuspended)
     }
@@ -310,6 +335,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         summaryMenuItem = summary
         menu.addItem(summary)
         menu.addItem(.separator())
+        let available = menuAction("", #selector(viewAvailableAppUpdate(_:)))
+        availableUpdateMenuItem = available
+        menu.addItem(available)
+        let updateSeparator = NSMenuItem.separator()
+        updateMenuSeparator = updateSeparator
+        menu.addItem(updateSeparator)
         // The visible refresh control lives in the summary; keep the menu shortcut available.
         let refresh = menuAction("刷新额度", #selector(refreshQuotaFromMenu(_:)), key: "r")
         refresh.isHidden = true
@@ -403,6 +434,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             controller.onAutomaticUpdates = { [weak self] enabled in
                 self?.appUpdater.setAutomaticChecksEnabled(enabled)
             }
+            controller.onUpdateNotifications = { [weak self] enabled in
+                self?.appUpdater.setNotificationsEnabled(enabled, userInitiated: true)
+            }
+            controller.onAuthorizeUpdateNotifications = { [weak self] in
+                self?.appUpdater.setNotificationsEnabled(true, userInitiated: true)
+            }
             controller.onCheckForUpdates = { [weak self] in self?.appUpdater.check() }
             controller.onViewUpdate = { [weak self] in self?.appUpdater.presentAvailableUpdate() }
             controller.onResetNewsEnabled = { [weak self] enabled in self?.resetNewsMonitor.setEnabled(enabled) }
@@ -411,9 +448,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                 self?.renderResetNews()
             }
             controller.onCheckResetNews = { [weak self] in self?.resetNewsMonitor.checkNow() }
+            controller.onQuotaAlerts = { [weak self] configuration in
+                self?.quotaAlerts.configure(configuration)
+                self?.updateQuotaAlertPreferences()
+            }
+            controller.onAutoLaunch = { [weak self] enabled in
+                guard let self else { return }
+                switch HostAutoLauncher.setEnabled(enabled) {
+                case .success: self.autoLaunchError = nil
+                case .failure(let error): self.autoLaunchError = error.localizedDescription
+                }
+                self.preferences?.updateAutoLaunch(enabled: HostAutoLauncher.isEnabled, error: self.autoLaunchError)
+            }
+            controller.onConnectionDiagnostics = { [weak self] in
+                guard let self else { return }
+                if self.connectionDiagnostics == nil { self.connectionDiagnostics = ConnectionDiagnosticsWindowController() }
+                self.connectionDiagnostics?.showAndCheck()
+            }
             preferences = controller
         }
         renderDisplayState()
+        quotaAlerts.refreshPermission()
+        appUpdater.refreshNotificationPermission()
+        updateUpdateNotificationPreferences()
         preferences?.updateResetNews(latestResetNewsState, soundEnabled: resetNewsMonitor.soundEnabled)
         NSApp.activate(ignoringOtherApps: true)
         preferences?.showWindow(sender)
@@ -473,7 +530,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         }
         if menuItem.action == #selector(viewAvailableAppUpdate(_:)) {
             guard let version = appUpdater.viewState.availableVersion else { return false }
-            menuItem.title = "新版本 \(version) 可用…"
+            AppUpdateMenuPresentation.apply(to: menuItem, version: version, enabled: appUpdater.canCheck)
             return appUpdater.canCheck
         }
         if menuItem.action == #selector(togglePersistentTouchBar(_:)) {
@@ -484,10 +541,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func addUpdateMenuItems(to menu: NSMenu) {
-        let available = NSMenuItem(title: "", action: #selector(viewAvailableAppUpdate(_:)), keyEquivalent: "")
-        available.target = self
-        availableUpdateMenuItem = available
-        menu.addItem(available)
         let check = NSMenuItem(title: "检查更新…", action: #selector(checkForAppUpdates(_:)), keyEquivalent: "")
         check.target = self
         check.toolTip = AppUpdater.versionLabel
@@ -549,10 +602,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         if let task {
             tooltip += "\n" + task.label + "\n" + task.detail
         }
-        button.toolTip = tooltip
-        button.setAccessibilityLabel(AppIdentity.productName + (task.map { " · " + $0.label } ?? ""))
+        let availableVersion = appUpdater.viewState.availableVersion
+        let updateLabel = availableVersion.map { " · 新版本 \($0) 可用" } ?? ""
+        button.toolTip = tooltip + updateLabel
+        button.setAccessibilityLabel(AppIdentity.productName + (task.map { " · " + $0.label } ?? "") + updateLabel)
 
-        let presentation = MenuBarPresentation(state: state, mode: menuDisplayMode, panelVisible: notchHUD.isVisible || hudWindow.isVisible)
+        let presentation = MenuBarPresentation(state: state, mode: menuDisplayMode, panelVisible: notchHUD.isVisible || hudWindow.isVisible, hasUpdate: availableVersion != nil)
         presentation.apply(to: statusItem)
     }
 
@@ -600,6 +655,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func hostDidStart() {
+        if !sessionSuspended { quotaAlerts.resume() }
         completionFeedback.reset()
         taskMonitor.start(displayEnabled: taskStatusEnabled)
         NSApp.setActivationPolicy(.accessory)
@@ -615,6 +671,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func hostDidStop() {
+        quotaAlerts.suspend()
         completionFeedback.reset()
         stopResetNews()
         taskMonitor.hostUnavailable()
@@ -678,14 +735,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         updateUpdateMenuItems()
         var state = latestQuotaState
         state.taskStatus = taskStatusEnabled ? completionFeedback.applying(to: latestTaskStatus) : nil
+        updateStatusTitle(with: state)
+        updateUpdateNotificationPreferences()
         preferences?.update(appearance: hudAppearance, state: state, taskEnabled: taskStatusEnabled, persistentEnabled: persistentTouchBar.isEnabled, persistentAvailable: persistentTouchBar.isAvailable, appUpdate: appUpdater.viewState)
+    }
+
+    private func updateUpdateNotificationPreferences() {
+        preferences?.updateUpdateNotifications(enabled: appUpdater.notificationsEnabled, permission: appUpdater.notificationPermission)
     }
 
     private func updateUpdateMenuItems() {
         let state = appUpdater.viewState
         availableUpdateMenuItem?.isHidden = state.availableVersion == nil
+        updateMenuSeparator?.isHidden = state.availableVersion == nil
         if let version = state.availableVersion {
-            availableUpdateMenuItem?.title = "新版本 \(version) 可用…"
+            AppUpdateMenuPresentation.apply(to: availableUpdateMenuItem, version: version, enabled: !state.isInstalling)
         }
         let actionTitle = state.isInstalling
             ? "正在安装更新…"
@@ -704,6 +768,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func quitApp() {
+        quotaAlerts.suspend()
         completionFeedback.reset()
         stopResetNews()
         notchHUD.hide()
