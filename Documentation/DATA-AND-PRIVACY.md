@@ -134,7 +134,7 @@ Hooks helper 不转发或持久化提示词、回复、工具参数、工作目�
 ## 本机保存哪些内容？
 
 
-未发布开发版另增加更新通知开关 `appUpdate.notificationsEnabled` 和已处理版本上界 `appUpdate.notificationConsumedVersion`，保存在同一 UserDefaults 中。更新通知只含软件版本及查看提示，不包含账号或任务信息。跳过版本、关闭该提醒或升级后，会清理本功能的待发送及已送达通知；其他类型通知不受影响。
+v0.1.36 另增加更新通知开关 `appUpdate.notificationsEnabled` 和已处理版本上界 `appUpdate.notificationConsumedVersion`，保存在同一 UserDefaults 中。更新通知只含软件版本及查看提示，不包含账号或任务信息。跳过版本、关闭该提醒或升级后，会清理本功能的待发送及已送达通知；其他类型通知不受影响。
 
 | 内容 | 位置或保存方式 | 清理注意事项 |
 | --- | --- | --- |
