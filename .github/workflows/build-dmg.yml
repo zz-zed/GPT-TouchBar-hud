@@ -39,6 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.source.outputs.sha }}
+      build_required: ${{ steps.source.outputs.build_required }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -49,16 +50,98 @@ jobs:
         id: source
         env:
           SOURCE_SHA_INPUT: ${{ inputs.source_sha }}
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
           if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
             test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           fi
           SOURCE_SHA="$(python3 scripts/release_artifacts.py resolve-source)"
           echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            BUILD_REQUIRED="$(python3 scripts/ci_build_scope.py --before "$BEFORE_SHA" --after "$SOURCE_SHA")" || BUILD_REQUIRED=true
+            [[ "$BUILD_REQUIRED" == true || "$BUILD_REQUIRED" == false ]] || BUILD_REQUIRED=true
+          else
+            BUILD_REQUIRED=true
+          fi
+          echo "build_required=$BUILD_REQUIRED" >> "$GITHUB_OUTPUT"
+
+  regression:
+    name: Regression (${{ matrix.arch }}, ${{ matrix.suite }})
+    needs: source
+    if: needs.source.outputs.build_required == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+            suite: data
+          - arch: arm64
+            runner: macos-15
+            suite: interface
+          - arch: x86_64
+            runner: macos-15-intel
+            suite: data
+          - arch: x86_64
+            runner: macos-15-intel
+            suite: interface
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out immutable source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+
+      - name: Verify runner and source
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(uname -m)" = "$EXPECTED_ARCH"
+
+      - name: Test task status, account, quota, and host behavior
+        if: matrix.suite == 'data'
+        run: |
+          bash scripts/test-task-status.sh
+          bash scripts/test-account-token-usage.sh
+          bash scripts/test-verified-quota.sh
+          bash scripts/test-quota-alerts.sh
+          bash scripts/test-host-auto-launcher.sh
+          bash scripts/test-connection-diagnostics.sh
+          bash scripts/test-host-lifecycle.sh
+          bash scripts/test-single-instance.sh
+
+      - name: Test update policy and installer guards
+        if: matrix.suite == 'data'
+        run: |
+          bash scripts/test-app-update.sh
+          bash scripts/test-github-release-fallback.sh
+          bash scripts/test-app-update-notifications.sh
+
+      - name: Test reset forecast runtime and cache migration
+        if: matrix.suite == 'data'
+        env:
+          RESET_NEWS_CORE_DIR: ${{ runner.temp }}/reset-news-core-runtime-${{ matrix.arch }}
+        run: bash scripts/test-reset-news-runtime.sh
+
+      - name: Verify HookCore and ResetNewsCore unit tests
+        if: matrix.suite == 'data'
+        run: bash scripts/test-hooks.sh
+
+      - name: Test rendering, menu, and native presentation
+        if: matrix.suite == 'interface'
+        run: |
+          bash scripts/test-idle-performance.sh
+          bash scripts/test-status-menu.sh
+          bash scripts/test-notch-hud.sh
+          bash scripts/test-notch-presentation.sh
 
   build:
     name: Build DMG (${{ matrix.arch }})
     needs: source
+    if: needs.source.outputs.build_required == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -105,51 +188,6 @@ jobs:
       - name: Test release provenance and refusal rules (offline)
         run: bash .release-tools/scripts/test-release-workflows.sh
 
-      - name: Test local task status parser
-        run: bash scripts/test-task-status.sh
-
-      - name: Test bundled runtime discovery and account usage
-        run: bash scripts/test-account-token-usage.sh
-
-      - name: Test verified quota ownership and alert policy
-        run: |
-          bash scripts/test-verified-quota.sh
-          bash scripts/test-quota-alerts.sh
-
-      - name: Test opt-out of host launch and connection diagnostics
-        run: |
-          bash scripts/test-host-auto-launcher.sh
-          bash scripts/test-connection-diagnostics.sh
-
-      - name: Test update policy and installer guards
-        run: |
-          bash scripts/test-app-update.sh
-          bash scripts/test-github-release-fallback.sh
-          bash scripts/test-app-update-notifications.sh
-
-      - name: Test reset forecast runtime and cache migration
-        env:
-          RESET_NEWS_CORE_DIR: ${{ runner.temp }}/reset-news-core-runtime-${{ matrix.arch }}
-        run: bash scripts/test-reset-news-runtime.sh
-
-      - name: Test independent Codex host lifecycle
-        run: bash scripts/test-host-lifecycle.sh
-
-      - name: Test concurrent application launches and crash recovery
-        run: bash scripts/test-single-instance.sh
-
-      - name: Test idle rendering and app-server connection bounds
-        run: bash scripts/test-idle-performance.sh
-
-      - name: Test expanded status menu
-        run: bash scripts/test-status-menu.sh
-
-      - name: Test notch HUD geometry, layout, and menu presentation
-        run: bash scripts/test-notch-hud.sh
-
-      - name: Test native island presentation and cancellation
-        run: bash scripts/test-notch-presentation.sh
-
       - name: Build and package DMG
         id: package
         shell: bash
@@ -165,10 +203,6 @@ jobs:
 
       - name: Test first-open helper with isolated app copy
         run: bash scripts/test-first-open.sh
-
-      - name: Verify HookCore and ResetNewsCore unit tests
-        shell: bash
-        run: bash scripts/test-hooks.sh
 
       - name: Verify app and DMG
         shell: bash
