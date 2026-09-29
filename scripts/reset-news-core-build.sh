@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Source from repository root: reusable static module for standalone swiftc regression scripts.
 # SPM consumers use the ResetNewsCore target directly.
+source scripts/swift-module-cache.sh
 
 reset_news_core_build() {
     local output_dir="$1"
@@ -12,7 +13,7 @@ reset_news_core_build() {
     local expected_configuration="$sdk_path|$target"
     local rebuild=0
 
-    mkdir -p "$output_dir/module-cache"
+    mkdir -p "$output_dir"
     [[ -f "$library" && -f "$module" && -f "$configuration" ]] || rebuild=1
     if [[ "$rebuild" == 0 && "$(<"$configuration")" != "$expected_configuration" ]]; then
         rebuild=1
@@ -22,9 +23,11 @@ reset_news_core_build() {
     done
 
     if [[ "$rebuild" == 1 ]]; then
+        local module_cache
+        module_cache="$(swift_module_cache_path "$target" "$sdk_path")"
         swiftc -swift-version 5 -sdk "$sdk_path" -target "$target" -O -parse-as-library \
             -emit-module -emit-library -static -module-name ResetNewsCore \
-            -module-cache-path "$output_dir/module-cache" ResetNewsCore/*.swift \
+            -module-cache-path "$module_cache" ResetNewsCore/*.swift \
             -emit-module-path "$module" -o "$library"
         printf '%s\n' "$expected_configuration" > "$configuration"
     fi

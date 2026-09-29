@@ -21,7 +21,7 @@
 1. Fork 仓库，并从最新 `main` 创建分支。
 2. 使用范围清晰的分支名，例如 `fix/token-format`、`feat/menu-setting` 或 `docs/install-guide`。
 3. 只修改解决当前问题所需的文件，避免混入无关格式化或重构。
-4. 完成与改动风险相匹配的验证。
+4. 日常先运行改动直接相关的回归；提交 PR 前完成与改动风险相匹配的验证，完整跨模块回归由 CI 执行。
 5. 向本仓库的 `main` 分支提交 PR，并完整填写 PR 模板。
 
 本地构建：
@@ -37,9 +37,17 @@ open "build/GPT TouchBar HUD.app"
 scripts/package-dmg.sh
 ```
 
+独立 `swiftc` 测试与本地打包复用 `.build/module-cache/` 中的缓存，并按 Swift 工具链、SDK 和编译目标隔离。测试可执行文件仍保留在各自的 `.build/*-tests/` 目录。检查缓存占用：
+
+```bash
+bash scripts/clean-build-caches.sh --dry-run
+```
+
+确认没有构建或测试正在运行后，可用 `--apply` 清理模块与 SDK 编译缓存；下次编译会自动重建。此命令保留测试日志、本地 App、DMG、设计资料和备份，不清理整个被 Git 忽略的目录。
+
 ## 回归检查
 
-代码改动提交前，建议运行完整回归：
+代码改动提交前，建议运行以下基础回归，并按改动类型补充检查：
 
 ```bash
 bash scripts/test-app-migration.sh

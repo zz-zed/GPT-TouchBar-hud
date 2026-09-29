@@ -11,16 +11,18 @@ DEPLOYMENT_TARGET="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' 
 # Native by default (matches architecture-specific CI). Opt in to a universal local artifact.
 read -r -a BUILD_ARCHS <<< "${HUD_BUILD_ARCHS:-$(uname -m)}"
 cd "$ROOT_DIR"
+source scripts/swift-module-cache.sh
 RESET_NEWS_CORE_BUILD_DEFERRED=1 source scripts/reset-news-core-build.sh
 app_slices=()
 helper_slices=()
 for build_arch in "${BUILD_ARCHS[@]}"; do
     [[ "$build_arch" == arm64 || "$build_arch" == x86_64 ]] || { echo 'Unsupported architecture' >&2; exit 1; }
     output_dir="$ROOT_DIR/.build/distribution/$build_arch"
-    mkdir -p "$output_dir/module-cache"
+    mkdir -p "$output_dir"
+    module_cache="$(swift_module_cache_path "${build_arch}-apple-macosx${DEPLOYMENT_TARGET}" "$SDK_PATH")"
     # Explicit SDK and target apply to compilation AND linking. Swift 6.4 swiftbuild currently
     # emits macOS 12 for this macOS 11 package; do not patch Mach-O version metadata afterwards.
-    common=(-O -sdk "$SDK_PATH" -target "${build_arch}-apple-macosx${DEPLOYMENT_TARGET}" -module-cache-path "$output_dir/module-cache")
+    common=(-O -sdk "$SDK_PATH" -target "${build_arch}-apple-macosx${DEPLOYMENT_TARGET}" -module-cache-path "$module_cache")
     swiftc "${common[@]}" -parse-as-library -emit-module -emit-library -static -module-name HookCore \
         HookCore/*.swift -emit-module-path "$output_dir/HookCore.swiftmodule" -o "$output_dir/libHookCore.a"
     reset_news_core_build "$output_dir" "$SDK_PATH" "${build_arch}-apple-macosx${DEPLOYMENT_TARGET}"
