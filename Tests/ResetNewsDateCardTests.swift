@@ -7,7 +7,8 @@ import ResetNewsCore
 @main
 enum ResetNewsDateCardTests {
     private static var checks = 0
-    private static let output = URL(fileURLWithPath: "Design/reset-news-preview/date-emphasis", isDirectory: true)
+    private static let output = URL(fileURLWithPath:
+        ProcessInfo.processInfo.environment["RESET_NEWS_PREVIEW_OUTPUT"] ?? "Design/reset-news-preview/date-emphasis", isDirectory: true)
     private static let publishedAt = ISO8601DateFormatter().date(from: "2026-09-22T12:31:00+08:00")!
 
     private static func check(_ condition: @autoclosure () -> Bool, _ message: String) {
@@ -105,6 +106,9 @@ enum ResetNewsDateCardTests {
             effectiveAt: ISO8601DateFormatter().date(from: "2026-09-25T15:30:00+08:00")!, effectiveAtPrecision: .exact))
         let longDate = fixture("long-date", fact: .init(kind: .upcomingReset, scope: "Pro / Plus / Team",
             effectiveAt: ISO8601DateFormatter().date(from: "2027-12-31T00:00:00+08:00")!, effectiveAtPrecision: .windowBoundary))
+        let deadline = fixture("deadline", fact: .init(kind: .upcomingReset, scope: "paid_chatgpt",
+            effectiveAt: ISO8601DateFormatter().date(from: "2026-09-23T18:00:00Z")!, effectiveAtPrecision: .deadline,
+            officialWindow: .init(targetAt: ISO8601DateFormatter().date(from: "2026-09-23T18:00:00Z")!, targetKind: "deadline", timeZone: "PST")))
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
         let day = ResetForecastDatePresentation(fact: dateOnly.facts[0], publishedAt: publishedAt, now: publishedAt, calendar: calendar)
@@ -117,6 +121,11 @@ enum ResetNewsDateCardTests {
         let boundary = ResetForecastDatePresentation(fact: longDate.facts[0], publishedAt: publishedAt, now: publishedAt, calendar: calendar)
         check(boundary.dateText.contains("2027") && !boundary.isExactTime && !boundary.timeText.contains("00:00"),
             "Cross-year boundary includes the year without pretending to be an exact midnight reset")
+        let deadlineDate = ResetForecastDatePresentation(fact: deadline.facts[0], publishedAt: publishedAt, now: publishedAt, calendar: calendar)
+        check(!deadlineDate.isExactTime && deadlineDate.timeText.contains("前") && deadlineDate.timeText.contains("02:00"),
+            "A completion deadline is localized without promising an exact reset time")
+        check(ResetNewsSummary.scopeLabel("paid_chatgpt") == "付费 ChatGPT 用户",
+            "Paid ChatGPT eligibility is readable without broadening to all accounts")
         let textWidth = (boundary.dateText as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 20, weight: .semibold)]).width
         check(textWidth <= 296, "The long Chinese date is readable at full size inside the narrow card")
         for dark in [false, true] {
@@ -127,6 +136,7 @@ enum ResetNewsDateCardTests {
             try popoverSnapshot(item: exact, appearance: appearance, name: "exact-popup-\(mode)")
             try listSnapshot(item: dateOnly, appearance: appearance, dark: dark, name: "notch-width-date-only-\(mode)")
             try cardSnapshot(item: longDate, appearance: appearance, dark: dark, name: "long-date-340-\(mode)")
+            try listSnapshot(item: deadline, appearance: appearance, dark: dark, name: "deadline-340-\(mode)")
         }
         print("PASS: \(checks) native forecast date-card, precision, size and appearance checks")
     }

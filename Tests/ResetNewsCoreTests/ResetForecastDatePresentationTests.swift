@@ -19,7 +19,7 @@ struct ResetForecastDatePresentationTests {
     @Test func tuesdayBecomesAChineseDateWithAnHonestDerivationNote() {
         let value = render(.init(kind: .upcomingReset, timingText: "Tuesday"), published: publication)
         #expect(value.dateText == "9月22日（周二）")
-        #expect(value.timeText == "具体时刻未公布" && value.basisText == "根据公告发布时间及周二推算")
+        #expect(value.timeText == "具体时刻未公布" && value.basisText == "根据公告发布时间及周二推算（未注明时区，按本地日期）")
         #expect(!value.isExactTime && !value.timeText.contains("00:00") && !value.dateText.contains("Tuesday"))
         let later = render(.init(kind: .upcomingReset, timingText: "Tuesday"), published: publication, now: publication.addingTimeInterval(7 * 86400))
         #expect(later.dateText == value.dateText)
@@ -75,7 +75,7 @@ struct ResetForecastDatePresentationTests {
         for key in ["start_at", "end_at", "target_at", "effective_at"] {
             var record = base
             if key == "effective_at" { record[key] = "2026-09-22T07:00:00Z" }
-            else { record["official_window"] = [key: "2026-09-22T07:00:00Z"] }
+            else { record["official_window"] = [key: "2026-09-22T07:00:00Z", "target_kind": "exact"] }
             let records = try ResetNewsSourceDecoder().decode(JSONSerialization.data(withJSONObject: ["events": [record]]), source: .timeline)
             let fact = try #require(records.first?.structuredFacts?.first)
             let value = render(fact)
@@ -110,7 +110,7 @@ struct ResetForecastDatePresentationTests {
     @Test func injectedEnglishLocaleKeepsSamePrecisionAndCalendar() {
         let value = render(.init(kind: .upcomingReset, timingText: "Tuesday"), published: publication, locale: "en_US_POSIX")
         #expect(value.dateText == "Sep 22 (Tue)" && value.timeText == "Exact time not announced" && !value.isExactTime)
-        #expect(value.basisText == "Derived from the publication date and Tuesday")
+        #expect(value.basisText == "Derived from the publication date and Tuesday (timezone unspecified; local date assumed)")
     }
 
     @Test func summaryUsesTheSameDateProjectionWhileLegacyCreditBranchRemainsCompatible() {

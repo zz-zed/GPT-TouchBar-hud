@@ -34,6 +34,9 @@ public struct ResetNewsSourceDecoder: Sendable {
         let rootIdentityValid = source != .feed || (profile?["handle"] as? String == "thsottiaux" && root["source_scope"] as? String == "timeline")
         var rejected = 0
         let items: [ResetNewsSourceItem] = records.compactMap { record in
+            // The provider includes its own account observations alongside official posts.
+            // Those records have no official post identity and are intentionally out of scope.
+            if isOperatorObservation(record) { return nil }
             let text = content(record, ["full_text", "text", "body", "content", "description", "summary"])
             let title = content(record, ["title", "headline"])
             guard text != nil || title != nil else { return nil }
@@ -128,26 +131,54 @@ public struct ResetNewsSourceDecoder: Sendable {
         return ResetNewsDate.parse(value)
     }
 
+    private func isOperatorObservation(_ record: [String: Any]) -> Bool {
+        guard let provenance = string(record, ["source"])?.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) else { return false }
+        return ["observed", "operator-observed"].contains(provenance)
+    }
+
+    private func audience(_ record: [String: Any], text: String, engine: ResetNewsRuleEngine) -> String? {
+        let declared = Array(Set((record["audience"] as? [String] ?? []).map {
+            $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty })).sorted()
+        let textAudience = engine.audience(in: text)
+        // Product tags or geographic scope do not imply eligibility for every plan.
+        let productOnly = Set(["all", "codex", "chatgpt", "chatgpt_work"])
+        if !declared.isEmpty && !declared.allSatisfy(productOnly.contains) {
+            return declared.joined(separator: ",")
+        }
+        if textAudience == "all", !declared.isEmpty, !declared.contains("all") {
+            return declared.joined(separator: ",")
+        }
+        return textAudience ?? (declared.isEmpty ? nil : declared.joined(separator: ","))
+    }
+
     private func structuredFacts(_ record: [String: Any], text: String) -> [ResetNewsFact]? {
         let group = string(record, ["group", "type"])
         let resetKind = string(record, ["reset_kind"])
         let banked = string(record, ["banked_state"])
         let explicitBankedState = banked.map { ["announced", "arriving", "available"].contains($0) } ?? false
         guard group != nil || resetKind == "banked" || record["explicit_reset_claim"] as? Bool == true || explicitBankedState else { return nil }
-        // An operator's observed quota change does not establish a new official announcement.
-        if string(record, ["source"]) == "operator-observed" { return [] }
         let engine = ResetNewsRuleEngine()
-        let audience = (record["audience"] as? [String] ?? []).map { $0.lowercased() }.sorted()
-        let scope = string(record, ["scope"]) == "global" ? "all" : (audience.isEmpty ? engine.audience(in: text) : audience.joined(separator: ","))
+        let scope = audience(record, text: text, engine: engine)
         let confidence: ResetNewsConfidence = string(record, ["confidence"]) == "high"
             || string(record, ["announcement_state"]) == "announced"
             || record["explicit_reset_claim"] as? Bool == true
             || explicitBankedState ? .explicit : .tentative
-        let window = record["official_window"] as? [String: Any] ?? [:]
-        let exactTarget = date(record, ["effective_at"]) ?? date(window, ["target_at"])
-        let effectiveAt = exactTarget ?? date(window, ["end_at", "start_at"])
-        let precision: ResetNewsTimePrecision? = exactTarget != nil ? .exact : (effectiveAt != nil ? .windowBoundary : nil)
-        let timingText = string(window, ["label"])
+        let window = officialWindow(record)
+        let announcedEffectiveAt = date(record, ["effective_at"])
+        let effectiveAt = announcedEffectiveAt ?? window?.targetAt ?? window?.endAt ?? window?.startAt
+        let precision: ResetNewsTimePrecision?
+        if announcedEffectiveAt != nil {
+            precision = .exact
+        } else if window?.targetAt != nil, window?.targetKind?.lowercased() == "deadline" {
+            precision = .deadline
+        } else if window?.targetAt != nil, window?.targetKind?.lowercased() == "exact" {
+            precision = .exact
+        } else {
+            precision = effectiveAt != nil ? .windowBoundary : nil
+        }
+        let timingText = window?.label
+        let sourceTimeZone = window?.timeZone ?? string(record, ["time_zone", "timezone"])
         let status = status(record)
         let withdrawn = status == .cancelled || status == .superseded || status == .expired
         if group == "credits" || explicitBankedState || resetKind == "banked" {
@@ -162,10 +193,28 @@ public struct ResetNewsSourceDecoder: Sendable {
                                   validityText: timing.validity, confidence: creditConfidence, evidence: text)]
         }
         if group == "reset" || record["explicit_reset_claim"] as? Bool == true {
-            guard withdrawn || !ResetNewsText.matches(#"\b(?:not|never|no|won't|won’t)\b.{0,35}\breset\b|不会重置|没有重置"#, in: text) else { return [] }
-            let kind: ResetNewsFactKind = record["preview"] as? Bool == true ? .upcomingReset : .resetAnnouncement
+            let evidence = engine.resetFactEvidence(in: text)
+            if !evidence.isEmpty {
+                let hasForecast = evidence.contains { $0.kind == .upcomingReset }
+                return evidence.map { clause in
+                    let upcoming = clause.kind == .upcomingReset
+                    let timing = engine.timingDetails(clause.evidence)
+                    // A completed clause in a compound message must not inherit a future window.
+                    let scheduledAt = upcoming || !hasForecast ? effectiveAt ?? timing.effective : nil
+                    let scheduledPrecision = scheduledAt == nil ? nil : (effectiveAt != nil ? precision : .exact)
+                    return ResetNewsFact(kind: clause.kind, scope: audience(record, text: clause.evidence, engine: engine),
+                                         effectiveAt: scheduledAt, effectiveAtPrecision: scheduledPrecision,
+                                         timingText: upcoming ? timingText ?? timing.text : nil,
+                                         confidence: upcoming ? .explicit : confidence, evidence: clause.evidence,
+                                         officialWindow: upcoming ? window : nil, sourceTimeZone: sourceTimeZone)
+                }
+            }
+            guard withdrawn || !engine.isNegatedOrSpeculative(text) else { return [] }
+            // The flag remains a compatible clue when the original text has no stronger classification.
+            let kind: ResetNewsFactKind = record["preview"] as? Bool == true && engine.hasIndependentQuotaReset(text)
+                ? .upcomingReset : .resetAnnouncement
             return [ResetNewsFact(kind: kind, scope: scope, effectiveAt: effectiveAt, effectiveAtPrecision: precision, timingText: timingText,
-                                  confidence: confidence, evidence: text)]
+                                  confidence: confidence, evidence: text, officialWindow: window, sourceTimeZone: sourceTimeZone)]
         }
         return nil
     }
@@ -192,16 +241,19 @@ public struct ResetNewsSourceDecoder: Sendable {
     }
 
     private func hints(_ record: [String: Any]) -> ResetNewsSourceHints {
-        let window = record["official_window"] as? [String: Any]
         return ResetNewsSourceHints(group: string(record, ["group"]), type: string(record, ["type"]),
                                     preview: record["preview"] as? Bool, resetKind: string(record, ["reset_kind"]),
                                     audience: record["audience"] as? [String] ?? [], scope: string(record, ["scope"]),
                                     confidence: string(record, ["confidence"]), bankedState: string(record, ["banked_state"]),
                                     announcementState: string(record, ["announcement_state"]),
-                                    officialWindow: window.map { value in
-            ResetNewsOfficialWindow(label: string(value, ["label"]), startAt: date(value, ["start_at"]),
-                                    endAt: date(value, ["end_at"]), targetAt: date(value, ["target_at"]))
-        })
+                                    officialWindow: officialWindow(record))
+    }
+
+    private func officialWindow(_ record: [String: Any]) -> ResetNewsOfficialWindow? {
+        guard let window = record["official_window"] as? [String: Any] else { return nil }
+        return ResetNewsOfficialWindow(label: string(window, ["label"]), startAt: date(window, ["start_at"]),
+                                       endAt: date(window, ["end_at"]), targetAt: date(window, ["target_at"]),
+                                       targetKind: string(window, ["target_kind"]), timeZone: string(window, ["time_zone", "timezone"]))
     }
 }
 

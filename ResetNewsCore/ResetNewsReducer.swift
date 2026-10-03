@@ -181,10 +181,41 @@ public struct ResetNewsReducer: Sendable {
             let rightDate = rhs.updatedAt ?? rhs.publishedAt ?? .distantPast
             if leftDate != rightDate { return leftDate > rightDate }
             if lhs.status != rhs.status { return statusPriority(lhs.status) > statusPriority(rhs.status) }
-            if lhs.sources.contains(.timeline) != rhs.sources.contains(.timeline) { return lhs.sources.contains(.timeline) }
-            return lhs.originalText.count > rhs.originalText.count
+            // Both endpoints can repeat the same post. Preserve the complete text rather
+            // than letting a timeline summary erase its announced clock or audience.
+            if lhs.originalText.count != rhs.originalText.count { return lhs.originalText.count > rhs.originalText.count }
+            return lhs.sources.map(\.rawValue).joined() < rhs.sources.map(\.rawValue).joined()
         }
         guard var merged = sorted.first else { return nil }
+        let newestVersion = merged.updatedAt ?? merged.publishedAt ?? .distantPast
+        let peers = sorted.filter { ($0.updatedAt ?? $0.publishedAt ?? .distantPast) == newestVersion && $0.status == merged.status }
+        // Structured absolute dates carry more schedule information than a day-only
+        // summary. Choose the most informative same-kind copy at the accepted version;
+        // an older copy must never overwrite an updated plan or terminal status.
+        for kind in Set(peers.flatMap { $0.facts.map(\.kind) }) {
+            let copies = peers.map { $0.facts.filter { $0.kind == kind } }.filter { !$0.isEmpty }
+            guard let preferred = copies.max(by: { factDetail($0, publishedAt: merged.publishedAt) < factDetail($1, publishedAt: merged.publishedAt) }) else { continue }
+            merged.facts.removeAll { $0.kind == kind }
+            merged.facts.append(contentsOf: preferred.map { fact in
+                // A single repeated schedule can supply complementary scope/provenance.
+                // Multiple schedules require a matching date or timing label before enrichment.
+                let supplements = copies.flatMap { copy in copy.filter { other in
+                    (preferred.count == 1 && copy.count == 1)
+                        || (fact.effectiveAt != nil && fact.effectiveAt == other.effectiveAt)
+                        || (fact.effectiveAt == nil && fact.timingText != nil && fact.timingText == other.timingText)
+                } }
+                var enriched = fact
+                for other in supplements {
+                    if enriched.scope == nil || (isProductScope(enriched.scope) && !isProductScope(other.scope)) {
+                        enriched.scope = other.scope ?? enriched.scope
+                    }
+                    if enriched.sourceTimeZone == nil { enriched.sourceTimeZone = other.sourceTimeZone }
+                    if enriched.expiresAt == nil { enriched.expiresAt = other.expiresAt }
+                    if enriched.validityText == nil { enriched.validityText = other.validityText }
+                }
+                return enriched
+            })
+        }
         var kinds = Set(merged.facts.map(\.kind))
         for version in sorted.dropFirst() {
             for kind in version.facts.map(\.kind) where !kinds.contains(kind) {
@@ -196,6 +227,25 @@ public struct ResetNewsReducer: Sendable {
         }
         merged.sources = Array(Set(versions.flatMap(\.sources))).sorted { $0.rawValue < $1.rawValue }
         return merged
+    }
+
+    private func factDetail(_ facts: [ResetNewsFact], publishedAt: Date?) -> Int {
+        facts.reduce(0) { score, fact in
+            let timing = ResetForecastTiming.resolve(fact, publishedAt: publishedAt, calendar: forecastPolicy.calendar)
+            let scheduleScore: Int
+            if fact.effectiveAt != nil { scheduleScore = 5000 }
+            else if timing?.precision == .exact { scheduleScore = 4000 }
+            else if timing != nil { scheduleScore = 3000 }
+            else { scheduleScore = 0 }
+            let windowScore = fact.officialWindow == nil ? 0 : 1000
+            return score + scheduleScore + windowScore + min(fact.timingText?.count ?? 0, 500)
+                + (fact.scope == nil ? 0 : 100) + (fact.confidence == .explicit ? 100 : 0)
+        }
+    }
+
+    private func isProductScope(_ scope: String?) -> Bool {
+        guard let scope else { return true }
+        return scope.components(separatedBy: ",").allSatisfy { ["all", "codex", "chatgpt", "chatgpt_work"].contains($0) }
     }
 
     private func statusPriority(_ status: ResetNewsStatus) -> Int {

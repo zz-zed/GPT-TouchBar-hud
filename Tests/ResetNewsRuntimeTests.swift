@@ -147,7 +147,30 @@ private final class RuntimeHarness {
         try notificationChannel()
         try notificationPermissionRefresh()
         try httpClient()
+        try capturedAPIRecordsAndEndpointRecovery()
+        try observationsAreValidEmptyResponses()
+        try officialIdentityFailuresRemainVisible()
+        try passedClockDoesNotNotifyOnDiscoveryOrRecovery()
         print("PASS: \(checks) reset news runtime checks; network and notification delivery were injected")
+    }
+
+    static func passedClockDoesNotNotifyOnDiscoveryOrRecovery() throws {
+        let h = try RuntimeHarness()
+        h.activate()
+        h.client.complete(h.result([]))
+        var past = h.source("801")
+        past.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: h.clock.date.addingTimeInterval(-60), effectiveAtPrecision: .exact)]
+        h.next(h.result([past]))
+        expect(h.monitor.state.forecastCount == 1 && h.channel.payloads.isEmpty,
+               "Newly discovered past exact clock remains today's card without a future reminder")
+        h.monitor.updateGate(codexRunning: false, hudRunning: true, suspended: false)
+        h.clock.advance(120)
+        h.monitor.updateGate(codexRunning: true, hudRunning: true, suspended: false)
+        var recovered = h.source("802", age: 7 * 3600)
+        recovered.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: h.clock.date.addingTimeInterval(-60), effectiveAtPrecision: .deadline)]
+        h.client.complete(h.result([past, recovered]))
+        expect(h.monitor.state.forecastCount == 2 && h.channel.payloads.isEmpty,
+               "Recovery does not notify an already passed deadline while keeping today's cards")
     }
 
     static func defaultEnabledAndSavedPreferences() throws {
@@ -644,6 +667,141 @@ private final class RuntimeHarness {
         let response = HTTPURLResponse(url: URL(string: "https://codex-reset.com")!, statusCode: 429, httpVersion: nil,
                                        headerFields: ["Retry-After": "Tue, 22 Sep 2026 04:00:00 GMT"])!
         expect(ResetNewsHTTPMetadata.parse(response, now: date).retryAfter != nil, "HTTP-date Retry-After parsed")
+    }
+
+    // Trimmed from the 2026-10-03 public snapshots: one real post, its timeline summary,
+    // and the site's nonofficial banked-reset observation. Ignored context retains its real envelope.
+    static func fixture(_ name: String) throws -> [String: Any] {
+        let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/ResetNews/\(name).json")
+        return try JSONSerialization.jsonObject(with: Data(contentsOf: path)) as! [String: Any]
+    }
+
+    static var emptyFeed: [String: Any] {
+        ["profile": ["handle": "thsottiaux"], "source_scope": "timeline", "tweets": [], "events": []]
+    }
+
+    static func fetched(_ feed: [String: Any], _ timeline: [String: Any], now: Date,
+                        feedStatus: Int = 200, timelineStatus: Int = 200) throws -> ResetNewsFetchResult {
+        let transport = FakeNewsHTTP()
+        let client = ResetNewsFeedClient(transport: transport, now: { now })
+        var result: ResetNewsFetchResult?
+        _ = client.fetch { result = $0 }
+        let feedBody = String(decoding: try JSONSerialization.data(withJSONObject: feed), as: UTF8.self)
+        let timelineBody = String(decoding: try JSONSerialization.data(withJSONObject: timeline), as: UTF8.self)
+        transport.respond(0, body: feedBody, status: feedStatus)
+        transport.respond(1, body: timelineBody, status: timelineStatus)
+        pump { result != nil }
+        return result!
+    }
+
+    static func capturedAPIRecordsAndEndpointRecovery() throws {
+        let feed = try fixture("feed-mixed")
+        let timeline = try fixture("timeline-mixed")
+        let h = try RuntimeHarness()
+        // The post was published just after midnight UTC while its explicit PST date was still Oct 1.
+        h.clock.date = ISO8601DateFormatter().date(from: "2026-10-02T03:00:00Z")!
+        h.clock.calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        h.activate()
+        h.client.complete(try fetched(emptyFeed, ["events": []], now: h.clock.date))
+        let result = try fetched(feed, timeline, now: h.clock.date)
+        expect(result.successful.count == 2 && result.failures.isEmpty,
+               "Official records plus the site's observed banked event keep both API endpoints successful")
+        expect(result.successful.allSatisfy { $0.metadata.rejectedIdentityCount == 0 },
+               "A declared nonofficial observation is normal filtering, not an identity rejection")
+        h.next(result)
+        expect(h.monitor.state.status == .success && h.monitor.state.detail == nil,
+               "Normally filtered observation records cannot produce the partial-source warning")
+        expect(h.monitor.state.forecastCount == 1 && h.monitor.state.items.count == 1,
+               "Tweet, feed event and timeline event with the same post ID count as one valid forecast")
+        let fullText = (feed["tweets"] as! [[String: Any]])[0]["text"] as! String
+        expect(h.monitor.state.items.first?.originalText == fullText,
+               "A truncated timeline summary cannot replace the same-version complete original post")
+        expect(h.monitor.state.items.first?.sources == [.feed, .timeline]
+            && h.monitor.state.items.first?.sourceSnapshots?.count == 2,
+               "Deduplication still keeps both endpoint copies for partial refreshes")
+        expect(h.channel.payloads.count == 1 && h.channel.payloads.first?.itemIDs == ["post:2105843926221660585"],
+               "A new official post appearing three times across the API sends exactly one forecast alert")
+        let revision = h.monitor.state.items.first?.materialRevision
+        h.next(try fetched(feed, timeline, now: h.clock.date))
+        expect(h.monitor.state.forecastCount == 1 && h.channel.payloads.count == 1
+            && h.monitor.state.items.first?.materialRevision == revision,
+               "Repeated duplicate records neither inflate the forecast count nor replay its alert")
+        h.next(try fetched(feed, timeline, now: h.clock.date, timelineStatus: 503))
+        expect(h.monitor.state.status == .partial && h.monitor.state.forecastCount == 1,
+               "A real timeline HTTP failure stays visible while the successful feed keeps the valid forecast")
+        expect(h.monitor.state.items.first?.sourceSnapshots?.count == 2
+            && h.monitor.state.items.first?.originalText == fullText
+            && h.monitor.state.items.first?.materialRevision == revision && h.channel.payloads.count == 1,
+               "Partial refresh preserves unavailable provenance, full original text and notification consumption")
+        h.next(try fetched(feed, timeline, now: h.clock.date, feedStatus: 503, timelineStatus: 503))
+        expect(h.monitor.state.status == .failure && h.monitor.state.forecastCount == 1
+            && h.monitor.state.detail?.contains("503") == true && h.channel.payloads.count == 1,
+               "Total HTTP failure preserves the still-valid cached forecast without calling it an empty success")
+    }
+
+    static func observationsAreValidEmptyResponses() throws {
+        let feed = try fixture("feed-mixed")
+        let observation = (feed["events"] as! [[String: Any]]).first { $0["source"] as? String == "observed" }!
+        var observationsOnly = emptyFeed
+        observationsOnly["events"] = [observation]
+        observationsOnly["banked_observations"] = feed["banked_observations"]
+        observationsOnly["radar_context"] = feed["radar_context"]
+        let h = try RuntimeHarness()
+        h.activate()
+        let result = try fetched(observationsOnly, ["events": [observation]], now: h.clock.date)
+        expect(result.successful.count == 2 && result.successful.allSatisfy {
+            $0.items.isEmpty && $0.metadata.rejectedIdentityCount == 0
+        }, "A valid response containing only declared observations is an empty success")
+        h.client.complete(result)
+        expect(h.monitor.state.status == .success && h.monitor.state.forecastCount == 0
+            && h.monitor.state.detail == nil && h.repository.state.baselineSources.count == 2,
+               "Observation-only responses establish a silent baseline and show no forecasts or partial-source warning")
+        expect(h.channel.payloads.isEmpty && h.monitor.state.unreadCount == 0,
+               "An observed monitoring-account balance never creates a local forecast notification")
+    }
+
+    static func officialIdentityFailuresRemainVisible() throws {
+        var feed = try fixture("feed-mixed")
+        let timeline = try fixture("timeline-mixed")
+        var malformed = (feed["events"] as! [[String: Any]])[0]
+        malformed["id"] = "999"
+        malformed["url"] = "https://x.com/someone_else/status/999"
+        malformed["source"] = "live"
+        feed["events"] = (feed["events"] as! [[String: Any]]) + [malformed]
+        let h = try RuntimeHarness()
+        h.clock.date = ISO8601DateFormatter().date(from: "2026-10-02T03:00:00Z")!
+        h.clock.calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        h.activate()
+        let mixed = try fetched(feed, timeline, now: h.clock.date)
+        expect(mixed.successful.count == 2 && mixed.successful.first?.metadata.rejectedIdentityCount == 1,
+               "Filtering a site observation does not hide a malformed record claiming official source identity")
+        h.client.complete(mixed)
+        expect(h.monitor.state.status == .partial && h.monitor.state.forecastCount == 1
+            && h.monitor.state.detail?.contains("跳过 1") == true,
+               "A genuinely rejected official record reports partial status and preserves the valid forecast")
+
+        var invalidOnly = emptyFeed
+        invalidOnly["events"] = [malformed]
+        let rejected = try fetched(invalidOnly, ["events": [malformed]], now: h.clock.date)
+        expect(rejected.successful.isEmpty && rejected.failures.count == 2,
+               "Responses containing only malformed official records cannot become valid empty endpoints")
+        expect(rejected.failures.allSatisfy { endpoint in
+            if case .identity = endpoint.error { return true }; return false
+        }, "All-invalid official responses fail explicit identity validation")
+        h.next(rejected)
+        expect(h.monitor.state.status == .failure && h.monitor.state.forecastCount == 1,
+               "Identity failure preserves an earlier valid cache while reporting the failure")
+
+        let observation = (feed["events"] as! [[String: Any]]).first { $0["source"] as? String == "observed" }!
+        var wrongRoot = emptyFeed
+        wrongRoot["profile"] = ["handle": "someone_else"]
+        wrongRoot["events"] = [observation]
+        let wrong = try fetched(wrongRoot, ["events": []], now: h.clock.date)
+        expect(wrong.failures.count == 1 && wrong.failures.first?.source == .feed,
+               "An observation-only payload cannot bypass the feed root profile validation")
+        if case .identity = wrong.failures.first?.error { expect(true, "Wrong root profile remains an identity failure") }
+        else { expect(false, "Wrong root profile remains an identity failure") }
     }
 
     static func pump(until condition: () -> Bool) {

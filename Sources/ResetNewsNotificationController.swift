@@ -166,7 +166,8 @@ final class ResetNewsNotificationController {
     }
 
     func deliver(_ candidates: [ResetNewsItem], recovery: Bool = false, now: Date = Date(), calendar: Calendar = .current) {
-        let items = ResetForecastPolicy(calendar: calendar).retaining(candidates, now: now)
+        let policy = ResetForecastPolicy(calendar: calendar)
+        let items = policy.retaining(candidates.compactMap { policy.reminder(for: $0, now: now) }, now: now)
         guard active, permission == .allowed, let first = items.first else { return }
         let requestGeneration = generation
         let title = "Codex 重置预告（\(items.count) 条新预告）"

@@ -7,29 +7,7 @@ public struct ResetForecastPolicy: Sendable {
     public init(calendar: Calendar = .current) { self.calendar = calendar }
 
     public func scheduledDate(for fact: ResetNewsFact, publishedAt: Date?) -> Date? {
-        guard fact.kind == .upcomingReset else { return nil }
-        if let date = fact.effectiveAt { return date.timeIntervalSince1970.isFinite ? date : nil }
-        guard let text = fact.timingText?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else { return nil }
-        if ResetNewsText.matches(#"^\d{4}-\d{2}-\d{2}$"#, in: text) {
-            let fields = text.split(separator: "-").compactMap { Int($0) }
-            var gregorian = Calendar(identifier: .gregorian); gregorian.timeZone = calendar.timeZone
-            guard fields.count == 3, let date = gregorian.date(from: DateComponents(year: fields[0], month: fields[1], day: fields[2])),
-                  gregorian.dateComponents([.year, .month, .day], from: date) == DateComponents(year: fields[0], month: fields[1], day: fields[2]) else { return nil }
-            return date
-        }
-        guard let publishedAt, publishedAt.timeIntervalSince1970.isFinite else { return nil }
-        let offset: Int
-        switch text {
-        case "today", "tonight", "later today", "今天", "今晚": offset = 0
-        case "tomorrow", "明天": offset = 1
-        default:
-            let weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
-            guard let index = weekdays.firstIndex(of: text) else { return nil }
-            let weekday = calendar.component(.weekday, from: publishedAt)
-            return calendar.date(byAdding: .day, value: (index + 1 - weekday + 7) % 7,
-                                 to: calendar.startOfDay(for: publishedAt))
-        }
-        return calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: publishedAt))
+        ResetForecastTiming.resolve(fact, publishedAt: publishedAt, calendar: calendar)?.date
     }
 
     public func retaining(_ item: ResetNewsItem, now: Date) -> ResetNewsItem? {
@@ -38,7 +16,7 @@ public struct ResetForecastPolicy: Sendable {
         // every source is still active permits restoring that item for the remainder of today.
         if result.status == .expired, let snapshots = result.sourceSnapshots, !snapshots.isEmpty,
            snapshots.allSatisfy({ $0.status == .active }) { result.status = .active }
-        guard result.status == .active, !Self.hasTerminalResetText(result.originalText) else { return nil }
+        guard result.status == .active, !hasUnqualifiedTerminalText(result) else { return nil }
         result.facts = eligibleFacts(normalizedFacts(result.facts, text: result.originalText), publishedAt: result.publishedAt, now: now)
         guard !result.facts.isEmpty else { return nil }
         result.sourceSnapshots = result.sourceSnapshots?.map { snapshot in
@@ -57,6 +35,20 @@ public struct ResetForecastPolicy: Sendable {
         }.prefix(max(0, maximumCount)))
     }
 
+    /// Today's cards can remain visible after their clock time, but a reminder must
+    /// still describe an explicit arrangement whose known time has not passed.
+    public func reminder(for item: ResetNewsItem, now: Date) -> ResetNewsItem? {
+        guard var result = retaining(item, now: now) else { return nil }
+        result.facts = result.facts.filter { fact in
+            guard fact.confidence == .explicit,
+                  let timing = ResetForecastTiming.resolve(fact, publishedAt: item.publishedAt, calendar: calendar) else { return false }
+            if timing.precision == .exact || timing.precision == .deadline { return timing.date > now }
+            if let end = fact.officialWindow?.endAt { return end > now }
+            return timing.dayEnd.map { $0 > now } ?? true
+        }
+        return result.facts.isEmpty ? nil : result
+    }
+
     public func firstDate(_ item: ResetNewsItem) -> Date? {
         item.facts.compactMap { scheduledDate(for: $0, publishedAt: item.publishedAt) }.min()
     }
@@ -72,7 +64,7 @@ public struct ResetForecastPolicy: Sendable {
     }
 
     public func isConfirmedTerminal(_ item: ResetNewsItem) -> Bool {
-        if Self.hasTerminalResetText(item.originalText) { return true }
+        if hasUnqualifiedTerminalText(item) { return true }
         if item.status != .active {
             if item.status == .expired, let snapshots = item.sourceSnapshots, !snapshots.isEmpty,
                snapshots.allSatisfy({ $0.status == .active }) { return false }
@@ -92,6 +84,10 @@ public struct ResetForecastPolicy: Sendable {
         ResetNewsText.matches(#"\breset\s+all\s+propagated\b|\bresets?\s+(?:(?:(?:scheduled\s+)?for\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday))\s+)?(?:(?:has\s+been|have\s+been|was|is|has|have)\s+)?(?:now\s+|already\s+)?(?:completed|cancelled|canceled|withdrawn)\b|\b(?:we|they)\s+(?:have\s+)?(?:now\s+|already\s+)?(?:completed|cancelled|canceled|withdrawn)\s+(?:the\s+)?(?:Codex\s+)?reset\b|\b(?:will\s+not|won't|won’t)\s+reset\b|重置已完成|重置已取消|取消重置"#, in: text)
     }
 
+    private func hasUnqualifiedTerminalText(_ item: ResetNewsItem) -> Bool {
+        ResetNewsRuleEngine().lastResetActionIsTerminal(in: item.originalText)
+    }
+
     private func normalizedFacts(_ facts: [ResetNewsFact], text: String) -> [ResetNewsFact] {
         let facts = ResetNewsRuleEngine().fillingMissingForecastTiming(facts, text: text)
         guard !facts.contains(where: { $0.kind == .upcomingReset }),
@@ -104,7 +100,10 @@ public struct ResetForecastPolicy: Sendable {
     private func eligibleFacts(_ facts: [ResetNewsFact], publishedAt: Date?, now: Date) -> [ResetNewsFact] {
         let today = calendar.startOfDay(for: now)
         return facts.filter { fact in
-            guard let date = scheduledDate(for: fact, publishedAt: publishedAt), date >= today else { return false }
+            guard let timing = ResetForecastTiming.resolve(fact, publishedAt: publishedAt, calendar: calendar) else { return false }
+            // A source calendar day and a window can span multiple local days. Retain through the last announced day.
+            let lastDate = fact.officialWindow?.endAt ?? timing.dayEnd?.addingTimeInterval(-1) ?? timing.date
+            guard lastDate.timeIntervalSince1970.isFinite, lastDate >= today else { return false }
             // A source-supplied expiry is authoritative; the planned reset's clock time is not an expiry.
             if let expiry = fact.expiresAt { return expiry.timeIntervalSince1970.isFinite && expiry > now }
             return true
