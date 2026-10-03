@@ -15,6 +15,12 @@ private final class DiagnosticsPreviewClient: ConnectionDiagnosticsClient {
     }
 }
 
+private final class UnshownForecastTouchBarPresenter: SystemTouchBarPresenting {
+    var isAvailable: Bool { false }
+    func present(_ touchBar: NSTouchBar) { preconditionFailure("Forecast UI checks never present a system bar") }
+    func dismiss(_ touchBar: NSTouchBar) {}
+}
+
 @main
 enum NotchHUDTests {
     static var checks = 0
@@ -115,6 +121,34 @@ enum NotchHUDTests {
                 "Left reset-credit fallback stays unchanged")
         }
     }
+    static func unknownForecastEntryChecks(defaults: UserDefaults) {
+        let hud = CompactHUDViewController(initialAppearance: HUDAppearance(colorChoice: .graphite,
+            backgroundOpacity: 0.94, contentOpacity: 1), onRefresh: {}, onClose: {},
+            onPresentTouchBar: { false }, contextMenuProvider: { NSMenu() })
+        hud.updateMessages(forecastCount: nil, available: true)
+        _ = hud.view
+        hud.prepareToShow()
+        let floating = hud.messageAnchorView as! NSButton
+        check(floating.title.contains("—") && floating.accessibilityLabel() == ResetForecastIndicator.accessibilityLabel(nil),
+            "Floating HUD retains unknown availability through deferred view loading")
+        let bar = hud.makeQuotaTouchBar()
+        let owned = bar.item(forIdentifier: bar.defaultItemIdentifiers[0]) as! NSCustomTouchBarItem
+        let ordinary = descendants(owned.view).compactMap { $0 as? NSButton }
+            .first { $0.accessibilityIdentifier() == "touchbar.messages" }!
+        check(ordinary.title.contains("—") && ordinary.accessibilityLabel() == ResetForecastIndicator.accessibilityLabel(nil),
+            "Responder-chain Touch Bar receives the unknown count before lazy creation")
+        let persistent = PersistentTouchBarController(presenter: UnshownForecastTouchBarPresenter(), defaults: defaults)
+        persistent.updateMessages(forecastCount: nil, available: true)
+        let item = persistent.touchBar(NSTouchBar(), makeItemForIdentifier:
+            .init("io.github.zz-zed.GPTTouchBarHUD.persistent.limits")) as! NSCustomTouchBarItem
+        let persistentButton = descendants(item.view).compactMap { $0 as? NSButton }
+            .first { $0.accessibilityIdentifier() == "touchbar.messages" }!
+        check(persistentButton.title.contains("—") && persistentButton.accessibilityLabel() == ResetForecastIndicator.accessibilityLabel(nil),
+            "Persistent Touch Bar retains an unknown count through lazy creation")
+        persistent.updateMessages(forecastCount: 0, available: true)
+        check(persistentButton.title.contains("0") && persistentButton.accessibilityLabel() == ResetForecastIndicator.accessibilityLabel(0),
+            "A successful empty forecast replaces the persistent unknown indicator with a confirmed zero")
+    }
     static func main() throws {
         try AppUpdateIntegrationChecks.run()
         _ = NSApplication.shared
@@ -124,6 +158,7 @@ enum NotchHUDTests {
         let oldDefaults = DisplayLanguage.defaults
         DisplayLanguage.defaults = defaults
         defer { DisplayLanguage.defaults = oldDefaults; defaults.removePersistentDomain(forName: suite) }
+        unknownForecastEntryChecks(defaults: defaults)
         peekDateChecks()
         defaults.set("purple", forKey: "hud.color")
         var preferences = HUDPresentationPreferences(defaults: defaults)
@@ -247,17 +282,21 @@ enum NotchHUDTests {
                 facts: [.init(kind: .upcomingReset, effectiveAt: Date().addingTimeInterval(3_600))], firstSeenAt: Date()),
             ResetNewsItem(id: "offscreen-message", sources: [.feed], originalText: "Another upcoming reset",
                 facts: [.init(kind: .upcomingReset, effectiveAt: Date().addingTimeInterval(7_200))], firstSeenAt: Date())
-        ])
+        ], forecastAvailability: .current)
         check(NotchDetailPage.allCases.map(\.rawValue) == [0, 1, 2, 3], "Messages is the appended fourth page")
         check(NotchDetailPage.messages.title == "重置预告", "Forecast tab uses the dedicated product name")
         let forecastLayout = NotchLayout(geometry: sample)
-        for count in [0, 3, 120] {
+        let forecastCases: [(Int?, ResetForecastAvailability)] = [(0, .current), (3, .current), (120, .current),
+            (nil, .unknown), (nil, .cached)]
+        for (count, availability) in forecastCases {
             var forecastState = messages
-            forecastState.items = (0..<count).map { index in
+            forecastState.forecastAvailability = availability
+            forecastState.items = (0..<(count ?? 0)).map { index in
                 var item = messages.items[0]
                 item.id = "forecast-\(index)"
                 return item
             }
+            check(forecastState.indicatorCount == count, "Indicator distinguishes confirmed counts from unknown or cached empty results")
             for initialState in NotchPresentationState.allCases {
                 let forecastModel = NotchPresentationModel(alwaysShowQuota: false)
                 forecastModel.animationsEnabled = false

@@ -8,6 +8,12 @@ struct ResetNewsStoredState: Codable, Equatable {
     var notified: [ResetNewsNotificationRecord] = []
     var baselineSources: [ResetNewsSource] = []
     var retiredForecasts: [ResetForecastRetirement]?
+    // Optional additions keep existing v1 caches readable. Legacy history is not
+    // evidence that the current-forecast endpoint has established its baseline.
+    var forecast: ResetForecastSnapshot?
+    var forecastFetchedAt: Date?
+    var forecastExpiresAt: Date?
+    var forecastBaselineEstablished: Bool?
 
     var hasBaseline: Bool { !baselineSources.isEmpty }
     var notifiedKeys: Set<String> { Set(notified.map(\.key)) }
@@ -59,14 +65,14 @@ final class ResetNewsRepository {
 
     @discardableResult
     func markRead(_ ids: Set<String>, now: Date = Date()) -> Bool {
-        state.readIDs.formUnion(ids.intersection(Set(state.items.map(\.id))))
+        state.readIDs.formUnion(ids.intersection(readableIDs(now: now)))
         prune(now: now)
         return persist()
     }
 
     @discardableResult
     func markAllRead(now: Date = Date()) -> Bool {
-        markRead(Set(state.items.map(\.id)), now: now)
+        markRead(readableIDs(now: now), now: now)
     }
 
     @discardableResult
@@ -99,13 +105,19 @@ final class ResetNewsRepository {
         }
         state.items = policy.retaining(state.items, now: now)
         state.retiredForecasts = retired.values.sorted { $0.id < $1.id }
-        state.readIDs.formIntersection(Set(state.items.map(\.id)))
+        state.readIDs.formIntersection(readableIDs(now: now))
         var keys: Set<String> = []
         state.notified = Array(state.notified.filter { $0.recordedAt >= now.addingTimeInterval(-90 * 86_400) }
             .sorted { $0.recordedAt > $1.recordedAt }.filter { keys.insert($0.key).inserted }.prefix(500))
         var sources: [ResetNewsSource] = []
         for source in state.baselineSources where !sources.contains(source) { sources.append(source) }
         state.baselineSources = sources
+    }
+
+    private func readableIDs(now: Date) -> Set<String> {
+        var ids = Set(state.items.map(\.id))
+        if let item = state.forecast?.item(now: now, calendar: calendar()) { ids.insert(item.id) }
+        return ids
     }
 
     private func persist() -> Bool {

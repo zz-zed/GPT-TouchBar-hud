@@ -8,26 +8,36 @@ struct MenuForecastPresentation: Equatable {
     let help: String
 
     init(_ state: ResetNewsViewState) {
-        canOpen = state.forecastCount > 0
-        help = state.statusText
-        if canOpen {
-            value = "\(state.forecastCount)"
-            switch state.status {
-            case .failure, .partial, .stale: detail = "查看预告 · 缓存"
-            default: detail = "查看预告"
-            }
+        canOpen = state.canOpenDetails
+        help = state.statusText + (state.forecastCheckedAt.map { "\n预告数据更新于 " + Self.date($0) } ?? "")
+        if !state.enabled {
+            value = "—"; detail = "预告已关闭"
         } else {
-            switch state.status {
-            case .success: value = "0"; detail = "暂无预告"
-            case .disabled: value = "—"; detail = "预告已关闭"
-            case .checking: value = "—"; detail = "正在检查"
-            case .failure: value = "—"; detail = "检查失败"
-            case .partial: value = "—"; detail = "部分来源未读取"
-            case .stale: value = "—"; detail = "来源已过期"
-            case .codexNotRunning: value = "—"; detail = "等待 Codex 启动"
-            case .idle: value = "—"; detail = "检查已暂停"
+            switch state.forecastAvailability {
+            case .current:
+                value = "\(state.forecastCount)"
+                detail = state.forecastCount > 0 ? "查看预告" : "暂无新预告"
+            case .cached:
+                value = state.forecastCount > 0 ? "\(state.forecastCount)" : "—"
+                detail = state.forecastCheckedAt.map { "缓存 · " + Self.date($0) } ?? "缓存预告，暂无法更新"
+            case .unknown:
+                value = "—"
+                switch state.status {
+                case .checking: detail = "正在获取预告"
+                case .failure, .partial, .stale: detail = "预告暂无法更新"
+                case .codexNotRunning: detail = "等待 Codex 启动"
+                case .idle: detail = "检查已暂停"
+                case .disabled: detail = "预告已关闭"
+                case .success: detail = "尚未获取预告"
+                }
             }
         }
+    }
+
+    private static func date(_ value: Date) -> String {
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "MM/dd HH:mm"; formatter.timeZone = .current
+        return formatter.string(from: value)
     }
 }
 

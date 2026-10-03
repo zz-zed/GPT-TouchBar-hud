@@ -18,6 +18,10 @@ enum ResetNewsCheckStatus: String, Equatable {
     }
 }
 
+enum ResetForecastAvailability: Equatable {
+    case unknown, current, cached
+}
+
 struct ResetNewsViewState: Equatable {
     var enabled = false
     var status: ResetNewsCheckStatus = .disabled
@@ -28,11 +32,19 @@ struct ResetNewsViewState: Equatable {
     var nextCheck: Date?
     var detail: String?
     var notificationPermission: ResetNewsNotificationPermission = .notRequested
+    var forecastAvailability: ResetForecastAvailability = .unknown
+    var forecastCheckedAt: Date?
 
     var forecastCount: Int { items.count }
+    var indicatorCount: Int? {
+        guard forecastAvailability != .unknown,
+              forecastAvailability != .cached || !items.isEmpty else { return nil }
+        return forecastCount
+    }
     var unreadCount: Int { items.filter { !readIDs.contains($0.id) }.count }
     var latestUnread: ResetNewsItem? { items.first { !readIDs.contains($0.id) } }
     var statusText: String { detail.map { status.label + " · " + $0 } ?? status.label }
+    var canOpenDetails: Bool { enabled && !items.isEmpty }
 }
 
 enum ResetNewsSchedule {

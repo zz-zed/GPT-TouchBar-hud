@@ -138,7 +138,7 @@ enum ResetNewsPopoverTests {
                 anchorWindow.orderFrontRegardless(); pump()
                 let controller = ResetNewsPopoverController()
                 let sampleItems = name == "floating" ? Array(items.prefix(3)) : items
-                var state = ResetNewsViewState(enabled: true, status: .success, items: sampleItems)
+                var state = ResetNewsViewState(enabled: true, status: .success, items: sampleItems, forecastAvailability: .current)
                 state.readIDs = Set(sampleItems.map(\.id))
                 controller.update(state)
                 controller.show(relativeTo: anchor); pump()

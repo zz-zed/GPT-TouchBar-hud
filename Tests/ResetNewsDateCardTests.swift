@@ -51,7 +51,8 @@ enum ResetNewsDateCardTests {
     }
 
     private static func listSnapshot(item: ResetNewsItem, appearance: NSAppearance, dark: Bool, name: String) throws {
-        let state = ResetNewsViewState(enabled: true, status: .success, items: [item], readIDs: [item.id])
+        let state = ResetNewsViewState(enabled: true, status: .success, items: [item], readIDs: [item.id],
+            forecastAvailability: .current)
         let view = NSHostingView(rootView: ResetNewsListView(state: state, isVisible: true,
             onCheck: {}, onMarkAllRead: {}, onSettings: {}, onPageVisibility: { _ in }, onVisibleItem: { _ in })
             .padding(12).frame(width: 340, height: 340).environment(\.colorScheme, dark ? .dark : .light))
@@ -77,7 +78,7 @@ enum ResetNewsDateCardTests {
         window.orderOut(nil)
     }
 
-    private static func popoverSnapshot(item: ResetNewsItem, appearance: NSAppearance, name: String) throws {
+    private static func popoverSnapshot(state: ResetNewsViewState, appearance: NSAppearance, name: String) throws {
         let anchor = NSButton(title: "重置预告", target: nil, action: nil)
         anchor.frame = CGRect(x: 0, y: 0, width: 110, height: 24)
         let anchorWindow = window(anchor, appearance: appearance)
@@ -86,7 +87,7 @@ enum ResetNewsDateCardTests {
         anchorWindow.setFrameOrigin(CGPoint(x: screen.visibleFrame.midX,
             y: screen.visibleFrame.maxY - 40))
         let controller = ResetNewsPopoverController()
-        controller.update(ResetNewsViewState(enabled: true, status: .success, items: [item], readIDs: [item.id]))
+        controller.update(state)
         controller.show(relativeTo: anchor)
         pump()
         let popup = controller.presentedWindow!
@@ -97,9 +98,22 @@ enum ResetNewsDateCardTests {
         anchorWindow.orderOut(nil)
     }
 
+    private static func popoverSnapshot(item: ResetNewsItem, appearance: NSAppearance, name: String) throws {
+        try popoverSnapshot(state: ResetNewsViewState(enabled: true, status: .success,
+            items: [item], readIDs: [item.id], forecastAvailability: .current), appearance: appearance, name: name)
+    }
+
     static func main() throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
+        let suite = "ResetNewsDateCardTests." + UUID().uuidString
+        let originalDefaults = DisplayLanguage.defaults
+        DisplayLanguage.defaults = UserDefaults(suiteName: suite)!
+        DisplayLanguage.current = .chinese
+        defer {
+            DisplayLanguage.defaults.removePersistentDomain(forName: suite)
+            DisplayLanguage.defaults = originalDefaults
+        }
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         let dateOnly = fixture("date-only", fact: .init(kind: .upcomingReset, timingText: "Tuesday", confidence: .tentative))
         let exact = fixture("exact", fact: .init(kind: .upcomingReset, scope: "Pro",
@@ -109,6 +123,19 @@ enum ResetNewsDateCardTests {
         let deadline = fixture("deadline", fact: .init(kind: .upcomingReset, scope: "paid_chatgpt",
             effectiveAt: ISO8601DateFormatter().date(from: "2026-09-23T18:00:00Z")!, effectiveAtPrecision: .deadline,
             officialWindow: .init(targetAt: ISO8601DateFormatter().date(from: "2026-09-23T18:00:00Z")!, targetKind: "deadline", timeZone: "PST")))
+        var pending = fixture("pending", fact: .init(kind: .upcomingReset, scope: "paid_chatgpt"))
+        pending.sourceURL = URL(string: "https://codex-reset.com")
+        let noCurrent = ResetNewsViewState(enabled: true, status: .success,
+            forecastAvailability: .current, forecastCheckedAt: publishedAt)
+        check(noCurrent.forecastCount == 0 && noCurrent.unreadCount == 0 && !noCurrent.canOpenDetails,
+            "An empty current forecast has no unread count or details action")
+        check(ResetNewsListPresentation.emptyText(noCurrent) == "暂无新预告", "Fresh null forecast has an explicit empty state")
+        let unknown = ResetNewsViewState(enabled: true, status: .success)
+        check(ResetNewsListPresentation.emptyText(unknown) == "尚未获取预告", "Feed success cannot establish forecast availability")
+        check(!ResetNewsListPresentation.heading(unknown).contains("0"), "Unknown forecast does not display a confirmed-zero heading")
+        var cached = noCurrent; cached.status = .failure; cached.forecastAvailability = .cached
+        check(ResetNewsListPresentation.emptyText(cached).contains("上次获取") && !ResetNewsListPresentation.heading(cached).contains("0"),
+            "A cached empty forecast describes its fetch limitation instead of declaring no new forecast")
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
         let day = ResetForecastDatePresentation(fact: dateOnly.facts[0], publishedAt: publishedAt, now: publishedAt, calendar: calendar)
@@ -137,6 +164,9 @@ enum ResetNewsDateCardTests {
             try listSnapshot(item: dateOnly, appearance: appearance, dark: dark, name: "notch-width-date-only-\(mode)")
             try cardSnapshot(item: longDate, appearance: appearance, dark: dark, name: "long-date-340-\(mode)")
             try listSnapshot(item: deadline, appearance: appearance, dark: dark, name: "deadline-340-\(mode)")
+            try listSnapshot(item: pending, appearance: appearance, dark: dark, name: "time-pending-340-\(mode)")
+            try popoverSnapshot(state: noCurrent, appearance: appearance, name: "no-current-\(mode)")
+            try popoverSnapshot(state: cached, appearance: appearance, name: "cached-no-current-\(mode)")
         }
         print("PASS: \(checks) native forecast date-card, precision, size and appearance checks")
     }

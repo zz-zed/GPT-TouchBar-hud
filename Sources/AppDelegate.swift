@@ -262,8 +262,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         if statusMenuOpen {
             (summaryMenuItem?.view as? StatusSummaryView)?.update(summaryState, news: state)
         }
-        hudController.updateMessages(forecastCount: state.forecastCount, available: available)
-        persistentTouchBar.updateMessages(forecastCount: state.forecastCount, available: available)
+        hudController.updateMessages(forecastCount: state.indicatorCount, available: available)
+        persistentTouchBar.updateMessages(forecastCount: state.indicatorCount, available: available)
         notchHUD.updateResetNews(state)
         resetNewsPopover.update(state)
         preferences?.updateResetNews(state, soundEnabled: resetNewsMonitor.soundEnabled)
@@ -294,7 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     @objc private func openMenuForecast() {
-        guard latestResetNewsState.forecastCount > 0, !sessionSuspended else { return }
+        guard latestResetNewsState.canOpenDetails, !sessionSuspended else { return }
         statusItem.menu?.cancelTracking()
         DispatchQueue.main.async { [weak self] in
             guard let self, let anchor = self.statusItem.button, !self.sessionSuspended else { return }
@@ -407,7 +407,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private func makeHUDContextMenu() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(menuAction("刷新额度", #selector(refreshQuotaFromMenu(_:)), key: "r"))
-        let forecasts = menuAction(ResetForecastIndicator.accessibilityLabel(latestResetNewsState.forecastCount), #selector(openResetNewsFromMenu(_:)))
+        let forecasts = menuAction(ResetForecastIndicator.accessibilityLabel(latestResetNewsState.indicatorCount), #selector(openResetNewsFromMenu(_:)))
         forecasts.representedObject = hudController.messageAnchorView
         menu.addItem(forecasts)
         menu.addItem(menuAction("隐藏浮窗", #selector(hideHUDFromContextMenu(_:))))
@@ -523,7 +523,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        if menuItem.action == #selector(openMenuForecast) { return latestResetNewsState.forecastCount > 0 }
+        if menuItem.action == #selector(openMenuForecast) { return latestResetNewsState.canOpenDetails }
 
         if menuItem.action == #selector(selectDisplayMode(_:)) {
             menuItem.state = HUDDisplayMode.allCases[menuItem.tag] == hudDisplayMode ? .on : .off

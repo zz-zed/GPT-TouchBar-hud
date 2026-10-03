@@ -48,8 +48,9 @@ private final class CapturingNotificationChannel: ResetNewsNotificationChannel {
 
 @main
 enum ResetNewsPreviewMain {
-    static let output = URL(fileURLWithPath: "Design/reset-news-preview", isDirectory: true)
-    static let date = ISO8601DateFormatter().date(from: "2026-09-22T10:00:00+08:00")!
+    static let output = URL(fileURLWithPath: ProcessInfo.processInfo.environment["RESET_NEWS_PREVIEW_OUTPUT"]
+        ?? "Design/reset-news-preview", isDirectory: true)
+    static let date = Date()
     static let appearance = HUDAppearance(colorChoice: .graphite, backgroundOpacity: 0.94, contentOpacity: 1)
 
     static var quota: RateLimitDisplayState {
@@ -67,29 +68,25 @@ enum ResetNewsPreviewMain {
     static var news: ResetNewsViewState {
         let items = [
             ResetNewsItem(id: "preview-upcoming", sources: [.feed], originalText: "Fictional upcoming reset example",
-                facts: [.init(kind: .upcomingReset, scope: "all", effectiveAt: date.addingTimeInterval(3_600))],
+                facts: [.init(kind: .upcomingReset, scope: "all", effectiveAt: date.addingTimeInterval(3_600), effectiveAtPrecision: .exact)],
                 publishedAt: date.addingTimeInterval(-600), firstSeenAt: date),
-            ResetNewsItem(id: "preview-announced", sources: [.timeline], originalText: "Fictional completed reset announcement",
-                facts: [.init(kind: .resetAnnouncement, scope: "Plus,Pro")],
-                publishedAt: date.addingTimeInterval(-3_600), firstSeenAt: date),
-            ResetNewsItem(id: "preview-credits", sources: [.feed], originalText: "Fictional extra credit example",
-                facts: [.init(kind: .extraResetCredits, scope: "Pro", count: 2, expiresAt: date.addingTimeInterval(7 * 86_400))],
-                publishedAt: date.addingTimeInterval(-7_200), firstSeenAt: date),
-            ResetNewsItem(id: "preview-tentative", sources: [.timeline], originalText: "Fictional tentative announcement",
-                facts: [.init(kind: .upcomingReset, scope: "Plus", timingText: "本周", confidence: .tentative)],
-                publishedAt: date.addingTimeInterval(-10_800), firstSeenAt: date),
-            ResetNewsItem(id: "preview-cancelled", sources: [.feed], originalText: "Fictional cancelled reset example",
-                facts: [.init(kind: .upcomingReset, scope: "all", timingText: "原定今晚")], status: .cancelled,
-                publishedAt: date.addingTimeInterval(-86_400), firstSeenAt: date)
+            ResetNewsItem(id: "preview-date-only", sources: [.timeline], originalText: "Fictional reset tomorrow example",
+                facts: [.init(kind: .upcomingReset, scope: "paid_chatgpt", timingText: "tomorrow")],
+                publishedAt: date.addingTimeInterval(-600), firstSeenAt: date),
+            ResetNewsItem(id: "preview-pending", sources: [.feed], sourceURL: URL(string: "https://codex-reset.com"),
+                originalText: "Fictional upcoming reset example with no date announced",
+                facts: [.init(kind: .upcomingReset, scope: "Pro")],
+                publishedAt: date.addingTimeInterval(-600), firstSeenAt: date)
         ]
         return ResetNewsViewState(enabled: true, status: .success, items: items,
-            readIDs: ["preview-tentative", "preview-cancelled"], lastAttempt: date, lastSuccess: date,
-            nextCheck: date.addingTimeInterval(120), notificationPermission: .allowed)
+            readIDs: ["preview-pending"], lastAttempt: date, lastSuccess: date,
+            nextCheck: date.addingTimeInterval(120), notificationPermission: .allowed,
+            forecastAvailability: .current, forecastCheckedAt: date)
     }
 
     static func newsForCount(_ count: Int) -> ResetNewsViewState {
         var state = news
-        if count == 0 { state.readIDs = Set(state.items.map(\.id)); return state }
+        if count == 0 { state.items = []; state.readIDs = []; return state }
         if count == 3 { return state }
         state.items = (0..<count).map { index in
             var item = news.items[index % news.items.count]
@@ -250,12 +247,14 @@ enum ResetNewsPreviewMain {
         waiting.notificationPermission = .allowed
         var partial = news
         partial.status = .partial
-        partial.detail = "一个来源暂不可用，保留已获取消息"
+        partial.detail = "预告接口暂不可用，正在显示上次获取的内容"
         partial.items = [news.items[2]]
+        partial.forecastAvailability = .cached
         var stale = partial
         stale.status = .stale
-        stale.detail = "发布副本已过期，已暂停强提醒"
-        for (index, state) in [ResetNewsViewState(), waiting, partial, stale].enumerated() {
+        stale.detail = "上次成功获取没有当前预告"
+        stale.items = []
+        for (index, state) in [newsForCount(0), waiting, partial, stale].enumerated() {
             let panel = PreviewCanvas(size: NSSize(width: 420, height: 290))
             panel.frame.origin = CGPoint(x: 10 + CGFloat(index % 2) * 440, y: 10 + CGFloat(index / 2) * 310)
             panel.layer?.cornerRadius = 10

@@ -67,12 +67,16 @@ enum ResetForecastIndicator {
         return image
     }
 
-    static func countText(_ forecastCount: Int) -> String {
+    static func countText(_ forecastCount: Int?) -> String {
+        guard let forecastCount else { return "—" }
         let count = max(0, forecastCount)
         return count > 99 ? "99+" : String(count)
     }
 
-    static func accessibilityLabel(_ forecastCount: Int) -> String {
+    static func accessibilityLabel(_ forecastCount: Int?) -> String {
+        guard let forecastCount else {
+            return DisplayLanguage.text("重置预告（待更新）", "Reset forecasts (awaiting update)")
+        }
         let count = max(0, forecastCount)
         return DisplayLanguage.text(
             "重置预告（\(count) 条）",
