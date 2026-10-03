@@ -26,16 +26,20 @@ struct NotchDetailPages: View {
                 Text("GPT HUD").font(.system(size: 13, weight: .semibold))
                 Spacer(minLength: 4)
             }
-            ForEach(NotchDetailPage.allCases, id: \.rawValue) { page in
-                Button { model.selectPage(page) } label: {
-                    Text(page.title + (page == .messages && model.resetNews.forecastCount > 0 ? " \(ResetForecastIndicator.countText(model.resetNews.forecastCount))" : "")).font(.system(size: 12, weight: .medium))
-                        .lineLimit(1).minimumScaleFactor(0.6)
-                        .foregroundColor(model.page == page ? .white : NotchStyle.secondary)
-                        .padding(.horizontal, 6).padding(.vertical, 4)
-                        .background(model.page == page ? Color.white.opacity(0.12) : .clear).cornerRadius(5)
-                }.buttonStyle(PlainButtonStyle()).accessibilityIdentifier("notch.page.\(page.rawValue)")
+            HStack(spacing: model.usesGroupedControls ? 2 : 8) {
+                ForEach(NotchDetailPage.allCases, id: \.rawValue) { page in
+                    Button { model.selectPage(page) } label: {
+                        Text(page.title + (page == .messages && model.resetNews.forecastCount > 0 ? " \(ResetForecastIndicator.countText(model.resetNews.forecastCount))" : "")).font(.system(size: 12, weight: .medium))
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                            .foregroundColor(model.page == page || model.increaseContrast ? .white : NotchStyle.secondary)
+                            .padding(.horizontal, 6).padding(.vertical, 4)
+                            .background(model.page == page ? Color.white.opacity(0.12) : .clear).cornerRadius(model.usesGroupedControls ? 12 : 5)
+                    }.buttonStyle(PlainButtonStyle()).accessibilityIdentifier("notch.page.\(page.rawValue)")
+                }
             }
-        }.frame(height: 26)
+            .padding(model.usesGroupedControls ? 3 : 0)
+            .modifier(NotchControlSurface(surface: model.controlSurface))
+        }.frame(height: model.usesGroupedControls ? 32 : 26)
     }
     private var footer: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -50,11 +54,15 @@ struct NotchDetailPages: View {
         HStack(spacing: 6) {
             if layout.expandedSize.width >= 500 { updateLabel }
             Spacer(minLength: 4)
-            NotchAction(title: DisplayLanguage.text("刷新额度", "Refresh quota"), identifier: "notch.refresh", reduceMotion: model.reduceMotion) { model.onRefresh?() }
-                .disabled(model.content.isRefreshing)
-            NotchAction(title: DisplayLanguage.text("设置", "Settings"), identifier: "notch.settings", reduceMotion: model.reduceMotion) { model.onSettings?() }
-            NotchAction(title: DisplayLanguage.text("隐藏", "Hide"), identifier: "notch.hide", reduceMotion: model.reduceMotion) { model.onHide?() }
-            NotchAction(title: DisplayLanguage.text("收起", "Collapse"), identifier: "notch.collapse", reduceMotion: model.reduceMotion) { model.collapse() }
+            HStack(spacing: model.usesGroupedControls ? 2 : 6) {
+                NotchAction(title: DisplayLanguage.text("刷新额度", "Refresh quota"), identifier: "notch.refresh", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onRefresh?() }
+                    .disabled(model.content.isRefreshing)
+                NotchAction(title: DisplayLanguage.text("设置", "Settings"), identifier: "notch.settings", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onSettings?() }
+                NotchAction(title: DisplayLanguage.text("隐藏", "Hide"), identifier: "notch.hide", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onHide?() }
+                NotchAction(title: DisplayLanguage.text("收起", "Collapse"), identifier: "notch.collapse", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.collapse() }
+            }
+            .padding(model.usesGroupedControls ? 2 : 0)
+            .modifier(NotchControlSurface(surface: model.controlSurface))
         }.frame(height: 28)
     }
     private func page(_ page: NotchDetailPage) -> some View {

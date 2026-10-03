@@ -93,6 +93,12 @@ jobs:
           ref: ${{ needs.source.outputs.sha }}
           persist-credentials: false
 
+      - name: Select Xcode with Liquid Glass SDK
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" -ge 26
+
       - name: Verify runner and source
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
@@ -134,6 +140,7 @@ jobs:
       - name: Test rendering, menu, and native presentation
         if: matrix.suite == 'interface'
         run: |
+          bash scripts/test-hud-material.sh
           bash scripts/test-idle-performance.sh
           bash scripts/test-status-menu.sh
           bash scripts/test-notch-hud.sh
@@ -167,6 +174,12 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .release-tools
           persist-credentials: false
+
+      - name: Select Xcode with Liquid Glass SDK
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" -ge 26
 
       - name: Read build metadata
         id: metadata
