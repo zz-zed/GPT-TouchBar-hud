@@ -11,9 +11,10 @@ struct NotchRootView: View {
                     .modifier(NotchAnimatedSurface(width: model.size.width, height: model.size.height,
                                                    layout: layout, bridge: bridge, epoch: bridge.epoch,
                                                    expanded: model.state == .expanded,
-                                                   haloMounted: model.detailsMounted,
+                                                   haloMounted: model.detailsMounted && !model.usesGroupedControls,
                                                    haloVisible: model.detailsVisible,
-                                                   reduceTransparency: model.reduceTransparency,
+                                                   reduceTransparency: model.reduceTransparency || model.increaseContrast,
+                                                   quietSurface: model.usesGroupedControls,
                                                    sweepActive: model.sweepActive))
             } else { Color.clear }
         }

@@ -29,6 +29,7 @@ final class NotchHUDController {
     func collapse(animated: Bool = true) { island?.model.collapse(animated: animated); legacy?.collapse(animated: animated) }
     func environmentChanged() { island?.environmentChanged(); legacy?.environmentChanged() }
     func setAlwaysShowQuota(_ enabled: Bool) { island?.model.setAlwaysShowQuota(enabled) }
+    func updateAppearance(_ appearance: HUDAppearance) { island?.model.setMaterial(appearance.material) }
     func updateResetNews(_ state: ResetNewsViewState) { island?.model.updateResetNews(state) }
 }
 
@@ -50,6 +51,7 @@ final class NotchIslandController: NSObject, NSMenuDelegate {
     init(defaults: UserDefaults = .standard, clock: NotchClock = NotchSystemClock(), automaticallyTracksMouse: Bool = true) {
         self.automaticallyTracksMouse = automaticallyTracksMouse
         model = NotchPresentationModel(clock: clock, alwaysShowQuota: NotchPresentationModel.savedAlwaysShowQuota(in: defaults))
+        model.setMaterial(HUDAppearance.load(from: defaults).material)
         host = NotchHostingView(model: model, bridge: bridge)
         interaction = NotchInteractionController(panel: panel, bridge: bridge, model: model)
         super.init()
@@ -119,7 +121,8 @@ final class NotchIslandController: NSObject, NSMenuDelegate {
         var lowPower = false
         if #available(macOS 12.0, *) { lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled }
         model.setEnvironment(reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
-                             reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency, lowPower: lowPower)
+                             reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency, lowPower: lowPower,
+                             increaseContrast: NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast)
     }
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()

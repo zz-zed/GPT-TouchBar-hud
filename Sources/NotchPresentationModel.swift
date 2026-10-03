@@ -31,7 +31,13 @@ final class NotchPresentationModel: ObservableObject {
     @Published private(set) var visible = false
     @Published private(set) var reduceMotion = false
     @Published private(set) var reduceTransparency = false
+    @Published private(set) var increaseContrast = false
+    @Published private(set) var material: HUDAppearance.Material = .classic
     @Published private(set) var lowPower = false
+    var controlSurface: HUDAppearance.Surface {
+        HUDAppearance.surface(for: material, reduceTransparency: reduceTransparency, increaseContrast: increaseContrast)
+    }
+    var usesGroupedControls: Bool { controlSurface != .classic }
     @Published private(set) var sweepFeedbackVisible = false
     @Published private(set) var content = NotchContentAdapter(.initial, tasksEnabled: true)
     @Published private(set) var resetNews = ResetNewsViewState()
@@ -46,7 +52,7 @@ final class NotchPresentationModel: ObservableObject {
     var animationsEnabled = true
     var restingState: NotchPresentationState { alwaysShowQuota ? .peek : .compact }
     var motionEnabled: Bool { animationsEnabled && !reduceMotion }
-    var sweepActive: Bool { visible && motionEnabled && !lowPower && sweepFeedbackVisible }
+    var sweepActive: Bool { visible && motionEnabled && !lowPower && !usesGroupedControls && !reduceTransparency && !increaseContrast && sweepFeedbackVisible }
     var onRefresh: (() -> Void)?
     var onSettings: (() -> Void)?
     var onHide: (() -> Void)?
@@ -86,12 +92,18 @@ final class NotchPresentationModel: ObservableObject {
               !resetNews.readIDs.contains(id) else { return }
         onVisibleMessage?(id)
     }
-    func setEnvironment(reduceMotion: Bool, reduceTransparency: Bool, lowPower: Bool) {
+    func setMaterial(_ material: HUDAppearance.Material) {
+        guard self.material != material else { return }
+        self.material = material
+        if usesGroupedControls { stopSweepFeedback() }
+    }
+    func setEnvironment(reduceMotion: Bool, reduceTransparency: Bool, lowPower: Bool, increaseContrast: Bool = false) {
         let motionChanged = self.reduceMotion != reduceMotion
         if self.reduceMotion != reduceMotion { self.reduceMotion = reduceMotion }
         if self.reduceTransparency != reduceTransparency { self.reduceTransparency = reduceTransparency }
+        if self.increaseContrast != increaseContrast { self.increaseContrast = increaseContrast }
         if self.lowPower != lowPower { self.lowPower = lowPower }
-        if reduceMotion || lowPower { stopSweepFeedback() }
+        if reduceMotion || lowPower || reduceTransparency || increaseContrast { stopSweepFeedback() }
         if motionChanged && reduceMotion { transition(to: state, animated: false, force: true) }
     }
     func setVisible(_ visible: Bool) {
@@ -156,7 +168,7 @@ final class NotchPresentationModel: ObservableObject {
         showSweepFeedback()
     }
     private func showSweepFeedback() {
-        guard visible, motionEnabled, !lowPower else { return }
+        guard visible, motionEnabled, !lowPower, !usesGroupedControls, !reduceTransparency, !increaseContrast else { return }
         feedbackScheduler.cancelAll()
         if !sweepFeedbackVisible { sweepFeedbackVisible = true }
         feedbackScheduler.after(Self.sweepFeedbackDuration) { [weak self] in
