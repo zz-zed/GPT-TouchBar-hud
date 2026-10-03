@@ -117,6 +117,7 @@ jobs:
         if: matrix.suite == 'data'
         run: |
           bash scripts/test-app-update.sh
+          bash scripts/test-app-update-progress.sh
           bash scripts/test-github-release-fallback.sh
           bash scripts/test-app-update-notifications.sh
 

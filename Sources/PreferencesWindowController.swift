@@ -17,6 +17,7 @@ final class PreferencesWindowController: NSWindowController {
     var onAutomaticUpdates: ((Bool) -> Void)?
     var onCheckForUpdates: (() -> Void)?
     var onViewUpdate: (() -> Void)?
+    var onViewUpdateProgress: (() -> Void)?
     var onUpdateNotifications: ((Bool) -> Void)?
     var onAuthorizeUpdateNotifications: (() -> Void)?
     var onResetNewsEnabled: ((Bool) -> Void)?
@@ -63,7 +64,9 @@ final class PreferencesWindowController: NSWindowController {
     private let authorizeUpdateNotifications = NSButton(title: "允许系统通知…", target: nil, action: nil)
     private let updateStatus = NSTextField(wrappingLabelWithString: "")
     private let updateButton = NSButton(title: "检查更新…", target: nil, action: nil)
+    private let updateProgressButton = NSButton(title: "查看更新进度…", target: nil, action: nil)
     private var updateAvailableVersion: String?
+    private var hasUpdateProgress = false
     private let preview: CompactQuotaHUDView
 
     init(appearance: HUDAppearance, touchBarHardware: TouchBarHardware = .current) {
@@ -174,34 +177,43 @@ final class PreferencesWindowController: NSWindowController {
         persistent.state = persistentEnabled ? .on : .off
         persistent.isEnabled = persistentAvailable
         availability.stringValue = persistentAvailable ? "切换 App 后继续显示额度条。隐藏浮窗不影响 Touch Bar 常驻。" : "当前系统常驻接口不可用，保留原有焦点绑定显示。"
+        updateAppUpdate(appUpdate)
+        backgroundSlider.doubleValue = appearance.backgroundOpacity * 100
+        foregroundSlider.doubleValue = appearance.contentOpacity * 100
+        updatePreview()
+        preview.update(with: state)
+    }
+
+    /// Byte updates do not rebuild the quota preview or unrelated preference controls.
+    func updateAppUpdate(_ appUpdate: AppUpdateViewState) {
         updateAvailableVersion = appUpdate.availableVersion
+        hasUpdateProgress = appUpdate.progress != nil
         automaticUpdates.state = appUpdate.automaticChecksEnabled ? .on : .off
+        if let progress = appUpdate.progress {
+            updateStatus.stringValue = progress.heading + " · " + progress.detail
+        }
+        updateProgressButton.isHidden = appUpdate.progress == nil
         if appUpdate.isInstalling {
-            updateStatus.stringValue = "正在下载、校验或准备安装更新。"
-            updateButton.title = "正在安装…"
+            updateButton.title = "更新正在进行…"
             updateButton.isEnabled = false
         } else if appUpdate.isChecking {
-            updateStatus.stringValue = "正在检查 GitHub 正式版本。"
+            if !hasUpdateProgress { updateStatus.stringValue = "正在检查 GitHub 正式版本。" }
             updateButton.title = "正在检查…"
             updateButton.isEnabled = true
         } else if let available = appUpdate.availableVersion {
-            updateStatus.stringValue = "新版本 \(available) 可用；查看版本说明后可安装、稍后处理或跳过。"
+            if !hasUpdateProgress { updateStatus.stringValue = "新版本 \(available) 可用；查看版本说明后可安装、稍后处理或跳过。" }
             updateButton.title = "查看 \(available)…"
             updateButton.isEnabled = true
         } else {
             let lastSuccess = appUpdate.lastSuccess.map {
                 DateFormatter.localizedString(from: $0, dateStyle: .short, timeStyle: .short)
             } ?? "尚未成功检查"
-            updateStatus.stringValue = appUpdate.automaticChecksAvailable
+            if !hasUpdateProgress { updateStatus.stringValue = appUpdate.automaticChecksAvailable
                 ? "最近成功：\(lastSuccess)。后台无更新或失败时不会弹窗。"
-                : "自动检查仅在安装到 /Applications 或 ~/Applications 后运行；手动检查始终可用。"
+                : "自动检查仅在安装到 /Applications 或 ~/Applications 后运行；手动检查始终可用。" }
             updateButton.title = "检查更新…"
             updateButton.isEnabled = true
         }
-        backgroundSlider.doubleValue = appearance.backgroundOpacity * 100
-        foregroundSlider.doubleValue = appearance.contentOpacity * 100
-        updatePreview()
-        preview.update(with: state)
     }
 
     private func configure() {
@@ -245,6 +257,10 @@ final class PreferencesWindowController: NSWindowController {
         updateButton.action = #selector(updateClicked)
         automaticUpdates.setAccessibilityIdentifier("settings.automaticUpdates")
         updateButton.setAccessibilityIdentifier("settings.checkForUpdates")
+        updateProgressButton.target = self
+        updateProgressButton.isHidden = true
+        updateProgressButton.action = #selector(viewProgressClicked)
+        updateProgressButton.setAccessibilityIdentifier("settings.updateProgress")
         updateNotifications.setAccessibilityIdentifier("settings.updateNotifications")
         updateNotificationPermission.setAccessibilityIdentifier("settings.updateNotificationPermission")
         updateNotificationPermission.font = .systemFont(ofSize: 11)
@@ -252,7 +268,7 @@ final class PreferencesWindowController: NSWindowController {
         authorizeUpdateNotifications.target = self
         authorizeUpdateNotifications.action = #selector(authorizeUpdateNotificationsClicked)
         authorizeUpdateNotifications.setAccessibilityIdentifier("settings.authorizeUpdateNotifications")
-        let updates = column([automaticUpdates, updateStatus, updateButton, updateNotifications, updateNotificationPermission, authorizeUpdateNotifications,
+        let updates = column([automaticUpdates, updateStatus, updateProgressButton, updateButton, updateNotifications, updateNotificationPermission, authorizeUpdateNotifications,
                               note("发现新版本后显示菜单栏更新标记。“稍后”保留入口；“跳过此版本”隐藏该版本提醒。"),
                               note("启动后约 30 秒按需检查；成功后 24 小时内不重复请求。手动检查可找回已跳过版本。")])
         let hookButton = NSButton(title: "配置 Hooks 实验…", target: self, action: #selector(openHookExperiment))
@@ -326,6 +342,7 @@ final class PreferencesWindowController: NSWindowController {
         if updateAvailableVersion != nil { onViewUpdate?() }
         else { onCheckForUpdates?() }
     }
+    @objc private func viewProgressClicked() { onViewUpdateProgress?() }
 
     @objc private func authorizeUpdateNotificationsClicked() { onAuthorizeUpdateNotifications?() }
 

@@ -1,5 +1,4 @@
 import AppKit
-import CryptoKit
 
 /// Public GitHub releases only; never sends account credentials or task data.
 final class AppUpdater: NSObject {
@@ -10,7 +9,8 @@ final class AppUpdater: NSObject {
     private let automaticChecksAvailable: Bool
     private let fetcher: AppReleaseFetching
     private let notifications: AppUpdateNotificationController
-    private var installationInProgress = false
+    private var installation: AppUpdateInstallation?
+    private var installationInProgress: Bool { installation?.progress.isActive == true }
     private var started = false
     private var launchedAt: Date?
     private var scheduledCheck: DispatchWorkItem?
@@ -69,6 +69,10 @@ final class AppUpdater: NSObject {
 
     var onInstall: (() -> Void)?
     var onStateChange: (() -> Void)?
+    var onProgressChange: (() -> Void)?
+    var canQuit: Bool { !installationInProgress || installation?.progress.canCancel == true || installation?.handedOff == true }
+
+    func presentInstallationProgress() { installation?.showProgress() }
     static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0" }
     static var versionLabel: String {
         "版本 \(version)（构建 \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")）"
@@ -97,7 +101,8 @@ final class AppUpdater: NSObject {
             availableVersion: visibleAvailableVersion(in: state),
             lastSuccess: state.lastSuccess,
             isChecking: checker.isChecking,
-            isInstalling: installationInProgress
+            isInstalling: installationInProgress,
+            progress: installation?.progress
         )
     }
 
@@ -111,6 +116,7 @@ final class AppUpdater: NSObject {
     }
 
     func stop() {
+        installation?.stop()
         scheduledCheck?.cancel()
         scheduledCheck = nil
         started = false
@@ -145,6 +151,7 @@ final class AppUpdater: NSObject {
     }
 
     func presentAvailableUpdate() {
+        if installationInProgress { presentInstallationProgress(); return }
         if checker.isChecking {
             request(.manual)
             return
@@ -160,6 +167,7 @@ final class AppUpdater: NSObject {
 
     private func request(_ origin: AppUpdateCheckOrigin) {
         guard !installationInProgress else { return }
+        if origin == .manual, installation != nil { installation?.dismiss(); installation = nil }
         let disposition = checker.request(origin)
         if disposition == .started {
             var state = preferences.state
@@ -257,11 +265,10 @@ final class AppUpdater: NSObject {
             if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(release.releasePageURL) }
             return
         }
-        installationInProgress = true
         scheduledCheck?.cancel()
         scheduledCheck = nil
         notifyStateChanged()
-        download(asset: asset, checksum: checksum, release: release, target: target)
+        startInstallation(asset: asset, checksum: checksum, release: release, target: target)
     }
 
     private func scheduleAutomaticCheck() {
@@ -320,131 +327,32 @@ final class AppUpdater: NSObject {
         onStateChange?()
     }
 
-    private func download(asset: AppRelease.Asset, checksum: AppRelease.Asset, release: AppRelease, target: URL) {
-        resolveSize(for: asset) { [weak self] verifiedSize in
-            guard let self else { return }
-            guard let verifiedSize else { self.finish(error: "无法确认安装包大小，已拒绝下载。"); return }
-            self.downloadVerified(asset: asset, verifiedSize: verifiedSize, checksum: checksum, release: release, target: target)
-        }
-    }
-    private func resolveSize(for asset: AppRelease.Asset, completion: @escaping (Int?) -> Void) {
-        if asset.size > 0 {
-            completion(asset.size < 400_000_000 ? asset.size : nil)
-            return
-        }
-        var request = URLRequest(url: asset.browser_download_url)
-        request.httpMethod = "HEAD"
-        session.dataTask(with: request) { _, response, error in
-            let size = response?.expectedContentLength ?? -1
-            completion(error == nil && (response as? HTTPURLResponse)?.statusCode == 200 && size > 0 && size < 400_000_000 ? Int(size) : nil)
-        }.resume()
-    }
-    private func downloadVerified(asset: AppRelease.Asset, verifiedSize: Int, checksum: AppRelease.Asset, release: AppRelease, target: URL) {
-        session.dataTask(with: checksum.browser_download_url) { [weak self] data, response, error in
-            guard let self else { return }
-            guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200,
-                  let data, data.count < 65536, let text = String(data: data, encoding: .utf8),
-                  let expected = AppRelease.checksum(in: text, filename: asset.name) else {
-                self.finish(error: "校验文件下载失败或格式无效。"); return
+    private func startInstallation(asset: AppRelease.Asset, checksum: AppRelease.Asset, release: AppRelease, target: URL) {
+        installation?.dismiss()
+        do {
+            let channel = try AppUpdateProgressChannel.create(target: target, sourceVersion: Self.version,
+                                                              targetVersion: release.tag_name)
+            let job = AppUpdateInstallation(session: session, release: release, asset: asset, checksum: checksum, channel: channel)
+            installation = job
+            job.onChange = { [weak self] phaseChanged in
+                guard let self, self.installation?.channel.context.sessionID == channel.context.sessionID else { return }
+                if phaseChanged {
+                    self.notifyStateChanged()
+                    if !self.installationInProgress { self.scheduleAutomaticCheck() }
+                } else { self.onProgressChange?() }
             }
-            self.session.downloadTask(with: asset.browser_download_url) { [weak self] temporary, response, error in
-                guard let self else { return }
-                guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let temporary else {
-                    self.finish(error: "安装包下载失败。"); return
-                }
-                do {
-                    let attributes = try FileManager.default.attributesOfItem(atPath: temporary.path)
-                    guard (attributes[.size] as? NSNumber)?.intValue == verifiedSize else { throw UpdateError.invalid("安装包大小不匹配。") }
-                    let handle = try FileHandle(forReadingFrom: temporary)
-                    defer { try? handle.close() }
-                    var digest = SHA256()
-                    while let chunk = try handle.read(upToCount: 1024 * 1024), !chunk.isEmpty { digest.update(data: chunk) }
-                    guard digest.finalize().map({ String(format: "%02x", $0) }).joined() == expected else {
-                        throw UpdateError.invalid("SHA-256 校验失败，已拒绝安装。")
-                    }
-                    try self.prepare(archive: temporary, release: release, target: target)
-                } catch { self.finish(error: error.localizedDescription) }
-            }.resume()
-        }.resume()
-    }
-    private func prepare(archive: URL, release: AppRelease, target: URL) throws {
-        let manager = FileManager.default
-        let staging = target.deletingLastPathComponent().appendingPathComponent(".GPTTouchBarHUD-update-\(UUID().uuidString)")
-        try manager.createDirectory(at: staging, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
-        var handedOff = false
-        defer { if !handedOff { try? manager.removeItem(at: staging) } }
-        let mount = staging.appendingPathComponent("mount")
-        try manager.createDirectory(at: mount, withIntermediateDirectories: false)
-        try Self.run("/usr/bin/hdiutil", ["attach", archive.path, "-readonly", "-nobrowse", "-noautoopen", "-mountpoint", mount.path])
-        defer { try? Self.run("/usr/bin/hdiutil", ["detach", mount.path]) }
-        let source = mount.appendingPathComponent("GPT TouchBar HUD.app")
-        guard source.resolvingSymlinksInPath() == source,
-              let bundle = Bundle(url: source), bundle.bundleIdentifier == AppIdentity.bundleIdentifier,
-              let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
-              AppVersion(version) == AppVersion(release.tag_name) else { throw UpdateError.invalid("应用标识或版本不匹配。") }
-        try Self.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", source.path])
-        #if arch(arm64)
-        let architecture = "arm64"
-        #else
-        let architecture = "x86_64"
-        #endif
-        guard let executable = bundleExecutable(source) else { throw UpdateError.invalid("安装包缺少主程序。") }
-        try Self.run("/usr/bin/lipo", [executable.path, "-verify_arch", architecture])
-        if let minimum = Bundle(url: source)?.object(forInfoDictionaryKey: "LSMinimumSystemVersion") as? String,
-           let required = AppVersion(minimum) {
-            let os = ProcessInfo.processInfo.operatingSystemVersion
-            guard let current = AppVersion("\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)"), current >= required else {
-                throw UpdateError.invalid("新版本需要更新的 macOS，已取消安装。")
-            }
-        }
-        let payload = staging.appendingPathComponent("new.app")
-        try Self.run("/usr/bin/ditto", [source.path, payload.path])
-        try Self.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", payload.path])
-        guard let helperSource = Bundle.main.url(forResource: "install-update", withExtension: "sh") else { throw UpdateError.invalid("更新助手缺失。") }
-        let helper = staging.appendingPathComponent("install-update.sh")
-        try manager.copyItem(at: helperSource, to: helper)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = [helper.path, String(ProcessInfo.processInfo.processIdentifier), target.path, staging.path]
-        let log = staging.appendingPathComponent("install.log")
-        manager.createFile(atPath: log.path, contents: nil)
-        let output = try FileHandle(forWritingTo: log)
-        process.standardOutput = output; process.standardError = output
-        try process.run()
-        try? output.close()
-        handedOff = true
-        DispatchQueue.main.async { [weak self] in self?.onInstall?() }
-    }
-    private static func run(_ executable: String, _ arguments: [String]) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executable); process.arguments = arguments
-        process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
-        try process.run()
-        let deadline = Date(timeIntervalSinceNow: 120)
-        while process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.1) }
-        if process.isRunning { process.terminate(); throw UpdateError.invalid("更新准备超时，原应用未替换。") }
-        guard process.terminationStatus == 0 else { throw UpdateError.invalid("更新准备失败（\(URL(fileURLWithPath: executable).lastPathComponent)）。原应用未替换。") }
-    }
-    private func bundleExecutable(_ url: URL) -> URL? {
-        guard let executable = Bundle(url: url)?.executableURL,
-              executable.resolvingSymlinksInPath().path.hasPrefix(url.path + "/Contents/MacOS/") else { return nil }
-        return executable
-    }
-    private func finish(error: String) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.installationInProgress = false
-            self.notifyStateChanged()
-            self.scheduleAutomaticCheck()
-            self.message("更新未完成", error)
+            job.onInstall = { [weak self] in self?.onInstall?() }
+            job.onPresentationFailure = { [weak self] message in self?.message("更新已停止", message) }
+            try job.start()
+            notifyStateChanged()
+        } catch {
+            installation?.stop()
+            scheduleAutomaticCheck()
+            message("更新未开始", error.localizedDescription)
         }
     }
     private func message(_ title: String, _ detail: String) {
         let alert = NSAlert(); alert.messageText = title; alert.informativeText = detail
         alert.addButton(withTitle: "好"); alert.runModal()
-    }
-    private enum UpdateError: LocalizedError {
-        case invalid(String)
-        var errorDescription: String? { if case let .invalid(message) = self { return message }; return nil }
     }
 }
