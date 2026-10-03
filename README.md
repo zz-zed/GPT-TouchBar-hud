@@ -6,9 +6,9 @@
 
 **[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
-> 当前版本：v0.1.37 / Build 40。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.37)。
+> 当前版本：v0.1.38 / Build 41。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.38)。
 
-> 重置预告只展示来源当前有效信号；过时安排退出预告计数，读取失败保留有标记的缓存。
+> 本版新增 Liquid Glass 外观选择和更新下载、安装进度；重置预告仅展示当前有效信号，过时安排退出计数，读取失败保留有标记的缓存。
 
 ## 界面与使用场景
 
@@ -99,7 +99,7 @@ Hooks 默认关闭，连接正常也不代表覆盖全部任务。配置与限�
 ### 安装前确认
 
 - 已将 ChatGPT、Codex 或 GPT 客户端安装在系统 `/Applications` 目录，并完成登录。应用需要客户端内置的 `codex app-server` 可用。
-- 安装包的最低构建目标为 **macOS 11**；实际 macOS 11 运行尚未验收，宿主客户端还可能有更高的系统要求。双架构发布 CI 通过不等于所有机型均已实测，可参考[本版本发布记录](Documentation/RELEASE-0.1.37.md)。
+- 安装包的最低构建目标为 **macOS 11**；实际 macOS 11 运行尚未验收，宿主客户端还可能有更高的系统要求。双架构发布 CI 通过不等于所有机型均已实测，可参考[本版本发布准备](Documentation/RELEASE-PREPARATION-0.1.38.md)。
 - 当前安装包使用 ad-hoc 签名，**尚未经过 Apple 公证**，首次打开可能出现安全提示。
 
 安装包只按处理器选择，与是否有 Touch Bar 无关。在“ → 关于本机”查看芯片或处理器：
