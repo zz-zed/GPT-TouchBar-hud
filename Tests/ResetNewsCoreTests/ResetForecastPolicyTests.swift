@@ -113,7 +113,8 @@ struct ResetForecastPolicyTests {
         let policy = ResetForecastPolicy(calendar: calendar)
         #expect(policy.retaining(item([.init(kind: .upcomingReset, timingText: "2026-09-23")]), now: noon) != nil)
         #expect(policy.scheduledDate(for: .init(kind: .upcomingReset, timingText: "2026-02-30"), publishedAt: nil) == nil)
-        #expect(policy.scheduledDate(for: .init(kind: .upcomingReset, timingText: "2026-09-23 14:00 PT"), publishedAt: noon) == nil)
+        #expect(policy.scheduledDate(for: .init(kind: .upcomingReset, timingText: "2026-09-23 14:00 PT"), publishedAt: noon)
+            == ISO8601DateFormatter().date(from: "2026-09-23T21:00:00Z"))
     }
 
     @Test(arguments: ["Codex reset will be completed tomorrow.", "Codex reset has not yet completed.", "The reset is not cancelled."])
@@ -122,5 +123,39 @@ struct ResetForecastPolicyTests {
         let upcoming = item([.init(kind: .upcomingReset, timingText: "tomorrow")], published: noon, text: text)
         #expect(!policy.isConfirmedTerminal(upcoming))
         #expect(policy.retaining(upcoming, now: noon) != nil)
+    }
+
+    @Test func completedResetAndSeparatelyAnnouncedFutureResetRemainDistinct() throws {
+        let policy = ResetForecastPolicy(calendar: calendar)
+        let text = "Reset all propagated. We will reset Codex limits tomorrow."
+        let mixed = item([.init(kind: .resetAnnouncement),
+                          .init(kind: .upcomingReset, timingText: "tomorrow", evidence: "We will reset Codex limits tomorrow.")],
+                         published: noon, text: text)
+        let retained = try #require(policy.retaining(mixed, now: noon))
+        #expect(retained.facts.count == 1 && retained.facts.first?.kind == .upcomingReset)
+        #expect(!policy.isConfirmedTerminal(mixed))
+        let cancelled = item([.init(kind: .upcomingReset, timingText: "tomorrow")], published: noon,
+                             text: "We planned to reset Codex limits tomorrow. The reset has been cancelled.")
+        #expect(policy.retaining(cancelled, now: noon) == nil && policy.isConfirmedTerminal(cancelled))
+    }
+
+    @Test func passedClocksRemainCardsWithoutCreatingFutureReminders() throws {
+        let policy = ResetForecastPolicy(calendar: calendar)
+        for precision in [ResetNewsTimePrecision.exact, .deadline] {
+            let forecast = item([.init(kind: .upcomingReset, effectiveAt: noon.addingTimeInterval(-60), effectiveAtPrecision: precision)])
+            #expect(policy.retaining(forecast, now: noon) != nil)
+            #expect(policy.reminder(for: forecast, now: noon) == nil)
+        }
+        let facts: [ResetNewsFact] = [.init(kind: .upcomingReset, effectiveAt: noon.addingTimeInterval(-60), effectiveAtPrecision: .exact),
+                                     .init(kind: .upcomingReset, effectiveAt: noon.addingTimeInterval(3600), effectiveAtPrecision: .exact)]
+        #expect(policy.reminder(for: item(facts), now: noon)?.facts.count == 1)
+        #expect(policy.reminder(for: item([.init(kind: .upcomingReset, timingText: "today")], published: noon), now: noon) != nil)
+        let window = ResetNewsOfficialWindow(startAt: noon.addingTimeInterval(-120), endAt: noon.addingTimeInterval(-60))
+        let forecast = item([.init(kind: .upcomingReset, effectiveAt: window.endAt, effectiveAtPrecision: .windowBoundary, officialWindow: window)])
+        #expect(policy.retaining(forecast, now: noon) != nil && policy.reminder(for: forecast, now: noon) == nil)
+        let later = ISO8601DateFormatter().date(from: "2026-10-03T10:00:00Z")!
+        let sourceDay = item([.init(kind: .upcomingReset, timingText: "2026-10-02", sourceTimeZone: "PT")])
+        #expect(policy.retaining(sourceDay, now: later) != nil)
+        #expect(policy.reminder(for: sourceDay, now: later) == nil)
     }
 }

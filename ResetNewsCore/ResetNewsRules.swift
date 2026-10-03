@@ -6,21 +6,25 @@ public struct ResetNewsRuleEngine: Sendable {
     public func evaluate(_ source: ResetNewsSourceItem, now: Date) -> ResetNewsItem? {
         let text = [source.title, source.body].compactMap { $0 }.joined(separator: "\n")
         if source.structuredFacts?.isEmpty == true { return nil }
-        guard source.structuredFacts != nil || ResetNewsText.matches(#"\bcodex\b"#, in: text) else { return nil }
-        let fragments = text.replacingOccurrences(
-            of: #"(?:[!?;。！？；\n]+|\.(?=\s|$)|\s+\b(?:but|however)\b\s+|\s+and\s+(?=(?:we\b|will\b|all\b|plus\b|pro\b|(?:gave|given|added|granted|provided)\b)))"#,
-            with: "\n", options: [.regularExpression, .caseInsensitive]
-        ).components(separatedBy: "\n")
+        let paidChatGPTReset = audience(in: text) == "paid_chatgpt" && upcomingResetEvidence(in: text) != nil
+        guard source.structuredFacts != nil || ResetNewsText.matches(#"\bcodex\b|\bchatgpt\s+work\b"#, in: text)
+                || paidChatGPTReset else { return nil }
+        let fragments = resetClauses(in: text)
         var facts: [ResetNewsFact] = fillingMissingForecastTiming(source.structuredFacts ?? [], text: text)
-        if let weekday = ResetForecastPolicy.scheduledWeekday(in: text),
-           !facts.contains(where: { $0.kind == .upcomingReset }),
-           !facts.contains(where: { $0.kind == .resetAnnouncement && $0.confidence == .explicit }) {
-            facts.removeAll { $0.kind == .resetAnnouncement }
-            facts.append(ResetNewsFact(kind: .upcomingReset, scope: audience(in: text), timingText: weekday,
-                                       confidence: .tentative, evidence: text))
+        let actions = resetFactEvidence(in: text)
+        if !facts.contains(where: { $0.kind == .upcomingReset }),
+           actions.contains(where: { $0.kind == .upcomingReset && ResetForecastPolicy.scheduledWeekday(in: $0.evidence) != nil }) {
+            facts.removeAll { $0.kind == .resetAnnouncement && $0.confidence == .tentative }
         }
         let structuredKinds = Set(facts.map(\.kind))
-        var cancelled = false
+        for action in actions where !structuredKinds.contains(action.kind) {
+            let timing = timingDetails(action.evidence)
+            let weekday = ResetForecastPolicy.scheduledWeekday(in: action.evidence)
+            facts.append(ResetNewsFact(kind: action.kind, scope: audience(in: action.evidence),
+                effectiveAt: timing.effective, effectiveAtPrecision: timing.effective == nil ? nil : .exact,
+                timingText: timing.text ?? weekday,
+                confidence: weekday == nil ? .explicit : .tentative, evidence: action.evidence))
+        }
         for rawFragment in fragments {
             let fragment = rawFragment.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !fragment.isEmpty else { continue }
@@ -28,13 +32,7 @@ public struct ResetNewsRuleEngine: Sendable {
             guard hasReset else { continue }
             if ResetNewsText.matches(#"\b(?:password|configuration|settings|cache|git|repository|api key)\b|密码|配置|缓存"#, in: fragment) { continue }
             let credits = ResetNewsText.matches(#"\breset\s+credits?\b|\b(?:extra|additional|bonus)\s+(?:\d+\s+)?(?:banked\s+)?resets?\b|\b\d+\s+(?:extra|additional|bonus)\s+resets?\b|额外.{0,8}(?:重置|重设)|(?:重置|重设)次数"#, in: fragment)
-            let quota = ResetNewsText.matches(#"\blimits?\b|\bquotas?\b|\b(?:weekly|daily|usage)\s+(?:cap|allowance|limit)|额度|限额|用量上限"#, in: fragment)
-            guard credits || quota else { continue }
-            if ResetNewsText.matches(#"\bcancel(?:led|ed)\b|\bwithdrawn\b|取消|撤销"#, in: fragment) {
-                cancelled = true
-            } else if isNegatedOrSpeculative(fragment) {
-                continue
-            }
+            guard credits, !isNegatedOrSpeculative(fragment) else { continue }
             let scope = audience(in: fragment) ?? source.title.flatMap(audience)
             let timing = timingDetails(fragment)
             let grantsCredits = ResetNewsText.matches(#"\b(?:extra|additional|bonus|more|giv(?:e|en|ing)|grant(?:ed|ing)?|provid(?:e|ed|ing)|announced|added|receive|get(?:ting|s)?)\b|额外|赠送|增加"#, in: fragment)
@@ -42,36 +40,89 @@ public struct ResetNewsRuleEngine: Sendable {
                 facts.append(ResetNewsFact(kind: .extraResetCredits, scope: scope, count: creditCount(fragment),
                                            expiresAt: timing.expiry, validityText: timing.validity, evidence: fragment))
             }
-            // A credit is an entitlement to request a reset, never evidence that a quota was reset.
-            let withoutCredits = fragment.replacingOccurrences(of: #"\breset\s+credits?\b"#, with: "credits", options: [.regularExpression, .caseInsensitive])
-            if quota && ResetNewsText.matches(#"\breset(?:s|ting)?\b|重置|重设"#, in: withoutCredits) && (!credits || hasIndependentQuotaReset(withoutCredits)) {
-                let upcoming = ResetNewsText.matches(#"\bwill\b|\bscheduled\b|\bgoing to\b|\bplan(?:ned)?\b|\btomorrow\b|\btonight\b|\blater today\b|\bnext\s+(?:week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|预计|将于|即将|计划|明天|今晚"#, in: fragment)
-                guard upcoming || hasAnnouncedReset(fragment) || cancelled else { continue }
-                let kind: ResetNewsFactKind = upcoming ? .upcomingReset : .resetAnnouncement
-                if structuredKinds.contains(kind) { continue }
-                facts.append(ResetNewsFact(kind: kind,
-                                           scope: scope, effectiveAt: timing.effective,
-                                           effectiveAtPrecision: timing.effective == nil ? nil : .exact, timingText: timing.text,
-                                           evidence: fragment))
-            }
         }
         var seen: Set<String> = []
         facts = facts.filter { seen.insert($0.materialKey).inserted }
         guard !facts.isEmpty else { return nil }
+        let cancelled = lastResetActionIsTerminal(in: text)
+            && ResetNewsText.matches(#"\bcancel(?:led|ed)\b|\bwithdrawn\b|取消|撤销"#, in: text)
         return ResetNewsItem(id: source.stableID, sources: [source.source], sourceURL: source.url,
                              originalText: text, facts: facts, status: source.status ?? (cancelled ? .cancelled : .active),
                              publishedAt: source.publishedAt, firstSeenAt: now, updatedAt: source.updatedAt)
     }
 
     func isNegatedOrSpeculative(_ text: String) -> Bool {
-        ResetNewsText.matches(#"\b(?:not|never|no|won't|won’t|cannot|can't|can’t|don't|don’t|doesn't|doesn’t|didn't|didn’t)\b.{0,55}\b(?:reset|extra|additional|bonus)\b|\b(?:may|might|could|if|wish|hope|rumou?r|unconfirmed)\b|\bhow to\b|\byou can\b|^reset your\b|没有|不会|不再|并未|无需|无需重置|可能|如果|传闻|希望"#, in: text)
+        isSpeculativeResetClause(text) || ResetNewsText.matches(#"\b(?:not|never|no|won't|won’t|cannot|can't|can’t|don't|don’t|doesn't|doesn’t|didn't|didn’t)\b.{0,55}\b(?:reset|extra|additional|bonus)\b|\b(?:resets?|resetting)\b.{0,25}\b(?:not|never|isn't|isn’t|aren't|aren’t|won't|won’t|no longer)\b.{0,25}\b(?:happen(?:ing)?|coming|landing|scheduled|planned|arriving|available|provided|confirmed)\b|没有|不会|不再|并未|无需|无需重置"#, in: text)
+    }
+
+    private func isSpeculativeResetClause(_ text: String) -> Bool {
+        ResetNewsText.matches(#"\b(?:may|might|could|would|should|if|wish|hope|rumou?r|unconfirmed|unlikely|uncertain|possibly|perhaps|maybe|considering|discussing|whether)\b|\bhow to\b|\byou can\b|^\s*reset your\b|[?？]|可能|如果|传闻|希望|不确定"#, in: text)
+    }
+
+    /// Interpret independent quota actions; a future model release or credit grant
+    /// must never turn an earlier completed reset into a future quota reset.
+    func resetFactEvidence(in text: String) -> [(kind: ResetNewsFactKind, evidence: String)] {
+        resetClauses(in: text).compactMap { rawClause in
+            let clause = rawClause.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard ResetNewsText.matches(#"\bresets?\b|\bresetting\b|重置|重设"#, in: clause),
+                  !ResetNewsText.matches(#"\b(?:password|router|laptop|configuration|settings|cache|git|repository|api key)\b|密码|配置|缓存"#, in: clause),
+                  !isNegatedOrSpeculative(clause) else { return nil }
+            let terminal = ResetForecastPolicy.hasTerminalResetText(clause)
+                && (quotaResetText(clause) == clause || hasIndependentQuotaReset(clause))
+            let quotaAction = hasIndependentQuotaReset(clause)
+                || ResetForecastPolicy.scheduledWeekday(in: clause) != nil
+            guard quotaAction || terminal else { return nil }
+            // Past quota actions stay completed even when another product has a future date.
+            if terminal || hasCompletedResetAction(clause) {
+                return (.resetAnnouncement, clause)
+            }
+            let future = ResetNewsText.matches(#"\b(?:resets?|resetting)\b.{0,55}\b(?:will|scheduled|landing|arriving|coming|tomorrow|tonight|later today|within|next\s+(?:week|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b|\b(?:will|going to|plan(?:ned)?|promised)\b.{0,55}\b(?:resets?|resetting)\b|(?:将于|即将|计划|明天|今晚).{0,25}(?:重置|重设)|(?:重置|重设).{0,25}(?:明天|今晚|将于|即将)"#, in: clause)
+            if future {
+                return (.upcomingReset, clause)
+            }
+            if hasAnnouncedReset(clause) {
+                return (.resetAnnouncement, clause)
+            }
+            return nil
+        }
+    }
+
+    func upcomingResetEvidence(in text: String) -> String? {
+        resetFactEvidence(in: text).first { $0.kind == .upcomingReset }?.evidence
+    }
+
+    /// An explicit withdrawal can retire a previous plan without itself claiming a completed reset.
+    /// Reading in order permits a later independent promise to replace an earlier cancellation.
+    func lastResetActionIsTerminal(in text: String) -> Bool {
+        var terminal = false
+        for rawClause in resetClauses(in: text) {
+            let clause = rawClause.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !isSpeculativeResetClause(clause) else { continue }
+            if ResetForecastPolicy.hasTerminalResetText(clause),
+               quotaResetText(clause) == clause || hasIndependentQuotaReset(clause) {
+                terminal = true
+            } else if let action = resetFactEvidence(in: clause).last {
+                if action.kind == .upcomingReset { terminal = false }
+                else if hasCompletedResetAction(clause) { terminal = true }
+            }
+        }
+        return terminal
+    }
+
+    private func resetClauses(in text: String) -> [String] {
+        // Keep question punctuation as evidence, and keep plan lists such as Plus and Pro together.
+        let sentences = text.replacingOccurrences(of: #"([?？])"#, with: "$1\n", options: .regularExpression)
+        return sentences.replacingOccurrences(
+            of: #"(?:[!;。！；\n]+|\.(?=\s|$)|\s+\b(?:but|however)\b\s+|\s+and\s+(?=(?:(?:we|they|i)\s+(?:will|have|had|reset|give|gave|grant|granted)|will\b|(?:reset|gave|given|added|granted|provided)\b|(?:codex|chatgpt(?:\s+work)?)\s+(?:limits?|quotas?)\b|(?:(?:all|the)\s+)?(?:limits?|quotas?)\s+(?:will|reset|have|are)\b|(?:plus|pro|team|business|enterprise|edu)\s+(?:users?|accounts?)\s+(?:will|get|receive)\b|(?:a|the|our|new)\s+(?:new\s+)?(?:model|feature|release|version)\b)))"#,
+            with: "\n", options: [.regularExpression, .caseInsensitive]
+        ).components(separatedBy: "\n")
     }
 
     func fillingMissingForecastTiming(_ facts: [ResetNewsFact], text: String) -> [ResetNewsFact] {
         facts.map { fact in
             guard fact.kind == .upcomingReset, fact.effectiveAt == nil, fact.timingText == nil else { return fact }
             var resolved = fact
-            let timing = timingDetails(text)
+            let timing = timingDetails(fact.evidence.isEmpty ? text : fact.evidence)
             resolved.effectiveAt = timing.effective
             resolved.effectiveAtPrecision = timing.effective == nil ? nil : .exact
             resolved.timingText = timing.text ?? ResetForecastPolicy.scheduledWeekday(in: text)
@@ -83,16 +134,38 @@ public struct ResetNewsRuleEngine: Sendable {
         ResetNewsText.matches(#"\b(?:we|we've|we’ve|have|has|had|just|already|now|are|were|is|was)\b.{0,65}\breset\b|\breset\b.{0,30}\b(?:limits?|quotas?)\b|已.{0,8}重置|重置.{0,10}(?:额度|限额)|(?:额度|限额).{0,8}重置"#, in: text)
     }
 
-    private func hasIndependentQuotaReset(_ text: String) -> Bool {
-        ResetNewsText.matches(#"(?:limits?|quotas?|额度|限额).{0,30}(?:reset|重置)|(?:reset|重置).{0,30}(?:limits?|quotas?|额度|限额)"#, in: text)
+    func hasIndependentQuotaReset(_ text: String) -> Bool {
+        // Remove entitlements before looking for a quota action. Nearby quota wording alone
+        // does not turn receiving a banked reset into resetting that quota.
+        let withoutCredits = quotaResetText(text)
+        guard !ResetNewsText.matches(#"\breset\s+(?:animation|button|screen|menu|form|workflow|feature|counter)\b"#, in: withoutCredits) else { return false }
+        return ResetNewsText.matches(#"\b(?:limits?|quotas?)\b.{0,40}\breset(?:s|ting)?\b|\breset(?:s|ting)?\b(?:\s+(?:the|all|our|your|their|codex|usage|weekly|daily|rate)){0,5}\s+(?:limits?|quotas?|caps?|allowance)\b|\b(?:global|full|usage|codex)\s+resets?\b|(?:额度|限额).{0,25}(?:重置|重设)|(?:重置|重设).{0,25}(?:额度|限额)"#, in: withoutCredits)
+    }
+
+    private func quotaResetText(_ text: String) -> String {
+        text.replacingOccurrences(
+            of: #"\breset\s+credits?\b|\b(?:(?:\d+|one|two|three|a|an|another)\s+)?(?:(?:extra|additional|bonus|banked)\s+)+resets?\b|额外.{0,8}(?:重置|重设)|(?:重置|重设)次数"#,
+            with: "credits", options: [.regularExpression, .caseInsensitive])
+    }
+
+    private func hasCompletedResetAction(_ text: String) -> Bool {
+        ResetNewsText.matches(#"\b(?:we|they|i)\s+(?:(?:have|had)\s+)?(?:(?:just|already|now)\s+)?reset\b|(?<!will )\b(?:have|has|had|just|already)\s+(?:been\s+)?reset\b|\bresets?\b.{0,40}\b(?:yesterday|last\s+(?:night|week|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday))\b|\bresets?\s+(?:(?:has|have)\s+been\s+|was\s+)?(?:already\s+)?(?:applied|propagated)\b|已.{0,8}(?:重置|重设)|(?:重置|重设)已完成"#, in: text)
     }
 
     func audience(in text: String) -> String? {
-        if ResetNewsText.matches(#"\b(?:all|every)\s+(?:codex\s+)?(?:users?|accounts?|plans?|customers?)\b|\beveryone\b|所有用户|全部用户|全体用户"#, in: text) { return "all" }
+        if ResetNewsText.matches(#"\b(?:all|every)\s+paid\s+chatgpt\s+(?:users?|accounts?|subscriptions?)\b|所有付费\s*ChatGPT"#, in: text) { return "paid_chatgpt" }
+        if ResetNewsText.matches(#"\b(?:all|every)\s+paid\s+(?:users?|accounts?|plans?|customers?|subscriptions?)\b|所有付费用户|所有付费账号"#, in: text) { return "paid" }
+        let planName = #"(?:free|plus|pro|team|business|enterprise|edu)"#
         let plans = ["free", "plus", "pro", "team", "business", "enterprise", "edu"].filter {
-            ResetNewsText.matches("\\b\($0)\\b", in: text)
+            let after = "\\b\($0)\\b(?:(?:\\s*(?:,|/|&)\\s*|\\s+and\\s+)\(planName))*(?:\\s+\\$\\d+(?:\\.\\d+)?)?\\s+(?:(?:codex|chatgpt(?:\\s+work)?)\\s+)?(?:users?|accounts?|plans?|subscribers?|subscriptions?|tiers?|customers?)\\b"
+            let eligibility = "\\b(?:for|to|on|every|each)\\s+(?:all\\s+)?(?:\(planName)(?:\\s*(?:,|/|&)\\s*|\\s+and\\s+))*\($0)\\b(?:(?:\\s*(?:,|/|&)\\s*|\\s+and\\s+)\(planName))*(?=\\s*(?:$|[,.!?;…]|(?:users?|accounts?|plans?|subscribers?|subscriptions?|tiers?|customers?)\\b))"
+            return ResetNewsText.matches(after, in: text) || ResetNewsText.matches(eligibility, in: text)
         }
-        return plans.isEmpty ? nil : plans.sorted().joined(separator: ",")
+        if !plans.isEmpty { return plans.sorted().joined(separator: ",") }
+        if ResetNewsText.matches(#"\bpaid\s+chatgpt\s+(?:users?|accounts?|subscriptions?)\b|付费\s*ChatGPT"#, in: text) { return "paid_chatgpt" }
+        if ResetNewsText.matches(#"\bpaid\s+(?:users?|accounts?|plans?|customers?|subscriptions?)\b|付费用户|付费账号"#, in: text) { return "paid" }
+        if ResetNewsText.matches(#"\b(?:all|every)\s+(?:codex\s+)?(?:users?|accounts?|plans?|customers?)\b|\beveryone\b|所有用户|全部用户|全体用户"#, in: text) { return "all" }
+        return nil
     }
 
     func creditCount(_ text: String) -> Int? {
@@ -113,7 +186,8 @@ public struct ResetNewsRuleEngine: Sendable {
         let expiry = expiryText.flatMap(ResetNewsDate.parse)
         let dateText = ResetNewsText.capture("(?:at|on|于)\\s+(\(timestamp))", in: text)
         let effective = dateText == expiryText ? nil : dateText.flatMap(ResetNewsDate.parse)
-        let relative = ResetNewsText.capture(#"\b(tomorrow|tonight|later today|today|next\s+(?:week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|\d{4}-\d{2}-\d{2}(?:\s+\d{1,2}:\d{2}(?:\s*(?:UTC|PT|PDT|PST|ET))?)?)\b|(明天|今晚|今天)"#, in: text)
+        let relative = ResetForecastTiming.timingText(in: text)
+            ?? ResetNewsText.capture(#"\b(tomorrow|tonight|later today|today|next\s+(?:week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|\d{4}-\d{2}-\d{2}(?:\s+\d{1,2}:\d{2}(?:\s*(?:UTC|PT|PDT|PST|ET))?)?)\b|(明天|今晚|今天)"#, in: text)
             ?? ResetNewsText.capture(#"(明天|今晚|今天)"#, in: text)
         return (effective, effective != nil ? nil : relative, expiry, expiryText)
     }
@@ -155,8 +229,10 @@ public enum ResetNewsSummary {
         return prefix + descriptions.joined(separator: "；")
     }
 
-    private static func scopeLabel(_ scope: String) -> String {
+    public static func scopeLabel(_ scope: String) -> String {
         if scope == "all" { return "所有用户" }
+        if scope == "paid_chatgpt" { return "付费 ChatGPT 用户" }
+        if scope == "paid" { return "付费用户" }
         let labels = ["free": "Free", "plus": "Plus", "pro": "Pro", "team": "Team", "business": "Business", "enterprise": "Enterprise", "edu": "Edu", "codex": "Codex", "chatgpt_work": "ChatGPT Work"]
         return scope.components(separatedBy: ",").map { labels[$0] ?? $0 }.joined(separator: "、") + " 用户"
     }

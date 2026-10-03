@@ -114,19 +114,107 @@ struct ResetNewsDecoderTests {
         #expect(structured.hints?.scope == "global")
         let classified = try #require(ResetNewsRuleEngine().evaluate(structured, now: instant))
         #expect(classified.facts[0].kind == .resetAnnouncement)
-        #expect(classified.facts[0].scope == "all")
+        #expect(classified.facts[0].scope == "chatgpt_work,codex")
         #expect(classified.facts[0].confidence == .explicit)
     }
 
     @Test func previewWindowIsUpcomingAndPreservesDeadline() throws {
         var value = event(preview: true)
+        value["summary"] = "Codex limits will reset within an hour."
         value["official_window"] = ["label": "within an hour", "start_at": "2026-09-22T03:00:00Z",
-                                    "end_at": "2026-09-22T04:00:00Z", "target_at": "2026-09-22T04:00:00Z"]
+                                    "end_at": "2026-09-22T04:00:00Z", "target_at": "2026-09-22T04:00:00Z",
+                                    "target_kind": "deadline"]
         let batch = try ResetNewsSourceDecoder().decodeBatch(data(["events": [value], "updated_at": "2026-09-22T03:30:00Z"]), source: .timeline)
         let item = try #require(batch.items.first.flatMap { ResetNewsRuleEngine().evaluate($0, now: instant) })
         #expect(item.facts[0].kind == .upcomingReset)
         #expect(item.facts[0].effectiveAt == ResetNewsDate.parse("2026-09-22T04:00:00Z"))
+        #expect(item.facts[0].effectiveAtPrecision == .deadline)
         #expect(item.facts[0].timingText == "within an hour")
+        #expect(item.facts[0].officialWindow?.startAt == ResetNewsDate.parse("2026-09-22T03:00:00Z"))
+        #expect(item.facts[0].officialWindow?.endAt == ResetNewsDate.parse("2026-09-22T04:00:00Z"))
+        #expect(batch.items.first?.hints?.officialWindow?.targetKind == "deadline")
+    }
+
+    @Test(arguments: ["unknown", "new-provider-kind"])
+    func unrecognizedTargetKindDoesNotClaimExactTime(_ targetKind: String) throws {
+        var value = event(preview: true)
+        value["summary"] = "Codex limits will reset within an hour."
+        value["official_window"] = ["label": "within an hour", "target_at": "2026-09-22T04:00:00Z",
+                                    "target_kind": targetKind, "time_zone": "America/Los_Angeles",
+                                    "provider_extension": ["new": true]]
+        let records = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
+        let fact = try #require(records.first?.structuredFacts?.first)
+        #expect(fact.effectiveAtPrecision == .windowBoundary)
+        #expect(fact.sourceTimeZone == "America/Los_Angeles")
+        #expect(fact.officialWindow?.timeZone == "America/Los_Angeles")
+        #expect(records.first?.hints?.officialWindow?.targetKind == targetKind)
+    }
+
+    @Test func explicitEffectiveTimeWinsOverWindowDeadline() throws {
+        var value = event(preview: true)
+        value["summary"] = "Codex limits will reset within an hour."
+        value["effective_at"] = "2026-09-22T03:45:00Z"
+        value["official_window"] = ["target_at": "2026-09-22T04:00:00Z", "target_kind": "deadline"]
+        let records = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
+        let fact = try #require(records.first?.structuredFacts?.first)
+        #expect(fact.effectiveAt == ResetNewsDate.parse("2026-09-22T03:45:00Z"))
+        #expect(fact.effectiveAtPrecision == .exact)
+        #expect(fact.officialWindow?.targetKind == "deadline")
+    }
+
+    @Test func futureCommitmentIsRecognizedWhenPreviewIsFalseAndDatesAreMissing() throws {
+        var value = event()
+        value["summary"] = "Global reset landing tomorrow 10am PST for all paid ChatGPT accounts."
+        value["audience"] = []
+        value["confidence"] = "medium"
+        value["announcement_state"] = "none"
+        value["announced_at"] = "2026-10-02T02:14:51.000Z"
+        value["effective_at"] = NSNull()
+        value["official_window"] = NSNull()
+        let records = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
+        let item = try #require(records.first.flatMap { ResetNewsRuleEngine().evaluate($0, now: instant) })
+        #expect(item.facts.map(\.kind) == [.upcomingReset])
+        #expect(item.facts[0].scope == "paid_chatgpt")
+        #expect(item.facts[0].confidence == .explicit)
+        #expect(item.facts[0].timingText?.contains("tomorrow") == true)
+        #expect(records.first?.hints?.preview == false)
+    }
+
+    @Test(arguments: ["Codex limits will not reset tomorrow.",
+                      "Codex limits might reset tomorrow.",
+                      "We hope Codex limits reset tomorrow."])
+    func previewCannotTurnDenialOrSpeculationIntoForecast(_ text: String) throws {
+        var value = event(preview: true)
+        value["summary"] = text
+        let records = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
+        #expect(records.first.flatMap { ResetNewsRuleEngine().evaluate($0, now: instant) } == nil)
+    }
+
+    @Test func unrelatedFutureClauseDoesNotTurnCompletedResetIntoForecast() throws {
+        var value = event(preview: true)
+        value["summary"] = "We reset Codex limits yesterday. A new model ships tomorrow."
+        let records = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
+        let item = try #require(records.first.flatMap { ResetNewsRuleEngine().evaluate($0, now: instant) })
+        #expect(item.facts.map(\.kind) == [.resetAnnouncement])
+    }
+
+    @Test func independentCompletedAndFutureResetClausesArePreserved() throws {
+        var value = event()
+        value["summary"] = "We reset Codex limits yesterday. Codex limits will reset tomorrow."
+        let records = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
+        let item = try #require(records.first.flatMap { ResetNewsRuleEngine().evaluate($0, now: instant) })
+        #expect(item.facts.map(\.kind) == [.resetAnnouncement, .upcomingReset])
+        #expect(item.facts[0].timingText == nil)
+        #expect(item.facts[1].timingText?.contains("tomorrow") == true)
+    }
+
+    @Test func denialDoesNotEraseIndependentFutureCommitment() throws {
+        var value = event()
+        value["summary"] = "Codex limits will not reset today, but Codex limits will reset tomorrow."
+        let records = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
+        let item = try #require(records.first.flatMap { ResetNewsRuleEngine().evaluate($0, now: instant) })
+        #expect(item.facts.map(\.kind) == [.upcomingReset])
+        #expect(item.facts[0].timingText?.contains("tomorrow") == true)
     }
 
     @Test func structuredCreditsDoNotClaimQuotaReset() throws {
@@ -244,6 +332,52 @@ struct ResetNewsDecoderTests {
         var value = event(); value["source"] = "operator-observed"
         let records = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
         #expect(records.first.flatMap { ResetNewsRuleEngine().evaluate($0, now: instant) } == nil)
+    }
+
+    @Test(arguments: ["observed", "operator-observed"])
+    func operatorObservationWithoutPostIdentityIsNormalFiltering(_ provenance: String) throws {
+        let observation: [String: Any] = ["source": provenance, "group": "credits", "banked_state": "available",
+                                        "text": "A new banked Codex reset landed on our monitoring accounts.", "url": NSNull()]
+        var invalidOfficial = event(id: "101")
+        invalidOfficial["url"] = NSNull()
+        let payload: [String: Any] = ["profile": ["handle": "thsottiaux"], "source_scope": "timeline",
+                                      "events": [observation, event(), invalidOfficial]]
+        for source in [ResetNewsSource.feed, .timeline] {
+            let batch = try ResetNewsSourceDecoder().decodeBatch(data(payload), source: source)
+            #expect(batch.identityValidated)
+            #expect(batch.items.map(\.sourceID) == ["100"])
+            #expect(batch.rejectedIdentityCount == 1)
+        }
+        var invalidRoot = payload
+        invalidRoot["profile"] = ["handle": "someone_else"]
+        let invalid = try ResetNewsSourceDecoder().decodeBatch(data(invalidRoot), source: .feed)
+        #expect(!invalid.identityValidated && invalid.items.isEmpty)
+        #expect(invalid.rejectedIdentityCount == 2)
+    }
+
+    @Test func unknownProvenanceCannotBypassCanonicalIdentityValidation() throws {
+        var value = event()
+        value["source"] = "observed-official"
+        value["url"] = NSNull()
+        let batch = try ResetNewsSourceDecoder().decodeBatch(data(["events": [value]]), source: .timeline)
+        #expect(batch.items.isEmpty && batch.rejectedIdentityCount == 1)
+    }
+
+    @Test func globalScopeDoesNotBroadenAnExplicitPlanAudience() throws {
+        var value = event()
+        value["audience"] = ["pro"]
+        value["summary"] = "Reset all propagated for Pro accounts."
+        let records = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
+        #expect(records.first?.structuredFacts?.first?.scope == "pro")
+        #expect(records.first?.hints?.scope == "global")
+        value["audience"] = ["chatgpt_work"]
+        value["summary"] = "We reset Codex limits for everyone."
+        let productAudience = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
+        #expect(productAudience.first?.structuredFacts?.first?.scope == "chatgpt_work")
+        value["audience"] = []
+        value["summary"] = "Reset all propagated."
+        let unknown = try ResetNewsSourceDecoder().decode(data(["events": [value]]), source: .timeline)
+        #expect(unknown.first?.structuredFacts?.first?.scope == nil)
     }
 
     @Test func nonemptyMalformedContainersNeverBecomeSuccessfulEmptyFeed() throws {

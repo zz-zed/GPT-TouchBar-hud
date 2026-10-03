@@ -1,0 +1,61 @@
+{
+  "updated_at": "2026-10-03T01:22:48.508Z",
+  "events": [
+    {
+      "id": "2105843926221660585",
+      "date": "2026-10-02",
+      "type": "reset",
+      "group": "reset",
+      "summary": "Global reset landing tomorrow 10am PST for all paid ChatGPT accounts. Apologies for the slow start with GPT-6.1 Sol, it's now back to running at expected speeds after the massive l",
+      "url": "https://x.com/thsottiaux/status/2105843926221660585",
+      "announced_at": "2026-10-02T02:14:51.000Z",
+      "effective_at": null,
+      "official_window": null,
+      "preview": false,
+      "scope": "global",
+      "confidence": "medium",
+      "source": "live",
+      "source_label": "Live radar feed",
+      "reset_kind": null,
+      "audience": [],
+      "incident_links": [],
+      "reason_tags": [
+        "incident",
+        "compensation"
+      ],
+      "announcement_state": "none",
+      "observation_result": "unknown",
+      "observation_sources": [],
+      "reset_verification_status": "pending",
+      "time_kind": "announcement / confirmation time",
+      "localized_summary": "全球重置将于明天上午 10am PST 对所有付费 ChatGPT 账户推出。对于 GPT-6.1 Sol 起步缓慢深表歉意，在经历了前两天的巨大负载峰值后，目前已恢复至预期运行速度。",
+      "translation_status": "translated"
+    },
+    {
+      "id": "2105008012525769969",
+      "date": "2026-09-29",
+      "type": "credits",
+      "group": "credits",
+      "summary": "A new banked Codex reset landed on our monitoring accounts. Tibo has not announced it on X yet.",
+      "url": null,
+      "announced_at": "2026-09-29T18:53:14.000Z",
+      "effective_at": null,
+      "official_window": null,
+      "preview": false,
+      "scope": "global",
+      "confidence": "high",
+      "source": "observed",
+      "source_label": "Observed on our monitoring accounts",
+      "reset_kind": "banked",
+      "banked_state": "available",
+      "text": "A new banked Codex reset landed on our monitoring accounts. Tibo has not announced it on X yet.",
+      "audience": [],
+      "incident_links": [],
+      "reason_tags": [],
+      "time_kind": "announcement / confirmation time",
+      "observed_variant": "fresh",
+      "localized_summary": "本站监测账号收到了一次新的存储重置，Tibo 尚未在 X 上发推宣布。",
+      "translation_status": "translated"
+    }
+  ]
+}

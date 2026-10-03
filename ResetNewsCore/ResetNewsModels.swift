@@ -10,6 +10,14 @@ public struct ResetNewsOfficialWindow: Codable, Equatable, Sendable {
     public var startAt: Date?
     public var endAt: Date?
     public var targetAt: Date?
+    public var targetKind: String?
+    public var timeZone: String?
+
+    public init(label: String? = nil, startAt: Date? = nil, endAt: Date? = nil, targetAt: Date? = nil,
+                targetKind: String? = nil, timeZone: String? = nil) {
+        self.label = label; self.startAt = startAt; self.endAt = endAt; self.targetAt = targetAt
+        self.targetKind = targetKind; self.timeZone = timeZone
+    }
 }
 
 public struct ResetNewsSourceHints: Codable, Equatable, Sendable {
@@ -88,7 +96,7 @@ public enum ResetNewsStatus: String, Codable, Equatable, Sendable {
 
 /// Presentation provenance only. An absent value in older caches does not prove an exact reset time.
 public enum ResetNewsTimePrecision: String, Codable, Equatable, Sendable {
-    case exact, windowBoundary
+    case exact, windowBoundary, deadline
 }
 
 public struct ResetNewsFact: Codable, Equatable, Sendable {
@@ -103,12 +111,16 @@ public struct ResetNewsFact: Codable, Equatable, Sendable {
     public var validityText: String?
     public var confidence: ResetNewsConfidence
     public var evidence: String
+    /// Source window and timezone are presentation provenance, not an exact reset time.
+    public var officialWindow: ResetNewsOfficialWindow?
+    public var sourceTimeZone: String?
 
     public init(kind: ResetNewsFactKind, scope: String? = nil, count: Int? = nil,
                 effectiveAt: Date? = nil, effectiveAtPrecision: ResetNewsTimePrecision? = nil,
                 timingText: String? = nil, expiresAt: Date? = nil,
                 validityText: String? = nil, confidence: ResetNewsConfidence = .explicit,
-                evidence: String = "") {
+                evidence: String = "", officialWindow: ResetNewsOfficialWindow? = nil,
+                sourceTimeZone: String? = nil) {
         self.kind = kind
         self.scope = scope
         self.count = count
@@ -119,16 +131,19 @@ public struct ResetNewsFact: Codable, Equatable, Sendable {
         self.validityText = validityText
         self.confidence = confidence
         self.evidence = evidence
+        self.officialWindow = officialWindow
+        self.sourceTimeZone = sourceTimeZone
     }
 
     var materialKey: String {
         // Display precision does not change the schedule or replay an already-consumed notification.
-        let fields = [kind.rawValue, scope ?? "", count.map(String.init) ?? "",
+        var fields = [kind.rawValue, scope ?? "", count.map(String.init) ?? "",
                       effectiveAt.map { String($0.timeIntervalSince1970) } ?? "",
                       effectiveAt == nil ? ResetNewsText.normalized(timingText ?? "") : "",
                       expiresAt.map { String($0.timeIntervalSince1970) } ?? "",
                       expiresAt == nil ? ResetNewsText.normalized(validityText ?? "") : "",
                       confidence.rawValue]
+        if let zone = ResetForecastTiming.materialSourceTimeZone(for: self) { fields.append("source-time-zone:\(zone)") }
         return fields.map { "\($0.utf8.count):\($0)" }.joined()
     }
 }

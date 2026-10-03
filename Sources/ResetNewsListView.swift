@@ -27,6 +27,10 @@ struct ResetNewsListView: View {
             Text(DisplayLanguage.text("仅显示今天及未来的预告；当前账号数据以额度区域为准", "Today and upcoming forecasts only; see quota for your account data"))
                 .font(.system(size: 10)).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if let sourceURL = URL(string: "https://codex-reset.com") {
+                Link(DisplayLanguage.text("数据：codex-reset.com", "Data: codex-reset.com"), destination: sourceURL)
+                    .font(.system(size: 10)).accessibilityIdentifier("resetNews.provider")
+            }
             GeometryReader { viewport in
                 ScrollViewReader { reader in
                     ScrollView(.vertical) {
@@ -130,7 +134,7 @@ struct ResetNewsCard: View {
             }
             ForEach(Array(item.facts.filter { $0.kind != .upcomingReset }.enumerated()), id: \.offset) { _, fact in
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("范围：\(fact.scope ?? "未说明")")
+                    Text("范围：\(fact.scope.map(ResetNewsSummary.scopeLabel) ?? "未说明")")
                     if fact.kind == .extraResetCredits {
                         Text("次数：\(fact.count.map { "\($0) 次" } ?? "未说明")")
                     }
@@ -168,7 +172,7 @@ struct ResetNewsCard: View {
                 Text("公告措辞尚未确定").font(.system(size: 10)).foregroundColor(.orange)
             }
             if let scope = fact.scope, !scope.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text("适用范围：" + scope).font(.system(size: 10)).foregroundColor(.secondary)
+                Text("适用范围：" + ResetNewsSummary.scopeLabel(scope)).font(.system(size: 10)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let validity = fact.expiresAt.map({ Self.date($0) }) ?? fact.validityText, !validity.isEmpty {
