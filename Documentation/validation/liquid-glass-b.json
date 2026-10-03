@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-03",
+  "branch": "codex/liquid-glass",
+  "base_commit": "5e1212a682ac8c0a4711fd3603578666678292c0",
+  "status": "local candidate; uncommitted; not installed or published",
+  "environment": {
+    "os": "macOS 27.0.1 (26A434)",
+    "compiler": "Apple Swift 6.4",
+    "sdk": "macOS 27.0",
+    "architecture": "arm64"
+  },
+  "checks": {
+    "hud_material": 52,
+    "design_layout": 277,
+    "idle_performance": 36,
+    "notch_hud": 203958,
+    "notch_presentation": 437,
+    "status_menu": 30,
+    "reset_news_popover": 96,
+    "touchbar_layout": 399,
+    "release_workflows": 72
+  },
+  "native_event_checks": "Passed real WindowServer delivery to independent receiver for outside clicks, stationary pointer after shrink, camera, rounded corner and decoration.",
+  "candidate": {
+    "path": "dist/Liquid-Glass-B-arm64-candidate.zip",
+    "sha256": "9ca57a838603cd5ecc2f3683c9585b7dce642032b24d3f1acae86f17fda33ab8",
+    "architecture": "arm64",
+    "minimum_os": "11.0",
+    "codesign": "ad-hoc signature verified for app and helper"
+  },
+  "idle_samples": [
+    {
+      "mode": "classic",
+      "pid": 30865,
+      "start": {
+        "wall": 1791008528.014196,
+        "process": "0:01.36  69984"
+      },
+      "end": {
+        "wall": 1791008543.0237482,
+        "process": "0:01.36  60384"
+      },
+      "scope": "preview process only; visible expanded narrow notch and floating HUD; unchanged demo data"
+    },
+    {
+      "mode": "glass",
+      "pid": 30865,
+      "start": {
+        "wall": 1791008573.35468,
+        "process": "0:01.52  72880"
+      },
+      "end": {
+        "wall": 1791008588.3642612,
+        "process": "0:01.52  66608"
+      },
+      "scope": "preview process only; same visible expanded narrow notch and floating HUD; unchanged demo data"
+    }
+  ],
+  "limitations": [
+    "macOS 26 and older OS runtime not tested on this host",
+    "Intel local linking blocked by missing x86_64 Swift compatibility libraries in installed Command Line Tools",
+    "Remote CI not run",
+    "Physical notch/Touch Bar, full-screen, multiple displays and wake acceptance remain separate",
+    "Short process CPU samples exclude WindowServer, GPU, energy and long-term behavior"
+  ]
+}

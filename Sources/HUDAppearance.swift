@@ -1,6 +1,33 @@
 import AppKit
 
 struct HUDAppearance: Equatable {
+    enum Material: String, CaseIterable {
+        case system
+        case classic
+
+        var title: String {
+            switch self {
+            case .system: return DisplayLanguage.text("跟随系统", "Follow system")
+            case .classic: return DisplayLanguage.text("经典外观", "Classic")
+            }
+        }
+    }
+
+    enum Surface { case classic, glass, solidSystem }
+
+    static var supportsGlass: Bool {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) { return true }
+        #endif
+        return false
+    }
+
+    static func surface(for material: Material, supportsGlass: Bool = supportsGlass,
+                        reduceTransparency: Bool = false, increaseContrast: Bool = false) -> Surface {
+        guard material == .system, supportsGlass else { return .classic }
+        return reduceTransparency || increaseContrast ? .solidSystem : .glass
+    }
+
     enum ColorChoice: String, CaseIterable {
         case black
         case graphite
@@ -52,12 +79,14 @@ struct HUDAppearance: Equatable {
     ]
 
     private enum DefaultsKey {
+        static let material = "hud.material"
         static let color = "hud.color"
         static let backgroundOpacity = "hud.backgroundOpacity"
         static let contentOpacity = "hud.contentOpacity"
         static let legacyOpacity = "hud.opacity"
     }
 
+    var material: Material = .classic
     var colorChoice: ColorChoice
     var backgroundOpacity: Double
     var contentOpacity: Double
@@ -66,8 +95,12 @@ struct HUDAppearance: Equatable {
         colorChoice.color.withAlphaComponent(backgroundOpacity)
     }
 
-    static func load() -> HUDAppearance {
-        let defaults = UserDefaults.standard
+    static func load(from defaults: UserDefaults = .standard) -> HUDAppearance {
+        // Previous versions only saved these keys after an explicit appearance edit.
+        let hasClassicPreference = [DefaultsKey.color, DefaultsKey.backgroundOpacity,
+            DefaultsKey.contentOpacity, DefaultsKey.legacyOpacity].contains { defaults.object(forKey: $0) != nil }
+        let material = defaults.string(forKey: DefaultsKey.material).flatMap(Material.init(rawValue:))
+            ?? (hasClassicPreference ? .classic : .system)
         let colorName = defaults.string(forKey: DefaultsKey.color) ?? ColorChoice.black.rawValue
         let color = ColorChoice(rawValue: colorName) ?? .black
         let legacyOpacity = defaults.object(forKey: DefaultsKey.legacyOpacity) as? Double
@@ -75,14 +108,15 @@ struct HUDAppearance: Equatable {
         let contentOpacity = defaults.object(forKey: DefaultsKey.contentOpacity) as? Double ?? legacyOpacity ?? 1.0
 
         return HUDAppearance(
+            material: material,
             colorChoice: color,
             backgroundOpacity: clamped(backgroundOpacity),
             contentOpacity: clamped(contentOpacity)
         )
     }
 
-    func save() {
-        let defaults = UserDefaults.standard
+    func save(to defaults: UserDefaults = .standard) {
+        defaults.set(material.rawValue, forKey: DefaultsKey.material)
         defaults.set(colorChoice.rawValue, forKey: DefaultsKey.color)
         defaults.set(backgroundOpacity, forKey: DefaultsKey.backgroundOpacity)
         defaults.set(contentOpacity, forKey: DefaultsKey.contentOpacity)

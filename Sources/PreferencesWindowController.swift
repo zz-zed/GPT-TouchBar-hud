@@ -49,6 +49,7 @@ final class PreferencesWindowController: NSWindowController {
     var onPersistent: ((Bool) -> Void)?
     private var appearance: HUDAppearance
     private let language = NSPopUpButton()
+    private let material = NSPopUpButton()
     private let color = NSPopUpButton()
     private let tasks = NSButton(checkboxWithTitle: "显示任务状态（实验性）", target: nil, action: nil)
     private let persistent = NSButton(checkboxWithTitle: "Touch Bar 常驻", target: nil, action: nil)
@@ -168,6 +169,7 @@ final class PreferencesWindowController: NSWindowController {
         selectSavedNotchRestingState()
         menuMode.selectItem(at: MenuBarDisplayMode.allCases.firstIndex(of: MenuBarDisplayMode.load()) ?? 0)
         visible.state = HUDPresentationPreferences().isVisible ? .on : .off
+        material.selectItem(at: HUDAppearance.Material.allCases.firstIndex(of: appearance.material) ?? 0)
         color.selectItem(at: HUDAppearance.ColorChoice.allCases.firstIndex(of: appearance.colorChoice) ?? 0)
         language.selectItem(at: DisplayLanguage.current == .chinese ? 0 : 1)
         tasks.state = taskEnabled ? .on : .off
@@ -221,8 +223,12 @@ final class PreferencesWindowController: NSWindowController {
         modeAvailability.font = .systemFont(ofSize: 11)
         modeAvailability.textColor = .secondaryLabelColor
         language.addItems(withTitles: ["中文", "English"])
+        material.addItems(withTitles: HUDAppearance.Material.allCases.map(\.title))
+        material.selectItem(at: HUDAppearance.Material.allCases.firstIndex(of: appearance.material) ?? 0)
+        material.setAccessibilityLabel("界面材质")
+        material.setAccessibilityIdentifier("settings.material")
         color.addItems(withTitles: HUDAppearance.ColorChoice.allCases.map(\.title))
-        for control in [language, color, displayMode, notchRestingState, menuMode] { control.target = self; control.action = #selector(changed(_:)) }
+        for control in [language, material, color, displayMode, notchRestingState, menuMode] { control.target = self; control.action = #selector(changed(_:)) }
         for control in [tasks, persistent, visible, automaticUpdates, updateNotifications, resetNewsEnabled, resetNewsSound, autoLaunch, quotaAlertsEnabled, quotaAlertsSound] { control.target = self; control.action = #selector(changed(_:)) }
         for slider in [backgroundSlider, foregroundSlider] { slider.target = self; slider.action = #selector(changed(_:)); slider.isContinuous = true }
         language.setAccessibilityLabel("信息语言")
@@ -238,7 +244,7 @@ final class PreferencesWindowController: NSWindowController {
         let diagnostics = NSButton(title: "连接检查与诊断…", target: self, action: #selector(openConnectionDiagnostics))
         diagnostics.setAccessibilityIdentifier("settings.connectionDiagnostics")
         let general = column([autoLaunch, autoLaunchStatus, row("显示模式", [displayMode]), modeAvailability, visible, row("刘海常驻形态", [notchRestingState]), note("Compact 悬停展示额度；Peek 常驻展示额度。"), row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, diagnostics])
-        let appearancePanel = column([row("浮窗颜色", [color]), row("背景不透明度", [backgroundSlider, backgroundValue]), row("文字不透明度", [foregroundSlider, foregroundValue]), note("数值越高越不透明；修改即时保存，保留已有偏好。")])
+        let appearancePanel = column([row("界面材质", [material]), note("跟随系统在 macOS 26 及以上使用 Liquid Glass；较旧系统使用经典外观。"), row("浮窗颜色", [color]), row("背景不透明度", [backgroundSlider, backgroundValue]), row("文字不透明度", [foregroundSlider, foregroundValue]), note("颜色和透明度仅用于经典浮窗；切换材质会保留这些数值。系统辅助功能设置优先。")])
         updateStatus.font = .systemFont(ofSize: 11)
         updateStatus.textColor = .secondaryLabelColor
         updateButton.target = self
@@ -313,7 +319,7 @@ final class PreferencesWindowController: NSWindowController {
         preview.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(preview)
         NSLayoutConstraint.activate([preview.centerXAnchor.constraint(equalTo: content.centerXAnchor), preview.topAnchor.constraint(equalTo: tabs.bottomAnchor, constant: 22)])
-        let caption = note("桌面浮窗外观预览 · 刘海面板始终使用黑色")
+        let caption = note("桌面浮窗外观预览 · 刘海主体保持黑色")
         caption.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(caption)
         NSLayoutConstraint.activate([caption.centerXAnchor.constraint(equalTo: content.centerXAnchor), caption.topAnchor.constraint(equalTo: preview.bottomAnchor, constant: 10)])
@@ -352,6 +358,10 @@ final class PreferencesWindowController: NSWindowController {
         return label
     }
     private func updatePreview() {
+        let classic = appearance.material == .classic || !HUDAppearance.supportsGlass
+        color.isEnabled = classic
+        backgroundSlider.isEnabled = classic
+        foregroundSlider.isEnabled = classic
         backgroundValue.stringValue = "\(Int(backgroundSlider.doubleValue))%"
         foregroundValue.stringValue = "\(Int(foregroundSlider.doubleValue))%"
         preview.updateAppearance(appearance)
@@ -379,6 +389,7 @@ final class PreferencesWindowController: NSWindowController {
         if sender === updateNotifications { onUpdateNotifications?(updateNotifications.state == .on); return }
         if sender === resetNewsEnabled { onResetNewsEnabled?(resetNewsEnabled.state == .on); return }
         if sender === resetNewsSound { onResetNewsSound?(resetNewsSound.state == .on); return }
+        appearance.material = HUDAppearance.Material.allCases[material.indexOfSelectedItem]
         appearance.colorChoice = HUDAppearance.ColorChoice.allCases[color.indexOfSelectedItem]
         appearance.backgroundOpacity = backgroundSlider.doubleValue / 100
         appearance.contentOpacity = foregroundSlider.doubleValue / 100
