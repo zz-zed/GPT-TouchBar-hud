@@ -6,7 +6,7 @@
 
 ## 构建应用
 
-需要 Xcode Command Line Tools 和支持 Swift 5.8 的工具链。
+需要 Xcode Command Line Tools 和支持 Swift 5.8 的工具链。此分支的 Liquid Glass 实现需要 Xcode 26 及以上 SDK；旧工具链编译经典回退外观。分发 CI 显式选择 Xcode 26.3，最低运行目标仍为 macOS 11。
 
 ```bash
 git clone https://github.com/zz-zed/GPT-TouchBar-hud.git
@@ -52,6 +52,7 @@ bash scripts/test-app-update.sh
 bash scripts/test-touchbar-layout.sh
 bash scripts/test-touchbar.sh
 bash scripts/test-design-layout.sh
+bash scripts/test-hud-material.sh
 bash scripts/test-notch-hud.sh
 bash scripts/test-notch-presentation.sh
 bash scripts/test-hooks.sh
@@ -82,6 +83,18 @@ bash scripts/test-notch-presentation.sh --preview --compact --debug-regions
 原生预览和自动化点击检查可能创建真实测试窗口。测试结束后检查并关闭由本次测试启动的预览与辅助窗口，不要终止用户正常运行的应用。异常退出时也应核对残留测试进程，不应只按包含“HUD”的宽泛进程名批量结束。
 
 模拟测试不等同于实体刘海验收。实体接缝、透明角落点击穿透、全屏、自动隐藏菜单栏、多屏切换和锁屏 / 唤醒需按设备和系统单独验收。
+
+## Liquid Glass 原生预览
+
+本分支的材质适配尚未发布。预览使用正式的浮窗与刘海视图，所有数据均为演示，不创建账号连接、Hooks 或更新服务：
+
+```bash
+bash scripts/test-hud-material.sh --preview
+```
+
+可切换系统 / 经典材质、明暗外观、中英文、窄屏和刘海实色回退，并打开外观设置预览。“真实浮窗”使用正式透明 NSPanel；在浮窗上右键可返回预览。退出预览后删除隔离的测试偏好域。`--preview` 生成独立标识的 `Liquid Glass Preview.app`，不替换已安装应用。
+
+验证范围和待验收项目见 [Liquid Glass B 迭代记录](LIQUID-GLASS-B.md)。
 
 ## Touch Bar 冒烟检查
 

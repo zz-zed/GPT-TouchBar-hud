@@ -50,14 +50,15 @@ struct NotchSweep: View {
 
 struct NotchButtonStyle: ButtonStyle {
     let reduceMotion: Bool
+    var grouped = false
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 11, weight: .semibold))
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 9).padding(.vertical, 5)
-            .background(Color.white.opacity(configuration.isPressed ? 0.18 : 0.07))
-            .cornerRadius(6)
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.94 : 1)
+            .background(Color.white.opacity(configuration.isPressed ? 0.18 : (grouped ? 0 : 0.07)))
+            .cornerRadius(grouped ? 12 : 6)
+            .scaleEffect(configuration.isPressed && !reduceMotion && !grouped ? 0.94 : 1)
             .animation(.easeOut(duration: reduceMotion ? 0 : 0.11), value: configuration.isPressed)
     }
 }
@@ -66,12 +67,38 @@ struct NotchAction: View {
     let title: String
     let identifier: String
     let reduceMotion: Bool
+    var grouped = false
+    var increaseContrast = false
     let action: () -> Void
     @NotchLocalState private var hovering = false
     var body: some View {
-        Button(action: action) { Text(title).foregroundColor(hovering ? .white : NotchStyle.secondary) }
-            .buttonStyle(NotchButtonStyle(reduceMotion: reduceMotion))
-            .onHover { value in withAnimation(.easeOut(duration: 0.12)) { hovering = value } }
+        Button(action: action) { Text(title).foregroundColor(hovering || increaseContrast ? .white : NotchStyle.secondary) }
+            .buttonStyle(NotchButtonStyle(reduceMotion: reduceMotion, grouped: grouped))
+            .background(Capsule().fill(Color.white.opacity(grouped && hovering ? 0.08 : 0)))
+            .onHover { value in withAnimation(.easeOut(duration: reduceMotion ? 0 : 0.12)) { hovering = value } }
             .accessibilityIdentifier(identifier)
+    }
+}
+
+/// Each navigation/action group shares one surface. Informational content stays
+/// on the black hardware-shaped body; selected buttons use only a thin fill.
+struct NotchControlSurface: ViewModifier {
+    let surface: HUDAppearance.Surface
+    func body(content: Content) -> some View {
+        if surface == .solidSystem {
+            content.background(Capsule().fill(Color(white: 0.16)))
+                .overlay(Capsule().stroke(Color.white.opacity(0.7), lineWidth: 1).allowsHitTesting(false))
+        } else {
+            glassOrClassic(content)
+        }
+    }
+    @ViewBuilder private func glassOrClassic(_ content: Content) -> some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *), surface == .glass {
+            content.glassEffect(.regular, in: Capsule())
+        } else { content }
+        #else
+        content
+        #endif
     }
 }

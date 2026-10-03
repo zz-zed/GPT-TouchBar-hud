@@ -743,6 +743,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private func applyHUDAppearance() {
         hudAppearance.save()
         hudController.updateAppearance(hudAppearance)
+        notchHUD.updateAppearance(hudAppearance)
         updateMenuState()
     }
 

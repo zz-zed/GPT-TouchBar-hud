@@ -82,6 +82,7 @@ struct NotchAnimatedSurface: AnimatableModifier {
     let haloMounted: Bool
     let haloVisible: Bool
     let reduceTransparency: Bool
+    var quietSurface = false
     let sweepActive: Bool
     var animatableData: AnimatablePair<CGFloat, CGFloat> {
         get { AnimatablePair(width, height) }
@@ -101,7 +102,7 @@ struct NotchAnimatedSurface: AnimatableModifier {
                             .offset(y: -9)
                     }
                     shape.fill(Color.black)
-                        .shadow(color: NotchStyle.cobalt.opacity(0.35), radius: 14)
+                        .shadow(color: NotchStyle.cobalt.opacity(quietSurface ? 0 : 0.35), radius: 14)
                         .shadow(color: expanded ? Color.black.opacity(0.5) : .clear, radius: 20, y: 10)
                     shape.stroke(Color.white.opacity(expanded ? 0.12 : 0), lineWidth: 0.5)
                     NotchSweep(path: shape, carrier: layout.windowFrame.size, active: sweepActive)

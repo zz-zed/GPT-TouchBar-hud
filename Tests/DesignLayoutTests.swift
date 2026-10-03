@@ -45,7 +45,7 @@ enum DesignLayoutTests {
                 DisplayLanguage.current = language
                 let prefs = PreferencesWindowController(appearance: appearance, touchBarHardware: hardware)
                 let tabs = prefs.window!.contentView!.subviews.compactMap { $0 as? NSTabView }.first!
-                let expectedIDs = ["general", "appearance"] + (expectedTouchBar ? ["touchBar"] : []) + ["experiments", "updates", "resetNews"]
+                let expectedIDs = ["general", "appearance"] + (expectedTouchBar ? ["touchBar"] : []) + ["experiments", "updates", "resetNews", "quotaAlerts"]
                 check(tabs.tabViewItems.compactMap { $0.identifier as? String } == expectedIDs, "Hardware controls only Touch Bar tab presence")
                 let allControls = tabs.tabViewItems.flatMap { buttons($0.view!) }
                 check(allControls.contains { $0.title == "Touch Bar 常驻" } == expectedTouchBar, "Absent hardware does not attach a persistence control")
@@ -135,7 +135,7 @@ enum DesignLayoutTests {
         prefs.window?.contentView?.layoutSubtreeIfNeeded()
         check(prefs.window!.frame.size == originalSize, "Preview must not resize preferences window")
         let tabs = prefs.window!.contentView!.subviews.compactMap { $0 as? NSTabView }.first!
-        check(tabs.tabViewItems.map(\.label) == ["通用", "外观", "Touch Bar", "实验", "更新", "重置预告"], "Forecast settings preserve existing tab indices")
+        check(tabs.tabViewItems.map(\.label) == ["通用", "外观", "Touch Bar", "实验", "更新", "重置预告", "额度提醒"], "Forecast settings preserve existing tab indices")
         prefs.showResetNewsTab()
         prefs.updateResetNews(ResetNewsViewState(), soundEnabled: false)
         let resetControls = buttons(tabs.selectedTabViewItem!.view!)

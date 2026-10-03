@@ -136,7 +136,7 @@ final class CompactQuotaHUDView: NSView {
 
     private let firstItem = CompactQuotaItemView()
     private let taskLabel = NSTextField(labelWithString: "")
-    private let messagesButton = NSButton(title: "", target: nil, action: nil)
+    private let messagesButton = CompactHUDActionButton(title: "", target: nil, action: nil)
     var messageAnchorView: NSView { messagesButton }
     var onOpenMessages: (() -> Void)?
     private var forecastCount = 0
@@ -152,6 +152,11 @@ final class CompactQuotaHUDView: NSView {
     private var hudAppearance: HUDAppearance
     private var widthConstraint: NSLayoutConstraint?
     private var contentStack: NSStackView?
+    private var contentContainer = NSView()
+    private var contentConstraints: [NSLayoutConstraint] = []
+    private var glassView: NSView?
+    private var surfaceConstraints: [NSLayoutConstraint] = []
+    private(set) var surface: HUDAppearance.Surface = .classic
     private var accessibilityObserver: NSObjectProtocol?
 
     init(
@@ -240,9 +245,7 @@ final class CompactQuotaHUDView: NSView {
         taskLabel.isHidden = taskStatus == nil
         taskLabel.stringValue = taskStatus?.label ?? ""
         taskLabel.toolTip = taskStatus?.detail
-        taskLabel.textColor = taskStatus.map {
-            TaskStatusAppearance($0).color ?? .lightGray
-        } ?? .white
+        updateTaskColor()
         let hasError = state.errorMessage != nil && state.fiveHour == nil && state.weekly == nil
 
         if let fiveHour = state.fiveHour {
@@ -276,9 +279,98 @@ final class CompactQuotaHUDView: NSView {
     func updateAppearance(_ appearance: HUDAppearance) {
         self.hudAppearance = appearance
         let solid = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency || NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
-        layer?.backgroundColor = (solid ? appearance.backgroundColor.withAlphaComponent(1) : appearance.backgroundColor).cgColor
-        contentStack?.alphaValue = solid ? 1 : appearance.contentOpacity
-        layer?.borderColor = NSColor.white.withAlphaComponent(solid ? 0.7 : 0.18).cgColor
+        let next = HUDAppearance.surface(for: appearance.material,
+            reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
+            increaseContrast: NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast)
+        if next != surface {
+            surface = next
+            installSurface()
+        }
+        updateBackground(solid: solid)
+        contentStack?.alphaValue = next == .classic && !solid ? appearance.contentOpacity : 1
+        firstItem.usesSemanticColors = next != .classic
+        secondItem.usesSemanticColors = next != .classic
+        refreshButton.usesSemanticColors = next != .classic
+        messagesButton.usesSemanticColors = next != .classic
+        refreshButton.contentTintColor = next == .classic ? NSColor.white.withAlphaComponent(0.88) : .labelColor
+        updateTaskColor()
+        updateForecastPresentation()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateBackground(solid: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency || NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast)
+    }
+
+    private func updateBackground(solid: Bool) {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let background: NSColor
+            switch surface {
+            case .glass: background = .clear
+            case .solidSystem: background = .windowBackgroundColor
+            case .classic: background = solid ? hudAppearance.backgroundColor.withAlphaComponent(1) : hudAppearance.backgroundColor
+            }
+            layer?.backgroundColor = background.cgColor
+            layer?.borderWidth = surface == .glass ? 0 : 0.5
+            layer?.borderColor = (surface == .solidSystem ? NSColor.labelColor.withAlphaComponent(0.7)
+                : NSColor.white.withAlphaComponent(solid ? 0.7 : 0.18)).cgColor
+        }
+    }
+
+    private func installSurface() {
+        // All foreground content belongs to contentView so AppKit can adapt its
+        // appearance to the glass. Keep the same controls and responder identities.
+        NSLayoutConstraint.deactivate(surfaceConstraints + contentConstraints)
+        surfaceConstraints = []
+        contentConstraints = []
+        contentStack?.removeFromSuperview()
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *), let glass = glassView as? NSGlassEffectView {
+            glass.contentView = nil
+        }
+        #endif
+        contentContainer.removeFromSuperview()
+        glassView?.removeFromSuperview()
+        glassView = nil
+        // AppKit owns the glass content wrapper's layout. Recreate that wrapper
+        // on a material change while retaining the stack and all of its controls.
+        contentContainer = NSView(frame: bounds)
+        if let stack = contentStack {
+            contentContainer.addSubview(stack)
+            contentConstraints = [stack.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: DesignTokens.hudInset),
+                stack.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -DesignTokens.hudInset),
+                stack.centerYAnchor.constraint(equalTo: contentContainer.centerYAnchor)]
+            NSLayoutConstraint.activate(contentConstraints)
+        }
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *), surface == .glass {
+            let glass = NSGlassEffectView(frame: bounds)
+            glass.style = .regular
+            glass.cornerRadius = DesignTokens.hudHeight / 2
+            contentContainer.translatesAutoresizingMaskIntoConstraints = true
+            contentContainer.autoresizingMask = [.width, .height]
+            contentContainer.frame = glass.bounds
+            glass.contentView = contentContainer
+            addSubview(glass)
+            pinSurface(glass)
+            glassView = glass
+            return
+        }
+        #endif
+        addSubview(contentContainer)
+        pinSurface(contentContainer)
+    }
+
+    private func pinSurface(_ view: NSView) {
+        view.translatesAutoresizingMaskIntoConstraints = false
+        surfaceConstraints = [view.leadingAnchor.constraint(equalTo: leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: trailingAnchor),
+            view.topAnchor.constraint(equalTo: topAnchor), view.bottomAnchor.constraint(equalTo: bottomAnchor)]
+        NSLayoutConstraint.activate(surfaceConstraints)
+    }
+
+    private func updateTaskColor() {
+        taskLabel.textColor = surface == .classic ? (renderedContent?.appearance.color ?? .lightGray) : .labelColor
     }
 
     func updateMessages(forecastCount: Int, available: Bool) {
@@ -295,9 +387,9 @@ final class CompactQuotaHUDView: NSView {
     private func updateForecastPresentation() {
         let count = ResetForecastIndicator.countText(forecastCount)
         messagesButton.title = DisplayLanguage.text("重置预告 \(count)", "Reset forecasts \(count)")
-        messagesButton.contentTintColor = forecastCount > 0
-            ? DesignTokens.accent
-            : NSColor.white.withAlphaComponent(0.84)
+        messagesButton.contentTintColor = surface == .classic
+            ? (forecastCount > 0 ? DesignTokens.accent : NSColor.white.withAlphaComponent(0.84))
+            : .labelColor
         let accessibilityLabel = ResetForecastIndicator.accessibilityLabel(forecastCount)
         messagesButton.toolTip = accessibilityLabel
         messagesButton.setAccessibilityLabel(accessibilityLabel)
@@ -339,8 +431,6 @@ final class CompactQuotaHUDView: NSView {
         stack.spacing = DesignTokens.hudSpacing
         stack.alphaValue = hudAppearance.contentOpacity
 
-        addSubview(stack)
-
         let widthConstraint = widthAnchor.constraint(equalToConstant: 250)
         self.widthConstraint = widthConstraint
 
@@ -348,11 +438,9 @@ final class CompactQuotaHUDView: NSView {
             widthConstraint,
             heightAnchor.constraint(equalToConstant: DesignTokens.hudHeight),
             refreshButton.widthAnchor.constraint(equalToConstant: DesignTokens.buttonSize),
-            refreshButton.heightAnchor.constraint(equalToConstant: DesignTokens.buttonSize),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: DesignTokens.hudInset),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -DesignTokens.hudInset),
-            stack.centerYAnchor.constraint(equalTo: centerYAnchor)
+            refreshButton.heightAnchor.constraint(equalToConstant: DesignTokens.buttonSize)
         ])
+        installSurface()
     }
 
     private func setMetricCount(_ count: Int) {
@@ -395,6 +483,18 @@ final class CompactQuotaHUDView: NSView {
 private final class CompactQuotaItemView: NSView {
     private let dotView = CompactStatusDotView()
     private let label = NSTextField(labelWithString: "-- --")
+    private var isPlaceholder = true
+    private var placeholderHasError = false
+    var usesSemanticColors = false { didSet { updateColors() } }
+
+    private func updateColors() {
+        label.textColor = usesSemanticColors ? (isPlaceholder ? .secondaryLabelColor : .labelColor)
+            : NSColor.white.withAlphaComponent(isPlaceholder ? 0.62 : 1)
+        if isPlaceholder {
+            dotView.color = placeholderHasError ? .systemRed
+                : (usesSemanticColors ? .tertiaryLabelColor : NSColor.white.withAlphaComponent(0.28))
+        }
+    }
 
     init() {
         super.init(frame: .zero)
@@ -408,20 +508,23 @@ private final class CompactQuotaItemView: NSView {
     func update(with meter: LimitMeter, title: String) {
         let remaining = Int(meter.remainingPercent.rounded())
         label.stringValue = "\(title) \(remaining)%"
-        label.textColor = .white
+        isPlaceholder = false
+        updateColors()
         dotView.color = color(for: remaining)
     }
 
     func update(with resetCredits: ResetCreditSummary) {
         label.stringValue = resetCredits.compactText
-        label.textColor = .white
+        isPlaceholder = false
+        updateColors()
         dotView.color = .systemTeal
     }
 
     func updatePlaceholder(title: String, hasError: Bool) {
         label.stringValue = "\(title) --"
-        label.textColor = NSColor.white.withAlphaComponent(0.62)
-        dotView.color = hasError ? NSColor.systemRed : NSColor.white.withAlphaComponent(0.28)
+        isPlaceholder = true
+        placeholderHasError = hasError
+        updateColors()
     }
 
     private func configure() {
@@ -461,7 +564,39 @@ private final class CompactQuotaItemView: NSView {
     }
 }
 
-private final class CompactIconButton: NSButton {
+private class CompactHUDActionButton: NSButton {
+    var usesSemanticColors = false { didSet { updateHighlight() } }
+    private var tracking: NSTrackingArea?
+    private var hovering = false
+    private var pressing = false
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.cornerRadius = 8
+        focusRingType = .exterior
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self)
+        addTrackingArea(area)
+        tracking = area
+    }
+    override func mouseEntered(with event: NSEvent) { hovering = true; updateHighlight() }
+    override func mouseExited(with event: NSEvent) { hovering = false; updateHighlight() }
+    override func highlight(_ flag: Bool) { super.highlight(flag); pressing = flag; updateHighlight() }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateHighlight() }
+    private func updateHighlight() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = (usesSemanticColors ? NSColor.labelColor : .white)
+                .withAlphaComponent(isEnabled ? (pressing ? 0.16 : (hovering ? 0.08 : 0)) : 0).cgColor
+        }
+    }
+}
+
+private final class CompactIconButton: CompactHUDActionButton {
     init(symbolName: String, accessibilityLabel: String) {
         super.init(frame: .zero)
 
