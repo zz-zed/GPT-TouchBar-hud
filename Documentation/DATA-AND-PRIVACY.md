@@ -131,6 +131,8 @@ Hooks helper 不转发或持久化提示词、回复、工具参数、工作目�
 
 自动检查更新开启且应用位于受支持安装路径时，会访问本仓库公开的 GitHub Release API，并在 User-Agent 中包含应用版本；必要时按规则回退最新 Release 页面。检查不携带 ChatGPT 账号信息或任务内容，不自动下载附件。只有用户主动确认安装后才下载。开发构建、测试和刘海模拟入口不启动自动检查；在设置 → 更新中可关闭该功能。
 
+确认安装后，本次更新会使用同一用户私有目录记录随机会话标识、安装路径、源版本与目标版本、进程号、下载字节数、阶段、操作命令及启动确认。主应用、临时窗口助手与安装脚本通过原子 JSON 文件传递状态，不向网络上传这些记录，不保存账号或任务内容；临时助手不会注册 LaunchAgent，更新成功或用户关闭取消、失败结果后退出。启动未确认时，收起窗口仍会继续等待晚到的确认。
+
 ## 本机保存哪些内容？
 
 v0.1.36 的个人低额度提醒、按需诊断及启动开关，其额外偏好、有限去重记录和报告处理方式见[第一轮迭代的数据说明](ITERATION-1-2026-09-28.md#本地数据)。下表列出主要本地数据。
@@ -144,7 +146,7 @@ v0.1.36 另增加更新通知开关 `appUpdate.notificationsEnabled` 和已处�
 | 随宿主自动启动的注册项 | `~/Library/LaunchAgents/io.github.zz-zed.GPTTouchBarHUD.CodexLauncher.plist`。 | 卸载时应停用并清理。 |
 | 当前应用手动退出标记 | `~/Library/Application Support/GPT TouchBar HUD/manual-quit.lock`。 | 与下面不带空格的 Hooks 目录不同。 |
 | 旧项目兼容退出标记 | `~/Library/Application Support/TouchBarCodexToken/manual-quit.lock`。 | 仍使用旧项目时不要批量删除其目录或偏好。 |
-| 更新暂存、日志与旧应用备份 | 安装目录同级的 `.GPTTouchBarHUD-update-<随机标识>/`。 | 确认安装更新后才创建；可能保留 `install.log`、`previous.app` 或失败恢复材料，不自动删除备份。 |
+| 更新暂存、进度、启动确认、日志与旧应用备份 | 安装目录同级的 `.GPTTouchBarHUD-update-<随机标识>/`。目录权限 `0700`，状态文件 `0600`。 | 确认安装更新后才创建；包含本次更新状态、临时助手与 `RECOVERY.txt`，可能保留 `install.log`、`previous.app` 或失败恢复材料，不自动删除备份。 |
 | Hooks 配置及时间戳备份 | 默认 `$CODEX_HOME/hooks.json`，未设置时为 `~/.codex/hooks.json`。 | 仅审阅应用后写入；清理不得破坏其他工具的 Hooks。 |
 | Hooks 稳定 helper、安装回执与回滚材料 | `~/Library/Application Support/GPTTouchBarHUD/Hooks/`。 | 不随删除 App 自动移除；用户修改过的内容需单独审阅。 |
 | Hooks socket、锁和 `state.json` 元数据缓存 | `~/.gpt-touchbar-hud-hooks/`。 | 与账号用量内存缓存不同；停用实验后再审阅清理。 |

@@ -782,6 +782,32 @@ enum NotchHUDTests {
         updates.wantsLayer = true
         updates.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         try snapshot(updates, "update-reminder-settings")
+        let progressButton = accessibilityElement(in: updates, identifier: "settings.updateProgress") as! NSButton
+        let checkButton = updateButtons.first { $0.accessibilityIdentifier() == "settings.checkForUpdates" }!
+        check(progressButton.isHidden, "settings progress entry is absent without an installation")
+        var progressOpened = false
+        prefs.onViewUpdateProgress = { progressOpened = true }
+        var updateProgress = AppUpdateProgress(sessionID: "settings-test", phase: .downloading, step: .download,
+                                               bytesReceived: 40, totalBytes: 100)
+        var updateView = AppUpdateViewState(automaticChecksEnabled: true, automaticChecksAvailable: true,
+            availableVersion: "v0.1.38", lastSuccess: Date(), isChecking: false, isInstalling: true, progress: updateProgress)
+        prefs.updateAppUpdate(updateView)
+        check(!progressButton.isHidden && !checkButton.isEnabled, "settings can reopen progress without starting another installation")
+        progressButton.performClick(nil)
+        check(progressOpened, "settings progress entry routes to the existing session")
+        content.layoutSubtreeIfNeeded()
+        for control in descendants(updates) where control is NSControl && !control.isHiddenOrHasHiddenAncestor {
+            check(updates.bounds.insetBy(dx: -1, dy: -1).contains(control.convert(control.bounds, to: updates)), "active progress settings controls fit tab")
+        }
+        try snapshot(updates, "update-progress-settings")
+        updateProgress.phase = .canceled
+        updateView = AppUpdateViewState(automaticChecksEnabled: true, automaticChecksAvailable: true,
+            availableVersion: "v0.1.38", lastSuccess: Date(), isChecking: false, isInstalling: false, progress: updateProgress)
+        prefs.updateAppUpdate(updateView)
+        check(checkButton.isEnabled && !progressButton.isHidden, "canceling restores checking while retaining its result")
+        updateView.progress = nil
+        prefs.updateAppUpdate(updateView)
+        check(progressButton.isHidden && checkButton.isEnabled, "clearing the session restores normal update controls")
         prefs.showQuotaAlertsTab()
         prefs.updateQuotaAlerts(QuotaAlertConfiguration(), permission: .notRequested)
         content.layoutSubtreeIfNeeded()

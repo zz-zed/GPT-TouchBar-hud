@@ -65,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private var availableUpdateMenuItem: NSMenuItem?
     private var updateMenuSeparator: NSMenuItem?
     private var checkUpdatesMenuItem: NSMenuItem?
+    private var updateProgressMenuItem: NSMenuItem?
     private var menuTaskAppearance: TaskStatusAppearance = .idle
     private lazy var persistentTouchBar = PersistentTouchBarController()
     private var summaryMenuItem: NSMenuItem?
@@ -113,6 +114,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         persistentTouchBar.onOpenMessages = { [weak self] in self?.openResetNews() }
         appUpdater.onInstall = { [weak self] in self?.quitApp() }
         appUpdater.onStateChange = { [weak self] in self?.updateUpdatePresentation() }
+        appUpdater.onProgressChange = { [weak self] in
+            guard let self else { return }
+            self.updateUpdateMenuItems()
+            self.preferences?.updateAppUpdate(self.appUpdater.viewState)
+        }
         taskMonitor.onUpdate = { [weak self] status in
             guard let self else { return }
             self.latestTaskStatus = status
@@ -150,6 +156,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             renderDisplayState() // Preserve the coordinator's explicit unavailable/disabled state.
         }
         appUpdater.startAutomaticChecks()
+        AppUpdateProgressChannel.acknowledgeLaunch(arguments: ProcessInfo.processInfo.arguments,
+            bundleURL: Bundle.main.bundleURL, bundleIdentifier: Bundle.main.bundleIdentifier,
+            version: AppUpdater.version)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -200,6 +209,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
     func menuDidClose(_ menu: NSMenu) {
         statusMenuOpen = false
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard appUpdater.canQuit else { appUpdater.presentInstallationProgress(); return .terminateCancel }
+        return .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -442,6 +456,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             }
             controller.onCheckForUpdates = { [weak self] in self?.appUpdater.check() }
             controller.onViewUpdate = { [weak self] in self?.appUpdater.presentAvailableUpdate() }
+            controller.onViewUpdateProgress = { [weak self] in self?.appUpdater.presentInstallationProgress() }
             controller.onResetNewsEnabled = { [weak self] enabled in self?.resetNewsMonitor.setEnabled(enabled) }
             controller.onResetNewsSound = { [weak self] enabled in
                 self?.resetNewsMonitor.setSoundEnabled(enabled)
@@ -528,6 +543,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             updateUpdateMenuItems()
             return appUpdater.canCheck
         }
+        if menuItem.action == #selector(viewAppUpdateProgress(_:)) { return appUpdater.viewState.progress != nil }
         if menuItem.action == #selector(viewAvailableAppUpdate(_:)) {
             guard let version = appUpdater.viewState.availableVersion else { return false }
             AppUpdateMenuPresentation.apply(to: menuItem, version: version, enabled: appUpdater.canCheck)
@@ -541,6 +557,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func addUpdateMenuItems(to menu: NSMenu) {
+        let progress = NSMenuItem(title: "查看更新进度…", action: #selector(viewAppUpdateProgress(_:)), keyEquivalent: "")
+        progress.target = self
+        updateProgressMenuItem = progress
+        menu.addItem(progress)
         let check = NSMenuItem(title: "检查更新…", action: #selector(checkForAppUpdates(_:)), keyEquivalent: "")
         check.target = self
         check.toolTip = AppUpdater.versionLabel
@@ -551,6 +571,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     @objc private func checkForAppUpdates(_ sender: AnyObject?) { appUpdater.check() }
+    @objc private func viewAppUpdateProgress(_ sender: AnyObject?) { appUpdater.presentInstallationProgress() }
     @objc private func viewAvailableAppUpdate(_ sender: AnyObject?) { appUpdater.presentAvailableUpdate() }
 
     private func configureLifecycleMonitor() {
@@ -751,9 +772,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         if let version = state.availableVersion {
             AppUpdateMenuPresentation.apply(to: availableUpdateMenuItem, version: version, enabled: !state.isInstalling)
         }
-        let actionTitle = state.isInstalling
-            ? "正在安装更新…"
-            : (state.isChecking ? "正在检查更新…" : "检查更新…")
+        updateProgressMenuItem?.isHidden = state.progress == nil
+        updateProgressMenuItem?.title = state.progress?.menuTitle ?? "查看更新进度…"
+        updateProgressMenuItem?.isEnabled = state.progress != nil
+        let actionTitle = state.isChecking ? "正在检查更新…" : "检查更新…"
         if let check = checkUpdatesMenuItem {
             let title = NSMutableAttributedString(string: actionTitle)
             title.append(NSAttributedString(string: "   \(AppUpdater.version)", attributes: [
@@ -768,6 +790,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func quitApp() {
+        guard appUpdater.canQuit else { appUpdater.presentInstallationProgress(); return }
         quotaAlerts.suspend()
         completionFeedback.reset()
         stopResetNews()

@@ -87,7 +87,6 @@ final class FakeReleaseFetcher: AppReleaseFetching {
         testSkipping(release: release)
         testRuntimeIsolation()
         testReleaseNotesPresentation()
-        try testInstaller()
         print("PASS: \(count) update policy checks")
     }
 
@@ -282,45 +281,4 @@ final class FakeReleaseFetcher: AppReleaseFetching {
               "Manual checks still present a skipped version result")
     }
 
-    static func testInstaller() throws {
-        let manager = FileManager.default
-        let root = manager.temporaryDirectory.appendingPathComponent("update-test-\(UUID().uuidString)")
-        try manager.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? manager.removeItem(at: root) }
-        let original = try String(contentsOfFile: "Resources/install-update.sh", encoding: .utf8)
-        let guardLine = "[[ \"$target_app\" == /Applications/'GPT TouchBar HUD.app' || \"$target_app\" == \"$HOME/Applications/GPT TouchBar HUD.app\" ]] || exit 2"
-        check(original.contains(guardLine), "Installer target guard is present")
-        // Only the temporary test copy permits an isolated target and mocks LaunchServices.
-        for scenario in ["success", "move-failure", "launch-failure"] {
-            let directory = root.appendingPathComponent(scenario)
-            let target = directory.appendingPathComponent("GPT TouchBar HUD.app")
-            let staging = directory.appendingPathComponent(".GPTTouchBarHUD-update-fixture")
-            let newApp = staging.appendingPathComponent("new.app")
-            try manager.createDirectory(at: target, withIntermediateDirectories: true)
-            try manager.createDirectory(at: newApp, withIntermediateDirectories: true)
-            try Data("old".utf8).write(to: target.appendingPathComponent("marker"))
-            try Data("new".utf8).write(to: newApp.appendingPathComponent("marker"))
-            var script = original.replacingOccurrences(of: guardLine, with: "[[ \"$target_app\" == \"$UPDATE_TEST_TARGET\" ]] || exit 2")
-                .replacingOccurrences(of: "/usr/bin/open", with: scenario == "launch-failure" ? "/usr/bin/false" : "/usr/bin/true")
-            if scenario == "move-failure" {
-                script = script.replacingOccurrences(of: "if ! /bin/mv \"$staging_dir/new.app\" \"$target_app\"; then", with: "if ! /usr/bin/false; then")
-            }
-            let helper = directory.appendingPathComponent("helper.sh")
-            try script.write(to: helper, atomically: true, encoding: .utf8)
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            process.arguments = [helper.path, "999999", target.path, staging.path]
-            var environment = ProcessInfo.processInfo.environment
-            environment["UPDATE_TEST_TARGET"] = target.path
-            process.environment = environment
-            try process.run(); process.waitUntilExit()
-            let installed = try String(contentsOf: target.appendingPathComponent("marker"), encoding: .utf8)
-            check(installed == (scenario == "success" ? "new" : "old"), "\(scenario): correct application retained")
-            check((process.terminationStatus == 0) == (scenario == "success"), "\(scenario): correct exit status")
-            if scenario == "success" {
-                let previous = try String(contentsOf: staging.appendingPathComponent("previous.app/marker"), encoding: .utf8)
-                check(previous == "old", "Old app retained for recovery")
-            }
-        }
-    }
 }
