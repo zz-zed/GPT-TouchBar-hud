@@ -6,9 +6,9 @@
 
 **[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
-> 当前版本：v0.1.37 / Build 40。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.37)。
+> 当前版本：v0.1.38 / Build 41。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.38)。
 
-> 重置预告只展示来源当前有效信号；过时安排退出预告计数，读取失败保留有标记的缓存。
+> 本版新增 Liquid Glass 外观选择和更新下载、安装进度；重置预告仅展示当前有效信号，过时安排退出计数，读取失败保留有标记的缓存。
 
 ## 界面与使用场景
 
