@@ -6,8 +6,9 @@
 
 **[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
-> 当前版本：v0.1.36 / Build 39。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.36)。
+> 当前版本：v0.1.37 / Build 40。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.37)。
 
+> 本版修复重置预告的日期、时区和适用范围解析，合并重复公告，并避免升级或恢复运行后补发过时提醒。
 
 ## 界面与使用场景
 
