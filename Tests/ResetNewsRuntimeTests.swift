@@ -106,23 +106,50 @@ private final class RuntimeHarness {
         monitor.updateGate(codexRunning: true, hudRunning: true, suspended: false)
         monitor.setEnabled(true)
     }
-    func next(_ result: ResetNewsFetchResult) {
+    func next(_ result: @autoclosure () throws -> ResetNewsFetchResult) rethrows {
         clock.advance(120)
         monitor.checkNow()
-        client.complete(result)
+        client.complete(try result())
     }
     func source(_ id: String, source: ResetNewsSource = .feed, age: TimeInterval = 0) -> ResetNewsSourceItem {
-        .init(source: source, sourceID: id, url: URL(string: "https://x.com/thsottiaux/status/\(id)"),
+        let canonicalID = id.allSatisfy(\.isNumber) ? id
+            : String(id.utf8.reduce(UInt64(9000)) { ($0 &* 31) &+ UInt64($1) })
+        return .init(source: source, sourceID: canonicalID, url: URL(string: "https://x.com/thsottiaux/status/\(canonicalID)"),
               body: "Codex limits will reset at the announced time.", publishedAt: clock.date.addingTimeInterval(-age),
               structuredFacts: [.init(kind: .upcomingReset, effectiveAt: Date(timeIntervalSince1970: 1_800_086_400))])
     }
     func result(_ items: [ResetNewsSourceItem], stale: Bool = false, expires: Date? = nil,
-                timelineError: ResetNewsFetchError? = nil, rejected: Int = 0) -> ResetNewsFetchResult {
-        .init(endpoints: [
+                timelineError: ResetNewsFetchError? = nil, rejected: Int = 0,
+                forecast: ResetForecastSnapshot? = nil, forecastError: ResetNewsFetchError? = nil,
+                missingForecast: Bool = false, forecastStale: Bool? = nil) -> ResetNewsFetchResult {
+        // Lifecycle tests explicitly inject a matching authority snapshot. Production never
+        // derives current availability from these feed/timeline context candidates.
+        let authority = missingForecast || forecastError != nil ? nil : forecast ?? snapshot(items)
+        return .init(endpoints: [
             .init(source: .feed, items: items.filter { $0.source == .feed },
                   metadata: .init(publishedExpiresAt: expires, stale: stale, rejectedIdentityCount: rejected), error: nil),
-            .init(source: .timeline, items: items.filter { $0.source == .timeline }, metadata: .init(), error: timelineError)
+            .init(source: .timeline, items: items.filter { $0.source == .timeline }, metadata: .init(), error: timelineError),
+            .init(source: .forecast, items: [], metadata: .init(publishedExpiresAt: expires ?? clock.date.addingTimeInterval(3600), stale: forecastStale ?? stale),
+                  error: forecastError, forecast: authority)
         ])
+    }
+
+    func snapshot(_ items: [ResetNewsSourceItem], updatedAt: Date? = nil, lastResetAt: Date? = nil) -> ResetForecastSnapshot {
+        let previous = repository.state
+        let reduction = ResetNewsReducer(forecastPolicy: .init(calendar: clock.calendar)).reduce(
+            previous: .init(items: previous.items, notificationRecords: previous.notified,
+                            hasBaseline: previous.hasBaseline, retiredForecasts: previous.retiredForecasts),
+            incoming: items, now: clock.date)
+        // The test authority contains one official signal, independently of how many context cards exist.
+        let candidate = items.isEmpty ? nil : reduction.state.items.last
+        let signal = candidate.flatMap { item -> ResetForecastSignal? in
+            guard let url = item.sourceURL, let fact = item.facts.first else { return nil }
+            let sourceID = item.id.components(separatedBy: ":").last!
+            return .init(sourceID: sourceID, sourceURL: url, originalText: item.originalText,
+                         publishedAt: item.publishedAt ?? clock.date, officialWindow: fact.officialWindow,
+                         effectiveAt: fact.effectiveAt)
+        }
+        return .init(updatedAt: updatedAt ?? clock.date, lastResetAt: lastResetAt, officialSignal: signal)
     }
 }
 
@@ -151,6 +178,14 @@ private final class RuntimeHarness {
         try observationsAreValidEmptyResponses()
         try officialIdentityFailuresRemainVisible()
         try passedClockDoesNotNotifyOnDiscoveryOrRecovery()
+        try authorityNullCannotPromoteHistoricalCandidates()
+        try authorityFailureAndMissingFieldsKeepCache()
+        try authorityExpiryIsLocalAndDoesNotClaimCompletion()
+        try latestResetDoesNotRetireAnIndependentFutureSignal()
+        try authorityRestartAndReturnDoNotReplay()
+        try reverseResponsesAndSnapshotRollback()
+        try staleContextCannotSuppressFreshAuthority()
+        try conflictingSameVersionCannotUndoAuthority()
         print("PASS: \(checks) reset news runtime checks; network and notification delivery were injected")
     }
 
@@ -161,16 +196,16 @@ private final class RuntimeHarness {
         var past = h.source("801")
         past.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: h.clock.date.addingTimeInterval(-60), effectiveAtPrecision: .exact)]
         h.next(h.result([past]))
-        expect(h.monitor.state.forecastCount == 1 && h.channel.payloads.isEmpty,
-               "Newly discovered past exact clock remains today's card without a future reminder")
+        expect(h.monitor.state.forecastCount == 0 && h.repository.state.items.count == 1 && h.channel.payloads.isEmpty,
+               "A passed exact clock remains context without becoming a current forecast or reminder")
         h.monitor.updateGate(codexRunning: false, hudRunning: true, suspended: false)
         h.clock.advance(120)
         h.monitor.updateGate(codexRunning: true, hudRunning: true, suspended: false)
         var recovered = h.source("802", age: 7 * 3600)
         recovered.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: h.clock.date.addingTimeInterval(-60), effectiveAtPrecision: .deadline)]
         h.client.complete(h.result([past, recovered]))
-        expect(h.monitor.state.forecastCount == 2 && h.channel.payloads.isEmpty,
-               "Recovery does not notify an already passed deadline while keeping today's cards")
+        expect(h.monitor.state.forecastCount == 0 && h.repository.state.items.count == 2 && h.channel.payloads.isEmpty,
+               "Recovery retains passed deadline context without a current forecast or notification")
     }
 
     static func defaultEnabledAndSavedPreferences() throws {
@@ -260,30 +295,38 @@ private final class RuntimeHarness {
         h.activate()
         let first = h.source("1")
         h.client.complete(h.result([first]))
-        expect(h.repository.state.baselineSources.count == 2, "First success establishes both baselines")
-        expect(h.channel.payloads.isEmpty && h.monitor.state.unreadCount == 0, "Initial history is silent and read")
+        expect(h.repository.state.baselineSources.count == 3 && h.repository.state.forecastBaselineEstablished == true,
+               "Initial context and authority successes establish independent baselines")
+        expect(h.monitor.state.forecastAvailability == .current && h.monitor.state.forecastCount == 1,
+               "A successful authority snapshot exposes exactly its current official signal")
+        expect(h.channel.payloads.isEmpty && h.monitor.state.unreadCount == 0, "Initial official signal is a silent read baseline")
         expect(h.monitor.checkNow() == .throttled && h.client.callbacks.count == 1, "Repeated manual requests are throttled")
         h.next(h.result([first]))
-        expect(h.channel.payloads.isEmpty && h.monitor.state.items.count == 1, "Identical poll does not replay")
+        expect(h.channel.payloads.isEmpty && h.monitor.state.forecastCount == 1, "Identical authority poll does not replay")
         h.next(h.result([first, h.source("2")]))
-        expect(h.channel.payloads.count == 1 && h.monitor.state.unreadCount == 1, "New item notifies once and remains unread")
+        expect(h.channel.payloads.count == 1 && h.monitor.state.unreadCount == 1,
+               "A replacement current signal notifies once and remains unread")
+        expect(h.monitor.state.forecastCount == 1 && h.monitor.state.items.count == 1 && h.repository.state.items.count == 2,
+               "Stored historical candidates never appear as additional current forecast cards")
         expect(h.channel.payloads[0].identifier.hasPrefix("reset-news:"), "Notification identifier is namespaced")
-        expect(h.channel.payloads[0].title == "Codex 重置预告（1 条新预告）", "Notification count means this new forecast batch, never available resets")
+        expect(h.channel.payloads[0].title == "Codex 重置预告（1 条新预告）", "Notification count never means available account resets")
         expect(!h.channel.payloads[0].sound, "Default notification sound is off")
         h.monitor.markRead(["not-present"])
         expect(h.monitor.state.unreadCount == 1, "Opening unrelated content does not clear unread")
         h.monitor.markRead(["post:2"])
-        expect(h.monitor.state.unreadCount == 0, "Viewing a specific card clears its unread state")
-        expect(h.monitor.state.forecastCount == 2, "Reading a forecast never reduces the valid forecast count")
+        expect(h.monitor.state.unreadCount == 0 && h.monitor.state.forecastCount == 1,
+               "Reading the current signal does not reduce its forecast count")
         h.next(h.result([first, h.source("2"), h.source("3"), h.source("4")]))
-        expect(h.monitor.state.unreadCount == 2, "Unread tracks actual unseen cards")
-        expect(h.channel.payloads[1].title == "Codex 重置预告（2 条新预告）" && h.channel.payloads[1].body.contains("另有 1 条新预告"), "Batch notification keeps new forecast quantity distinct from the total")
+        expect(h.monitor.state.unreadCount == 1 && h.monitor.state.forecastCount == 1,
+               "The current signal alone determines unread and forecast quantities")
+        expect(h.channel.payloads.count == 2 && h.channel.payloads[1].itemIDs == ["post:4"],
+               "A context batch delivers only the explicitly supplied current authority signal")
         h.monitor.markAllRead()
         expect(h.monitor.state.unreadCount == 0, "Explicit mark all read")
         let reloaded = ResetNewsRepository(directory: h.directory, now: h.clock.date)
-        expect(reloaded.state == h.repository.state, "Items, read IDs, baseline and ledger persist")
+        expect(reloaded.state == h.repository.state, "Authority snapshot, read IDs, baseline and ledger persist")
         h.next(h.result([first, h.source("2"), h.source("3"), h.source("4")]))
-        expect(h.channel.payloads.count == 2, "Notification ledger deduplicates all IDs in a batch")
+        expect(h.channel.payloads.count == 2, "Persisted authority notification key prevents replay")
     }
 
     static func partialAndStale() throws {
@@ -292,10 +335,11 @@ private final class RuntimeHarness {
         h.client.complete(h.result([h.source("1")], timelineError: .http(503)))
         expect(h.monitor.state.status == .partial && h.monitor.state.items.count == 1, "Partial failure preserves successful endpoint")
         expect(h.monitor.state.detail?.contains("503") == true, "Failure is not rendered as no messages")
-        expect(h.repository.state.baselineSources == [.feed], "Failed endpoint does not establish baseline")
+        expect(Set(h.repository.state.baselineSources) == Set([.feed, .forecast]), "Failed endpoint does not establish baseline")
         h.next(h.result([h.source("1"), h.source("2"), h.source("3", source: .timeline)]))
-        expect(h.channel.payloads.count == 1 && h.channel.payloads[0].itemIDs == ["post:2"], "First recovery of failed endpoint establishes silent baseline")
-        expect(h.monitor.state.readIDs.contains("post:3"), "Recovered initial endpoint history stays read")
+        expect(h.channel.payloads.count == 1 && h.channel.payloads[0].itemIDs == ["post:3"], "Only a newly supplied authoritative signal may notify when context recovers")
+        expect(!h.monitor.state.readIDs.contains("post:3") && h.monitor.state.unreadCount == 1,
+               "A new authoritative signal remains unread independently of a context endpoint's initial baseline")
         h.next(h.result([h.source("4")], stale: true))
         expect(h.monitor.state.status == .stale && h.channel.payloads.count == 1, "Stale payload never strongly alerts")
         h.next(h.result([h.source("4")]))
@@ -314,21 +358,21 @@ private final class RuntimeHarness {
         var timeline = h.source("1", source: .timeline)
         timeline.structuredFacts = feed.structuredFacts! + [.init(kind: .upcomingReset, effectiveAt: h.clock.date.addingTimeInterval(7200))]
         h.client.complete(h.result([feed, timeline]))
-        expect(h.monitor.state.items.first?.facts.count == 2, "Both endpoint facts are merged initially")
+        expect(h.repository.state.items.first?.facts.count == 2, "Both endpoint facts remain in context initially")
         h.next(h.result([feed], timelineError: .http(503)))
         expect(h.monitor.state.status == .partial, "Failed timeline is reported as partial")
-        expect(h.monitor.state.items.first?.facts.count == 2, "Partial refresh retains unavailable source facts")
-        expect(h.monitor.state.items.first?.materialRevision == 1, "Partial refresh cannot manufacture a revision")
+        expect(h.repository.state.items.first?.facts.count == 2, "Partial refresh retains unavailable context source facts")
+        expect(h.repository.state.items.first?.materialRevision == 1, "Partial refresh cannot manufacture a context revision")
         expect(h.channel.payloads.isEmpty && h.monitor.state.unreadCount == 0, "Partial refresh does not replay or mark baseline unread")
         let reloaded = ResetNewsRepository(directory: h.directory, now: h.clock.date)
-        expect(reloaded.state.items.first?.sourceSnapshots?.count == 2, "Per-source provenance survives repository round trip")
+        expect(reloaded.state.items.first?.sourceSnapshots?.count == 3, "Per-source provenance survives repository round trip")
         let changedDate = h.clock.date.addingTimeInterval(10800)
         timeline.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: changedDate)]
         timeline.updatedAt = h.clock.date.addingTimeInterval(60)
         h.next(h.result([feed, timeline]))
-        expect(h.monitor.state.items.first?.facts.first?.effectiveAt == changedDate,
+        expect(h.repository.state.items.first?.facts.first?.effectiveAt == changedDate,
                "Recovered source can explicitly update its own fact")
-        expect(h.monitor.state.items.first?.materialRevision == 2 && h.channel.payloads.count == 1,
+        expect(h.repository.state.items.first?.materialRevision == 2 && h.channel.payloads.count == 1,
                "Real source update notifies once")
         timeline.status = .cancelled
         timeline.updatedAt = h.clock.date.addingTimeInterval(60)
@@ -336,67 +380,57 @@ private final class RuntimeHarness {
         expect(h.monitor.state.items.isEmpty && h.channel.payloads.count == 1,
                "Explicit cancellation is removed without strong notification")
         h.next(h.result([feed], timelineError: .http(503)))
-        expect(h.monitor.state.items.isEmpty && h.repository.state.retiredForecasts?.count == 1, "Older feed cannot restore cancelled timeline copy")
+        expect(h.repository.state.items.isEmpty && h.repository.state.retiredForecasts?.count == 1, "Older feed cannot restore cancelled timeline copy")
         expect(h.channel.payloads.count == 1, "Older copy cannot replay a notification")
     }
 
     static func recoveryWaitsForEachBaselinedSource() throws {
         let h = try RuntimeHarness()
         h.activate()
-        h.client.complete(h.result([]))
+        h.client.complete(h.result([], forecastError: .http(503)))
+        expect(h.monitor.state.forecastAvailability == .unknown && h.repository.state.forecastBaselineEstablished != true,
+               "Context success does not establish an unavailable authority baseline")
+        var historical = h.source("502", age: 7 * 3600)
+        historical.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: h.clock.date.addingTimeInterval(3600))]
+        h.next(h.result([historical]))
+        expect(h.monitor.state.forecastAvailability == .current && h.monitor.state.forecastCount == 1
+            && h.channel.payloads.isEmpty && h.repository.state.forecastBaselineEstablished == true,
+               "First successful authority recovery is silent regardless of existing context baselines")
         h.monitor.updateGate(codexRunning: false, hudRunning: true, suspended: false)
         h.clock.advance(180)
         h.monitor.updateGate(codexRunning: true, hudRunning: true, suspended: false)
-        h.client.complete(h.result([], timelineError: .http(500)))
-        expect(h.channel.payloads.isEmpty, "Successful empty feed does not invent a recovery notification")
-        var coveredFeed = h.source("503", age: 7 * 3600)
-        coveredFeed.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: h.clock.date.addingTimeInterval(3600))]
-        h.next(h.result([coveredFeed], timelineError: .http(500)))
-        expect(h.channel.payloads.isEmpty, "Already recovered feed cannot borrow pending timeline recovery permission")
-        var credit = h.source("501", source: .timeline, age: 7 * 3600)
-        credit.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: h.clock.date.addingTimeInterval(3600))]
-        h.next(h.result([credit]))
-        expect(h.channel.payloads.count == 1, "Timeline retains recovery eligibility after feed-only success")
-        expect(h.channel.payloads.first?.identifier.hasPrefix("reset-news:summary:") == true,
-               "Recovered old-but-valid timeline credit is sent as one summary")
-        expect(h.channel.payloads.first?.itemIDs == [credit.stableID], "Recovery summary contains corresponding source item")
-        h.next(h.result([credit]))
-        expect(h.channel.payloads.count == 1, "Completed source recovery does not replay on the next poll")
-
-        let initial = try RuntimeHarness()
-        initial.activate()
-        initial.client.complete(initial.result([], timelineError: .http(500)))
-        initial.monitor.updateGate(codexRunning: false, hudRunning: true, suspended: false)
-        initial.clock.advance(180)
-        initial.monitor.updateGate(codexRunning: true, hudRunning: true, suspended: false)
-        initial.client.complete(initial.result([], timelineError: .http(500)))
-        var historical = initial.source("502", source: .timeline, age: 7 * 3600)
-        historical.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: initial.clock.date.addingTimeInterval(3600))]
-        initial.next(initial.result([historical]))
-        expect(initial.channel.payloads.isEmpty, "First successful timeline history remains a silent baseline")
-        expect(initial.monitor.state.readIDs.contains(historical.stableID), "First source baseline remains read")
+        h.client.complete(h.result([historical]))
+        expect(h.channel.payloads.isEmpty, "Runtime recovery cannot replay the same historical authority signal")
+        h.next(h.result([historical], forecastError: .http(500)))
+        expect(h.monitor.state.forecastAvailability == .cached && h.monitor.state.forecastCount == 1,
+               "Failed authority refresh retains its valid cache independently of context success")
+        h.next(h.result([historical]))
+        expect(h.monitor.state.forecastAvailability == .current && h.channel.payloads.isEmpty,
+               "Fresh authority recovery clears cached status without replaying consumed signal")
     }
 
     static func recoveryAndBackoff() throws {
         let h = try RuntimeHarness()
         h.activate()
         h.client.complete(h.result([]))
-        expect(h.scheduler.entries.last?.delay == 120, "Normal schedule is 120 seconds with deterministic jitter")
+        expect(h.monitor.state.nextCheck == h.clock.date.addingTimeInterval(120), "Normal network schedule is 120 seconds with deterministic jitter")
         h.monitor.updateGate(codexRunning: false, hudRunning: true, suspended: false)
         h.clock.advance(180)
         h.monitor.updateGate(codexRunning: true, hudRunning: true, suspended: false)
         h.client.complete(h.result([h.source("1"), h.source("2"), h.source("3")]))
-        expect(h.channel.payloads.count == 1 && h.channel.payloads[0].itemIDs.count == 3, "Recovery produces at most one summary notification")
+        expect(h.channel.payloads.count == 1 && h.channel.payloads[0].itemIDs == ["post:3"],
+               "Recovery delivers only the new authoritative signal, never a historical context batch")
         expect(h.channel.payloads[0].identifier.hasPrefix("reset-news:summary:"), "Recovery uses summary identifier")
         let failure = ResetNewsFetchResult(endpoints: [
             .init(source: .feed, items: [], metadata: .init(), error: .http(503)),
-            .init(source: .timeline, items: [], metadata: .init(), error: .network("offline"))
+            .init(source: .timeline, items: [], metadata: .init(), error: .network("offline")),
+            .init(source: .forecast, items: [], metadata: .init(), error: .network("offline"))
         ])
         for expected: TimeInterval in [60, 120, 240, 480, 900, 900] {
             h.clock.advance(1_000)
             h.monitor.checkNow()
             h.client.complete(failure)
-            expect(h.scheduler.entries.last?.delay == expected, "Failure backoff \(expected)")
+            expect(h.monitor.state.nextCheck == h.clock.date.addingTimeInterval(expected), "Failure network backoff \(expected)")
             expect(h.monitor.state.status == .failure, "All endpoint errors yield failure")
         }
         h.clock.advance(1_000)
@@ -445,8 +479,8 @@ private final class RuntimeHarness {
         var today = h.source("today")
         today.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: h.clock.date.addingTimeInterval(-60))]
         h.client.complete(h.result([today]))
-        expect(h.monitor.state.forecastCount == 1 && h.monitor.state.unreadCount == 0,
-               "Earlier today remains an effective forecast even when baseline-read")
+        expect(h.monitor.state.forecastCount == 0 && h.repository.state.items.count == 1 && h.monitor.state.unreadCount == 0,
+               "Earlier today is context only after its exact scheduled instant passes")
         h.monitor.setEnabled(false)
         let requests = h.client.callbacks.count
         h.clock.date = h.clock.calendar.date(byAdding: .day, value: 1, to: h.clock.calendar.startOfDay(for: h.clock.date))!
@@ -463,7 +497,7 @@ private final class RuntimeHarness {
         var planned = timezone.source("zone")
         planned.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: ISO8601DateFormatter().date(from: "2026-10-31T23:00:00Z")!)]
         timezone.client.complete(timezone.result([planned]))
-        expect(timezone.monitor.state.forecastCount == 1, "Local prior UTC date is still today in Los Angeles")
+        expect(timezone.monitor.state.forecastCount == 0 && timezone.repository.state.items.count == 1, "A passed instant may still have local-day context in Los Angeles")
         let zoneRequests = timezone.client.callbacks.count
         timezone.clock.calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         timezone.notificationCenter.post(name: .NSSystemTimeZoneDidChange, object: nil)
@@ -473,7 +507,7 @@ private final class RuntimeHarness {
         let sleeping = try RuntimeHarness()
         sleeping.activate()
         var plan = sleeping.source("wake")
-        plan.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: sleeping.clock.date)]
+        plan.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: sleeping.clock.date.addingTimeInterval(60))]
         sleeping.client.complete(sleeping.result([plan]))
         sleeping.monitor.updateGate(codexRunning: true, hudRunning: true, suspended: true)
         sleeping.clock.advance(86400)
@@ -500,6 +534,7 @@ private final class RuntimeHarness {
         legacy.baselineSources = [.feed, .timeline]
         var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(legacy)) as! [String: Any]
         object.removeValue(forKey: "retiredForecasts")
+        for key in ["forecast", "forecastFetchedAt", "forecastExpiresAt", "forecastBaselineEstablished"] { object.removeValue(forKey: key) }
         try JSONSerialization.data(withJSONObject: object).write(to: h.repository.fileURL)
         let migrated = ResetNewsRepository(directory: h.directory, now: h.clock.date)
         expect(migrated.state.items.map(\.id) == [legacyFuture.id], "Old disk history removed while a forty-day-old future plan survives")
@@ -510,6 +545,21 @@ private final class RuntimeHarness {
                "Migration clears removed read IDs but retains notification consumption")
         let disk = try JSONDecoder().decode(ResetNewsStoredState.self, from: Data(contentsOf: migrated.fileURL))
         expect(disk == migrated.state, "Migration actually rewrites isolated disk snapshot")
+        let legacyClient = FakeNewsClient()
+        let legacyChannel = FakeNewsNotifications()
+        let clock = h.clock
+        let legacyMonitor = ResetNewsMonitor(repository: migrated, client: legacyClient,
+            notifications: ResetNewsNotificationController(channel: legacyChannel), scheduler: FakeNewsScheduler(),
+            defaults: h.defaults, now: { clock.date }, calendar: { clock.calendar }, notificationCenter: NotificationCenter())
+        expect(legacyMonitor.state.forecastAvailability == .unknown && legacyMonitor.state.items.isEmpty
+            && migrated.state.forecastBaselineEstablished != true,
+               "Legacy future candidates cannot manufacture a current authority snapshot or its baseline")
+        legacyMonitor.updateGate(codexRunning: true, hudRunning: true, suspended: false)
+        legacyMonitor.setEnabled(true)
+        legacyClient.complete(h.result([future]))
+        expect(legacyMonitor.state.forecastCount == 1 && legacyChannel.payloads.isEmpty
+            && migrated.state.forecastBaselineEstablished == true,
+               "First authority success after legacy migration establishes a silent baseline")
         let replay = ResetNewsReducer().reduce(previous: .init(items: disk.items, notificationRecords: disk.notified,
             hasBaseline: disk.hasBaseline, retiredForecasts: disk.retiredForecasts), incoming: [future], now: h.clock.date)
         expect(replay.notificationCandidates.isEmpty && replay.state.items[0].facts.count == 1,
@@ -623,26 +673,33 @@ private final class RuntimeHarness {
         let client = ResetNewsFeedClient(transport: transport, bundleVersion: "0.1.test", now: { date })
         var result: ResetNewsFetchResult?
         _ = client.fetch { result = $0 }
-        expect(transport.requests.count == 2, "Feed and timeline requested together")
+        expect(transport.requests.count == 3, "Context feed, timeline and current forecast are requested together")
         expect(transport.requests.allSatisfy { $0.timeoutInterval == 15 && $0.httpMethod == "GET" }, "GET timeout is 15 seconds")
         expect(transport.requests[0].url?.absoluteString == "https://codex-reset.com/api/feed?locale=zh", "Fixed feed endpoint")
         expect(transport.requests[1].url?.absoluteString == "https://codex-reset.com/api/timeline?locale=zh", "Fixed timeline endpoint")
+        expect(transport.requests[2].url?.absoluteString == "https://codex-reset.com/api/forecast?locale=zh", "Fixed authority forecast endpoint")
         expect(transport.requests[0].value(forHTTPHeaderField: "User-Agent") == "GPT-TouchBar-HUD/0.1.test (+https://github.com/zz-zed/GPT-TouchBar-hud)", "Identifying User-Agent")
         let valid = #"{"profile":{"handle":"thsottiaux"},"source_scope":"timeline","stale":true,"tweets":[{"id":"123","url":"https://x.com/thsottiaux/status/123","text":"We have reset Codex usage limits."}]}"#
+        let none = String(decoding: try JSONSerialization.data(withJSONObject: noCurrentForecast(now: date)), as: UTF8.self)
         transport.respond(0, body: valid, headers: ["cache-control": "public, max-age=60", "x-published-checked-at": "2027-01-15T08:00:00Z", "x-published-expires-at": "2027-01-15T08:03:00.000Z"])
         transport.respond(1, body: "{}", status: 429, headers: ["Retry-After": "180"])
+        expect(result == nil, "Two context responses cannot finish a three-endpoint refresh")
+        transport.respond(2, body: none)
         pump { result != nil }
-        expect(result?.successful.count == 1 && result?.failures.count == 1, "Endpoint failures remain separate")
+        expect(result?.successful.count == 2 && result?.failures.count == 1, "Endpoint failures remain separate from a successful null authority")
         expect(result?.successful.first?.metadata.stale == true && result?.successful.first?.metadata.maxAge == 60, "Payload stale and cache max-age parsed")
         expect(result?.successful.first?.metadata.publishedCheckedAt != nil && result?.successful.first?.metadata.publishedExpiresAt != nil, "Publication timestamps parsed")
         expect(result?.retryAfter == date.addingTimeInterval(180), "Numeric Retry-After parsed")
+        expect(result?.successful.first { $0.source == .forecast }?.forecast?.officialSignal == nil,
+               "A literal null current signal survives transport decoding as a successful snapshot")
 
         result = nil
         _ = client.fetch { result = $0 }
-        transport.respond(2, body: valid.replacingOccurrences(of: "\"handle\":\"thsottiaux\"", with: "\"handle\":\"attacker\""))
-        transport.respond(3, body: "invalid json")
+        transport.respond(3, body: valid.replacingOccurrences(of: "\"handle\":\"thsottiaux\"", with: "\"handle\":\"attacker\""))
+        transport.respond(4, body: "invalid json")
+        transport.respond(5, body: none)
         pump { result != nil }
-        expect(result?.failures.count == 2, "Identity and JSON errors cannot become empty success")
+        expect(result?.failures.count == 2, "Identity and JSON errors cannot become empty context success")
         if case .identity = result?.failures.first?.error { expect(true, "Root identity error is explicit") }
         else { expect(false, "Root identity error is explicit") }
         if case .json = result?.failures.last?.error { expect(true, "JSON error is explicit") }
@@ -651,19 +708,30 @@ private final class RuntimeHarness {
         result = nil
         _ = client.fetch { result = $0 }
         let partlyValid = valid.replacingOccurrences(of: "]}", with: #",{"id":"456","url":"https://x.com/evil/status/456","text":"We reset Codex usage limits."}]}"#)
-        transport.respond(4, body: partlyValid)
-        transport.respond(5, body: "{\"events\":[]}")
+        transport.respond(6, body: partlyValid)
+        transport.respond(7, body: "{\"events\":[]}")
+        transport.respond(8, body: none)
         pump { result != nil }
-        expect(result?.successful.count == 2 && result?.successful.first?.items.count == 1, "Individual invalid identity skips only that record")
+        expect(result?.successful.count == 3 && result?.successful.first?.items.count == 1, "Individual invalid identity skips only that context record")
         expect(result?.successful.first?.metadata.rejectedIdentityCount == 1, "Invalid identity count preserved for UI")
+
+        result = nil
+        _ = client.fetch { result = $0 }
+        transport.respond(9, body: "{\"events\":[]}")
+        transport.respond(10, body: "{\"events\":[]}")
+        transport.respond(11, body: "{\"updated_at\":\"2027-01-15T08:00:00Z\",\"last_reset_at\":null}")
+        pump { result != nil }
+        expect(result?.failures.contains { $0.source == .forecast } == true,
+               "Missing official_signal is a forecast failure, never a successful no-preview snapshot")
 
         var calledAfterCancel = false
         let cancellation = client.fetch { _ in calledAfterCancel = true }
         cancellation.cancel()
-        transport.respond(6, body: valid)
-        transport.respond(7, body: "{\"events\":[]}")
+        transport.respond(12, body: valid)
+        transport.respond(13, body: "{\"events\":[]}")
+        transport.respond(14, body: none)
         RunLoop.main.run(until: Date().addingTimeInterval(0.03))
-        expect(!calledAfterCancel && transport.cancelled == 2, "Client cancellation cancels both endpoints and suppresses completion")
+        expect(!calledAfterCancel && transport.cancelled == 3, "Client cancellation cancels all three endpoints and suppresses completion")
         let response = HTTPURLResponse(url: URL(string: "https://codex-reset.com")!, statusCode: 429, httpVersion: nil,
                                        headerFields: ["Retry-After": "Tue, 22 Sep 2026 04:00:00 GMT"])!
         expect(ResetNewsHTTPMetadata.parse(response, now: date).retryAfter != nil, "HTTP-date Retry-After parsed")
@@ -681,16 +749,40 @@ private final class RuntimeHarness {
         ["profile": ["handle": "thsottiaux"], "source_scope": "timeline", "tweets": [], "events": []]
     }
 
+    static func noCurrentForecast(now: Date, lastResetAt: Date? = nil) -> [String: Any] {
+        let formatter = ISO8601DateFormatter()
+        var object: [String: Any] = ["updated_at": formatter.string(from: now), "last_reset_at": NSNull(), "official_signal": NSNull()]
+        if let lastResetAt { object["last_reset_at"] = formatter.string(from: lastResetAt) }
+        return object
+    }
+
+    static func fixtureForecast(_ feed: [String: Any], _ timeline: [String: Any], now: Date) -> [String: Any] {
+        var object = noCurrentForecast(now: now)
+        let candidates = (feed["tweets"] as? [[String: Any]] ?? [])
+            + (feed["events"] as? [[String: Any]] ?? []) + (timeline["events"] as? [[String: Any]] ?? [])
+        if let record = candidates.first(where: { $0["source"] as? String != "observed" && $0["source"] as? String != "operator-observed" }),
+           let id = record["id"], let url = record["url"], !(url is NSNull),
+           let text = record["text"] ?? record["summary"], let published = record["at"] ?? record["announced_at"] {
+            object["official_signal"] = ["tweet_id": id, "url": url, "summary": text, "at": published]
+        }
+        return object
+    }
+
     static func fetched(_ feed: [String: Any], _ timeline: [String: Any], now: Date,
-                        feedStatus: Int = 200, timelineStatus: Int = 200) throws -> ResetNewsFetchResult {
+                        feedStatus: Int = 200, timelineStatus: Int = 200, forecastStatus: Int = 200,
+                        forecast: [String: Any]? = nil, reverseResponses: Bool = false) throws -> ResetNewsFetchResult {
         let transport = FakeNewsHTTP()
         let client = ResetNewsFeedClient(transport: transport, now: { now })
         var result: ResetNewsFetchResult?
         _ = client.fetch { result = $0 }
-        let feedBody = String(decoding: try JSONSerialization.data(withJSONObject: feed), as: UTF8.self)
-        let timelineBody = String(decoding: try JSONSerialization.data(withJSONObject: timeline), as: UTF8.self)
-        transport.respond(0, body: feedBody, status: feedStatus)
-        transport.respond(1, body: timelineBody, status: timelineStatus)
+        let bodies = [feed, timeline, forecast ?? fixtureForecast(feed, timeline, now: now)]
+        let statuses = [feedStatus, timelineStatus, forecastStatus]
+        let order = reverseResponses ? [2, 1, 0] : [0, 1, 2]
+        for index in order {
+            let body = String(decoding: try JSONSerialization.data(withJSONObject: bodies[index]), as: UTF8.self)
+            let headers = index == 2 ? ["x-published-expires-at": ISO8601DateFormatter().string(from: now.addingTimeInterval(3600))] : [:]
+            transport.respond(index, body: body, status: statuses[index], headers: headers)
+        }
         pump { result != nil }
         return result!
     }
@@ -705,11 +797,11 @@ private final class RuntimeHarness {
         h.activate()
         h.client.complete(try fetched(emptyFeed, ["events": []], now: h.clock.date))
         let result = try fetched(feed, timeline, now: h.clock.date)
-        expect(result.successful.count == 2 && result.failures.isEmpty,
+        expect(result.successful.count == 3 && result.failures.isEmpty,
                "Official records plus the site's observed banked event keep both API endpoints successful")
         expect(result.successful.allSatisfy { $0.metadata.rejectedIdentityCount == 0 },
                "A declared nonofficial observation is normal filtering, not an identity rejection")
-        h.next(result)
+        try h.next(try fetched(feed, timeline, now: h.clock.date))
         expect(h.monitor.state.status == .success && h.monitor.state.detail == nil,
                "Normally filtered observation records cannot produce the partial-source warning")
         expect(h.monitor.state.forecastCount == 1 && h.monitor.state.items.count == 1,
@@ -717,24 +809,24 @@ private final class RuntimeHarness {
         let fullText = (feed["tweets"] as! [[String: Any]])[0]["text"] as! String
         expect(h.monitor.state.items.first?.originalText == fullText,
                "A truncated timeline summary cannot replace the same-version complete original post")
-        expect(h.monitor.state.items.first?.sources == [.feed, .timeline]
-            && h.monitor.state.items.first?.sourceSnapshots?.count == 2,
+        expect(Set(h.repository.state.items.first?.sources ?? []) == Set([.feed, .timeline, .forecast])
+            && h.repository.state.items.first?.sourceSnapshots?.count == 3,
                "Deduplication still keeps both endpoint copies for partial refreshes")
         expect(h.channel.payloads.count == 1 && h.channel.payloads.first?.itemIDs == ["post:2105843926221660585"],
                "A new official post appearing three times across the API sends exactly one forecast alert")
-        let revision = h.monitor.state.items.first?.materialRevision
-        h.next(try fetched(feed, timeline, now: h.clock.date))
+        let revision = h.repository.state.items.first?.materialRevision
+        try h.next(try fetched(feed, timeline, now: h.clock.date))
         expect(h.monitor.state.forecastCount == 1 && h.channel.payloads.count == 1
-            && h.monitor.state.items.first?.materialRevision == revision,
+            && h.repository.state.items.first?.materialRevision == revision,
                "Repeated duplicate records neither inflate the forecast count nor replay its alert")
-        h.next(try fetched(feed, timeline, now: h.clock.date, timelineStatus: 503))
+        try h.next(try fetched(feed, timeline, now: h.clock.date, timelineStatus: 503))
         expect(h.monitor.state.status == .partial && h.monitor.state.forecastCount == 1,
                "A real timeline HTTP failure stays visible while the successful feed keeps the valid forecast")
-        expect(h.monitor.state.items.first?.sourceSnapshots?.count == 2
-            && h.monitor.state.items.first?.originalText == fullText
-            && h.monitor.state.items.first?.materialRevision == revision && h.channel.payloads.count == 1,
+        expect(h.repository.state.items.first?.sourceSnapshots?.count == 3
+            && h.repository.state.items.first?.originalText == fullText
+            && h.repository.state.items.first?.materialRevision == revision && h.channel.payloads.count == 1,
                "Partial refresh preserves unavailable provenance, full original text and notification consumption")
-        h.next(try fetched(feed, timeline, now: h.clock.date, feedStatus: 503, timelineStatus: 503))
+        try h.next(try fetched(feed, timeline, now: h.clock.date, feedStatus: 503, timelineStatus: 503, forecastStatus: 503))
         expect(h.monitor.state.status == .failure && h.monitor.state.forecastCount == 1
             && h.monitor.state.detail?.contains("503") == true && h.channel.payloads.count == 1,
                "Total HTTP failure preserves the still-valid cached forecast without calling it an empty success")
@@ -750,12 +842,12 @@ private final class RuntimeHarness {
         let h = try RuntimeHarness()
         h.activate()
         let result = try fetched(observationsOnly, ["events": [observation]], now: h.clock.date)
-        expect(result.successful.count == 2 && result.successful.allSatisfy {
+        expect(result.successful.count == 3 && result.successful.allSatisfy {
             $0.items.isEmpty && $0.metadata.rejectedIdentityCount == 0
         }, "A valid response containing only declared observations is an empty success")
         h.client.complete(result)
         expect(h.monitor.state.status == .success && h.monitor.state.forecastCount == 0
-            && h.monitor.state.detail == nil && h.repository.state.baselineSources.count == 2,
+            && h.monitor.state.detail == nil && h.repository.state.baselineSources.count == 3,
                "Observation-only responses establish a silent baseline and show no forecasts or partial-source warning")
         expect(h.channel.payloads.isEmpty && h.monitor.state.unreadCount == 0,
                "An observed monitoring-account balance never creates a local forecast notification")
@@ -774,7 +866,7 @@ private final class RuntimeHarness {
         h.clock.calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         h.activate()
         let mixed = try fetched(feed, timeline, now: h.clock.date)
-        expect(mixed.successful.count == 2 && mixed.successful.first?.metadata.rejectedIdentityCount == 1,
+        expect(mixed.successful.count == 3 && mixed.successful.first?.metadata.rejectedIdentityCount == 1,
                "Filtering a site observation does not hide a malformed record claiming official source identity")
         h.client.complete(mixed)
         expect(h.monitor.state.status == .partial && h.monitor.state.forecastCount == 1
@@ -784,9 +876,9 @@ private final class RuntimeHarness {
         var invalidOnly = emptyFeed
         invalidOnly["events"] = [malformed]
         let rejected = try fetched(invalidOnly, ["events": [malformed]], now: h.clock.date)
-        expect(rejected.successful.isEmpty && rejected.failures.count == 2,
+        expect(rejected.successful.isEmpty && rejected.failures.count == 3,
                "Responses containing only malformed official records cannot become valid empty endpoints")
-        expect(rejected.failures.allSatisfy { endpoint in
+        expect(rejected.failures.filter { $0.source != .forecast }.allSatisfy { endpoint in
             if case .identity = endpoint.error { return true }; return false
         }, "All-invalid official responses fail explicit identity validation")
         h.next(rejected)
@@ -802,6 +894,192 @@ private final class RuntimeHarness {
                "An observation-only payload cannot bypass the feed root profile validation")
         if case .identity = wrong.failures.first?.error { expect(true, "Wrong root profile remains an identity failure") }
         else { expect(false, "Wrong root profile remains an identity failure") }
+    }
+
+    static func authorityNullCannotPromoteHistoricalCandidates() throws {
+        let h = try RuntimeHarness()
+        h.activate()
+        let candidate = h.source("9011")
+        let lastReset = h.clock.date.addingTimeInterval(-3600)
+        let none = ResetForecastSnapshot(updatedAt: h.clock.date, lastResetAt: lastReset, officialSignal: nil)
+        h.client.complete(h.result([candidate], forecast: none))
+        expect(h.monitor.state.forecastAvailability == .current && h.monitor.state.forecastCount == 0
+            && h.monitor.state.items.isEmpty && h.repository.state.items.count == 1,
+               "Explicit current null keeps historical future candidates out of every visible forecast card")
+        expect(h.repository.state.forecast?.lastResetAt == lastReset && h.channel.payloads.isEmpty,
+               "A confirmed past reset is metadata, never a current forecast or initial alert")
+        h.next(h.result([candidate, h.source("9012")], forecast: .init(
+            updatedAt: h.clock.date, lastResetAt: lastReset, officialSignal: nil)))
+        expect(h.monitor.state.forecastCount == 0 && h.monitor.state.items.isEmpty && h.channel.payloads.isEmpty,
+               "Newly encountered historical wording cannot notify when the authority explicitly reports no signal")
+    }
+
+    static func authorityFailureAndMissingFieldsKeepCache() throws {
+        let h = try RuntimeHarness()
+        h.activate()
+        let signal = h.source("9021")
+        h.client.complete(h.result([signal]))
+        let checked = h.monitor.state.forecastCheckedAt
+        let accepted = h.repository.state.forecast
+        h.next(h.result([h.source("9022")], forecastError: .http(503)))
+        expect(h.monitor.state.forecastAvailability == .cached && h.monitor.state.forecastCount == 1
+            && h.monitor.state.items.first?.id == signal.stableID && h.monitor.state.status == .partial,
+               "Authority failure retains the last valid signal with cached status instead of declaring no forecast")
+        h.next(h.result([h.source("9023")], missingForecast: true))
+        expect(h.monitor.state.forecastAvailability == .cached && h.repository.state.forecast == accepted
+            && h.monitor.state.forecastCheckedAt == checked && h.channel.payloads.isEmpty,
+               "A successful endpoint without a decoded authority field cannot clear cache or replay a signal")
+        let unavailable = try RuntimeHarness()
+        unavailable.activate()
+        unavailable.client.complete(unavailable.result([unavailable.source("9024")], forecastError: .json("missing official_signal")))
+        expect(unavailable.monitor.state.forecastAvailability == .unknown && unavailable.monitor.state.items.isEmpty
+            && unavailable.repository.state.forecastBaselineEstablished != true,
+               "Missing authority without any cache is unknown despite successfully loaded historical candidates")
+    }
+
+    static func authorityExpiryIsLocalAndDoesNotClaimCompletion() throws {
+        let h = try RuntimeHarness()
+        h.activate()
+        var signal = h.source("9031")
+        signal.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: h.clock.date.addingTimeInterval(90), effectiveAtPrecision: .exact)]
+        h.client.complete(h.result([signal]))
+        expect(h.monitor.state.forecastCount == 1, "A current signal is visible before its announced instant")
+        let requests = h.client.callbacks.count
+        let expiry = h.scheduler.entries.last { abs($0.delay - 90) < 0.01 }
+        expect(expiry != nil, "The current-signal boundary schedules a local presentation update")
+        h.clock.advance(91)
+        expiry?.action()
+        expect(h.monitor.state.forecastCount == 0 && h.monitor.state.items.isEmpty
+            && h.repository.state.forecast?.lastResetAt == nil,
+               "An elapsed preview disappears without a completion post or fabricated completed-reset timestamp")
+        expect(h.client.callbacks.count == requests && h.channel.payloads.isEmpty,
+               "Preview expiry updates local presentation without network requests or reminders")
+
+        let ttl = try RuntimeHarness()
+        ttl.activate()
+        ttl.client.complete(ttl.result([ttl.source("9032")], expires: ttl.clock.date.addingTimeInterval(90)))
+        let ttlAction = ttl.scheduler.entries.last { abs($0.delay - 90) < 0.01 }
+        let ttlRequests = ttl.client.callbacks.count
+        ttl.clock.advance(91)
+        ttlAction?.action()
+        expect(ttl.monitor.state.forecastAvailability == .cached && ttl.monitor.state.forecastCount == 1,
+               "HTTP validity expiry marks a still-future signal cached instead of inventing no forecast")
+        expect(ttl.client.callbacks.count == ttlRequests && ttl.channel.payloads.isEmpty,
+               "HTTP validity projection also stays local and silent")
+    }
+
+    static func latestResetDoesNotRetireAnIndependentFutureSignal() throws {
+        let h = try RuntimeHarness()
+        h.activate()
+        let signal = h.source("9041")
+        var snapshot = h.snapshot([signal], lastResetAt: h.clock.date.addingTimeInterval(-3600))
+        h.client.complete(h.result([signal], forecast: snapshot))
+        snapshot.updatedAt = h.clock.date.addingTimeInterval(120)
+        snapshot.lastResetAt = h.clock.date.addingTimeInterval(60)
+        h.next(h.result([signal], forecast: snapshot))
+        expect(h.monitor.state.forecastCount == 1 && h.monitor.state.items.first?.id == signal.stableID
+            && h.repository.state.forecast?.lastResetAt == snapshot.lastResetAt,
+               "A newer completed reset timestamp cannot retire a separate future official signal")
+        expect(h.channel.payloads.isEmpty, "Completion metadata changes do not replay an unchanged current signal")
+    }
+
+    static func authorityRestartAndReturnDoNotReplay() throws {
+        let h = try RuntimeHarness()
+        h.activate()
+        h.client.complete(h.result([]))
+        let signal = h.source("9051")
+        let authority = h.snapshot([signal], updatedAt: h.clock.date.addingTimeInterval(120))
+        h.next(h.result([signal], forecast: authority))
+        expect(h.channel.payloads.count == 1, "A first new authority signal after baseline can remind once")
+        h.next(h.result([signal], forecast: .init(updatedAt: h.clock.date, lastResetAt: nil, officialSignal: nil)))
+        expect(h.monitor.state.forecastCount == 0, "An accepted null clears the visible signal")
+        var returned = authority
+        returned.updatedAt = h.clock.date.addingTimeInterval(120)
+        h.next(h.result([signal], forecast: returned))
+        expect(h.monitor.state.forecastCount == 1 && h.channel.payloads.count == 1,
+               "Returning the same consumed authority signal after null does not create another reminder")
+        h.monitor.stop()
+        let reloaded = ResetNewsRepository(directory: h.directory, now: h.clock.date, calendar: { h.clock.calendar })
+        let client = FakeNewsClient()
+        let channel = FakeNewsNotifications()
+        let clock = h.clock
+        let restarted = ResetNewsMonitor(repository: reloaded, client: client,
+            notifications: ResetNewsNotificationController(channel: channel), scheduler: FakeNewsScheduler(),
+            defaults: h.defaults, now: { clock.date }, calendar: { clock.calendar }, notificationCenter: NotificationCenter())
+        expect(restarted.state.forecastAvailability == .cached && restarted.state.forecastCount == 1,
+               "Restart reads the persisted current signal as cache, without promoting internal history")
+        restarted.updateGate(codexRunning: true, hudRunning: true, suspended: false)
+        returned.updatedAt = clock.date
+        client.complete(h.result([signal], forecast: returned))
+        expect(restarted.state.forecastAvailability == .current && channel.payloads.isEmpty,
+               "First fresh poll after restart honors the persisted notification ledger")
+    }
+
+    static func reverseResponsesAndSnapshotRollback() throws {
+        let feed = try fixture("feed-mixed")
+        let timeline = try fixture("timeline-mixed")
+        let h = try RuntimeHarness()
+        h.clock.date = ISO8601DateFormatter().date(from: "2026-10-02T03:00:00Z")!
+        h.clock.calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        h.activate()
+        let reversed = try fetched(feed, timeline, now: h.clock.date, reverseResponses: true)
+        h.client.complete(reversed)
+        expect(h.monitor.state.forecastCount == 1 && h.monitor.state.forecastAvailability == .current
+            && h.channel.payloads.isEmpty, "Completing authority before context still establishes one silent initial signal")
+        let next = h.source("9061")
+        let accepted = h.snapshot([next], updatedAt: h.clock.date.addingTimeInterval(120))
+        h.next(h.result([next], forecast: accepted))
+        expect(h.monitor.state.items.first?.id == next.stableID && h.channel.payloads.count == 1,
+               "A later authority snapshot can replace the initial signal once")
+        let obsoleteNull = ResetForecastSnapshot(updatedAt: accepted.updatedAt.addingTimeInterval(-1), lastResetAt: nil, officialSignal: nil)
+        h.next(h.result([], forecast: obsoleteNull))
+        expect(h.repository.state.forecast == accepted && h.monitor.state.items.first?.id == next.stableID
+            && h.monitor.state.forecastAvailability == .cached && h.channel.payloads.count == 1,
+               "An older null response cannot erase an accepted newer signal or generate a reminder")
+        let latestNull = ResetForecastSnapshot(updatedAt: h.clock.date, lastResetAt: nil, officialSignal: nil)
+        h.next(h.result([], forecast: latestNull))
+        expect(h.monitor.state.forecastCount == 0 && h.monitor.state.forecastAvailability == .current,
+               "Only a newer valid null decision can clear the current signal")
+        h.next(h.result([next], forecast: accepted))
+        expect(h.monitor.state.items.isEmpty && h.repository.state.forecast == latestNull && h.channel.payloads.count == 1,
+               "A delayed old signal cannot restore an already cleared current forecast")
+    }
+
+    static func staleContextCannotSuppressFreshAuthority() throws {
+        let h = try RuntimeHarness()
+        h.activate()
+        h.client.complete(h.result([]))
+        let signal = h.source("9071")
+        h.next(h.result([signal], stale: true, forecastStale: false))
+        expect(h.monitor.state.forecastAvailability == .current && h.monitor.state.forecastCount == 1
+            && h.channel.payloads.count == 1 && h.channel.payloads.first?.itemIDs == [signal.stableID],
+               "A fresh authority signal can notify even when historical context is stale")
+        h.next(h.result([signal]))
+        expect(h.channel.payloads.count == 1, "Context freshness recovery cannot replay the already delivered authority key")
+    }
+
+    static func conflictingSameVersionCannotUndoAuthority() throws {
+        let h = try RuntimeHarness()
+        h.activate()
+        let signal = h.source("9081")
+        let accepted = h.snapshot([signal])
+        h.client.complete(h.result([signal], forecast: accepted))
+        let conflictingNull = ResetForecastSnapshot(updatedAt: accepted.updatedAt, lastResetAt: nil, officialSignal: nil)
+        h.next(h.result([], forecast: conflictingNull))
+        expect(h.repository.state.forecast == accepted && h.monitor.state.forecastCount == 1
+            && h.monitor.state.forecastAvailability == .cached && h.channel.payloads.isEmpty,
+               "A different current-signal decision at the same version cannot overwrite accepted authority")
+        var wordingOnly = accepted
+        wordingOnly.officialSignal?.originalText += " This is the complete announcement."
+        h.next(h.result([signal], forecast: wordingOnly))
+        expect(h.monitor.state.forecastAvailability == .current && h.repository.state.forecast == wordingOnly
+            && h.channel.payloads.isEmpty,
+               "Same-version original-text enrichment with unchanged schedule identity is accepted silently")
+        var conflictingCompletion = wordingOnly
+        conflictingCompletion.lastResetAt = h.clock.date.addingTimeInterval(-60)
+        h.next(h.result([signal], forecast: conflictingCompletion))
+        expect(h.repository.state.forecast == wordingOnly && h.monitor.state.forecastCount == 1,
+               "A conflicting same-version completion timestamp cannot mutate the accepted future signal")
     }
 
     static func pump(until condition: () -> Bool) {

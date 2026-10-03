@@ -24,21 +24,26 @@ struct ResetNewsListView: View {
                     .accessibilityIdentifier("resetNews.check")
                 Button(DisplayLanguage.text("预告设置", "Forecast settings"), action: onSettings).accessibilityIdentifier("resetNews.settings")
             }.font(.system(size: 11))
-            Text(DisplayLanguage.text("仅显示今天及未来的预告；当前账号数据以额度区域为准", "Today and upcoming forecasts only; see quota for your account data"))
+            Text(DisplayLanguage.text("仅显示当前重置预告；本账号数据以额度区域为准", "Current reset forecasts only; see quota for your account data"))
                 .font(.system(size: 10)).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let sourceURL = URL(string: "https://codex-reset.com") {
                 Link(DisplayLanguage.text("数据：codex-reset.com", "Data: codex-reset.com"), destination: sourceURL)
                     .font(.system(size: 10)).accessibilityIdentifier("resetNews.provider")
             }
+            if state.forecastAvailability == .cached {
+                Text(DisplayLanguage.text("缓存预告", "Cached forecast") + (state.forecastCheckedAt.map {
+                    DisplayLanguage.text(" · 更新于 ", " · Updated ") + Self.date($0)
+                } ?? ""))
+                    .font(.system(size: 10)).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("resetNews.cached")
+            }
             GeometryReader { viewport in
                 ScrollViewReader { reader in
                     ScrollView(.vertical) {
                         LazyVStack(alignment: .leading, spacing: 10) {
                             if state.items.isEmpty {
-                                Text(state.enabled
-                                    ? DisplayLanguage.text("暂无重置预告", "No reset forecasts")
-                                    : DisplayLanguage.text("开启后可查看今天及未来的 Codex 重置预告", "Enable reset forecasts to see today's and upcoming Codex resets"))
+                                Text(ResetNewsListPresentation.emptyText(state))
                                     .font(.system(size: 12)).foregroundColor(.secondary).padding(.vertical, 16)
                             }
                             ForEach(state.items) { item in
@@ -74,6 +79,35 @@ struct ResetNewsListView: View {
         .onDisappear { onPageVisibility(false) }
         .accessibilityIdentifier("resetNews.list")
     }
+
+    private static func date(_ value: Date) -> String {
+        DateFormatter.localizedString(from: value, dateStyle: .medium, timeStyle: .short)
+    }
+}
+
+enum ResetNewsListPresentation {
+    static func emptyText(_ state: ResetNewsViewState) -> String {
+        guard state.enabled else {
+            return DisplayLanguage.text("开启后可查看 Codex 重置预告", "Enable Codex reset forecasts")
+        }
+        switch state.forecastAvailability {
+        case .current: return DisplayLanguage.text("暂无新预告", "No new forecasts")
+        case .cached: return DisplayLanguage.text("预告暂无法更新，正在显示上次获取的内容", "Forecast unavailable; showing the last fetched content")
+        case .unknown:
+            if [.failure, .partial, .stale].contains(state.status) {
+                return DisplayLanguage.text("预告暂无法更新", "Forecast unavailable")
+            }
+            return DisplayLanguage.text("尚未获取预告", "Forecast not fetched yet")
+        }
+    }
+
+    static func heading(_ state: ResetNewsViewState) -> String {
+        if state.forecastAvailability == .unknown || (state.forecastAvailability == .cached && state.items.isEmpty) {
+            return DisplayLanguage.text("重置预告", "Reset forecasts")
+        }
+        return ResetForecastIndicator.accessibilityLabel(state.forecastCount)
+            + (state.forecastAvailability == .cached ? DisplayLanguage.text(" · 缓存", " · Cached") : "")
+    }
 }
 
 enum ResetNewsCardVisibility {
@@ -108,26 +142,29 @@ struct ResetNewsCard: View {
     let unread: Bool
     private let forecastFacts: [ResetNewsFact]
     private let forecastDates: [ResetForecastDatePresentation]
+    private let forecastHasDate: [Bool]
 
-    init(item: ResetNewsItem, unread: Bool) {
+    init(item: ResetNewsItem, unread: Bool, now: Date = Date(), calendar: Calendar = .current) {
         self.item = item
         self.unread = unread
         let forecasts = item.facts.filter { $0.kind == .upcomingReset }
         forecastFacts = forecasts
-        forecastDates = forecasts.map { ResetForecastDatePresentation(fact: $0, publishedAt: item.publishedAt) }
+        forecastDates = forecasts.map { ResetForecastDatePresentation(fact: $0, publishedAt: item.publishedAt, now: now, calendar: calendar) }
+        forecastHasDate = forecasts.map { ResetForecastPolicy(calendar: calendar).scheduledDate(for: $0, publishedAt: item.publishedAt) != nil }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 if unread { Circle().fill(Color.accentColor).frame(width: 6, height: 6).accessibilityLabel(DisplayLanguage.text("待查看预告", "Forecast to review")) }
-                Text(forecastFacts.isEmpty ? item.facts.map { Self.kind($0.kind) }.uniqued.joined(separator: " · ") : "预计重置日期")
+                Text(forecastFacts.isEmpty ? item.facts.map { Self.kind($0.kind) }.uniqued.joined(separator: " · ") : "重置预告")
                     .font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
                 Spacer(minLength: 2)
                 Text(Self.status(item.status)).font(.system(size: 10)).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             ForEach(Array(forecastFacts.enumerated()), id: \.offset) { index, fact in
-                forecast(fact, date: forecastDates[index])
+                forecast(fact, date: forecastDates[index], hasDate: forecastHasDate[index])
             }
             if forecastFacts.isEmpty {
                 Text(item.summaryZH).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
@@ -149,6 +186,16 @@ struct ResetNewsCard: View {
                 Text("发布于 " + Self.date(publishedAt)).font(.system(size: 10)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            if !item.originalText.isEmpty {
+                DisclosureGroup(DisplayLanguage.text("查看原文", "View original")) {
+                    Text(item.originalText).font(.system(size: 10)).foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }.font(.system(size: 10))
+            }
+            if let url = item.sourceURL {
+                Link(DisplayLanguage.text("来源原帖", "Source post"), destination: url)
+                    .font(.system(size: 10)).accessibilityIdentifier("resetNews.source.\(item.id)")
+            }
         }
         .padding(10).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.primary.opacity(0.06)).cornerRadius(8)
@@ -156,14 +203,17 @@ struct ResetNewsCard: View {
         .accessibilityIdentifier("resetNews.item.\(item.id)")
     }
 
-    private func forecast(_ fact: ResetNewsFact, date: ResetForecastDatePresentation) -> some View {
+    private func forecast(_ fact: ResetNewsFact, date: ResetForecastDatePresentation, hasDate: Bool) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(date.dateText).font(.system(size: 20, weight: .semibold))
+            Text(hasDate ? date.dateText : DisplayLanguage.text("时间待定", "Time not announced")).font(.system(size: 20, weight: .semibold))
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("resetNews.forecastDate")
-            Text(date.timeText).font(.system(size: 11, weight: date.isExactTime ? .medium : .regular))
-                .foregroundColor(date.isExactTime ? .primary : .secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if hasDate {
+                Text(date.timeText == "具体时刻未公布" ? DisplayLanguage.text("时间待定", "Time not announced") : date.timeText)
+                    .font(.system(size: 11, weight: date.isExactTime ? .medium : .regular))
+                    .foregroundColor(date.isExactTime ? .primary : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let basis = date.basisText {
                 Text(basis).font(.system(size: 10)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

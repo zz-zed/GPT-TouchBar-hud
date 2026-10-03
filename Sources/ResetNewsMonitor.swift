@@ -40,10 +40,13 @@ final class ResetNewsMonitor {
     private var generation = 0
     private var request: ResetNewsCancellable?
     private var timer: ResetNewsCancellable?
+    private var projectionTimer: ResetNewsCancellable?
+    private var projectionDate: Date?
     private var checking = false
     private var failures = 0
     private var earliestRequest: Date?
-    private var recoveryPendingSources: Set<ResetNewsSource> = []
+    private var forecastRefreshFailed = true
+    private var recoveringForecast = false
 
     var enabled: Bool { state.enabled }
     var soundEnabled: Bool { notifications.soundEnabled }
@@ -69,8 +72,7 @@ final class ResetNewsMonitor {
         state.enabled = defaults.object(forKey: Self.enabledPreferenceKey) == nil
             ? true : defaults.bool(forKey: Self.enabledPreferenceKey)
         notifications.soundEnabled = defaults.bool(forKey: Self.soundPreferenceKey)
-        state.items = repository.state.items
-        state.readIDs = repository.state.readIDs
+        syncRepository()
         state.detail = repository.lastPersistenceError
         state.status = state.enabled ? .codexNotRunning : .disabled
         notifications.onOpenDetails = { [weak self] ids in
@@ -93,7 +95,10 @@ final class ResetNewsMonitor {
         }
     }
 
-    deinit { for observer in clockObservers { notificationCenter.removeObserver(observer) } }
+    deinit {
+        projectionTimer?.cancel()
+        for observer in clockObservers { notificationCenter.removeObserver(observer) }
+    }
 
     func setEnabled(_ enabled: Bool) {
         precondition(Thread.isMainThread)
@@ -155,7 +160,7 @@ final class ResetNewsMonitor {
         }
         guard !runtimeActive else { publish(); return }
         runtimeActive = true
-        recoveryPendingSources = Set(repository.state.baselineSources)
+        recoveringForecast = repository.state.forecastBaselineEstablished == true
         notifications.resume()
         beginCheck()
     }
@@ -209,19 +214,56 @@ final class ResetNewsMonitor {
         let date = now()
         if let retry = result.retryAfter { earliestRequest = max(earliestRequest ?? date, retry) }
         let successful = result.successful
-        let stale = successful.contains { $0.metadata.isStale(at: date) }
+        var stale = successful.contains { $0.metadata.isStale(at: date) }
         let rejected = successful.reduce(0) { $0 + $1.metadata.rejectedIdentityCount }
+        var forecastIssue: String?
+        forecastRefreshFailed = true
         if !successful.isEmpty {
             let previous = repository.state
-            let incoming = successful.flatMap(\.items)
-            let successfulSources = Set(successful.map(\.source))
-            let recoveringSources = recoveryPendingSources.intersection(successfulSources)
-            let recoveringIDs = Set(incoming.filter { recoveringSources.contains($0.source) }.map(\.stableID))
+            var incoming = successful.filter { $0.source != .forecast }.flatMap(\.items)
+            var next = previous
+            var reminder: ResetForecastSnapshot?
+            if let endpoint = successful.first(where: { $0.source == .forecast }), let snapshot = endpoint.forecast {
+                // A cached or delayed response cannot undo a more recent current-signal decision.
+                let expires = endpoint.metadata.publishedExpiresAt ?? snapshot.updatedAt.addingTimeInterval(180)
+                let outOfOrder = previous.forecast.map { snapshot.updatedAt < $0.updatedAt } ?? false
+                let conflictingVersion = previous.forecast.map {
+                    snapshot.updatedAt == $0.updatedAt
+                        && (snapshot.notificationKey != $0.notificationKey || snapshot.lastResetAt != $0.lastResetAt)
+                } ?? false
+                let futureDated = snapshot.updatedAt > date.addingTimeInterval(60)
+                let expired = endpoint.metadata.isStale(at: date) || expires <= date
+                stale = stale || expired
+                if outOfOrder || conflictingVersion || futureDated {
+                    forecastIssue = "当前预告副本时间异常，保留上次结果"
+                } else {
+                    // Consume even stale signals so a later fresh copy cannot replay an old alert.
+                    let unseen = snapshot.notificationKey.map { !previous.notifiedKeys.contains($0) } ?? false
+                    if let key = snapshot.notificationKey, unseen {
+                        next.notified.append(.init(key: key, recordedAt: date))
+                    }
+                    if !expired {
+                        next.forecast = snapshot
+                        next.forecastFetchedAt = date
+                        next.forecastExpiresAt = expires
+                        next.forecastBaselineEstablished = true
+                        forecastRefreshFailed = false
+                        if let signal = snapshot.officialSignal {
+                            let evidence = signal.evidenceItem(calendar: calendar())
+                            incoming.append(ResetNewsSourceItem(source: .forecast, sourceID: signal.sourceID,
+                                url: signal.sourceURL, body: signal.originalText, publishedAt: signal.publishedAt,
+                                structuredFacts: evidence.facts))
+                        }
+                        if previous.forecastBaselineEstablished == true, unseen { reminder = snapshot }
+                    }
+                }
+            } else if !result.failures.contains(where: { $0.source == .forecast }) {
+                forecastIssue = "当前预告状态未获取"
+            }
             let reduction = ResetNewsReducer(forecastPolicy: ResetForecastPolicy(calendar: calendar())).reduce(
-                previous: ResetNewsState(items: previous.items, notificationRecords: previous.notified, hasBaseline: previous.hasBaseline,
+                previous: ResetNewsState(items: previous.items, notificationRecords: next.notified, hasBaseline: previous.hasBaseline,
                                          retiredForecasts: previous.retiredForecasts),
                 incoming: incoming, now: date)
-            var next = previous
             next.items = reduction.state.items
             next.notified = reduction.state.notificationRecords
             next.retiredForecasts = reduction.state.retiredForecasts
@@ -235,23 +277,29 @@ final class ResetNewsMonitor {
                     next.readIDs.remove(item.id)
                 }
             }
+            if !forecastRefreshFailed, let snapshot = next.forecast,
+               let item = snapshot.item(now: date, calendar: calendar()) {
+                if previous.forecastBaselineEstablished != true {
+                    next.readIDs.insert(item.id)
+                } else if let key = snapshot.notificationKey, !previous.notifiedKeys.contains(key) {
+                    next.readIDs.remove(item.id)
+                } else if previous.readIDs.contains(item.id) {
+                    next.readIDs.insert(item.id)
+                }
+            }
             let saved = repository.replace(next, now: date)
             syncRepository()
             state.lastSuccess = date
-            // A stale endpoint suppresses this whole refresh's strong reminders. Persisting consumption prevents replay.
-            if saved && !stale {
-                var candidates = reduction.notificationCandidates
-                candidates += reduction.recoveryCandidates.filter { recoveringIDs.contains($0.id) }
-                candidates = candidates.filter { previouslyBaselinedIDs.contains($0.id) }
-                // One local notification summarizes a batch, including recovery after sleep/lock or process absence.
-                notifications.deliver(candidates, recovery: !recoveringSources.isEmpty, now: date, calendar: calendar())
+            // Only the accepted current signal may notify. Feed/timeline remain evidence,
+            // including when their history contains explicit future wording.
+            if saved {
+                if let reminder { notifications.deliver(reminder, recovery: recoveringForecast, now: date, calendar: calendar()) }
             }
-            // A successful endpoint cannot consume recovery eligibility belonging to a failed endpoint.
-            recoveryPendingSources.subtract(successfulSources)
+            if !forecastRefreshFailed { recoveringForecast = false }
         }
         if successful.isEmpty {
             state.status = .failure
-        } else if !result.failures.isEmpty || rejected > 0 {
+        } else if !result.failures.isEmpty || rejected > 0 || forecastIssue != nil {
             state.status = .partial
         } else if stale {
             state.status = .stale
@@ -260,12 +308,14 @@ final class ResetNewsMonitor {
         }
         let errors = result.failures.compactMap { endpoint in endpoint.error.map { "\(endpoint.source.rawValue)：\($0.description)" } }
         var details = errors
+        if let forecastIssue { details.append(forecastIssue) }
         if rejected > 0 { details.append("已跳过 \(rejected) 条来源身份不匹配的消息") }
-        if stale { details.append("发布副本已过期，已暂停强提醒") }
+        if stale { details.append("部分来源副本已过期") }
+        if forecastRefreshFailed { details.append("当前预告未更新，已暂停强提醒") }
         if let error = repository.lastPersistenceError { details.append(error) }
         state.detail = details.isEmpty ? nil : details.joined(separator: "；")
         let delay: TimeInterval
-        if result.failures.isEmpty && !stale {
+        if result.failures.isEmpty && !stale && forecastIssue == nil {
             failures = 0
             delay = ResetNewsSchedule.successDelay(jitter: jitter())
         } else {
@@ -289,7 +339,12 @@ final class ResetNewsMonitor {
     }
 
     private func syncRepository() {
-        state.items = repository.state.items
+        let stored = repository.state
+        let date = now()
+        state.items = stored.forecast?.item(now: date, calendar: calendar()).map { [$0] } ?? []
+        state.forecastAvailability = stored.forecast == nil ? .unknown
+            : (!forecastRefreshFailed && runtimeActive && stored.forecastExpiresAt.map { $0 > date } == true ? .current : .cached)
+        state.forecastCheckedAt = stored.forecastFetchedAt
         state.readIDs = repository.state.readIDs
         if let error = repository.lastPersistenceError { state.detail = error }
     }
@@ -298,8 +353,29 @@ final class ResetNewsMonitor {
         precondition(Thread.isMainThread)
         repository.refreshLocalForecasts(now: now())
         syncRepository()
+        scheduleProjection()
         state.notificationPermission = notifications.permission
         onStateChange?(state)
+    }
+
+    /// Expiry changes the local presentation even when the next network check is
+    /// later or Codex has stopped. This timer never fetches or posts a notification.
+    private func scheduleProjection() {
+        let date = now()
+        let next = [repository.state.forecastExpiresAt,
+                    repository.state.forecast?.officialSignal?.expiresAt(calendar: calendar())]
+            .compactMap { $0 }.filter { $0 > date }.min()
+        guard next != projectionDate else { return }
+        projectionTimer?.cancel()
+        projectionTimer = nil
+        projectionDate = next
+        guard let next else { return }
+        projectionTimer = scheduler.schedule(after: next.timeIntervalSince(date)) { [weak self] in
+            guard let self else { return }
+            self.projectionTimer = nil
+            self.projectionDate = nil
+            self.publish()
+        }
     }
 
     private static func onMain(_ action: @escaping () -> Void) {

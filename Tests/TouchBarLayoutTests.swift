@@ -15,6 +15,9 @@ enum TouchBarLayoutTests {
         DisplayLanguage.current = .english
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
+        check(ResetForecastIndicator.countText(nil) == "—", "Unknown forecasts do not display a confirmed zero")
+        check(ResetForecastIndicator.accessibilityLabel(nil) == "Reset forecasts (awaiting update)",
+              "Unknown forecast accessibility describes its availability")
         check(ResetForecastIndicator.countText(-3) == "0", "Negative forecast counts clamp to zero")
         check(ResetForecastIndicator.countText(0) == "0", "Zero forecast count stays visible")
         check(ResetForecastIndicator.countText(3) == "3", "Single-digit forecast count is unchanged")
@@ -22,6 +25,8 @@ enum TouchBarLayoutTests {
         check(ResetForecastIndicator.accessibilityLabel(100) == "Reset forecasts (100 upcoming)",
               "Accessibility keeps the exact count above the compact cap")
         DisplayLanguage.current = .chinese
+        check(ResetForecastIndicator.accessibilityLabel(nil) == "重置预告（待更新）",
+              "Unknown Chinese forecast accessibility says it awaits an update")
         check(ResetForecastIndicator.accessibilityLabel(3) == "重置预告（3 条）",
               "Chinese accessibility names forecasts without implying reset credits")
         DisplayLanguage.current = .english
@@ -124,9 +129,21 @@ enum TouchBarLayoutTests {
         verify("two quotas")
         var openedMessages = 0
         view.onOpenMessages = { openedMessages += 1 }
+        let messageButton = buttons(view).first { $0.accessibilityIdentifier() == "touchbar.messages" }!
+        view.updateMessages(forecastCount: nil, available: true)
+        verify("two quotas and unknown forecasts")
+        verifyForecastTitle("—", "Unknown English forecast entry")
+        check(!messageButton.isHidden && messageButton.toolTip == "Reset forecasts (awaiting update)",
+              "A visible unknown entry retains its availability label")
+        view.updateMessages(forecastCount: nil, available: false)
+        verify("hidden unknown forecast entry")
+        check(messageButton.isHidden, "Unknown and hidden are separate presentation states")
+        view.updateMessages(forecastCount: nil, available: true)
+        verify("reshown unknown forecast entry")
+        check(messageButton.frame.width > 0 && messageButton.title.contains("—"),
+              "Showing an unknown entry invalidates the cached hidden layout")
         view.updateMessages(forecastCount: 0, available: true)
         verify("two quotas and zero forecasts")
-        let messageButton = buttons(view).first { $0.accessibilityIdentifier() == "touchbar.messages" }!
         check(messageButton.title == "Reset forecasts 0", "Available forecast entry shows a zero count")
         check(messageButton.image?.isTemplate == true && messageButton.image?.size == NSSize(width: 18, height: 18),
               "Touch Bar uses the shared 18-point template forecast icon")

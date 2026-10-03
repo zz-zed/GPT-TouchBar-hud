@@ -2,7 +2,7 @@ import Foundation
 import CryptoKit
 
 public enum ResetNewsSource: String, Codable, Equatable, Sendable {
-    case feed, timeline
+    case feed, timeline, forecast
 }
 
 public struct ResetNewsOfficialWindow: Codable, Equatable, Sendable {

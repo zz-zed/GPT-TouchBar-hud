@@ -24,7 +24,7 @@ struct StatusMenuTests {
         quota.resetCredits = ResetCreditSummary(response: .init(availableCount: 2, credits: [.init(status: "available", expiresAt: date.timeIntervalSince1970)]))
         quota.tokenUsage = TokenUsageSummary(yesterdayTokens: 1_488_000, cumulativeTokens: 3_470_000_000)
         quota.lastUpdated = date
-        var news = ResetNewsViewState(enabled: true, status: .success)
+        var news = ResetNewsViewState(enabled: true, status: .success, forecastAvailability: .current)
         let summary = StatusSummaryView(state: quota)
         summary.update(quota, news: news)
         let host = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 600), styleMask: [.titled], backing: .buffered, defer: false)
@@ -44,11 +44,14 @@ struct StatusMenuTests {
         let emptyHeight = summary.frame.height
         try snapshot(summary, name: "zero")
         for status in [ResetNewsCheckStatus.disabled, .idle, .checking, .failure, .partial, .stale, .codexNotRunning] {
-            news.status = status; summary.update(quota, news: news)
+            news.status = status; news.forecastAvailability = .unknown; summary.update(quota, news: news)
             check(MenuForecastPresentation(news).value == "—", "Unknown or unavailable never invents zero")
             check(find("menu.forecast.open", in: summary) == nil, "Unavailable empty state is read-only")
         }
         news.status = .success
+        check(MenuForecastPresentation(news).value == "—" && MenuForecastPresentation(news).detail == "尚未获取预告",
+            "Other source success alone does not confirm an empty forecast")
+        news.forecastAvailability = .current
         news.items = [ResetNewsItem(id: "fixture", sources: [.feed], originalText: "仅用于测试的预告",
             facts: [.init(kind: .upcomingReset, scope: "test", effectiveAt: date)], publishedAt: date, firstSeenAt: date)]
         summary.update(quota, news: news)
@@ -58,15 +61,22 @@ struct StatusMenuTests {
         let button = find("menu.forecast.open", in: summary) as! NSButton
         button.performClick(nil)
         check(opens == 1, "Positive forecast activates details")
-        news.status = .failure; summary.update(quota, news: news)
+        news.status = .failure; news.forecastAvailability = .cached; news.forecastCheckedAt = date
+        summary.update(quota, news: news)
         check(MenuForecastPresentation(news).canOpen && MenuForecastPresentation(news).detail.contains("缓存"), "Cached forecasts remain readable after failure")
-        news.status = .success; summary.update(quota, news: news)
+        check(MenuForecastPresentation(news).help.contains("预告数据更新于"), "Cached forecast exposes its data timestamp")
+        news.status = .success; news.forecastAvailability = .current; summary.update(quota, news: news)
         try snapshot(summary, name: "positive")
         summary.appearance = NSAppearance(named: .darkAqua)
         try snapshot(summary, name: "dark")
         summary.appearance = NSAppearance(named: .aqua)
         news.items = []; summary.update(quota, news: news)
         check(find("menu.forecast.open", in: summary) == nil, "Positive-to-zero removes the action")
+        news.forecastAvailability = .cached; summary.update(quota, news: news)
+        check(MenuForecastPresentation(news).value == "—" && !MenuForecastPresentation(news).detail.contains("暂无"),
+            "A cached empty result is not presented as a fresh no-forecast result")
+        try snapshot(summary, name: "cached-empty")
+        news.forecastAvailability = .current; summary.update(quota, news: news)
         var refreshes = 0; summary.onRefresh = { refreshes += 1 }
         (find("menu.refresh", in: summary) as! NSButton).performClick(nil)
         check(refreshes == 1, "Refresh activates the callback")
@@ -99,7 +109,8 @@ struct StatusMenuTests {
         view.layoutSubtreeIfNeeded()
         let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
         view.cacheDisplay(in: view.bounds, to: rep)
-        let folder = URL(fileURLWithPath: "Design/menu-bar-icons/native", isDirectory: true)
+        let folder = URL(fileURLWithPath: ProcessInfo.processInfo.environment["STATUS_MENU_OUTPUT_DIR"]
+            ?? "Design/menu-bar-icons/native", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try rep.representation(using: .png, properties: [:])!.write(to: folder.appendingPathComponent(name + ".png"))
     }

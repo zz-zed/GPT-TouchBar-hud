@@ -15,19 +15,24 @@ import ResetNewsCore
         let repository = ResetNewsRepository(directory: directory, now: now)
         let after = try JSONDecoder().decode(ResetNewsStoredState.self, from: Data(contentsOf: file))
         precondition(after == repository.state && after.items == expected)
-        precondition(after.readIDs.isSubset(of: Set(after.items.map(\.id))))
+        let readableIDs = Set(after.items.map(\.id) + (after.forecast?.item(now: now).map { [$0.id] } ?? []))
+        precondition(after.readIDs.isSubset(of: readableIDs))
         precondition(after.items.allSatisfy { $0.facts.allSatisfy { $0.kind == .upcomingReset }
             && ($0.sourceSnapshots ?? []).allSatisfy { $0.facts.allSatisfy { $0.kind == .upcomingReset } } })
         precondition(Set(after.notified.map(\.key)).isSubset(of: Set(before.notified.map(\.key))))
         precondition(after.baselineSources == before.baselineSources)
+        if before.forecast == nil {
+            precondition(after.forecast == nil && after.forecastBaselineEstablished != true,
+                         "Legacy candidates cannot establish current authority or its baseline")
+        }
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = .current; formatter.dateFormat = "yyyy-MM-dd"
         print("Migration copy: \(file.path)")
         print("Before: \(before.items.count) items; IDs=\(before.items.map(\.id).joined(separator: ","))")
-        print("After: \(after.items.count) forecasts; readIDs=\(after.readIDs.count); ledger=\(before.notified.count)→\(after.notified.count)")
+        print("After: \(after.items.count) internal candidates; currentAuthority=\(after.forecast == nil ? "unknown" : "cached"); readIDs=\(after.readIDs.count); ledger=\(before.notified.count)→\(after.notified.count)")
         for item in after.items {
             print("\(item.id): \(policy.firstDate(item).map(formatter.string) ?? "unknown"); facts=\(item.facts.count); exactTime=\(item.facts.contains { $0.effectiveAt != nil })")
         }
-        print("PASS: isolated migration rewrote history, facts, snapshots and read IDs; retained forecast dates and notification ledger")
+        print("PASS: isolated migration retained compatible candidates and ledger without promoting legacy history to current authority")
     }
 }

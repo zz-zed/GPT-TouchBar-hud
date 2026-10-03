@@ -168,11 +168,24 @@ final class ResetNewsNotificationController {
     func deliver(_ candidates: [ResetNewsItem], recovery: Bool = false, now: Date = Date(), calendar: Calendar = .current) {
         let policy = ResetForecastPolicy(calendar: calendar)
         let items = policy.retaining(candidates.compactMap { policy.reminder(for: $0, now: now) }, now: now)
+        send(items, recovery: recovery)
+    }
+
+    /// The current signal supplies eligibility, including explicit promises with
+    /// no date. Historical feed candidates must never enter this path.
+    func deliver(_ snapshot: ResetForecastSnapshot, recovery: Bool = false,
+                 now: Date = Date(), calendar: Calendar = .current) {
+        guard let item = snapshot.item(now: now, calendar: calendar),
+              item.facts.contains(where: { $0.kind == .upcomingReset && $0.confidence == .explicit }) else { return }
+        send([item], recovery: recovery, notificationKey: snapshot.notificationKey)
+    }
+
+    private func send(_ items: [ResetNewsItem], recovery: Bool, notificationKey: String? = nil) {
         guard active, permission == .allowed, let first = items.first else { return }
         let requestGeneration = generation
         let title = "Codex 重置预告（\(items.count) 条新预告）"
         let payload = ResetNewsNotificationPayload(
-            identifier: Self.identifierPrefix + (recovery ? "summary:" : "") + first.notificationKey,
+            identifier: Self.identifierPrefix + (recovery ? "summary:" : "") + (notificationKey ?? first.notificationKey),
             itemIDs: items.map(\.id), title: title,
             body: items.count > 1 ? first.summaryZH + "；另有 \(items.count - 1) 条新预告，点击查看本地详情。" : first.summaryZH,
             sound: soundEnabled)

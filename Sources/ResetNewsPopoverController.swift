@@ -29,7 +29,7 @@ private struct ResetNewsPopoverContent: View {
                 Button("返回菜单") { if isCurrentPresentation() { model.onBack?() } }
                     .font(.system(size: 11)).accessibilityIdentifier("resetNews.backToMenu")
             }
-            Text(ResetForecastIndicator.accessibilityLabel(model.state.forecastCount)).font(.system(size: 16, weight: .semibold))
+            Text(ResetNewsListPresentation.heading(model.state)).font(.system(size: 16, weight: .semibold))
                 .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("resetNews.heading")
             ResetNewsListView(state: model.state, isVisible: model.isVisible && isCurrentPresentation(), focusedItemID: model.focusedItemID,

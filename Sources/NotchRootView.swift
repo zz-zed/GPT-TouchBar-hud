@@ -55,7 +55,7 @@ struct NotchRootView: View {
         }
     }
     private func resetForecastButton(_ layout: NotchLayout) -> some View {
-        let count = model.resetNews.forecastCount
+        let count = model.resetNews.indicatorCount
         return Button(action: model.openResetForecasts) {
             HStack(spacing: 1) {
                 Image(nsImage: ResetForecastIndicator.image(size: 16)).renderingMode(.template)
@@ -63,7 +63,7 @@ struct NotchRootView: View {
                 Text(ResetForecastIndicator.countText(count))
                     .font(.system(size: 9, weight: .semibold, design: .monospaced)).fixedSize()
             }
-            .foregroundColor(count > 0 ? NotchStyle.accent : Color.white.opacity(0.6))
+            .foregroundColor((count ?? 0) > 0 ? NotchStyle.accent : Color.white.opacity(0.6))
             .frame(width: 38, height: layout.visualBarHeight)
             .contentShape(Rectangle())
         }

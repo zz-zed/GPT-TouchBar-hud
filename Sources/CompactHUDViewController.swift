@@ -18,7 +18,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     var onOpenTouchBarMessages: (() -> Void)? {
         didSet { touchBarView.onOpenMessages = onOpenTouchBarMessages ?? onOpenMessages }
     }
-    private var messageForecastCount = 0
+    private var messageForecastCount: Int?
     private var messagesAvailable = false
     var messageAnchorView: NSView { hudView.messageAnchorView }
 
@@ -104,7 +104,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     func updateAppearance(_ appearance: HUDAppearance) {
         hudView.updateAppearance(appearance)
     }
-    func updateMessages(forecastCount: Int, available: Bool) {
+    func updateMessages(forecastCount: Int?, available: Bool) {
         messageForecastCount = forecastCount
         messagesAvailable = available
         if hudView.window?.isVisible != false {
@@ -139,7 +139,7 @@ final class CompactQuotaHUDView: NSView {
     private let messagesButton = CompactHUDActionButton(title: "", target: nil, action: nil)
     var messageAnchorView: NSView { messagesButton }
     var onOpenMessages: (() -> Void)?
-    private var forecastCount = 0
+    private var forecastCount: Int?
     private var metricCount = 2
     private let secondItem = CompactQuotaItemView()
     private let refreshButton = CompactIconButton(
@@ -373,8 +373,8 @@ final class CompactQuotaHUDView: NSView {
         taskLabel.textColor = surface == .classic ? (renderedContent?.appearance.color ?? .lightGray) : .labelColor
     }
 
-    func updateMessages(forecastCount: Int, available: Bool) {
-        let count = max(0, forecastCount)
+    func updateMessages(forecastCount: Int?, available: Bool) {
+        let count = forecastCount.map { max(0, $0) }
         guard self.forecastCount != count || messagesButton.isHidden != !available ||
                 forecastLanguage != DisplayLanguage.current else { return }
         self.forecastCount = count
@@ -388,7 +388,7 @@ final class CompactQuotaHUDView: NSView {
         let count = ResetForecastIndicator.countText(forecastCount)
         messagesButton.title = DisplayLanguage.text("重置预告 \(count)", "Reset forecasts \(count)")
         messagesButton.contentTintColor = surface == .classic
-            ? (forecastCount > 0 ? DesignTokens.accent : NSColor.white.withAlphaComponent(0.84))
+            ? ((forecastCount ?? 0) > 0 ? DesignTokens.accent : NSColor.white.withAlphaComponent(0.84))
             : .labelColor
         let accessibilityLabel = ResetForecastIndicator.accessibilityLabel(forecastCount)
         messagesButton.toolTip = accessibilityLabel

@@ -97,6 +97,7 @@ struct ResetNewsEndpointResult: Equatable {
     let items: [ResetNewsSourceItem]
     var metadata: ResetNewsHTTPMetadata
     let error: ResetNewsFetchError?
+    var forecast: ResetForecastSnapshot? = nil
 
     var succeeded: Bool { error == nil }
 }
@@ -131,7 +132,8 @@ final class ResetNewsFeedClient: ResetNewsFetching {
         var tasks: [ResetNewsCancellable] = []
         var results: [ResetNewsEndpointResult] = []
         var cancelled = false
-        for source in [ResetNewsSource.feed, .timeline] {
+        let sources: [ResetNewsSource] = [.feed, .timeline, .forecast]
+        for source in sources {
             // These fixed URLs contain no credentials or user-specific data.
             let url = URL(string: "https://codex-reset.com/api/\(source.rawValue)?locale=zh")!
             var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
@@ -142,7 +144,7 @@ final class ResetNewsFeedClient: ResetNewsFetching {
                 DispatchQueue.main.async {
                     guard !cancelled, let self else { return }
                     results.append(self.decode(data: data, response: response, error: error, source: source))
-                    if results.count == 2 {
+                    if results.count == sources.count {
                         completion(ResetNewsFetchResult(endpoints: results.sorted { $0.source.rawValue < $1.source.rawValue }))
                     }
                 }
@@ -163,6 +165,10 @@ final class ResetNewsFeedClient: ResetNewsFetching {
         guard (200..<300).contains(http.statusCode) else { return failure(.http(http.statusCode)) }
         guard let data else { return failure(.json("空响应")) }
         do {
+            if source == .forecast {
+                let snapshot = try ResetForecastSnapshotDecoder().decode(data)
+                return .init(source: source, items: [], metadata: metadata, error: nil, forecast: snapshot)
+            }
             let batch = try ResetNewsSourceDecoder().decodeBatch(data, source: source)
             guard batch.identityValidated, batch.rejectedIdentityCount == 0 || !batch.items.isEmpty else {
                 return failure(.identity("来源或 \(batch.rejectedIdentityCount) 条消息身份不匹配"))
@@ -170,6 +176,8 @@ final class ResetNewsFeedClient: ResetNewsFetching {
             metadata.stale = batch.stale
             metadata.rejectedIdentityCount = batch.rejectedIdentityCount
             return .init(source: source, items: batch.items, metadata: metadata, error: nil)
+        } catch ResetForecastDecodingError.invalidIdentity {
+            return failure(.identity("当前预告的官方消息身份不匹配"))
         } catch let error as ResetNewsDecodingError {
             return failure(.json(String(describing: error)))
         } catch {

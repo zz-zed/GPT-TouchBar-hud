@@ -10,6 +10,7 @@ final class TouchBarRateLimitsView: NSView {
         let usageText: [String]
         let balance: String?
         let forecasts: Int?
+        let forecastVisible: Bool
         let language: DisplayLanguage
     }
     private var renderedLayout: LayoutContent?
@@ -20,7 +21,7 @@ final class TouchBarRateLimitsView: NSView {
     private let messagesButton = NSButton(title: "", target: nil, action: nil)
     var onOpenMessages: (() -> Void)?
     private var currentState = RateLimitDisplayState.initial
-    private var messageForecastCount = 0
+    private var messageForecastCount: Int?
     private var hasRunningTasks = false
     private var itemVisibility: Bool?
     private var itemVisibilityObservation: NSKeyValueObservation?
@@ -140,6 +141,7 @@ final class TouchBarRateLimitsView: NSView {
                                              state.tokenUsage?.cumulativeText ?? DisplayLanguage.text("累计 --", "Total --")],
                                  balance: state.creditBalance?.displayText,
                                  forecasts: messagesButton.isHidden ? nil : messageForecastCount,
+                                 forecastVisible: !messagesButton.isHidden,
                                  language: DisplayLanguage.current)
         // Metadata can change without affecting text widths or bar geometry.
         let statusText = state.statusText
@@ -231,12 +233,12 @@ final class TouchBarRateLimitsView: NSView {
         toolTip = state.statusText
     }
 
-    func updateMessages(forecastCount: Int, available: Bool) {
-        let count = max(0, forecastCount)
+    func updateMessages(forecastCount: Int?, available: Bool) {
+        let count = forecastCount.map { max(0, $0) }
         guard messageForecastCount != count || messagesButton.isHidden != !available else { return }
         messageForecastCount = count
         messagesButton.isHidden = !available
-        messagesButton.contentTintColor = messageForecastCount > 0
+        messagesButton.contentTintColor = (messageForecastCount ?? 0) > 0
             ? DesignTokens.accent
             : NSColor.white.withAlphaComponent(0.84)
         let accessibilityLabel = ResetForecastIndicator.accessibilityLabel(forecastCount)

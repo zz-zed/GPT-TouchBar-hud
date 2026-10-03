@@ -16,7 +16,7 @@ final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
     private var hasPresented = false
     private var currentState = RateLimitDisplayState.initial
     private var limitsView: TouchBarRateLimitsView?
-    private var messageForecastCount = 0
+    private var messageForecastCount: Int?
     private var messagesAvailable = false
     var onOpenMessages: (() -> Void)? { didSet { limitsView?.onOpenMessages = onOpenMessages } }
     private lazy var quotaBar: NSTouchBar = {
@@ -99,7 +99,7 @@ final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
         currentState = state
         limitsView?.update(with: state)
     }
-    func updateMessages(forecastCount: Int, available: Bool) {
+    func updateMessages(forecastCount: Int?, available: Bool) {
         messageForecastCount = forecastCount
         messagesAvailable = available
         limitsView?.updateMessages(forecastCount: forecastCount, available: available)
