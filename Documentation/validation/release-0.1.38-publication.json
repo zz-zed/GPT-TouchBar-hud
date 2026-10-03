@@ -1,0 +1,80 @@
+{
+  "tag": "v0.1.38",
+  "version": "0.1.38",
+  "build": "41",
+  "sourceCommit": "382f49390ec2cb7b50beceea44307530a862806d",
+  "releaseURL": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.38",
+  "publishedAt": "2026-10-03T07:41:02Z",
+  "verifiedAtUTC": "2026-10-03T07:41:30.582520+00:00",
+  "latestVerified": true,
+  "releaseNotesMatch": true,
+  "mainCI": {
+    "id": 37106479250,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/37106479250",
+    "conclusion": "success"
+  },
+  "assets": [
+    {
+      "name": "build-manifest.json",
+      "bytes": 4010,
+      "sha256": "1e3597a0a6038a6a4dd9fd3651e2d143094929b03c95c27fc4b703ed6cda6b5b"
+    },
+    {
+      "name": "GPT-TouchBar-HUD-0.1.38-arm64.dmg",
+      "bytes": 3967924,
+      "sha256": "817ce29833e03d63fabd036716e22c75c9b783c0362c80aae96fa2b3a6402153"
+    },
+    {
+      "name": "GPT-TouchBar-HUD-0.1.38-x86_64.dmg",
+      "bytes": 4113871,
+      "sha256": "e61fca0792e56edc0cfcb847ea043efab0fb1ea9741cc9a65ed83efa626692b2"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 201,
+      "sha256": "8262506665db5738c42411772cf0094bc1fb1bf7db7b2c760ef96388f4b17a2e"
+    }
+  ],
+  "dmgChecks": [
+    {
+      "architecture": "arm64",
+      "cdhash": "eeaf155efa1feb191ef460a136a37774c411e9e2",
+      "readOnlyMount": true,
+      "minimumSystem": "11.0"
+    },
+    {
+      "architecture": "x86_64",
+      "cdhash": "ccad5ae87fa7f8062cd5f67dc8dfaa1a1fc6489b",
+      "readOnlyMount": true,
+      "minimumSystem": "11.0"
+    }
+  ],
+  "installedAppModifiedDuringVerification": false,
+  "tagCI": {
+    "id": 37107122918,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/37107122918",
+    "sourceCommit": "382f49390ec2cb7b50beceea44307530a862806d",
+    "conclusion": "success"
+  },
+  "publicEvidenceLocalDirectory": "build/release-evidence/public-v0.1.38-VPXzkl",
+  "worktreeCleanup": {
+    "branch": "codex/liquid-glass",
+    "sourceTip": "2845167bad6c6c0c8fd0adc526a7fe58de660e92",
+    "mergedIntoMain": true,
+    "preservedFileCount": 170,
+    "preservedBytes": 84917118,
+    "localBackupDirectory": "backups/worktree-cleanup-20261003-152745-liquid-glass",
+    "localBackupInventory": "backups/worktree-cleanup-20261003-152745-liquid-glass/inventory.json",
+    "allPreservedHashesRecheckedBeforeRemoval": true,
+    "containerMetadataPreserved": true,
+    "runtimeReferenceCountBeforeRemoval": 0,
+    "worktreeRemoved": true,
+    "containerRemoved": true,
+    "localBranchPreserved": true,
+    "removedAtShanghai": "2026-10-03T15:43:13.731525+08:00",
+    "remainingWorktreeCount": 1,
+    "excludedRebuildableCacheFiles": 767,
+    "excludedRebuildableCacheBytes": 754085852,
+    "netDirectoryAllocationReducedKiB": 753236
+  }
+}
