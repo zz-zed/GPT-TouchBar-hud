@@ -33,7 +33,7 @@ struct ResolverTests {
         let live = another.resolve(task: TaskIdentity(session: "s1"), now: f.now.addingTimeInterval(1), liveSince: f.now.addingTimeInterval(-0.1))
         #expect(live.evidence.first?.live == true)
     }
-    @Test func startBeforeHookReceiptRemainsUnknownUntilFreshEvidence() throws {
+    @Test func startBeforeHookReceiptRemainsUnknownUntilExplicitStart() throws {
         let f = try Fixture(); let file = try f.log()
         try f.append("task_started", to: file, date: f.now.addingTimeInterval(-0.01))
         let resolver = TaskEvidenceResolver(home: f.home)
@@ -45,6 +45,12 @@ struct ResolverTests {
         try f.append("item_completed", to: file, date: f.now.addingTimeInterval(1))
         let fresh = resolver.resolve(task: TaskIdentity(session: "s1"), now: f.now.addingTimeInterval(1.1), liveSince: f.now)
         #expect(fresh.evidence.first?.live == true)
+        for e in fresh.evidence { r.apply(e, now: f.now.addingTimeInterval(1.1)) }
+        #expect(r.snapshot(now: f.now.addingTimeInterval(1.1)).confirmedRunningCount == 0)
+        try f.append("task_started", turn: "t2", to: file, date: f.now.addingTimeInterval(2))
+        let next = resolver.resolve(task: TaskIdentity(session: "s1"), now: f.now.addingTimeInterval(2.1), liveSince: nil)
+        for e in next.evidence { r.apply(e, now: f.now.addingTimeInterval(2.1)) }
+        #expect(r.snapshot(now: f.now.addingTimeInterval(2.1)).confirmedRunningCount == 1)
     }
     @Test func rotationAndTruncationExposeGap() throws {
         let f = try Fixture(); let file = try f.log(records: [("task_started", "t1")])
