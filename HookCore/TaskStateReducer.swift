@@ -38,7 +38,7 @@ public struct TaskStateReducer: Sendable {
         let task = TaskIdentity(source: event.source, session: event.session)
         guard !excludedTasks.contains(task) else { return }
         guard let turn = event.turn else {
-            for key in records.keys.filter({ $0.task == task }) where !isTerminal(records[key]!.phase) {
+            for key in records.keys.filter({ $0.task == task }) where !isTerminal(records[key]!.phase) && records[key]!.terminalAt == nil {
                 records[key]?.phase = .unknown; records[key]?.countedWhileStopping = false
             }
             return
@@ -57,7 +57,9 @@ public struct TaskStateReducer: Sendable {
             }
         case .interrupt:
             // A callback lacks a host sequence. Do not override newer evidence with a late hint.
-            record.phase = .unknown; record.countedWhileStopping = false
+            if !isTerminal(record.phase), record.terminalAt == nil {
+                record.phase = .unknown; record.countedWhileStopping = false
+            }
         case .sessionEnd: break
         }
         records[key] = record
@@ -72,16 +74,6 @@ public struct TaskStateReducer: Sendable {
 
     public mutating func apply(_ evidence: TaskEvidence, now: Date) {
         guard !excludedTasks.contains(evidence.identity.task) else { return }
-        if evidence.kind == .started {
-            // A Hook must have happened by its receipt time. A different turn's explicitly
-            // logged start AFTER that receipt proves the unlogged hint belongs to an older
-            // round in this serialized session. Arrival order/opaque IDs alone never suffice.
-            for key in Array(records.keys) where key.task == evidence.identity.task && key != evidence.identity {
-                if let old = records[key], old.firstPosition == nil, !isTerminal(old.phase), evidence.date > old.receivedAt {
-                    records[key]?.supersededBy = evidence.identity.turn
-                }
-            }
-        }
         var record = records[evidence.identity] ?? TurnRecord(identity: evidence.identity, phase: .unknown, receivedAt: now)
         if let previous = record.lastPosition, evidence.position < previous { return }
         if let previous = record.lastPosition, evidence.position == previous {
@@ -92,9 +84,23 @@ public struct TaskStateReducer: Sendable {
             }
             return
         }
+        guard let nextPhase = TaskLifecyclePolicy.nextPhase(
+            for: evidence.kind, current: record.phase, date: evidence.date, previousDate: record.evidenceAt,
+            live: evidence.live, terminalPending: record.terminalAt != nil,
+            countedWhileStopping: record.countedWhileStopping, settled: evidence.settled
+        ) else { return }
+        if evidence.kind == .started {
+            // Only an explicit start orders a new execution, including a continued turn ID.
+            record.firstPosition = evidence.position
+            for key in Array(records.keys) where key.task == evidence.identity.task && key != evidence.identity {
+                if let old = records[key], old.firstPosition == nil, !isTerminal(old.phase), evidence.date > old.receivedAt {
+                    records[key]?.supersededBy = evidence.identity.turn
+                }
+            }
+        }
         if record.firstPosition == nil {
             let hasOrderedOther = records.values.contains { $0.identity.task == evidence.identity.task && $0.identity != evidence.identity && $0.firstPosition != nil }
-            if evidence.kind == .started || evidence.kind == .execution || !hasOrderedOther {
+            if evidence.kind == .started || !hasOrderedOther {
                 record.firstPosition = evidence.position
             } else {
                 // A terminal-only turn can be a late old turn or a missed newer turn. Its byte
@@ -107,15 +113,15 @@ public struct TaskStateReducer: Sendable {
         switch evidence.kind {
         case .started, .execution:
             record.supersededBy = nil
-            record.phase = evidence.live ? .active : .unknown
+            record.phase = nextPhase
             record.terminalAt = nil; record.countedWhileStopping = false
         case .complete:
             let wasActive = record.phase == .active || record.countedWhileStopping
-            record.phase = evidence.settled ? .completed : .stopping
+            record.phase = nextPhase
             record.terminalAt = evidence.date; record.receivedAt = now
             record.countedWhileStopping = !evidence.settled && wasActive
         case .aborted:
-            record.phase = .interrupted; record.terminalAt = evidence.date; record.countedWhileStopping = false
+            record.phase = nextPhase; record.terminalAt = evidence.date; record.countedWhileStopping = false
         }
         records[evidence.identity] = record
         enforceCapacity(now: now)
@@ -135,7 +141,7 @@ public struct TaskStateReducer: Sendable {
             if [.stopping, .submitted].contains(record.phase), now.timeIntervalSince(record.receivedAt) > HookBudget.verificationSeconds {
                 record.phase = .unknown; record.countedWhileStopping = false
             }
-            if record.phase == .active, let date = record.evidenceAt, now.timeIntervalSince(date) > HookBudget.staleSeconds {
+            if record.phase == .active, let date = record.evidenceAt, now.timeIntervalSince(date) >= HookBudget.staleSeconds {
                 record.phase = .unknown; gap(.staleEvidence, now: now)
             }
             records[key] = record
