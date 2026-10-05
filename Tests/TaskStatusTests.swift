@@ -24,7 +24,8 @@ enum TaskStatusTests {
         check(cursor.summary(now: now).unknownCount == 1, "Missing evidence is unknown")
         var inferred = TaskLogCursor()
         inferred.consume(event("item_completed"))
-        check(inferred.summary(now: now).runningCount == 1, "Recent work event infers running when start fell outside tail")
+        check(inferred.summary(now: now).runningCount == 0 && inferred.summary(now: now).unknownCount == 1,
+              "Tool-only tail stays unknown when its start fell outside the read budget")
         inferred.consume(event("task_complete", "2026-09-16T10:00:05Z"))
         check(inferred.summary(now: now).recentlyCompletedCount == 1, "Completion ends inferred running state")
         var settingsOnly = TaskLogCursor()
@@ -75,7 +76,7 @@ enum TaskStatusTests {
         try start.write(to: file)
         var reader = TaskLogCursor()
         try reader.read(file)
-        check(reader.phase == "running", "Initial tail read")
+        check(reader.phase == nil && reader.turnID == "turn-a", "Initial history records identity without replaying running")
         check(reader.monitoredSummary(now: Date().addingTimeInterval(600)).unknownCount == 1,
               "Initially fresh unfinished task remains unknown after timeout")
         let oldOffset = reader.offset
@@ -94,7 +95,7 @@ enum TaskStatusTests {
         large.append(10); large.append(start)
         try large.write(to: file, options: .atomic)
         try reader.read(file)
-        check(reader.phase == "running", "Bounded tail discards partial first line")
+        check(reader.phase == nil && reader.turnID == "turn-a", "Rotated bounded tail is a historical baseline")
         check(reader.pending.count <= TaskLogCursor.readLimit, "Tail memory remains bounded")
         check(TaskStatusSummary(runningCount: 12).badge == "9+", "Badge width bounded")
         check(NotchTaskPresentation(TaskStatusSummary(runningCount: 12)).badge == "12",
@@ -108,7 +109,15 @@ enum TaskStatusTests {
         terminal.consume(event("token_count", "2026-09-16T10:01:03.000Z", id: "terminal"))
         check(terminal.phase == "complete", "Terminal state ignores trailing token_count for the same turn")
         terminal.consume(event("item_completed", "2026-09-16T10:01:04.000Z", id: "new-turn"))
-        check(terminal.phase == "running" && terminal.turnID == "new-turn", "Explicit work evidence for a different turn reactivates monitoring")
+        check(terminal.phase == "complete" && terminal.turnID == "terminal", "Different-turn tool result cannot reopen a terminal")
+        terminal.consume(event("task_started", "2026-09-16T10:01:05.000Z", id: "new-turn"))
+        terminal.consume(event("item_completed", "2026-09-16T10:01:06.000Z", id: "terminal"))
+        check(terminal.phase == "running" && terminal.turnID == "new-turn", "Old tools cannot take over a newer running turn")
+        terminal.consume(event("task_complete", "2026-09-16T10:01:07.000Z", id: "terminal"))
+        check(terminal.phase == "running", "Late old terminal cannot end the newer turn")
+        terminal.consume(event("task_complete", "2026-09-16T10:01:08.000Z", id: "new-turn"))
+        terminal.consume(event("item_completed", "2026-09-16T10:01:09.000Z", id: "terminal"))
+        check(terminal.phase == "complete" && terminal.turnID == "new-turn", "Late old server exit leaves the latest turn completed")
 
         var stale = TaskLogCursor()
         stale.consume(event("task_started", "2026-09-16T10:00:00.000Z", id: "stale"))
@@ -122,7 +131,21 @@ enum TaskStatusTests {
               "Settings-only events cannot revive stale execution")
         stale.consume(event("token_count", "2026-09-16T10:30:13.000Z", id: "stale"))
         let revivedAt = ISO8601DateFormatter().date(from: "2026-09-16T10:30:14Z")!
-        check(stale.summary(now: revivedAt).runningCount == 1, "Fresh execution evidence revives a stale task")
+        check(stale.summary(now: revivedAt).runningCount == 0, "Tool/token evidence cannot revive a stale task")
+        stale.consume(event("task_started", "2026-09-16T10:30:14.000Z", id: "stale"))
+        check(stale.summary(now: revivedAt).runningCount == 1, "An explicit continuation can restart the same turn")
+
+        var refreshed = TaskLogCursor()
+        refreshed.consume(start)
+        refreshed.consume(event("item_completed", "2026-09-16T10:20:00.000Z"))
+        check(refreshed.summary(now: revivedAt).runningCount == 1, "Matching tools maintain a confirmed active turn")
+        var recoveredCursor = TaskLogCursor()
+        recoveredCursor.consume(start, allowsRunning: false)
+        recoveredCursor.consume(event("item_completed", "2026-09-16T10:00:05.000Z"))
+        check(recoveredCursor.summary(now: now).runningCount == 0, "Weak append cannot turn recovered history into live activity")
+        var discoveredCursor = TaskLogCursor()
+        discoveredCursor.consume(start, allowsRunning: false, liveSince: now.addingTimeInterval(-11))
+        check(discoveredCursor.summary(now: now).runningCount == 1, "Newly discovered start after the monitoring epoch can run")
 
         let baselineFile = directory.appendingPathComponent("baseline-complete.jsonl")
         var baselineBytes = event("task_started", "2026-09-16T10:00:00.000Z", id: "old")
@@ -290,7 +313,9 @@ enum TaskStatusTests {
         try event("task_started", stamp).write(to: rollout)
         var db: OpaquePointer?
         check(sqlite3_open(directory.appendingPathComponent("state_5.sqlite").path, &db) == SQLITE_OK, "Fixture database opens")
-        check(sqlite3_exec(db, "CREATE TABLE threads (rollout_path TEXT, archived INTEGER, updated_at INTEGER); INSERT INTO threads VALUES ('\(rollout.path)', 0, 1);", nil, nil, nil) == SQLITE_OK, "Fixture index created")
+        let childRollout = sessions.appendingPathComponent("child.jsonl")
+        try event("task_started", stamp).write(to: childRollout)
+        check(sqlite3_exec(db, "CREATE TABLE threads (rollout_path TEXT, archived INTEGER, updated_at INTEGER, source TEXT); INSERT INTO threads VALUES ('\(rollout.path)', 0, 1, 'vscode'); INSERT INTO threads VALUES ('\(childRollout.path)', 0, 2, '{\"subagent\":{}}');", nil, nil, nil) == SQLITE_OK, "Fixture index created")
         sqlite3_close(db)
         let monitor = TaskStatusMonitor(home: directory)
         var updates: [TaskStatusSummary] = []
@@ -300,7 +325,17 @@ enum TaskStatusTests {
         while updates.isEmpty && Date() < deadline {
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         }
-        check(updates.last?.runningCount == 1, "Read-only discovery and initial publication")
+        check(updates.last?.runningCount == 0 && updates.last?.unknownCount == 1, "Historical root starts are unknown and child sessions are excluded")
+        let liveHandle = try FileHandle(forWritingTo: rollout)
+        try liveHandle.seekToEnd()
+        let liveFormatter = ISO8601DateFormatter(); liveFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        try liveHandle.write(contentsOf: event("task_started", liveFormatter.string(from: Date()), id: "live-root"))
+        try liveHandle.close()
+        let liveDeadline = Date(timeIntervalSinceNow: 4)
+        while updates.last?.runningCount != 1 && Date() < liveDeadline {
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        }
+        check(updates.last?.runningCount == 1, "Live root start is counted once with a child in the index")
         monitor.stop()
         let count = updates.count
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))

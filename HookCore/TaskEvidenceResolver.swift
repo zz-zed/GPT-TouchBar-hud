@@ -164,9 +164,7 @@ public final class TaskEvidenceResolver {
                     }
                     guard object["type"] as? String == "event_msg", let payload = object["payload"] as? [String: Any],
                           let type = payload["type"] as? String else { continue }
-                    let kinds: [String: EvidenceKind] = ["task_started": .started, "task_complete": .complete, "turn_aborted": .aborted,
-                                                         "item_completed": .execution, "token_count": .execution]
-                    guard let kind = kinds[type] else { continue }
+                    guard let kind = TaskLifecyclePolicy.kind(for: type) else { continue }
                     guard let turn = payload["turn_id"] as? String, HookEvent.validID(turn),
                           let timestamp = object["timestamp"] as? String, let date = date(timestamp), date <= now.addingTimeInterval(5) else {
                         report.gaps.insert(.orderingConflict); continue
@@ -175,7 +173,12 @@ public final class TaskEvidenceResolver {
                     let live = (!reset && hadCursor) || liveSince.map { date >= $0 && date <= now.addingTimeInterval(5) } == true
                     let evidence = TaskEvidence(identity: TurnIdentity(task: row.task, turn: turn), kind: kind,
                                                 position: absolute, date: date, live: live)
-                    report.evidence.append(evidence); current.latest[turn] = evidence
+                    report.evidence.append(evidence)
+                    // Keep a logged terminal available for stable EOF confirmation even
+                    // when trailing tool/token records for that turn arrive afterwards.
+                    if kind != .execution || current.latest[turn]?.kind == .started || current.latest[turn]?.kind == .execution {
+                        current.latest[turn] = evidence
+                    }
                     if report.evidence.count > HookBudget.turns {
                         report.evidence.removeFirst(); report.gaps.insert(.capacity)
                     }
