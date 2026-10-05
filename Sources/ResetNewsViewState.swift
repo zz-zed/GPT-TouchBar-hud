@@ -43,8 +43,23 @@ struct ResetNewsViewState: Equatable {
     }
     var unreadCount: Int { items.filter { !readIDs.contains($0.id) }.count }
     var latestUnread: ResetNewsItem? { items.first { !readIDs.contains($0.id) } }
-    var statusText: String { detail.map { status.label + " · " + $0 } ?? status.label }
+    var statusText: String { detail.map { status.label + " · " + ResetNewsDisplayText.hidingAddresses(in: $0) } ?? status.label }
     var canOpenDetails: Bool { enabled && !items.isEmpty }
+}
+
+/// Redact only at the presentation boundary so cached source evidence stays intact.
+enum ResetNewsDisplayText {
+    private static let links = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+
+    static func hidingAddresses(in text: String) -> String {
+        guard let links else { return "" }
+        let result = NSMutableString(string: text)
+        let range = NSRange(location: 0, length: result.length)
+        for match in links.matches(in: text, range: range).reversed() {
+            result.replaceCharacters(in: match.range, with: "[地址已隐藏]")
+        }
+        return result as String
+    }
 }
 
 enum ResetNewsSchedule {

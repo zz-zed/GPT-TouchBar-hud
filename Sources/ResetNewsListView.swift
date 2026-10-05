@@ -27,10 +27,6 @@ struct ResetNewsListView: View {
             Text(DisplayLanguage.text("仅显示当前重置预告；本账号数据以额度区域为准", "Current reset forecasts only; see quota for your account data"))
                 .font(.system(size: 10)).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if let sourceURL = URL(string: "https://codex-reset.com") {
-                Link(DisplayLanguage.text("数据：codex-reset.com", "Data: codex-reset.com"), destination: sourceURL)
-                    .font(.system(size: 10)).accessibilityIdentifier("resetNews.provider")
-            }
             if state.forecastAvailability == .cached {
                 Text(DisplayLanguage.text("缓存预告", "Cached forecast") + (state.forecastCheckedAt.map {
                     DisplayLanguage.text(" · 更新于 ", " · Updated ") + Self.date($0)
@@ -167,18 +163,18 @@ struct ResetNewsCard: View {
                 forecast(fact, date: forecastDates[index], hasDate: forecastHasDate[index])
             }
             if forecastFacts.isEmpty {
-                Text(item.summaryZH).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                Text(ResetNewsDisplayText.hidingAddresses(in: item.summaryZH)).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
             }
             ForEach(Array(item.facts.filter { $0.kind != .upcomingReset }.enumerated()), id: \.offset) { _, fact in
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("范围：\(fact.scope.map(ResetNewsSummary.scopeLabel) ?? "未说明")")
+                    Text("范围：" + ResetNewsDisplayText.hidingAddresses(in: fact.scope.map(ResetNewsSummary.scopeLabel) ?? "未说明"))
                     if fact.kind == .extraResetCredits {
                         Text("次数：\(fact.count.map { "\($0) 次" } ?? "未说明")")
                     }
                     if fact.kind == .upcomingReset || fact.effectiveAt != nil || fact.timingText != nil {
-                        Text("生效时间：" + (fact.effectiveAt.map { Self.date($0) } ?? fact.timingText ?? "未说明"))
+                        Text("生效时间：" + ResetNewsDisplayText.hidingAddresses(in: fact.effectiveAt.map { Self.date($0) } ?? fact.timingText ?? "未说明"))
                     }
-                    Text("有效期：" + (fact.expiresAt.map { Self.date($0) } ?? fact.validityText ?? "未说明"))
+                    Text("有效期：" + ResetNewsDisplayText.hidingAddresses(in: fact.expiresAt.map { Self.date($0) } ?? fact.validityText ?? "未说明"))
                     if fact.confidence == .tentative { Text("公告措辞尚未确定").foregroundColor(.orange) }
                 }.font(.system(size: 10)).foregroundColor(.secondary)
             }
@@ -188,13 +184,9 @@ struct ResetNewsCard: View {
             }
             if !item.originalText.isEmpty {
                 DisclosureGroup(DisplayLanguage.text("查看原文", "View original")) {
-                    Text(item.originalText).font(.system(size: 10)).foregroundColor(.secondary)
+                    Text(ResetNewsDisplayText.hidingAddresses(in: item.originalText)).font(.system(size: 10)).foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }.font(.system(size: 10))
-            }
-            if let url = item.sourceURL {
-                Link(DisplayLanguage.text("来源原帖", "Source post"), destination: url)
-                    .font(.system(size: 10)).accessibilityIdentifier("resetNews.source.\(item.id)")
             }
         }
         .padding(10).frame(maxWidth: .infinity, alignment: .leading)
@@ -222,11 +214,11 @@ struct ResetNewsCard: View {
                 Text("公告措辞尚未确定").font(.system(size: 10)).foregroundColor(.orange)
             }
             if let scope = fact.scope, !scope.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text("适用范围：" + ResetNewsSummary.scopeLabel(scope)).font(.system(size: 10)).foregroundColor(.secondary)
+                Text("适用范围：" + ResetNewsDisplayText.hidingAddresses(in: ResetNewsSummary.scopeLabel(scope))).font(.system(size: 10)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let validity = fact.expiresAt.map({ Self.date($0) }) ?? fact.validityText, !validity.isEmpty {
-                Text("有效期：" + validity).font(.system(size: 10)).foregroundColor(.secondary)
+                Text("有效期：" + ResetNewsDisplayText.hidingAddresses(in: validity)).font(.system(size: 10)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

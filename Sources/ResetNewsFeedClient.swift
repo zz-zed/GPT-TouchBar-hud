@@ -39,11 +39,11 @@ enum ResetNewsFetchError: Error, Equatable {
 
     var description: String {
         switch self {
-        case let .network(message): return "网络错误：\(message)"
+        case .network: return "网络连接失败，请稍后重试"
         case .response: return "响应来源或格式无效"
         case let .http(status): return "HTTP \(status)"
-        case let .json(message): return "消息格式错误：\(message)"
-        case let .identity(message): return "来源身份校验失败：\(message)"
+        case .json: return "预告内容格式错误"
+        case .identity: return "来源身份校验失败"
         }
     }
 }

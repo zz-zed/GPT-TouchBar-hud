@@ -161,6 +161,7 @@ private final class RuntimeHarness {
     }
 
     static func main() throws {
+        try detailsHideAddresses()
         try defaultEnabledAndSavedPreferences()
         try gatesAndCancellation()
         try baselineReadAndDeduplication()
@@ -187,6 +188,28 @@ private final class RuntimeHarness {
         try staleContextCannotSuppressFreshAuthority()
         try conflictingSameVersionCannotUndoAuthority()
         print("PASS: \(checks) reset news runtime checks; network and notification delivery were injected")
+    }
+
+    static func detailsHideAddresses() throws {
+        let original = "🔔 Codex 周二重置；详情 https://codex-reset.com/api/forecast?locale=zh 或 codex-reset.com，原帖 https://x.com/thsottiaux/status/100"
+        let displayed = ResetNewsDisplayText.hidingAddresses(in: original)
+        expect(!displayed.contains("codex-reset.com") && !displayed.contains("x.com") && !displayed.contains("/api/"),
+               "Original-post display hides full URLs and bare website addresses")
+        expect(displayed.contains("🔔 Codex 周二重置") && displayed.components(separatedBy: "[地址已隐藏]").count == 4,
+               "Address redaction preserves Unicode and the forecast wording")
+        expect(ResetNewsDisplayText.hidingAddresses(in: "预计 10月6日（周二）15:30 重置，适用 Pro / Plus")
+               == "预计 10月6日（周二）15:30 重置，适用 Pro / Plus", "Ordinary forecast content is unchanged")
+        let state = ResetNewsViewState(status: .failure, detail: original)
+        expect(!state.statusText.contains("codex-reset.com") && state.detail == original,
+               "Status labels and their help text hide addresses without changing source data")
+        for error in [ResetNewsFetchError.network(original), .json(original), .identity(original)] {
+            expect(!error.description.contains("codex-reset.com"), "Raw errors cannot leak source addresses")
+        }
+        let h = try RuntimeHarness()
+        h.activate()
+        h.client.complete(h.result([], forecastError: .network(original)))
+        expect(!h.monitor.state.statusText.contains("forecast") && !h.monitor.state.statusText.contains("codex-reset.com"),
+               "Monitor errors show neither endpoint names nor addresses")
     }
 
     static func passedClockDoesNotNotifyOnDiscoveryOrRecovery() throws {
