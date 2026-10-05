@@ -306,7 +306,7 @@ final class ResetNewsMonitor {
         } else {
             state.status = .success
         }
-        let errors = result.failures.compactMap { endpoint in endpoint.error.map { "\(endpoint.source.rawValue)：\($0.description)" } }
+        let errors = result.failures.compactMap { $0.error?.description }
         var details = errors
         if let forecastIssue { details.append(forecastIssue) }
         if rejected > 0 { details.append("已跳过 \(rejected) 条来源身份不匹配的消息") }
