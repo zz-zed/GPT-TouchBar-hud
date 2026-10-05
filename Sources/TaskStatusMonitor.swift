@@ -1,11 +1,12 @@
 import Foundation
 import SQLite3
 import CryptoKit
+import HookCore
 
 /// Bounded, incremental reader. Never persists or publishes conversation contents.
 struct TaskLogCursor {
     static let readLimit = 256 * 1024
-    static let runningStaleInterval: TimeInterval = 30 * 60
+    static let runningStaleInterval = HookBudget.staleSeconds
     var offset: UInt64 = 0
     var pending = Data()
     var identity: UInt64?
@@ -18,11 +19,12 @@ struct TaskLogCursor {
     var completionFeedbackEligible = false
     private let formatter = ISO8601DateFormatter()
 
-    mutating func read(_ url: URL) throws {
+    mutating func read(_ url: URL, liveSince: Date? = nil) throws {
         let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
         let size = (attrs[.size] as? NSNumber)?.uint64Value ?? 0
         let inode = (attrs[.systemFileNumber] as? NSNumber)?.uint64Value
         let reset = identity != inode || size < offset
+        let firstDiscovery = identity == nil
         let hadBaseline = identity != nil && !reset
         if reset { self = TaskLogCursor(); identity = inode }
         fileModifiedAt = attrs[.modificationDate] as? Date
@@ -41,13 +43,16 @@ struct TaskLogCursor {
         try handle.seek(toOffset: offset)
         let bytes = try handle.read(upToCount: Self.readLimit) ?? Data()
         offset += UInt64(bytes.count)
-        consume(bytes, discardFirstLine: skipped, allowsCompletionFeedback: hadBaseline)
+        consume(bytes, discardFirstLine: skipped, allowsCompletionFeedback: hadBaseline,
+                allowsRunning: hadBaseline && !skipped, liveSince: firstDiscovery ? liveSince : nil)
     }
 
     mutating func consume(
         _ bytes: Data,
         discardFirstLine: Bool = false,
-        allowsCompletionFeedback: Bool = true
+        allowsCompletionFeedback: Bool = true,
+        allowsRunning: Bool = true,
+        liveSince: Date? = nil
     ) {
         pending.append(bytes)
         var discard = discardFirstLine
@@ -67,34 +72,29 @@ struct TaskLogCursor {
                 date = formatter.date(from: timestamp)
             }
             guard let date else { continue }
-            let id = payload["turn_id"] as? String
-            if type == "task_started" {
-                guard activityDate.map({ date >= $0 }) ?? true else { continue }
-                activityDate = date
-                phase = "running"; turnID = id; eventDate = date
-                completionFeedbackEligible = false
-            } else if type == "task_complete" || type == "turn_aborted" {
-                if let turnID, let id, turnID != id { continue }
-                guard activityDate.map({ date >= $0 }) ?? true else { continue }
-                activityDate = date
-                phase = type == "task_complete" ? "complete" : "idle"
-                eventDate = date
-                completionFeedbackEligible = type == "task_complete" && allowsCompletionFeedback
-            } else if type == "item_completed" || type == "token_count" {
-                let startsDifferentTurn: Bool
-                if phase != nil, phase != "running", let id, let turnID {
-                    startsDifferentTurn = id != turnID
-                } else {
-                    startsDifferentTurn = false
-                }
-                guard phase == nil || phase == "running" || startsDifferentTurn else { continue }
-                guard activityDate.map({ date >= $0 }) ?? true else { continue }
-                // Large rollouts can push task_started outside the bounded tail.
-                // Fresh durable work events still prove that this turn was active.
-                activityDate = date
-                phase = "running"; turnID = id ?? turnID; eventDate = date
-                completionFeedbackEligible = false
+            guard let kind = TaskLifecyclePolicy.kind(for: type),
+                  let id = payload["turn_id"] as? String, HookEvent.validID(id) else { continue }
+            if kind == .execution, id != turnID { continue }
+            if kind == .complete || kind == .aborted, let turnID, id != turnID { continue }
+            let current: TaskPhase
+            switch phase {
+            case "running": current = .active
+            case "complete": current = .completed
+            case "idle": current = .interrupted
+            default: current = .unknown
             }
+            let live = allowsRunning || liveSince.map { date >= $0 } == true
+            guard let next = TaskLifecyclePolicy.nextPhase(
+                for: kind, current: current, date: date, previousDate: activityDate, live: live
+            ) else { continue }
+            switch next {
+            case .active: phase = "running"
+            case .completed: phase = "complete"
+            case .interrupted: phase = "idle"
+            default: phase = nil
+            }
+            turnID = id; activityDate = date; eventDate = date
+            completionFeedbackEligible = next == .completed && allowsCompletionFeedback
         }
         // A malformed/huge single record must not grow memory without bound.
         if pending.count > Self.readLimit { pending.removeAll(); phase = nil }
@@ -148,6 +148,7 @@ final class TaskStatusMonitor {
     private var previous: TaskStatusSummary?
     private var discoveryFailed = false
     private var lastSuccessfulCheck: Date?
+    private var liveSince = Date.distantFuture
     // Accessed on main only, suppresses queued callbacks after stop/restart.
     private var generation = 0
 
@@ -161,6 +162,7 @@ final class TaskStatusMonitor {
         let currentGeneration = generation
         queue.async { [weak self] in
             guard let self else { return }
+            self.liveSince = Date()
             let timer = DispatchSource.makeTimerSource(queue: self.queue)
             timer.schedule(deadline: .now(), repeating: 2, leeway: .milliseconds(500))
             timer.setEventHandler { [weak self] in self?.poll(generation: currentGeneration) }
@@ -193,7 +195,7 @@ final class TaskStatusMonitor {
         var values: [TaskStatusSummary] = []
         var readFailureCount = 0
         for path in Array(cursors.keys) {
-            do { try cursors[path]?.read(URL(fileURLWithPath: path)) }
+            do { try cursors[path]?.read(URL(fileURLWithPath: path), liveSince: liveSince) }
             catch {
                 readFailureCount += 1
                 continue
@@ -271,7 +273,7 @@ final class TaskStatusMonitor {
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 50)
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, "SELECT DISTINCT rollout_path FROM threads WHERE archived=0 ORDER BY updated_at DESC LIMIT 32", -1, &statement, nil) == SQLITE_OK else { return nil }
+        guard sqlite3_prepare_v2(db, "SELECT DISTINCT rollout_path FROM threads WHERE archived=0 AND source IN ('cli','exec','vscode') ORDER BY updated_at DESC LIMIT 32", -1, &statement, nil) == SQLITE_OK else { return nil }
         defer { sqlite3_finalize(statement) }
         var paths: [String] = []
         let root = home.resolvingSymlinksInPath().path + "/sessions/"
