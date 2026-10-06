@@ -19,6 +19,7 @@ final class AppUpdateInstallation {
     private var download: AppUpdateDownload?
     private var helper: Process?
     private var commands: Timer?
+    var isPollingCommands: Bool { commands?.isValid == true }
     private var lastCommandID: String?
     private var lastBytePublish: TimeInterval = 0
     private var lastSpeedBytes: Int64 = 0
@@ -34,22 +35,27 @@ final class AppUpdateInstallation {
     func start() throws {
         try channel.write(progress, name: "progress.json")
         try launchHelper()
-        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in self?.pollCommands() }
-        commands = timer; RunLoop.main.add(timer, forMode: .common)
         beginAttempt()
     }
 
+    deinit { commands?.invalidate() }
+
     func showProgress() {
         do {
-            if helper?.isRunning == true { try channel.send(.show, toHelper: true) }
+            try channel.send(.show, toHelper: true)
+            if helper?.isRunning == true {
+                startCommandPolling()
+            }
             else { try launchHelper() }
         } catch { NSLog("Could not open update progress: %@", error.localizedDescription) }
     }
 
     func stop() {
-        commands?.invalidate(); commands = nil
+        stopCommandPolling()
+        request?.cancel(); request = nil
+        download?.cancel(); download = nil
         if !handedOff && progress.isActive {
-            attemptID = UUID(); request?.cancel(); download?.cancel()
+            attemptID = UUID()
             progress.phase = .failed
             progress.message = "更新已中断，原应用尚未替换。"
             publish(phaseChanged: true)
@@ -74,17 +80,34 @@ final class AppUpdateInstallation {
         let log = channel.directory.appendingPathComponent("progress-helper.log")
         if !FileManager.default.fileExists(atPath: log.path) { FileManager.default.createFile(atPath: log.path, contents: nil) }
         let output = try FileHandle(forWritingTo: log)
+        defer { try? output.close() }
         try output.seekToEnd()
         process.standardOutput = output; process.standardError = output
-        process.terminationHandler = { [weak self] _ in
+        process.terminationHandler = { [weak self] exited in
             DispatchQueue.main.async {
-                guard let self, self.progress.isActive, !self.handedOff else { return }
+                guard let self, self.helper === exited else { return }
+                self.helper = nil
+                self.stopCommandPolling()
+                guard self.progress.isActive, !self.handedOff else { return }
                 self.fail("更新进度窗口已退出，原应用尚未替换。请重新打开进度后重试。")
                 self.onPresentationFailure?(self.progress.detail)
             }
         }
-        try process.run(); try? output.close()
+        try process.run()
         helper = process
+        startCommandPolling()
+    }
+
+    private func startCommandPolling() {
+        guard commands == nil, helper?.isRunning == true, !handedOff else { return }
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in self?.pollCommands() }
+        commands = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stopCommandPolling() {
+        commands?.invalidate()
+        commands = nil
     }
 
     private func pollCommands() {
@@ -302,6 +325,7 @@ final class AppUpdateInstallation {
                 version: channel.context.sourceVersion, pid: process.processIdentifier), name: "installer-process.json")
         } catch { process.terminate(); throw error }
         handedOff = true
+        stopCommandPolling()
         onInstall?()
     }
 

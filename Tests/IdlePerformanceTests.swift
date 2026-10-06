@@ -1,4 +1,14 @@
 import AppKit
+import Darwin
+
+private final class RecoveryObserver: RateLimitStoreDelegate {
+    var state = RateLimitDisplayState.initial
+    var updates = 0
+    func rateLimitStore(_ store: RateLimitStore, didUpdate state: RateLimitDisplayState) {
+        self.state = state
+        updates += 1
+    }
+}
 
 @main
 enum IdlePerformanceTests {
@@ -19,6 +29,8 @@ enum IdlePerformanceTests {
         presentationChecks()
         try framingChecks()
         connectionChecks()
+        try connectionRecoveryChecks()
+        try storeRecoveryChecks()
         print("PASS: \(checks) idle performance and connection checks")
     }
 
@@ -146,6 +158,87 @@ enum IdlePerformanceTests {
         client.stop()
     }
 
+    private static func connectionRecoveryChecks() throws {
+        let executable = URL(fileURLWithPath: CommandLine.arguments[0])
+        let failing = CodexAppServerClient(executableURL: executable, clientVersion: "test-fail-handshake")
+        for _ in 0..<2 {
+            var result: Result<Void, Error>?
+            failing.start { result = $0 }
+            wait("failed initialization") { result != nil }
+            if case .failure? = result { checks += 1 }
+            else { preconditionFailure("A process with failed initialization must not report ready on retry") }
+        }
+        failing.stop()
+
+        let merging = CodexAppServerClient(executableURL: executable, clientVersion: "test-delay-handshake")
+        var results: [Result<Void, Error>] = []
+        merging.start { results.append($0) }
+        merging.start { results.append($0) }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.03))
+        check(results.isEmpty, "A concurrent start cannot succeed before the shared handshake")
+        wait("merged initialization") { results.count == 2 }
+        check(results.allSatisfy { if case .success = $0 { return true }; return false },
+              "Concurrent starts receive the initialized connection result")
+        var identity: Result<String?, Error>?
+        merging.readAccountIdentity { identity = $0 }
+        wait("version metadata") { identity != nil }
+        let metadata = try identity!.get()
+        check(metadata?.contains("test-delay-handshake") == true,
+              "Initialization sends the configured build version to the server")
+        merging.stop()
+
+        let exiting = CodexAppServerClient(executableURL: executable, clientVersion: "test-exit")
+        var closed = 0
+        exiting.onConnectionClosed = { _ in closed += 1 }
+        var started = false
+        exiting.start { if case .success = $0 { started = true } }
+        wait("exiting initialization") { started }
+        wait("idle process exit notification") { closed == 1 }
+        exiting.stop()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        check(closed == 1, "Explicit stop does not issue a duplicate disconnect notification")
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("hud-version-test-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        for (index, value, expected) in [(0, "0.1.99", "0.1.99"), (1, "   ", "0.0.0")] {
+            let contents = root.appendingPathComponent("fixture-\(index).bundle/Contents")
+            try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+            let plist = try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": "test.hud.version.\(index)",
+                "CFBundleShortVersionString": value], format: .xml, options: 0)
+            try plist.write(to: contents.appendingPathComponent("Info.plist"))
+            let bundle = Bundle(url: contents.deletingLastPathComponent())!
+            check(CodexAppServerClient.version(in: bundle) == expected, "Version comes from bundle metadata with an explicit fallback")
+        }
+    }
+
+    private static func storeRecoveryChecks() throws {
+        let client = CodexAppServerClient(executableURL: URL(fileURLWithPath: CommandLine.arguments[0]),
+                                          clientVersion: "test-store-recovery")
+        let observer = RecoveryObserver()
+        let store = RateLimitStore(client: client, retryDelays: [0.03])
+        store.delegate = observer
+        defer { store.stop() }
+        store.start()
+        wait("real store startup") { store.verifiedAccountKey != nil }
+        check(observer.state.fiveHour?.remainingPercent == 70 && observer.state.weekly?.remainingPercent == 50,
+              "Store and real client publish a verified two-window fixture")
+        let originalKey = store.verifiedAccountKey
+        var identity: Result<String?, Error>?
+        client.readAccountIdentity { identity = $0 }
+        wait("owned fixture PID") { identity != nil }
+        let metadata = try identity!.get()!
+        let account = try JSONSerialization.jsonObject(with: Data(metadata.utf8)) as! [String: Any]
+        let pid = (account["pid"] as! NSNumber).int32Value
+        check(pid != getpid() && kill(pid, SIGTERM) == 0, "Fault injection terminates only the owned app-server fixture")
+        wait("store reconnect after process exit") { store.verifiedAccountKey != nil && store.verifiedAccountKey != originalKey }
+        check(observer.state.errorMessage == nil && observer.state.fiveHour?.remainingPercent == 70,
+              "Real client process exit automatically restores the Store without restarting HUD")
+        store.stop()
+        let count = observer.updates
+        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+        check(observer.updates == count, "No stale client event or retry publishes after monitoring stops")
+    }
+
     private static func wait(_ phase: String, _ completed: () -> Bool) {
         let deadline = Date().addingTimeInterval(10)
         while !completed() && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
@@ -154,11 +247,38 @@ enum IdlePerformanceTests {
 
     /// Launched only by this test binary; never contacts the installed app-server.
     private static func fixtureServer() throws {
+        var version = ""
         while let line = readLine() {
             let request = try JSONSerialization.jsonObject(with: Data(line.utf8)) as! [String: Any]
             if request["method"] as? String == "initialize" {
+                let params = request["params"] as! [String: Any]
+                version = (params["clientInfo"] as! [String: Any])["version"] as! String
+                if version == "test-fail-handshake" {
+                    let response = try JSONSerialization.data(withJSONObject: ["id": request["id"]!, "error": ["message": "fixture initialization failure"]])
+                    try FileHandle.standardOutput.write(contentsOf: response + Data("\n".utf8))
+                    continue
+                }
+                if version == "test-delay-handshake" { Thread.sleep(forTimeInterval: 0.15) }
                 let response = try JSONSerialization.data(withJSONObject: ["id": request["id"]!, "result": [:]])
-                try FileHandle.standardOutput.write(contentsOf: response + Data("\nold-fragment".utf8))
+                try FileHandle.standardOutput.write(contentsOf: response + Data((version.hasPrefix("test-") ? "\n" : "\nold-fragment").utf8))
+                if version == "test-exit" { Thread.sleep(forTimeInterval: 0.1); return }
+            } else if version == "test-store-recovery" {
+                let method = request["method"] as? String
+                let result: [String: Any]
+                if method == "account/read" {
+                    result = ["account": ["pid": Int(getpid()), "fixture": "test-account"]]
+                } else if method == "account/rateLimits/read" {
+                    result = ["rateLimits": ["limitId": "codex",
+                        "primary": ["usedPercent": 30, "windowDurationMins": 300],
+                        "secondary": ["usedPercent": 50, "windowDurationMins": 10080]]]
+                } else {
+                    result = ["summary": ["lifetimeTokens": 100], "dailyUsageBuckets": []]
+                }
+                let response = try JSONSerialization.data(withJSONObject: ["id": request["id"]!, "result": result])
+                try FileHandle.standardOutput.write(contentsOf: response + Data("\n".utf8))
+            } else if version.hasPrefix("test-") {
+                let response = try JSONSerialization.data(withJSONObject: ["id": request["id"]!, "result": ["account": ["version": version]]])
+                try FileHandle.standardOutput.write(contentsOf: response + Data("\n".utf8))
             } else {
                 try FileHandle.standardOutput.write(contentsOf: Data("\n".utf8))
                 let chunk = Data(repeating: 0x78, count: 64 * 1024)
