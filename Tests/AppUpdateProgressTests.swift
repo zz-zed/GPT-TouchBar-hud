@@ -33,6 +33,7 @@ private final class DownloadObservation {
         try testWindow()
         try testHelperLifetime(in: root.appendingPathComponent("lifetime"))
         try testInstallation(in: root.appendingPathComponent("installation"))
+        try testVerificationFailure(in: root.appendingPathComponent("verification-failure"))
         print("PASS: \(checks) update progress checks (loopback downloads, private helper, native window)")
     }
 
@@ -52,8 +53,10 @@ private final class DownloadObservation {
         }
         value.phase = .failed; value.step = .download
         check(value.canRetry, "Failed download may restart")
-        value.step = .checksum
-        check(!value.canRetry, "Retry cannot silently skip a failed verification")
+        for step in [AppUpdateProgress.Step.checksum, .mounting, .validating, .copying, .waitingForExit] {
+            value.step = step
+            check(!value.canRetry, "Failure at \(step) cannot re-enter download using preparation leftovers")
+        }
         value.step = .download; value.recovery = .backupRetained
         check(!value.canRetry, "A replaced installation is not retried as a download")
         for phase in [AppUpdateProgress.Phase.succeeded, .failed, .canceled, .launchUnconfirmed] {
@@ -303,8 +306,15 @@ private final class DownloadObservation {
         try job.start()
         check(wait { job.progress.phase == .failed }, "First HTTP error is a retryable download failure")
         check(job.progress.canRetry && !job.handedOff, "Download failure has not handed off an installer")
+        check(job.isPollingCommands, "A visible failure result retains the retry command channel")
+        try channel.send(.dismiss, toHelper: true)
+        check(wait { !job.isPollingCommands }, "Helper exit after failure stops command-file polling")
         sawReset = false
         try channel.send(.retry)
+        spin(for: 0.4)
+        check(job.progress.phase == .failed, "A closed result does not keep reading retry commands")
+        job.showProgress()
+        check(job.isPollingCommands, "Reopening a result restores command polling")
         check(wait { job.progress.phase == .downloading && job.progress.bytesReceived > 0 }, "Retry starts a new real byte stream")
         check(sawReset && job.progress.bytesReceived < 1_048_576, "Retry begins at zero rather than reusing old progress")
         try channel.write(AppUpdateProgressChannel.Command(sessionID: UUID().uuidString, requestID: UUID().uuidString, action: .cancel), name: "command.json")
@@ -316,6 +326,41 @@ private final class DownloadObservation {
         check(job.progress.phase == .canceled && !job.handedOff, "A stale task callback cannot overwrite the canceled state")
         check(try String(contentsOf: target.appendingPathComponent("marker"), encoding: .utf8) == "original", "Download retry and cancellation never touch the installed application")
         check(try manager.contentsOfDirectory(atPath: channel.directory.path).allSatisfy { !$0.hasPrefix("archive-") }, "Canceled attempts leave no accepted archive")
+        try channel.send(.dismiss, toHelper: true)
+        check(wait { !job.isPollingCommands }, "Helper exit after cancellation stops command-file polling")
+        job.showProgress()
+        check(job.isPollingCommands && job.progress.phase == .canceled, "Canceled result can be reopened without restarting a download")
+        try channel.send(.dismiss, toHelper: true)
+        check(wait { !job.isPollingCommands }, "Reopened canceled result also releases its poller when closed")
+    }
+
+    static func testVerificationFailure(in directory: URL) throws {
+        let manager = FileManager.default
+        try manager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let target = directory.appendingPathComponent("GPT TouchBar HUD.app")
+        try manager.createDirectory(at: target, withIntermediateDirectories: false)
+        try Data("original".utf8).write(to: target.appendingPathComponent("marker"))
+        let channel = try AppUpdateProgressChannel.create(target: target, sourceVersion: "0.1.37", targetVersion: "v0.1.38")
+        let base = URL(string: ProcessInfo.processInfo.environment["UPDATE_TEST_BASE_URL"]!)!
+        let asset = AppRelease.Asset(name: "GPT-TouchBar-HUD-0.1.38-arm64.dmg", browser_download_url: base.appendingPathComponent("invalid.dmg"), size: 1_048_576)
+        let sums = AppRelease.Asset(name: "SHA256SUMS.txt", browser_download_url: base.appendingPathComponent("checksums"), size: 100)
+        let release = AppRelease(tag_name: "v0.1.38", draft: false, prerelease: false, assets: [asset, sums])
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        let job = AppUpdateInstallation(session: session, release: release, asset: asset, checksum: sums, channel: channel)
+        defer { job.dismiss(); spin(for: 0.5) }
+        job.onInstall = { preconditionFailure("Invalid fixture must never reach application replacement") }
+        try job.start()
+        check(wait { job.progress.phase == .failed }, "A real downloaded archive fails the injected checksum")
+        check(job.progress.step == .checksum && !job.progress.canRetry && !job.handedOff,
+              "Preparation failure cannot retry in the same session or skip verification")
+        try channel.send(.retry); spin(for: 0.4)
+        check(job.progress.phase == .failed && job.progress.step == .checksum,
+              "A retry command cannot reuse artifacts after verification failure")
+        try channel.send(.dismiss, toHelper: true)
+        check(wait { !job.isPollingCommands }, "Verification failure result releases polling when the helper exits")
+        check(try String(contentsOf: target.appendingPathComponent("marker"), encoding: .utf8) == "original",
+              "Failure injection preserves the original application")
     }
 
     static func wait(_ condition: () -> Bool) -> Bool {

@@ -3,6 +3,7 @@ import Foundation
 protocol RateLimitClient: QuotaSnapshotClient, AccountUsageClient {
     var onRateLimitsUpdated: (() -> Void)? { get set }
     var onAccountUpdated: (() -> Void)? { get set }
+    var onConnectionClosed: ((Error) -> Void)? { get set }
     func start(completion: @escaping (Result<Void, Error>) -> Void)
     func stop()
 }
@@ -14,6 +15,7 @@ protocol RateLimitStoreDelegate: AnyObject {
 }
 
 final class RateLimitStore {
+    private enum ConnectionState { case disconnected, connecting, connected, waitingToRetry }
     weak var delegate: RateLimitStoreDelegate?
 
     private let client: RateLimitClient
@@ -22,13 +24,24 @@ final class RateLimitStore {
     private(set) var verifiedAccountKey: String?
     private(set) var currentLimitID = "codex"
     private var timer: Timer?
+    private var retryTimer: Timer?
+    private let retryDelays: [TimeInterval]
+    private var retryCount = 0
+    private var connectionState = ConnectionState.disconnected
+    private var connectionRevision = 0
+    private var connectionEstablishedAt: TimeInterval?
+    private var forceTokenUsageAfterConnection = false
     private var state = RateLimitDisplayState.initial
     private var refreshInFlight = false
     private var isStarted = false
     private var generation = 0
     private var requestGeneration = 0
 
-    init(client: RateLimitClient = CodexAppServerClient()) { self.client = client }
+    init(client: RateLimitClient = CodexAppServerClient(), retryDelays: [TimeInterval] = [1, 2, 5, 15, 30, 60]) {
+        precondition(!retryDelays.isEmpty && retryDelays.allSatisfy { $0 > 0 && $0.isFinite })
+        self.client = client
+        self.retryDelays = retryDelays
+    }
 
     func start() {
         guard !isStarted else {
@@ -40,12 +53,12 @@ final class RateLimitStore {
         let revision = generation
 
         accountUsage.onUpdate = { [weak self] usage in
-            guard let self, self.isStarted else { return }
+            guard let self, self.isStarted, self.generation == revision else { return }
             self.state.tokenUsage = usage
             self.publish()
         }
         client.onAccountUpdated = { [weak self] in
-            guard let self, self.isStarted else { return }
+            guard let self, self.isStarted, self.generation == revision else { return }
             self.requestGeneration += 1
             self.refreshInFlight = false
             self.verifiedAccountKey = nil
@@ -56,26 +69,62 @@ final class RateLimitStore {
         }
 
         client.onRateLimitsUpdated = { [weak self] in
-            self?.refresh()
+            guard let self, self.isStarted, self.generation == revision else { return }
+            self.refresh()
+        }
+
+        refresh(forceTokenUsage: true)
+    }
+
+    private func connect() {
+        guard isStarted, connectionState != .connecting else { return }
+        retryTimer?.invalidate()
+        retryTimer = nil
+        connectionState = .connecting
+        connectionRevision += 1
+        let attempt = connectionRevision
+        let revision = generation
+        state.isRefreshing = true
+        state.errorMessage = nil
+        publish()
+        guard isStarted, generation == revision, connectionRevision == attempt,
+              connectionState == .connecting else { return }
+
+        client.onConnectionClosed = { [weak self] error in
+            guard let self, self.isStarted, self.generation == revision,
+                  self.connectionRevision == attempt, self.connectionState == .connected else { return }
+            self.connectionFailed(error)
         }
 
         client.start { [weak self] result in
-            guard let self, self.isStarted, self.generation == revision else {
+            guard let self, self.isStarted, self.generation == revision,
+                  self.connectionRevision == attempt, self.connectionState == .connecting else {
                 return
             }
 
             switch result {
             case .success:
-                self.refresh()
+                self.connectionState = .connected
+                self.connectionEstablishedAt = ProcessInfo.processInfo.systemUptime
+                let force = self.forceTokenUsageAfterConnection
+                self.forceTokenUsageAfterConnection = false
                 self.startTimer()
+                self.refresh(forceTokenUsage: force)
             case .failure(let error):
-                self.publishError(error.localizedDescription)
+                self.connectionFailed(error)
             }
         }
     }
 
     func stop() {
         isStarted = false
+        connectionState = .disconnected
+        connectionRevision += 1
+        connectionEstablishedAt = nil
+        retryTimer?.invalidate()
+        retryTimer = nil
+        retryCount = 0
+        forceTokenUsageAfterConnection = false
         generation += 1
         requestGeneration += 1
         refreshInFlight = false
@@ -84,11 +133,19 @@ final class RateLimitStore {
         state.tokenUsage = nil
         timer?.invalidate()
         timer = nil
+        client.onConnectionClosed = nil
+        client.onAccountUpdated = nil
+        client.onRateLimitsUpdated = nil
         client.stop()
     }
 
     func refresh(forceTokenUsage: Bool = false) {
         guard isStarted else { return }
+        guard connectionState == .connected else {
+            forceTokenUsageAfterConnection = forceTokenUsageAfterConnection || forceTokenUsage
+            connect()
+            return
+        }
         accountUsage.refresh(force: forceTokenUsage)
         guard !refreshInFlight else {
             return
@@ -122,6 +179,11 @@ final class RateLimitStore {
                 self.verifiedAccountKey = snapshot.accountKey
                 self.apply(snapshot.response)
             case .failure(let error):
+                if let connectionError = error as? CodexAppServerError,
+                   case .processUnavailable = connectionError {
+                    self.connectionFailed(error)
+                    return
+                }
                 if error is QuotaIdentityError {
                     self.verifiedAccountKey = nil
                     self.state = .initial
@@ -134,6 +196,33 @@ final class RateLimitStore {
         }
     }
 
+    private func connectionFailed(_ error: Error) {
+        let revision = generation
+        if let connectedAt = connectionEstablishedAt,
+           ProcessInfo.processInfo.systemUptime - connectedAt >= 60 { retryCount = 0 }
+        connectionEstablishedAt = nil
+        connectionState = .waitingToRetry
+        requestGeneration += 1
+        refreshInFlight = false
+        verifiedAccountKey = nil
+        accountUsage.invalidate()
+        timer?.invalidate()
+        timer = nil
+        publishError(error.localizedDescription)
+        guard isStarted, generation == revision, connectionState == .waitingToRetry else { return }
+        retryTimer?.invalidate()
+        let delay = retryDelays[min(retryCount, retryDelays.count - 1)]
+        retryCount = min(retryCount + 1, retryDelays.count - 1)
+        let timer = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
+            guard let self, self.isStarted, self.generation == revision,
+                  self.connectionState == .waitingToRetry else { return }
+            self.retryTimer = nil
+            self.connect()
+        }
+        retryTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
     private func startTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
@@ -144,7 +233,7 @@ final class RateLimitStore {
     private func apply(_ response: GetAccountRateLimitsResponse) {
         let snapshot = response.rateLimitsByLimitId?["codex"] ?? response.rateLimits
         currentLimitID = snapshot.limitId ?? "codex"
-        let windows = classifyWindows(primary: snapshot.primary, secondary: snapshot.secondary)
+        let windows = RateLimitWindowClassifier.classify(primary: snapshot.primary, secondary: snapshot.secondary)
 
         state.fiveHour = windows.fiveHour
         state.weekly = windows.weekly
@@ -154,44 +243,6 @@ final class RateLimitStore {
         state.lastUpdated = Date()
         state.errorMessage = nil
         publish()
-    }
-
-    private func classifyWindows(primary: RateLimitWindow?, secondary: RateLimitWindow?) -> (fiveHour: LimitMeter?, weekly: LimitMeter?) {
-        let candidates = [primary, secondary].compactMap { $0 }
-
-        var fiveHourWindow = candidates.first { window in
-            guard let duration = window.windowDurationMins else {
-                return false
-            }
-            return abs(duration - 300) < 30
-        }
-
-        var weeklyWindow = candidates.first { window in
-            guard let duration = window.windowDurationMins else {
-                return false
-            }
-            return duration >= 7 * 24 * 60 - 60
-        }
-
-        // Older app-server versions relied on primary/secondary ordering and did
-        // not always include durations. Only use that fallback when two distinct
-        // windows are present, so a weekly-only window is never duplicated as 5h.
-        if primary != nil, secondary != nil {
-            fiveHourWindow = fiveHourWindow ?? primary
-            weeklyWindow = weeklyWindow ?? secondary
-        } else if fiveHourWindow == nil, weeklyWindow == nil {
-            weeklyWindow = primary ?? secondary
-        }
-
-        let fiveHour = fiveHourWindow.map {
-            LimitMeter(title: "5 小时", shortTitle: "5h", window: $0)
-        }
-
-        let weekly = weeklyWindow.map {
-            LimitMeter(title: "周限额", shortTitle: "W", window: $0)
-        }
-
-        return (fiveHour, weekly)
     }
 
     private func publishError(_ message: String) {
@@ -204,4 +255,36 @@ final class RateLimitStore {
         delegate?.rateLimitStore(self, didUpdate: state)
     }
 
+}
+
+/// Duration is authoritative. Ordering only supplies labels for legacy windows
+/// with no duration, and an input slot can never supply both display meters.
+enum RateLimitWindowClassifier {
+    static func classify(primary: RateLimitWindow?, secondary: RateLimitWindow?) -> (fiveHour: LimitMeter?, weekly: LimitMeter?) {
+        let windows = [primary, secondary]
+        var fiveHour = windows.indices.first { index in
+            guard let duration = windows[index]?.windowDurationMins else { return false }
+            return abs(duration - 300) < 30
+        }
+        var weekly = windows.indices.first { index in
+            guard let duration = windows[index]?.windowDurationMins else { return false }
+            return abs(duration - 7 * 24 * 60) <= 60
+        }
+        if primary != nil, secondary != nil {
+            for index in windows.indices where windows[index]?.windowDurationMins == nil {
+                guard index != fiveHour, index != weekly else { continue }
+                if fiveHour == nil, index == 0 || weekly != nil { fiveHour = index }
+                else if weekly == nil, index == 1 || fiveHour != nil { weekly = index }
+            }
+        } else if let index = windows.indices.first(where: { windows[$0] != nil }),
+                  windows[index]?.windowDurationMins == nil {
+            // Retain the legacy single-window presentation without relabeling an
+            // explicitly supplied daily, monthly or otherwise unsupported period.
+            weekly = index
+        }
+        return (
+            fiveHour.flatMap { windows[$0] }.map { LimitMeter(title: "5 小时", shortTitle: "5h", window: $0) },
+            weekly.flatMap { windows[$0] }.map { LimitMeter(title: "周限额", shortTitle: "W", window: $0) }
+        )
+    }
 }

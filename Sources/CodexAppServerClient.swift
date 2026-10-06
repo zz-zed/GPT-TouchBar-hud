@@ -98,13 +98,30 @@ final class CodexAppServerClient: AccountUsageClient {
     private var outputBuffer = AppServerLineBuffer()
     private var connectionGeneration = 0
     private let executableURL: URL?
+    private let clientVersion: String
+    private var isInitialized = false
+    private var startCompletions: [(Result<Void, Error>) -> Void] = []
+    private var connectionClosedHandler: ((Error) -> Void)?
     private var nextRequestId = 1
     private var pendingResponses: [Int: (Result<Any, Error>) -> Void] = [:]
 
     var onRateLimitsUpdated: (() -> Void)?
     var onAccountUpdated: (() -> Void)?
+    var onConnectionClosed: ((Error) -> Void)? {
+        get { queue.sync { connectionClosedHandler } }
+        set { queue.async { self.connectionClosedHandler = newValue } }
+    }
 
-    init(executableURL: URL? = nil) { self.executableURL = executableURL }
+    init(executableURL: URL? = nil, clientVersion: String = CodexAppServerClient.version()) {
+        self.executableURL = executableURL
+        self.clientVersion = clientVersion
+    }
+
+    static func version(in bundle: Bundle = .main) -> String {
+        let version = (bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return version.flatMap { $0.isEmpty ? nil : $0 } ?? "0.0.0"
+    }
 
     func readAccountIdentity(completion: @escaping (Result<String?, Error>) -> Void) {
         request(method: "account/read", params: ["refreshToken": false]) { result in
@@ -138,16 +155,33 @@ final class CodexAppServerClient: AccountUsageClient {
 
     func start(completion: @escaping (Result<Void, Error>) -> Void) {
         queue.async {
-            if self.process?.isRunning == true {
+            if self.isInitialized, self.process?.isRunning == true {
                 DispatchQueue.main.async {
                     completion(.success(()))
                 }
                 return
             }
+            if !self.startCompletions.isEmpty {
+                self.startCompletions.append(completion)
+                return
+            }
 
             do {
                 try self.launchProcess()
-                self.initialize(completion: completion)
+                self.startCompletions.append(completion)
+                let revision = self.connectionGeneration
+                self.initialize { result in
+                    self.queue.async {
+                        guard self.connectionGeneration == revision else { return }
+                        switch result {
+                        case .success:
+                            self.isInitialized = true
+                            self.finishStarting(.success(()))
+                        case .failure(let error):
+                            self.closeConnection(error)
+                        }
+                    }
+                }
             } catch {
                 DispatchQueue.main.async {
                     completion(.failure(error))
@@ -161,7 +195,9 @@ final class CodexAppServerClient: AccountUsageClient {
     }
 
     /// Queue-confined cleanup also invalidates callbacks already queued by old pipes.
-    private func closeConnection(_ error: Error) {
+    private func closeConnection(_ error: Error, notify: Bool = false) {
+        let handler = notify && isInitialized ? connectionClosedHandler : nil
+        isInitialized = false
         connectionGeneration += 1
         process?.terminationHandler = nil
         outputPipe?.fileHandleForReading.readabilityHandler = nil
@@ -176,6 +212,14 @@ final class CodexAppServerClient: AccountUsageClient {
         errorPipe = nil
         outputBuffer.reset()
         failPendingResponses(error)
+        finishStarting(.failure(error))
+        if let handler { DispatchQueue.main.async { handler(error) } }
+    }
+
+    private func finishStarting(_ result: Result<Void, Error>) {
+        let completions = startCompletions
+        startCompletions.removeAll()
+        for completion in completions { DispatchQueue.main.async { completion(result) } }
     }
 
     func readRateLimits(completion: @escaping (Result<GetAccountRateLimitsResponse, Error>) -> Void) {
@@ -234,7 +278,7 @@ final class CodexAppServerClient: AccountUsageClient {
         process.terminationHandler = { [weak self] _ in
             self?.queue.async {
                 guard let self, self.connectionGeneration == generation else { return }
-                self.closeConnection(CodexAppServerError.processUnavailable)
+                self.closeConnection(CodexAppServerError.processUnavailable, notify: true)
             }
         }
 
@@ -257,7 +301,7 @@ final class CodexAppServerClient: AccountUsageClient {
             "clientInfo": [
                 "name": "gpt-touchbar-hud",
                 "title": "GPT TouchBar HUD",
-                "version": "0.1.21"
+                "version": clientVersion
             ],
             "capabilities": capabilities
         ]
@@ -318,7 +362,7 @@ final class CodexAppServerClient: AccountUsageClient {
 
     private func consumeOutput(_ data: Data) {
         do { try outputBuffer.append(data) { self.consumeLine($0) } }
-        catch { closeConnection(error) }
+        catch { closeConnection(error, notify: true) }
     }
 
     private func consumeLine(_ data: Data) {
