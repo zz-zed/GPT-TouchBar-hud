@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-06",
+  "verifiedAtUTC": "2026-10-06T08:10:39.623245+00:00",
+  "baseCommit": "d2a9e0345b754ef6c48145d2bceea5a9ed46ddd0",
+  "sourceChangesCommitted": false,
+  "versionMetadataChanged": false,
+  "sourceSHA256": {
+    "Sources/AppDelegate.swift": "284e88ff991ba89fdf510fc74ce7e5f658660069deb81fb9916a3f4e156bbf9f",
+    "Sources/HostAutoLauncher.swift": "b52a3425d79c2df3333cec6af61353a7e2c3407a086e0ba90e422b47310d4da4",
+    "Sources/PreferencesWindowController.swift": "c7233f7466dff51d5f4ebf883874b975dd82d5f7ac0e69b7e514fd84cf737386",
+    "Sources/ResetNewsFeedClient.swift": "985ca251bc757ced5f522e0eab65248bf33013d44887cde1b83088ec62f9acc3",
+    "Sources/ResetNewsMonitor.swift": "6f9073a769742fd9d97aca7a2d7d21797b16c8625c960d1fa50dfe4524804321",
+    "Sources/ResetNewsRepository.swift": "403f9f1ef9e951c77a7751c6c1212035cd99d9d81446cf7057b0b43b9206f1f4"
+  },
+  "tests": {
+    "host-auto-launcher": {
+      "checks": 56,
+      "result": "passed",
+      "systemCommands": "owned temporary fixtures only"
+    },
+    "reset-news-runtime": {
+      "checks": 453,
+      "result": "passed",
+      "networkAndNotifications": "injected"
+    },
+    "design-layout": {
+      "checks": 281,
+      "result": "passed"
+    },
+    "cache-migration": {
+      "result": "passed",
+      "input": "generated legacy fixture",
+      "ledgerBefore": 1,
+      "ledgerAfter": 1
+    }
+  },
+  "artifact": {
+    "path": "/Users/didi/Desktop/codex-space/TouchBarCodexToken/build/engineering-background-20261006/GPT TouchBar HUD.app",
+    "architecture": "arm64",
+    "version": "0.1.40",
+    "build": "43",
+    "minimumSystem": {
+      "app": "11.0",
+      "helper": "11.0"
+    },
+    "strictSignatureVerified": true,
+    "executableSHA256": "44e7c60bd1631008599d26cdbe6046b3f45615dfc45f45bf86e565b15cea7d45",
+    "helperSHA256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99",
+    "launched": false,
+    "installed": false
+  },
+  "performanceBenchmarkRun": false,
+  "remainingDeviceValidation": [
+    "real macOS 11",
+    "Intel runtime",
+    "sleep and wake",
+    "installed upgrade and restart"
+  ]
+}

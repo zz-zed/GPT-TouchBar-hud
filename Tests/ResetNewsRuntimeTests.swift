@@ -11,11 +11,15 @@ private final class RuntimeClock {
 private final class FakeNewsClient: ResetNewsFetching {
     var callbacks: [(ResetNewsFetchResult) -> Void] = []
     var cancellations = 0
+    var afterCompletion: (() -> Void)?
     func fetch(completion: @escaping (ResetNewsFetchResult) -> Void) -> ResetNewsCancellable {
         callbacks.append(completion)
         return ResetNewsCancellation { [weak self] in self?.cancellations += 1 }
     }
-    func complete(_ result: ResetNewsFetchResult, index: Int? = nil) { callbacks[index ?? callbacks.count - 1](result) }
+    func complete(_ result: ResetNewsFetchResult, index: Int? = nil) {
+        callbacks[index ?? callbacks.count - 1](result)
+        if Thread.isMainThread { afterCompletion?() }
+    }
 }
 
 private final class FakeNewsScheduler: ResetNewsScheduling {
@@ -84,12 +88,14 @@ private final class RuntimeHarness {
     let notifications: ResetNewsNotificationController
 
     // Most lifecycle tests start explicitly disabled; nil exercises the product's unset default.
-    init(corrupt: Bool = false, enabledPreference: Bool? = false, soundPreference: Bool? = nil) throws {
+    init(corrupt: Bool = false, enabledPreference: Bool? = false, soundPreference: Bool? = nil,
+         storage: ResetNewsCacheStorage = ResetNewsCacheStorage(), waitForLoad: Bool = true,
+         waitForWrites: Bool = true) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("reset-news-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         if corrupt { try Data("broken snapshot".utf8).write(to: directory.appendingPathComponent("state-v1.json")) }
         let clock = self.clock
-        repository = ResetNewsRepository(directory: directory, now: clock.date, calendar: { clock.calendar })
+        repository = ResetNewsRepository(directory: directory, now: clock.date, calendar: { clock.calendar }, storage: storage)
         defaults = UserDefaults(suiteName: suite)!
         if let enabledPreference { defaults.set(enabledPreference, forKey: ResetNewsMonitor.enabledPreferenceKey) }
         if let soundPreference { defaults.set(soundPreference, forKey: ResetNewsMonitor.soundPreferenceKey) }
@@ -97,6 +103,9 @@ private final class RuntimeHarness {
         monitor = ResetNewsMonitor(repository: repository, client: client, notifications: notifications,
                                    scheduler: scheduler, defaults: defaults, now: { clock.date }, jitter: { 0 },
                                    calendar: { clock.calendar }, notificationCenter: notificationCenter)
+        if waitForLoad { ResetNewsRuntimeTests.pump { repository.isLoaded } }
+        let repository = self.repository
+        if waitForWrites { client.afterCompletion = { repository.drainForTesting() } }
     }
     deinit {
         defaults.removePersistentDomain(forName: suite)
@@ -106,6 +115,7 @@ private final class RuntimeHarness {
         monitor.updateGate(codexRunning: true, hudRunning: true, suspended: false)
         monitor.setEnabled(true)
     }
+    func flush() { repository.drainForTesting() }
     func next(_ result: @autoclosure () throws -> ResetNewsFetchResult) rethrows {
         clock.advance(120)
         monitor.checkNow()
@@ -187,6 +197,11 @@ private final class RuntimeHarness {
         try reverseResponsesAndSnapshotRollback()
         try staleContextCannotSuppressFreshAuthority()
         try conflictingSameVersionCannotUndoAuthority()
+        try asynchronousCacheLoading()
+        try orderedWritesAndDurableNotifications()
+        try delayedWriteCannotNotifyAfterStopOrReplacement()
+        try failedWriteSuppressesNotification()
+        try asynchronousDecoderCancellation()
         print("PASS: \(checks) reset news runtime checks; network and notification delivery were injected")
     }
 
@@ -310,6 +325,7 @@ private final class RuntimeHarness {
         let result = background.result([])
         DispatchQueue.global().async { background.client.complete(result) }
         pump { background.monitor.state.status == .success }
+        background.flush()
         expect(mainThreadCallbacks, "A background transport completion publishes state only on the main thread")
     }
 
@@ -346,7 +362,8 @@ private final class RuntimeHarness {
                "A context batch delivers only the explicitly supplied current authority signal")
         h.monitor.markAllRead()
         expect(h.monitor.state.unreadCount == 0, "Explicit mark all read")
-        let reloaded = ResetNewsRepository(directory: h.directory, now: h.clock.date)
+        h.flush()
+        let reloaded = loadedRepository(directory: h.directory, now: h.clock.date)
         expect(reloaded.state == h.repository.state, "Authority snapshot, read IDs, baseline and ledger persist")
         h.next(h.result([first, h.source("2"), h.source("3"), h.source("4")]))
         expect(h.channel.payloads.count == 2, "Persisted authority notification key prevents replay")
@@ -387,7 +404,8 @@ private final class RuntimeHarness {
         expect(h.repository.state.items.first?.facts.count == 2, "Partial refresh retains unavailable context source facts")
         expect(h.repository.state.items.first?.materialRevision == 1, "Partial refresh cannot manufacture a context revision")
         expect(h.channel.payloads.isEmpty && h.monitor.state.unreadCount == 0, "Partial refresh does not replay or mark baseline unread")
-        let reloaded = ResetNewsRepository(directory: h.directory, now: h.clock.date)
+        h.flush()
+        let reloaded = loadedRepository(directory: h.directory, now: h.clock.date)
         expect(reloaded.state.items.first?.sourceSnapshots?.count == 3, "Per-source provenance survives repository round trip")
         let changedDate = h.clock.date.addingTimeInterval(10800)
         timeline.structuredFacts = [.init(kind: .upcomingReset, effectiveAt: changedDate)]
@@ -483,16 +501,20 @@ private final class RuntimeHarness {
         stored.readIDs = Set(stored.items.map(\.id))
         stored.notified = (0..<510).map { .init(key: "k:\($0)", recordedAt: h.clock.date.addingTimeInterval(-Double($0))) }
         stored.notified.append(.init(key: "old-notice", recordedAt: h.clock.date.addingTimeInterval(-91 * 86_400)))
-        expect(h.repository.replace(stored, now: h.clock.date), "Atomic repository write succeeds")
+        var saved: Bool?
+        h.repository.replace(stored, now: h.clock.date) { saved = $0 }
+        pump { saved != nil }
+        expect(saved == true, "Atomic repository write succeeds")
         expect(h.repository.state.items.count == 60 && !h.repository.state.items.contains { $0.id == "old" }, "All valid forecasts retained without a fifty-item display truncation")
         expect(h.repository.state.readIDs.count == 60, "Read IDs pruned with history")
         expect(h.repository.state.notified.count == 500 && !h.repository.state.notifiedKeys.contains("old-notice"), "Ledger bounded at 90 days and 500 records")
-        let reloaded = ResetNewsRepository(directory: h.directory, now: h.clock.date)
+        h.flush()
+        let reloaded = loadedRepository(directory: h.directory, now: h.clock.date)
         expect(reloaded.state == h.repository.state && !reloaded.recoveredCorruptCache, "Versioned snapshot reloads exactly")
         var unsupported = stored
         unsupported.version = 999
         try JSONEncoder().encode(unsupported).write(to: h.repository.fileURL)
-        let invalidVersion = ResetNewsRepository(directory: h.directory, now: h.clock.date)
+        let invalidVersion = loadedRepository(directory: h.directory, now: h.clock.date)
         expect(invalidVersion.recoveredCorruptCache && !invalidVersion.state.hasBaseline, "Unknown cache version rebuilds a silent baseline")
     }
 
@@ -559,7 +581,8 @@ private final class RuntimeHarness {
         object.removeValue(forKey: "retiredForecasts")
         for key in ["forecast", "forecastFetchedAt", "forecastExpiresAt", "forecastBaselineEstablished"] { object.removeValue(forKey: key) }
         try JSONSerialization.data(withJSONObject: object).write(to: h.repository.fileURL)
-        let migrated = ResetNewsRepository(directory: h.directory, now: h.clock.date)
+        h.flush()
+        let migrated = loadedRepository(directory: h.directory, now: h.clock.date)
         expect(migrated.state.items.map(\.id) == [legacyFuture.id], "Old disk history removed while a forty-day-old future plan survives")
         expect(migrated.state.items[0].facts.allSatisfy { $0.kind == .upcomingReset }
             && migrated.state.items[0].sourceSnapshots!.allSatisfy { $0.facts.allSatisfy { $0.kind == .upcomingReset } },
@@ -1022,7 +1045,8 @@ private final class RuntimeHarness {
         expect(h.monitor.state.forecastCount == 1 && h.channel.payloads.count == 1,
                "Returning the same consumed authority signal after null does not create another reminder")
         h.monitor.stop()
-        let reloaded = ResetNewsRepository(directory: h.directory, now: h.clock.date, calendar: { h.clock.calendar })
+        h.flush()
+        let reloaded = loadedRepository(directory: h.directory, now: h.clock.date, calendar: { h.clock.calendar })
         let client = FakeNewsClient()
         let channel = FakeNewsNotifications()
         let clock = h.clock
@@ -1105,9 +1129,209 @@ private final class RuntimeHarness {
                "A conflicting same-version completion timestamp cannot mutate the accepted future signal")
     }
 
-    static func pump(until condition: () -> Bool) {
+    static func asynchronousCacheLoading() throws {
+        let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        var stored = ResetNewsStoredState()
+        stored.baselineSources = [.feed, .timeline, .forecast]
+        stored.forecastBaselineEstablished = true
+        stored.notified = [.init(key: "persisted-key", recordedAt: Date(timeIntervalSince1970: 1_800_000_000))]
+        let data = try JSONEncoder().encode(stored)
+        var storage = ResetNewsCacheStorage()
+        storage.read = { _ in
+            precondition(!Thread.isMainThread)
+            entered.signal()
+            precondition(release.wait(timeout: .now() + 2) == .success)
+            return data
+        }
+        let h = try RuntimeHarness(storage: storage, waitForLoad: false)
+        expect(entered.wait(timeout: .now() + 2) == .success, "Cache load runs on a worker")
+        h.activate()
+        expect(!h.repository.isLoaded && h.client.callbacks.isEmpty, "Network waits for the persisted notification ledger")
+        var responsive = false
+        DispatchQueue.main.async { responsive = true }
+        pump { responsive }
+        expect(h.monitor.checkNow() == .inactive, "Manual refresh also honors the cache-loading gate")
+        h.monitor.stop()
+        release.signal()
+        pump { h.repository.isLoaded }
+        expect(h.repository.state.notifiedKeys.contains("persisted-key"), "Loading restores the ledger before reopening runtime")
+        expect(h.client.callbacks.isEmpty, "A completed cache load cannot restart a stopped monitor")
+        h.monitor.updateGate(codexRunning: true, hudRunning: true, suspended: false)
+        expect(h.client.callbacks.count == 1, "A new active gate starts once after cache loading")
+        h.client.complete(h.result([]))
+    }
+
+    static func orderedWritesAndDurableNotifications() throws {
+        let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        let disk = ResetNewsCacheStorage()
+        var blocked = false
+        var snapshots: [ResetNewsStoredState] = [] // Accessed on the writer, inspected only after its fence.
+        var storage = disk
+        storage.write = { data, url in
+            precondition(!Thread.isMainThread)
+            let snapshot = try JSONDecoder().decode(ResetNewsStoredState.self, from: data)
+            if snapshot.forecast?.officialSignal != nil && !blocked {
+                blocked = true
+                entered.signal()
+                precondition(release.wait(timeout: .now() + 2) == .success)
+            }
+            snapshots.append(snapshot)
+            try disk.write(data, url)
+        }
+        let h = try RuntimeHarness(storage: storage, waitForWrites: false)
+        h.activate()
+        h.client.complete(h.result([]))
+        h.flush()
+        let baselineWrites = snapshots.count
+        let signal = h.source("async-first")
+        h.next(h.result([signal]))
+        expect(entered.wait(timeout: .now() + 2) == .success, "The notification-ledger write can be held in isolation")
+        expect(h.channel.payloads.isEmpty && h.monitor.state.forecastCount == 1,
+               "Presentation updates immediately but no notification precedes durable ledger storage")
+        var responsive = false
+        DispatchQueue.main.async { responsive = true }
+        pump { responsive }
+        h.monitor.markAllRead()
+        expect(h.monitor.state.unreadCount == 0, "Read marking stays responsive during a slow disk write")
+        release.signal()
+        h.flush()
+        expect(h.channel.payloads.isEmpty, "Reading a signal before its write completes suppresses a delayed alert")
+        expect(snapshots.count == baselineWrites + 2 && !snapshots[baselineWrites].readIDs.contains(signal.stableID)
+            && snapshots[baselineWrites + 1].readIDs.contains(signal.stableID), "Snapshot writes retain submission order")
+        let saved = try JSONDecoder().decode(ResetNewsStoredState.self, from: Data(contentsOf: h.repository.fileURL))
+        expect(saved == h.repository.state && saved.notifiedKeys.contains(h.snapshot([signal]).notificationKey!),
+               "The final disk snapshot includes both the consumed key and the latest read marker")
+        let next = h.source("async-second")
+        h.next(h.result([next]))
+        expect(h.channel.payloads.isEmpty, "A fresh signal also waits for its own commit")
+        h.flush()
+        expect(h.channel.payloads.count == 1 && h.channel.payloads.first?.itemIDs == [next.stableID],
+               "A committed current signal can deliver once")
+    }
+
+    static func delayedWriteCannotNotifyAfterStopOrReplacement() throws {
+        for replacement in [false, true] {
+            let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+            let disk = ResetNewsCacheStorage()
+            var blocked = false
+            var storage = disk
+            storage.write = { data, url in
+                let snapshot = try JSONDecoder().decode(ResetNewsStoredState.self, from: data)
+                if snapshot.forecast?.officialSignal != nil && !blocked {
+                    blocked = true
+                    entered.signal()
+                    precondition(release.wait(timeout: .now() + 2) == .success)
+                }
+                try disk.write(data, url)
+            }
+            let h = try RuntimeHarness(storage: storage, waitForWrites: false)
+            h.activate()
+            h.client.complete(h.result([]))
+            h.flush()
+            h.next(h.result([h.source("delayed-old")]))
+            expect(entered.wait(timeout: .now() + 2) == .success, "Delayed persistence reached its controlled boundary")
+            let latest = h.source("delayed-current")
+            if replacement { h.next(h.result([latest])) }
+            else { h.monitor.stop() }
+            release.signal()
+            h.flush()
+            if replacement {
+                expect(h.channel.payloads.count == 1 && h.channel.payloads.first?.itemIDs == [latest.stableID],
+                       "An old successful write cannot alert for an authority signal that has been replaced")
+            } else {
+                expect(h.channel.payloads.isEmpty, "A successful write after stop cannot reopen notification delivery")
+            }
+        }
+    }
+
+    static func failedWriteSuppressesNotification() throws {
+        let disk = ResetNewsCacheStorage()
+        var injectedFailure = false
+        var storage = disk
+        storage.write = { data, url in
+            let snapshot = try JSONDecoder().decode(ResetNewsStoredState.self, from: data)
+            if snapshot.forecast?.officialSignal != nil && !injectedFailure {
+                injectedFailure = true
+                throw CocoaError(.fileWriteNoPermission)
+            }
+            try disk.write(data, url)
+        }
+        let h = try RuntimeHarness(storage: storage)
+        h.activate()
+        h.client.complete(h.result([]))
+        let signal = h.source("write-failed")
+        h.next(h.result([signal]))
+        expect(h.channel.payloads.isEmpty && h.monitor.state.detail?.contains("消息缓存保存失败") == true,
+               "Failed persistence is visible and cannot send an uncommitted notification")
+        h.next(h.result([signal]))
+        expect(h.channel.payloads.isEmpty && h.monitor.state.detail == nil,
+               "Recovery clears the write error without replaying a consumed in-memory key")
+        let saved = try JSONDecoder().decode(ResetNewsStoredState.self, from: Data(contentsOf: h.repository.fileURL))
+        expect(saved == h.repository.state, "A later successful write persists the recovered ledger")
+    }
+
+    static func asynchronousDecoderCancellation() throws {
+        let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        let queue = DispatchQueue(label: "reset-news-delayed-decoder-test")
+        queue.async {
+            entered.signal()
+            precondition(release.wait(timeout: .now() + 2) == .success)
+        }
+        expect(entered.wait(timeout: .now() + 2) == .success, "Decoder queue can be delayed independently of main")
+        let transport = FakeNewsHTTP()
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        let client = ResetNewsFeedClient(transport: transport, now: {
+            precondition(Thread.isMainThread, "Capture response time before handing data to the decoder")
+            return date
+        }, decodeQueue: queue)
+        var callbacks = 0
+        let cancellation = client.fetch { _ in callbacks += 1 }
+        let none = String(decoding: try JSONSerialization.data(withJSONObject: noCurrentForecast(now: date)), as: UTF8.self)
+        let feed = String(decoding: try JSONSerialization.data(withJSONObject: emptyFeed), as: UTF8.self)
+        transport.respond(0, body: feed)
+        transport.respond(1, body: "{\"events\":[]}")
+        transport.respond(2, body: none)
+        var responsive = false
+        DispatchQueue.main.async { responsive = true }
+        pump { responsive }
+        expect(callbacks == 0, "Main responds while decoding is queued")
+        cancellation.cancel()
+        release.signal()
+        var drained = false
+        queue.async { DispatchQueue.main.async { drained = true } }
+        pump { drained }
+        expect(callbacks == 0 && transport.cancelled == 3, "Cancel suppresses already queued decoding results")
+        var result: ResetNewsFetchResult?
+        _ = client.fetch {
+            precondition(Thread.isMainThread)
+            result = $0
+        }
+        transport.respond(3, body: feed)
+        transport.respond(4, body: "{\"events\":[]}")
+        transport.respond(5, body: none)
+        pump { result != nil }
+        expect(result?.successful.count == 3, "A new fetch succeeds after cancelling a delayed decoder")
+    }
+
+    static func loadedRepository(directory: URL, now: Date, calendar: @escaping () -> Calendar = { .current }) -> ResetNewsRepository {
+        let repository = ResetNewsRepository(directory: directory, now: now, calendar: calendar)
+        repository.load {}
+        pump { repository.isLoaded }
+        return repository
+    }
+
+    static func pump(until condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) {
         let deadline = Date().addingTimeInterval(2)
         while !condition() && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
-        expect(condition(), "Asynchronous client completed")
+        precondition(condition(), "Asynchronous work timed out at \(file):\(line)")
+        checks += 1
+    }
+}
+
+private extension ResetNewsRepository {
+    func drainForTesting() {
+        var drained = false
+        flush { drained = true }
+        ResetNewsRuntimeTests.pump { drained }
     }
 }

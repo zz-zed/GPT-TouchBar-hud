@@ -47,10 +47,11 @@ final class ResetNewsMonitor {
     private var earliestRequest: Date?
     private var forecastRefreshFailed = true
     private var recoveringForecast = false
+    private var checkDetails: [String] = []
 
     var enabled: Bool { state.enabled }
     var soundEnabled: Bool { notifications.soundEnabled }
-    var isPollingAllowed: Bool { enabled && codexRunning && hudRunning && !suspended }
+    var isPollingAllowed: Bool { enabled && codexRunning && hudRunning && !suspended && repository.isLoaded }
 
     init(repository: ResetNewsRepository = ResetNewsRepository(), client: ResetNewsFetching = ResetNewsFeedClient(),
          notifications: ResetNewsNotificationController = ResetNewsNotificationController(),
@@ -93,6 +94,10 @@ final class ResetNewsMonitor {
                 self?.publish() // Local-only pruning: no permission prompt or network request.
             })
         }
+        repository.onPersistenceChange = { [weak self] in self?.publish() }
+        repository.load { [weak self] in
+            self?.reconcileGate()
+        }
     }
 
     deinit {
@@ -128,6 +133,10 @@ final class ResetNewsMonitor {
         stopWork()
         state.status = enabled ? .idle : .disabled
         publish()
+    }
+
+    func flush(completion: @escaping () -> Void) {
+        repository.flush(completion: completion)
     }
 
     @discardableResult
@@ -192,6 +201,7 @@ final class ResetNewsMonitor {
         checking = true
         state.status = .checking
         state.detail = nil
+        checkDetails = []
         state.lastAttempt = date
         state.nextCheck = nil
         earliestRequest = date.addingTimeInterval(ResetNewsSchedule.minimumInterval)
@@ -287,14 +297,21 @@ final class ResetNewsMonitor {
                     next.readIDs.insert(item.id)
                 }
             }
-            let saved = repository.replace(next, now: date)
+            let savedGeneration = generation
+            let wasRecovering = recoveringForecast
+            repository.replace(next, now: date) { [weak self] saved in
+                guard saved, let self, let reminder,
+                      self.generation == savedGeneration, self.isPollingAllowed, self.runtimeActive,
+                      !self.forecastRefreshFailed,
+                      self.repository.state.forecast?.notificationKey == reminder.notificationKey,
+                      let item = reminder.item(now: self.now(), calendar: self.calendar()),
+                      !self.repository.state.readIDs.contains(item.id) else { return }
+                self.notifications.deliver(reminder, recovery: wasRecovering, now: self.now(), calendar: self.calendar())
+            }
             syncRepository()
             state.lastSuccess = date
             // Only the accepted current signal may notify. Feed/timeline remain evidence,
             // including when their history contains explicit future wording.
-            if saved {
-                if let reminder { notifications.deliver(reminder, recovery: recoveringForecast, now: date, calendar: calendar()) }
-            }
             if !forecastRefreshFailed { recoveringForecast = false }
         }
         if successful.isEmpty {
@@ -312,8 +329,7 @@ final class ResetNewsMonitor {
         if rejected > 0 { details.append("已跳过 \(rejected) 条来源身份不匹配的消息") }
         if stale { details.append("部分来源副本已过期") }
         if forecastRefreshFailed { details.append("当前预告未更新，已暂停强提醒") }
-        if let error = repository.lastPersistenceError { details.append(error) }
-        state.detail = details.isEmpty ? nil : details.joined(separator: "；")
+        checkDetails = details
         let delay: TimeInterval
         if result.failures.isEmpty && !stale && forecastIssue == nil {
             failures = 0
@@ -346,7 +362,8 @@ final class ResetNewsMonitor {
             : (!forecastRefreshFailed && runtimeActive && stored.forecastExpiresAt.map { $0 > date } == true ? .current : .cached)
         state.forecastCheckedAt = stored.forecastFetchedAt
         state.readIDs = repository.state.readIDs
-        if let error = repository.lastPersistenceError { state.detail = error }
+        let details = checkDetails + [repository.lastPersistenceError].compactMap { $0 }
+        state.detail = details.isEmpty ? nil : details.joined(separator: "；")
     }
 
     private func publish() {

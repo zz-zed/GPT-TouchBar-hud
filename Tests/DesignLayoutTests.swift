@@ -136,6 +136,21 @@ enum DesignLayoutTests {
         check(prefs.window!.frame.size == originalSize, "Preview must not resize preferences window")
         let tabs = prefs.window!.contentView!.subviews.compactMap { $0 as? NSTabView }.first!
         check(tabs.tabViewItems.map(\.label) == ["通用", "外观", "Touch Bar", "实验", "更新", "重置预告", "额度提醒"], "Forecast settings preserve existing tab indices")
+        let general = tabs.tabViewItems.first { $0.identifier as? String == "general" }!.view!
+        let autoLaunch = buttons(general).first { $0.accessibilityIdentifier() == "settings.hostAutoLaunch" }!
+        prefs.updateAutoLaunch(enabled: false, error: "earlier failure", busy: true)
+        check(!autoLaunch.isEnabled && autoLaunch.state == .off,
+              "Pending registration disables repeated changes and shows the last verified preference")
+        check(labels(general).contains { $0.stringValue == "正在更新启动设置…" && $0.toolTip == nil },
+              "Pending registration exposes progress without a stale error")
+        prefs.updateAutoLaunch(enabled: false, error: "operation timed out")
+        check(autoLaunch.isEnabled && autoLaunch.state == .off,
+              "A failed operation restores input without claiming an unsaved enable")
+        var autoLaunchRequests: [Bool] = []
+        prefs.onAutoLaunch = { autoLaunchRequests.append($0) }
+        autoLaunch.performClick(nil)
+        check(autoLaunchRequests == [true], "Settings remain actionable after a timed-out operation")
+        prefs.updateAutoLaunch(enabled: true)
         prefs.showResetNewsTab()
         prefs.updateResetNews(ResetNewsViewState(), soundEnabled: false)
         let resetControls = buttons(tabs.selectedTabViewItem!.view!)

@@ -1,21 +1,23 @@
 import Foundation
+import Darwin
 
 enum HostAutoLauncher {
     private static let manualQuitLockName = "manual-quit.lock"
+    private static let service = HostAutoLaunchService { manager }
 
     static var isEnabled: Bool { HostAutoLaunchPreferences().isEnabled }
 
-    static func setEnabled(_ enabled: Bool) -> Result<Void, Error> {
-        manager.setEnabled(enabled)
+    static func setEnabled(_ enabled: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        service.setEnabled(enabled, completion: completion)
     }
 
-    @discardableResult
-    static func installOrUpdate() -> Result<Void, Error> {
-        let result = manager.installOrUpdate()
-        if case .failure(let error) = result {
-            NSLog("%@ failed to install auto launcher: %@", AppIdentity.productName, error.localizedDescription)
+    static func installOrUpdate(completion: @escaping (Result<Void, Error>) -> Void) {
+        service.installOrUpdate { result in
+            if case .failure(let error) = result {
+                NSLog("%@ failed to install auto launcher: %@", AppIdentity.productName, error.localizedDescription)
+            }
+            completion(result)
         }
-        return result
     }
 
     private static var manager: HostAutoLaunchManager {
@@ -68,6 +70,30 @@ enum HostAutoLauncher {
         }
     }
 
+}
+
+/// Serializes registration changes off the UI thread, including their preference commits.
+final class HostAutoLaunchService {
+    private let queue = DispatchQueue(label: "io.github.zz-zed.GPTTouchBarHUD.auto-launch", qos: .utility)
+    private let makeManager: () -> HostAutoLaunchManager
+
+    init(makeManager: @escaping () -> HostAutoLaunchManager) { self.makeManager = makeManager }
+
+    func setEnabled(_ enabled: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        perform({ $0.setEnabled(enabled) }, completion: completion)
+    }
+
+    func installOrUpdate(completion: @escaping (Result<Void, Error>) -> Void) {
+        perform({ $0.installOrUpdate() }, completion: completion)
+    }
+
+    private func perform(_ operation: @escaping (HostAutoLaunchManager) -> Result<Void, Error>,
+                         completion: @escaping (Result<Void, Error>) -> Void) {
+        queue.async {
+            let result = operation(self.makeManager())
+            DispatchQueue.main.async { completion(result) }
+        }
+    }
 }
 
 /// Keeps the preference change conditional on a verified launchd operation.
@@ -230,17 +256,38 @@ struct HostLaunchctlResult {
         status == 113 && output.contains("Could not find service")
     }
 
-    static func run(arguments: [String], executableURL: URL = URL(fileURLWithPath: "/bin/launchctl")) throws -> HostLaunchctlResult {
+    /// Blocking only on the service's worker queue. Every command has a finite deadline.
+    static func run(arguments: [String], executableURL: URL = URL(fileURLWithPath: "/bin/launchctl"),
+                    timeout: TimeInterval = 5) throws -> HostLaunchctlResult {
+        precondition(timeout > 0 && timeout.isFinite)
         let process = Process()
         process.executableURL = executableURL
         process.arguments = arguments
-        let output = Pipe()
+        // A file avoids both pipe-capacity deadlocks and inherited pipes delaying EOF.
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("hud-launchctl-\(UUID().uuidString).log")
+        guard FileManager.default.createFile(atPath: outputURL.path, contents: nil,
+                                             attributes: [.posixPermissions: 0o600]) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+        let output = try FileHandle(forWritingTo: outputURL)
+        defer { try? output.close() }
         process.standardOutput = output
         process.standardError = output
-        // run() can throw before the process starts; never wait in that case.
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
         try process.run()
-        let data = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
+        if exited.wait(timeout: .now() + timeout) == .timedOut {
+            if process.isRunning { process.terminate() }
+            if exited.wait(timeout: .now() + 0.25) == .timedOut, process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+                _ = exited.wait(timeout: .now() + 1)
+            }
+            throw HostAutoLaunchError.commandTimedOut(arguments.first ?? executableURL.lastPathComponent)
+        }
+        let reader = try FileHandle(forReadingFrom: outputURL)
+        defer { try? reader.close() }
+        let data = reader.readData(ofLength: 64 * 1024)
         return HostLaunchctlResult(status: process.terminationStatus, output: String(decoding: data, as: UTF8.self))
     }
 }
@@ -250,6 +297,7 @@ enum HostAutoLaunchError: LocalizedError {
     case missingLauncher
     case unrecognizedRegistration(String)
     case commandFailed(String, Int32)
+    case commandTimedOut(String)
     case unloadNotVerified
 
     var errorDescription: String? {
@@ -262,6 +310,8 @@ enum HostAutoLaunchError: LocalizedError {
             return "自动启动文件已被修改或无法确认归属，未覆盖或删除：\(path)"
         case .commandFailed(let operation, let status):
             return "无法完成自动启动设置（launchctl \(operation)，状态 \(status)）。设置未保存，请稍后重试。"
+        case .commandTimedOut(let operation):
+            return "自动启动设置操作超时（launchctl \(operation)）。设置未保存，请稍后重试。"
         case .unloadNotVerified:
             return "尚未确认自动启动项已停止，关闭设置未保存，请稍后重试。"
         }

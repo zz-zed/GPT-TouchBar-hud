@@ -104,11 +104,12 @@ final class PreferencesWindowController: NSWindowController {
         authorizeUpdateNotifications.isHidden = !enabled || permission != .notRequested
     }
 
-    func updateAutoLaunch(enabled: Bool, error: String? = nil) {
+    func updateAutoLaunch(enabled: Bool, error: String? = nil, busy: Bool = false) {
         autoLaunch.state = enabled ? .on : .off
-        autoLaunchStatus.stringValue = error ?? "关闭后仍可手动打开应用；重启后保留选择。"
-        autoLaunchStatus.toolTip = error
-        autoLaunchStatus.textColor = error == nil ? .secondaryLabelColor : .systemRed
+        autoLaunch.isEnabled = !busy
+        autoLaunchStatus.stringValue = busy ? "正在更新启动设置…" : (error ?? "关闭后仍可手动打开应用；重启后保留选择。")
+        autoLaunchStatus.toolTip = busy ? nil : error
+        autoLaunchStatus.textColor = busy || error == nil ? .secondaryLabelColor : .systemRed
     }
 
     func updateQuotaAlerts(_ configuration: QuotaAlertConfiguration, permission: ResetNewsNotificationPermission) {
