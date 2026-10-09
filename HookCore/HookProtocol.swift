@@ -70,7 +70,11 @@ public struct TurnIdentity: Hashable, Codable, Sendable {
     public init(task: TaskIdentity, turn: String) { self.task = task; self.turn = turn }
 }
 
-public enum TaskPhase: String, Codable, Sendable { case submitted, active, stopping, completed, interrupted, unknown }
+public enum TaskPhase: String, Codable, Sendable {
+    case submitted, active, stopping, completed, interrupted, unknown
+    // Reserved for a verified same-host adapter. Logs and Hook hints never infer these.
+    case waitingForInput, waitingForApproval, failed
+}
 public enum EvidenceKind: String, Codable, Sendable { case started, execution, complete, aborted }
 
 /// Positions refer only to this session's validated file generation, never a global host sequence.

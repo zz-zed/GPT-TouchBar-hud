@@ -116,6 +116,7 @@ final class TouchBarRateLimitsView: NSView {
     func update(with state: RateLimitDisplayState) {
         taskTrace.record(state, action: .received)
         currentState = state
+        TaskPresentationTrace.record(state, surface: .touchBar, action: .renderRequested)
         let forecastAccessibilityLabel = ResetForecastIndicator.accessibilityLabel(messageForecastCount)
         messagesButton.toolTip = forecastAccessibilityLabel
         messagesButton.setAccessibilityLabel(forecastAccessibilityLabel)

@@ -1,0 +1,304 @@
+{
+  "schema": 1,
+  "status": "local_implementation_complete_external_acceptance_pending",
+  "recorded_at": "2026-10-08T18:59:36.237200+08:00",
+  "worktree": "/Users/didi/.codex/worktrees/ac0f/TouchBarCodexToken",
+  "baseline": "2059fd678fc2eea86ee5ed1a517d1b5d383a59d3",
+  "uncommitted": true,
+  "input_documents": [
+    {
+      "path": "Documentation/TASK-STATUS-RELIABILITY-PLAN-2026-10-08.md",
+      "sha256": "aa678b7cce97bd9e47b25b7953a618f8a087fd2f181dd6bc610ee919e188233c"
+    },
+    {
+      "path": "Documentation/TASK-STATUS-IMPLEMENTATION-BRIEF-2026-10-08.md",
+      "sha256": "93e12a7376248b8aeff07b18e34509731b0842d536e2baf60ebdeac4c60db4f9"
+    }
+  ],
+  "source_manifest": {
+    "path": "build/task-reliability/validation/source-manifest.json",
+    "sha256": "dfc366eb5fc00f8659a9bbd4686cffcc30d7a9489cdb7cd5f4dba5a8bd76ccbf"
+  },
+  "source_digest": "3e5aca14053da7860807f6ac8a0406f073c74495e48e38668d48e0befdaf29ee",
+  "checks": [
+    {
+      "command": "bash scripts/test-task-status.sh",
+      "status": "passed",
+      "checks": 44,
+      "log": {
+        "path": "build/task-reliability/validation/task-status.log",
+        "sha256": "7e2353d174dffe11390d70749ce4ef696a3268cf3aceb6e9d55659d43a16a72f"
+      }
+    },
+    {
+      "command": "bash scripts/test-hooks.sh --disable-sandbox",
+      "status": "passed",
+      "tests": 90,
+      "suites": 12,
+      "duration_seconds": 4.198,
+      "log": {
+        "path": "build/task-reliability/validation/hooks.log",
+        "sha256": "46367272929283f9a86a177dcb636d9954ee20b4e48f56f215a90d4116188ffa"
+      }
+    },
+    {
+      "command": "bash scripts/test-task-reliability.sh",
+      "status": "passed",
+      "checks": 196,
+      "failures": 0,
+      "log": {
+        "path": "build/task-reliability/integration/output.txt",
+        "sha256": "3b7c25ed58bd10dc64bd985f72f75c811e5d836d5b1d623cf71fea464f26cb38"
+      },
+      "binary": {
+        "path": "build/task-reliability/integration/TaskReliabilityIntegrationTests",
+        "sha256": "327548a1a432e77d4b7133831130d36e6b5947c454fef3b7bdffc4d8e808d04a"
+      }
+    },
+    {
+      "command": "bash scripts/test-hook-integration.sh",
+      "status": "passed",
+      "scope": "default-off, no installation on open, unready/disabled, generation mode switch",
+      "log": {
+        "path": "build/task-reliability/validation/hook-integration.log",
+        "sha256": "861cea0e3f9a60add144c45aa4d1542857c9535506f028b75e0ba577197b865d"
+      }
+    },
+    {
+      "command": "bash scripts/test-notch-hud.sh",
+      "status": "passed",
+      "assertion_checks": 204025,
+      "note": "Includes repeated geometry samples; not 204025 distinct test cases. Actual engine snapshot joined across four consumer methods.",
+      "log": {
+        "path": "build/task-reliability/validation/notch-hud.log",
+        "sha256": "9ca9cc4f277a540d91b4a5d6c7746e271ee3424ab5c64116e4c11a27e4746d31"
+      },
+      "binary": {
+        "path": ".build/notch-tests/NotchHUDTests",
+        "sha256": "40468b64fe1987bb5a651012868c3fc6814269cd8f0f674c6d8a60ad0481eca2"
+      }
+    },
+    {
+      "command": "bash scripts/test-release-workflows.sh",
+      "status": "passed",
+      "tests": 64,
+      "log": {
+        "path": "build/task-reliability/validation/release-workflows.log",
+        "sha256": "92bdd1beedb4689dc8f685a23354159233daca438a98dc4b7320677813ecfcca"
+      }
+    }
+  ],
+  "baseline_red": {
+    "revision": "2059fd678fc2eea86ee5ed1a517d1b5d383a59d3",
+    "checks": 7,
+    "failures": 4,
+    "exit_code": 1,
+    "evidence_directory": "build/task-reliability/baseline",
+    "independent_truth": "601826-byte valid output preserves 1 active task; inventory contains 33 or 65 identities",
+    "observed_old_failure": "after output running=0; inventory=32"
+  },
+  "independent_review": {
+    "scope": "reader, engine, inventory, checkpoint, runtime, adapters, four UI traces",
+    "unresolved_confirmed_P1_P2": 0,
+    "fixed": [
+      "malformed index rows must not poison pagination",
+      "unknown session header source must not inherit index admission",
+      "checkpoint size budget before JSON allocation",
+      "partial rotated header retains known inventory and lastKnown",
+      "malformed lifecycle gap persists until trusted evidence",
+      "cursor deletion or in-place ID change cannot claim complete traversal",
+      "ordinary source health preserves suspension/unavailability/read failure",
+      "transition reasons match malformed/stale causes"
+    ],
+    "reproducers": "build/task-reliability/review",
+    "note": "Review probe binaries demonstrate intermediate failures, not final post-fix test runs."
+  },
+  "earlier_failures": [
+    {
+      "evidence": "build/task-reliability/integration/sandbox-output.txt",
+      "cause": "sandbox denied private Unix socket binding",
+      "resolution": "approved isolated execution; final IPC checks pass"
+    },
+    {
+      "evidence": "build/task-reliability/validation/hooks-initial-failure.log",
+      "cause": "old expectations treated optional Hook health as continuous source health and expected replayed completion",
+      "resolution": "expect connected source with pending restored active; suppress recovered completion replay"
+    },
+    {
+      "evidence": "build/task-reliability/validation/notch-hud-initial-failure.log",
+      "cause": "test used unavailable zero-argument HUDAppearance initializer",
+      "resolution": "use HUDAppearance.load()"
+    },
+    {
+      "evidence": "build/task-reliability/validation/notch-hud-fixture-notification-failure.log",
+      "cause": "constructing a full AppDelegate initialized system notification center in a command-line test",
+      "resolution": "inject disabled notification services with private fixture repository and defaults"
+    },
+    {
+      "evidence": "build/task-reliability/validation/reliability-integration-before-final-fixture-fix.log",
+      "cause": "test recorder was not supplied to coordinator for newly asserted coordinator-stage events",
+      "resolution": "inject recorder into both runtime adapters and real coordinator"
+    }
+  ],
+  "source_capability": {
+    "current": "continuousLogsOnly",
+    "verified_same_host_source": false,
+    "historical_active_current": false,
+    "weak_activity_can_activate": false
+  },
+  "physical_acceptance": {
+    "status": "not_performed",
+    "required": [
+      "real desktop 1/3/8 main chats and 20 rounds",
+      "full-day usage and energy",
+      "Intel macOS 15.8.1 affected machine",
+      "macOS 11 physical execution",
+      "hardware Touch Bar, multi-display and notch visibility",
+      "same-host waiting/approval/crash truth"
+    ]
+  },
+  "operation_boundary": {
+    "installed_app_replaced": false,
+    "trial_app_launched": false,
+    "user_HUD_or_Codex_stopped": false,
+    "hooks_or_trust_or_startup_config_changed": false,
+    "commit_push_tag_release_merge": false
+  },
+  "source_unchanged_after_all_checks_and_build": true,
+  "artifact": {
+    "app_path": "/Users/didi/.codex/worktrees/ac0f/TouchBarCodexToken/build/task-reliability/trial-20261008-arm64.noindex/GPT TouchBar HUD.app",
+    "source_digest": "3e5aca14053da7860807f6ac8a0406f073c74495e48e38668d48e0befdaf29ee",
+    "source_unchanged": true,
+    "build_exit_code": 0,
+    "signature": "ad-hoc",
+    "notarized": false,
+    "trial_launched": false,
+    "version": "0.1.40",
+    "build": "43",
+    "plist_minimum_macos": "11.0",
+    "binaries": {
+      "main": {
+        "path": "/Users/didi/.codex/worktrees/ac0f/TouchBarCodexToken/build/task-reliability/trial-20261008-arm64.noindex/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD",
+        "sha256": "801fd6b3d34efa407eecd8fd64bd9c1d28d542c00cbe35353d2ff7fd7c4bf631",
+        "architectures": [
+          "arm64"
+        ],
+        "minimum_macos": "11.0",
+        "cdhash": "02674173835482533d4abe0b6d7ec60a7eb880f8"
+      },
+      "helper": {
+        "path": "/Users/didi/.codex/worktrees/ac0f/TouchBarCodexToken/build/task-reliability/trial-20261008-arm64.noindex/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter",
+        "sha256": "342d740e6b486cf4e07758a3b04d8e0d0c0d7cb085a8985cf55b95b462d2be92",
+        "architectures": [
+          "arm64"
+        ],
+        "minimum_macos": "11.0",
+        "cdhash": "8d52b3d449957c4b878617a8c8d9d3f446fda1c3"
+      }
+    },
+    "bundle_manifest_sha256": "054095da9fa4db520d1ffceafbb06d5fc2cb5f78fecbd7ceb1c9c13b4207e0c1",
+    "archive": {
+      "path": "/Users/didi/.codex/worktrees/ac0f/TouchBarCodexToken/build/task-reliability/GPT-TouchBar-HUD-task-reliability-arm64.zip",
+      "sha256": "f50c97dec6e882e6ccc770ee8fbf5980155054d32ad669acc1fa23a9114796e7",
+      "bytes": 3481053,
+      "extracted_signature_verified": true,
+      "extracted_file_manifest_matches": true,
+      "verified_at": "2026-10-08T18:58:24.966809+08:00"
+    },
+    "x86_64": {
+      "status": "link_failed",
+      "cause": "Swift compatibility runtime archives contain arm64 and arm64e only; x86_64 slices absent",
+      "log": "build/task-reliability/validation/build-universal.log",
+      "toolchain_evidence": "build/task-reliability/validation/toolchain.json"
+    },
+    "detailed_evidence": {
+      "path": "build/task-reliability/validation/artifact.json",
+      "sha256": "aba51d8dfd714c26be78cf356ecf46885d836566724373844450a5001ff9e2fa"
+    }
+  },
+  "performance": {
+    "status": "passed",
+    "exit_code": 0,
+    "source_verification": "passed",
+    "binary_verification": "passed",
+    "measurement_times": {
+      "baseline": {
+        "started": "2026-10-08T18:56:42+0800",
+        "finished": "2026-10-08T18:56:55+0800"
+      },
+      "current": {
+        "started": "2026-10-08T18:56:55+0800",
+        "finished": "2026-10-08T18:57:07+0800"
+      }
+    },
+    "architecture": "arm64",
+    "comparison": {
+      "path": "build/task-reliability/performance/comparison.json",
+      "sha256": "ec8c493ed4b12f61cb093e1b4f2db63e8966f8a44228b801f955a7ef565db25d"
+    },
+    "readme": {
+      "path": "build/task-reliability/performance/README.md",
+      "sha256": "05ad98b002763afef56e40a7f7d49be9e224a3349fc7487d4fe8a9acd041be91"
+    },
+    "interpretation": "Short optimized synthetic comparison. CPU includes the whole harness and RSS sampler and is expressed as a percentage of one core. Lower baseline CPU comes with skipped16MiB data and incorrect task count, so this is not a comparison at equal correctness. Whole-process RSS includes loaded frameworks. This is not a long-term energy or Intel hardware result.",
+    "baseline": {
+      "observed_remaining_count": 0,
+      "remaining_count_correct": false,
+      "remaining_identity_set_correct": null,
+      "other_terminal_latency_seconds": 1.9883511250009178,
+      "giant_file_drain_latency_seconds": null,
+      "max_backlog_bytes": null,
+      "production_bytes_read": null,
+      "idle": {
+        "cpu_percent_of_one_core": 0.5874175615934367,
+        "process_peak_resident_bytes": 11812864,
+        "resident_end_bytes": 10551296,
+        "resident_start_bytes": 11796480,
+        "sampled_peak_resident_bytes": 11812864,
+        "system_cpu_seconds": 0.010814999999999998,
+        "user_cpu_seconds": 0.006899000000000002,
+        "wall_seconds": 3.01557208333179
+      },
+      "stress": {
+        "cpu_percent_of_one_core": 0.7020474538830108,
+        "process_peak_resident_bytes": 12009472,
+        "resident_end_bytes": 11108352,
+        "resident_start_bytes": 11567104,
+        "sampled_peak_resident_bytes": 12009472,
+        "system_cpu_seconds": 0.033515,
+        "user_cpu_seconds": 0.022762,
+        "wall_seconds": 8.016124791669426
+      }
+    },
+    "current": {
+      "observed_remaining_count": 1,
+      "remaining_count_correct": true,
+      "remaining_identity_set_correct": true,
+      "other_terminal_latency_seconds": 1.0267168333339214,
+      "giant_file_drain_latency_seconds": 5.100242708333099,
+      "max_backlog_bytes": 16515072,
+      "production_bytes_read": 16777333,
+      "idle": {
+        "cpu_percent_of_one_core": 0.8481300006860785,
+        "process_peak_resident_bytes": 10387456,
+        "resident_end_bytes": 9994240,
+        "resident_start_bytes": 10125312,
+        "sampled_peak_resident_bytes": 10371072,
+        "system_cpu_seconds": 0.015368,
+        "user_cpu_seconds": 0.010247,
+        "wall_seconds": 3.0201737916686398
+      },
+      "stress": {
+        "cpu_percent_of_one_core": 7.098707035056111,
+        "process_peak_resident_bytes": 12664832,
+        "resident_end_bytes": 12255232,
+        "resident_start_bytes": 12599296,
+        "sampled_peak_resident_bytes": 12599296,
+        "system_cpu_seconds": 0.188073,
+        "user_cpu_seconds": 0.38043899999999997,
+        "wall_seconds": 8.00866970833522
+      }
+    }
+  },
+  "diff_check": "passed"
+}

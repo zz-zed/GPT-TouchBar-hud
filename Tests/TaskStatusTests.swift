@@ -19,158 +19,20 @@ enum TaskStatusTests {
         TaskCompletion(identity: TurnIdentity(task: TaskIdentity(session: "task-status-tests"), turn: id), occurredAt: date)
     }
     static func main() throws {
-        let now = ISO8601DateFormatter().date(from: "2026-09-16T10:00:10Z")!
-        var cursor = TaskLogCursor()
-        check(cursor.summary(now: now).unknownCount == 1, "Missing evidence is unknown")
-        var inferred = TaskLogCursor()
-        inferred.consume(event("item_completed"))
-        check(inferred.summary(now: now).runningCount == 0 && inferred.summary(now: now).unknownCount == 1,
-              "Tool-only tail stays unknown when its start fell outside the read budget")
-        inferred.consume(event("task_complete", "2026-09-16T10:00:05Z"))
-        check(inferred.summary(now: now).recentlyCompletedCount == 1, "Completion ends inferred running state")
-        var settingsOnly = TaskLogCursor()
-        settingsOnly.consume(event("thread_settings_applied"))
-        check(settingsOnly.summary(now: now).unknownCount == 1, "Settings event alone does not infer execution")
-        let start = event("task_started")
-        cursor.consume(start.prefix(20))
-        check(cursor.phase == nil, "Partial records are not parsed")
-        cursor.consume(start.dropFirst(20))
-        check(cursor.summary(now: now).runningCount == 1, "Split start record")
-        cursor.consume(event("task_complete", id: "other-turn"))
-        check(cursor.phase == "running", "Unrelated completion cannot complete current turn")
-        cursor.consume(event("task_complete", "2026-09-16T10:00:05Z"))
-        check(cursor.summary(now: now).recentlyCompletedCount == 1, "Turn completion and non-fraction timestamp")
-        cursor.consume(event("task_started", "2026-09-16T09:59:00.000Z"))
-        check(cursor.phase == "complete", "Older events cannot overwrite state")
-        check(cursor.summary(now: now.addingTimeInterval(40)).isIdle, "Expired completion becomes idle")
-        check(cursor.summary(now: now.addingTimeInterval(25)).isIdle, "Completion expires at exactly 30 seconds")
-        cursor.consume(event("task_started", "2026-09-16T10:00:06.000Z", id: "b"))
-        check(cursor.summary(now: now).runningCount == 1, "New turn resumes")
-        check(cursor.summary(now: now.addingTimeInterval(301)).runningCount == 1, "Silent long-running task remains running after five minutes")
-        check(cursor.summary(now: now.addingTimeInterval(TaskLogCursor.runningStaleInterval + 1)).unknownCount == 1,
-              "Running becomes unknown only after the stale interval")
-        cursor.consume(event("turn_aborted", "2026-09-16T10:00:07.000Z", id: "b"))
-        check(cursor.summary(now: now).isIdle, "Explicit abort ends execution without reporting success")
+        // Lifecycle and reader assertions now run against TaskActivityEngine and the
+        // real asynchronous adapters in JournalReaderTests / ReliabilityEngineTests /
+        // TaskReliabilityIntegrationTests; the retired tail cursor is not a test oracle.
         var display = RateLimitDisplayState.initial
         display.taskStatus = TaskStatusSummary()
         check(display.displayedTaskStatus == nil, "Idle restores original presentation")
         display.taskStatus = TaskStatusSummary(unknownCount: 1)
-        check(display.displayedTaskStatus == nil, "Legacy uncertainty stays internal and restores neutral presentation")
-        var historical = TaskLogCursor()
-        historical.fileModifiedAt = now.addingTimeInterval(-86400)
-        check(historical.monitoredSummary(now: now).isIdle, "Old incomplete history does not hold unknown indicator")
-        historical.fileModifiedAt = now
-        check(historical.monitoredSummary(now: now).unknownCount == 1, "Recent incomplete log remains unknown")
-        historical.fileModifiedAt = now.addingTimeInterval(-600)
-        check(historical.monitoredSummary(now: now).unknownCount == 1, "Recently silent task remains in monitoring scope")
-        historical.observedLiveChange = true
-        historical.fileModifiedAt = now.addingTimeInterval(-86400)
-        check(historical.monitoredSummary(now: now).unknownCount == 1, "Observed live task is not silently discarded after becoming stale")
-        cursor.consume(Data(repeating: 120, count: TaskLogCursor.readLimit + 1))
-        check(cursor.pending.isEmpty, "Malformed record buffer bounded")
-
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        check(display.displayedTaskStatus == nil, "Legacy uncertainty remains neutral")
+        check(TaskStatusSummary(runningCount: 12).badge == "9+", "Badge width bounded")
+        check(NotchTaskPresentation(TaskStatusSummary(runningCount: 12)).badge == "12", "Notch preserves full count")
+        // Production path checks intentionally reject symlinked ancestors such as /var.
+        let directory = URL(fileURLWithPath: "/private/tmp/task-status-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let file = directory.appendingPathComponent("fixture.jsonl")
-        try start.write(to: file)
-        var reader = TaskLogCursor()
-        try reader.read(file)
-        check(reader.phase == nil && reader.turnID == "turn-a", "Initial history records identity without replaying running")
-        check(reader.monitoredSummary(now: Date().addingTimeInterval(600)).unknownCount == 1,
-              "Initially fresh unfinished task remains unknown after timeout")
-        let oldOffset = reader.offset
-        try reader.read(file)
-        check(reader.offset == oldOffset, "Unchanged file is not reread")
-        let handle = try FileHandle(forWritingTo: file)
-        try handle.seekToEnd()
-        try handle.write(contentsOf: event("task_complete"))
-        try handle.close()
-        try reader.read(file)
-        check(reader.phase == "complete", "Appended event read incrementally")
-        try Data("{}\n".utf8).write(to: file)
-        try reader.read(file)
-        check(reader.phase == nil, "Truncation clears obsolete state")
-        var large = Data(repeating: 120, count: TaskLogCursor.readLimit + 30)
-        large.append(10); large.append(start)
-        try large.write(to: file, options: .atomic)
-        try reader.read(file)
-        check(reader.phase == nil && reader.turnID == "turn-a", "Rotated bounded tail is a historical baseline")
-        check(reader.pending.count <= TaskLogCursor.readLimit, "Tail memory remains bounded")
-        check(TaskStatusSummary(runningCount: 12).badge == "9+", "Badge width bounded")
-        check(NotchTaskPresentation(TaskStatusSummary(runningCount: 12)).badge == "12",
-              "Notch presentation preserves the full running count")
-
-        var terminal = TaskLogCursor()
-        terminal.consume(event("task_started", "2026-09-16T10:01:00.000Z", id: "terminal"))
-        terminal.consume(event("task_complete", "2026-09-16T10:01:01.000Z", id: "terminal"))
-        terminal.consume(eventWithoutID("token_count", "2026-09-16T10:01:02.000Z"))
-        check(terminal.phase == "complete", "Terminal state ignores trailing token_count without a turn identity")
-        terminal.consume(event("token_count", "2026-09-16T10:01:03.000Z", id: "terminal"))
-        check(terminal.phase == "complete", "Terminal state ignores trailing token_count for the same turn")
-        terminal.consume(event("item_completed", "2026-09-16T10:01:04.000Z", id: "new-turn"))
-        check(terminal.phase == "complete" && terminal.turnID == "terminal", "Different-turn tool result cannot reopen a terminal")
-        terminal.consume(event("task_started", "2026-09-16T10:01:05.000Z", id: "new-turn"))
-        terminal.consume(event("item_completed", "2026-09-16T10:01:06.000Z", id: "terminal"))
-        check(terminal.phase == "running" && terminal.turnID == "new-turn", "Old tools cannot take over a newer running turn")
-        terminal.consume(event("task_complete", "2026-09-16T10:01:07.000Z", id: "terminal"))
-        check(terminal.phase == "running", "Late old terminal cannot end the newer turn")
-        terminal.consume(event("task_complete", "2026-09-16T10:01:08.000Z", id: "new-turn"))
-        terminal.consume(event("item_completed", "2026-09-16T10:01:09.000Z", id: "terminal"))
-        check(terminal.phase == "complete" && terminal.turnID == "new-turn", "Late old server exit leaves the latest turn completed")
-
-        var stale = TaskLogCursor()
-        stale.consume(event("task_started", "2026-09-16T10:00:00.000Z", id: "stale"))
-        let staleTime = now.addingTimeInterval(TaskLogCursor.runningStaleInterval + 1)
-        var staleSummary = stale.summary(now: staleTime)
-        check(staleSummary.isIdle && staleSummary.legacyDiagnostics?.staleCount == 1,
-              "Stale running evidence becomes a neutral diagnostic, never completion")
-        stale.consume(event("thread_settings_applied", "2026-09-16T10:30:12.000Z", id: "stale"))
-        staleSummary = stale.summary(now: staleTime)
-        check(staleSummary.legacyDiagnostics?.staleCount == 1 && staleSummary.runningCount == 0,
-              "Settings-only events cannot revive stale execution")
-        stale.consume(event("token_count", "2026-09-16T10:30:13.000Z", id: "stale"))
-        let revivedAt = ISO8601DateFormatter().date(from: "2026-09-16T10:30:14Z")!
-        check(stale.summary(now: revivedAt).runningCount == 0, "Tool/token evidence cannot revive a stale task")
-        stale.consume(event("task_started", "2026-09-16T10:30:14.000Z", id: "stale"))
-        check(stale.summary(now: revivedAt).runningCount == 1, "An explicit continuation can restart the same turn")
-
-        var refreshed = TaskLogCursor()
-        refreshed.consume(start)
-        refreshed.consume(event("item_completed", "2026-09-16T10:20:00.000Z"))
-        check(refreshed.summary(now: revivedAt).runningCount == 1, "Matching tools maintain a confirmed active turn")
-        var recoveredCursor = TaskLogCursor()
-        recoveredCursor.consume(start, allowsRunning: false)
-        recoveredCursor.consume(event("item_completed", "2026-09-16T10:00:05.000Z"))
-        check(recoveredCursor.summary(now: now).runningCount == 0, "Weak append cannot turn recovered history into live activity")
-        var discoveredCursor = TaskLogCursor()
-        discoveredCursor.consume(start, allowsRunning: false, liveSince: now.addingTimeInterval(-11))
-        check(discoveredCursor.summary(now: now).runningCount == 1, "Newly discovered start after the monitoring epoch can run")
-
-        let baselineFile = directory.appendingPathComponent("baseline-complete.jsonl")
-        var baselineBytes = event("task_started", "2026-09-16T10:00:00.000Z", id: "old")
-        baselineBytes.append(event("task_complete", "2026-09-16T10:00:05.000Z", id: "old"))
-        try baselineBytes.write(to: baselineFile)
-        var baselineCursor = TaskLogCursor()
-        try baselineCursor.read(baselineFile)
-        check(baselineCursor.completionID(for: baselineFile.path, now: now) == nil,
-              "A completed file's first discovery establishes history without replay")
-        let baselineHandle = try FileHandle(forWritingTo: baselineFile)
-        try baselineHandle.seekToEnd()
-        try baselineHandle.write(contentsOf: event("task_started", "2026-09-16T10:00:06.000Z", id: "new"))
-        try baselineHandle.write(contentsOf: event("task_complete", "2026-09-16T10:00:07.000Z", id: "new"))
-        try baselineHandle.close()
-        try baselineCursor.read(baselineFile)
-        let completionID = baselineCursor.completionID(for: baselineFile.path, now: now)
-        check(completionID?.count == 64 && completionID?.contains(baselineFile.path) == false,
-              "An appended completion gets an opaque identity without exposing its path")
-        let duplicateHandle = try FileHandle(forWritingTo: baselineFile)
-        try duplicateHandle.seekToEnd()
-        try duplicateHandle.write(contentsOf: event("task_complete", "2026-09-16T10:00:08.000Z", id: "new"))
-        try duplicateHandle.close()
-        try baselineCursor.read(baselineFile)
-        check(baselineCursor.completionID(for: baselineFile.path, now: now) == completionID,
-              "Duplicate terminal evidence for one turn keeps the same completion identity")
 
         let checkedAt = Date(timeIntervalSince1970: 1_800_000_000)
         let partial = TaskStatusMonitor.combinedSummary(
@@ -310,19 +172,19 @@ enum TaskStatusTests {
         try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
         let rollout = sessions.appendingPathComponent("task.jsonl")
         let stamp = ISO8601DateFormatter().string(from: Date())
-        try event("task_started", stamp).write(to: rollout)
+        try (Data("{\"type\":\"session_meta\",\"payload\":{\"id\":\"root-1\",\"source\":\"vscode\"}}\n".utf8) + event("task_started", stamp)).write(to: rollout)
         var db: OpaquePointer?
         check(sqlite3_open(directory.appendingPathComponent("state_5.sqlite").path, &db) == SQLITE_OK, "Fixture database opens")
         let childRollout = sessions.appendingPathComponent("child.jsonl")
-        try event("task_started", stamp).write(to: childRollout)
-        check(sqlite3_exec(db, "CREATE TABLE threads (rollout_path TEXT, archived INTEGER, updated_at INTEGER, source TEXT); INSERT INTO threads VALUES ('\(rollout.path)', 0, 1, 'vscode'); INSERT INTO threads VALUES ('\(childRollout.path)', 0, 2, '{\"subagent\":{}}');", nil, nil, nil) == SQLITE_OK, "Fixture index created")
+        try (Data("{\"type\":\"session_meta\",\"payload\":{\"id\":\"child-1\",\"source\":{\"subagent\":{}}}}\n".utf8) + event("task_started", stamp)).write(to: childRollout)
+        check(sqlite3_exec(db, "CREATE TABLE threads (id TEXT PRIMARY KEY, rollout_path TEXT, archived INTEGER, updated_at INTEGER, source TEXT); INSERT INTO threads VALUES ('root-1', '\(rollout.path)', 0, 1, 'vscode'); INSERT INTO threads VALUES ('child-1', '\(childRollout.path)', 0, 2, '{\"subagent\":{}}');", nil, nil, nil) == SQLITE_OK, "Fixture index created")
         sqlite3_close(db)
         let monitor = TaskStatusMonitor(home: directory)
         var updates: [TaskStatusSummary] = []
         monitor.onUpdate = { updates.append($0) }
         monitor.start()
         let deadline = Date(timeIntervalSinceNow: 3)
-        while updates.isEmpty && Date() < deadline {
+        while (updates.last?.unknownCount != 1 || updates.last?.legacyHealth != .healthy) && Date() < deadline {
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         }
         check(updates.last?.runningCount == 0 && updates.last?.unknownCount == 1, "Historical root starts are unknown and child sessions are excluded")
@@ -341,6 +203,30 @@ enum TaskStatusTests {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
         check(updates.count == count, "Stop suppresses updates")
 
+        let healthEngine = TaskActivityEngine(home: directory)
+        let healthNow = Date()
+        healthEngine.begin(now: healthNow, generation: 1)
+        _ = healthEngine.poll(now: healthNow, generation: 1)
+        let unavailableRollout = sessions.appendingPathComponent("temporarily-unavailable.jsonl")
+        try FileManager.default.moveItem(at: rollout, to: unavailableRollout)
+        let failedRead = TaskStatusMonitor.summary(healthEngine.poll(now: healthNow + 1, generation: 1))
+        check(failedRead.legacyHealth == .unavailable(.allCandidatesUnreadable)
+              && failedRead.legacyDiagnostics?.reasons.contains(.allCandidatesUnreadable) == true,
+              "The actual engine's all-unreadable state survives the ordinary adapter")
+        check(failedRead.isIdle && failedRead.badge.isEmpty && !failedRead.detail.contains("读取失败"),
+              "Read failure health remains internal to ordinary presentation")
+        try FileManager.default.moveItem(at: unavailableRollout, to: rollout)
+        let healthyRead = TaskStatusMonitor.summary(healthEngine.poll(now: healthNow + 2, generation: 1))
+        check(healthyRead.legacyHealth == .healthy, "Successful continuity validation clears overall read failure")
+        healthEngine.reconcile(now: healthNow + 3, generation: 2, reason: .sleep)
+        let sleeping = TaskStatusMonitor.summary(healthEngine.poll(now: healthNow + 3, generation: 2))
+        check(sleeping.legacyHealth == .unavailable(.suspended) && sleeping.isIdle,
+              "Sleep preserves internal source health and neutral presentation")
+        healthEngine.reconcile(now: healthNow + 4, generation: 3, reason: .hostUnavailable)
+        let absentHost = TaskStatusMonitor.summary(healthEngine.poll(now: healthNow + 4, generation: 3))
+        check(absentHost.legacyHealth == .unavailable(.hostUnavailable),
+              "Host loss cannot be mapped back to healthy by the ordinary adapter")
+
         if CommandLine.arguments.contains("--live-smoke") {
             let live = TaskStatusMonitor()
             var publications = 0
@@ -349,7 +235,7 @@ enum TaskStatusTests {
             live.start()
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 15))
             live.stop()
-            print("Live read-only sample: 15s, CPU \(Double(clock() - startCPU) / Double(CLOCKS_PER_SEC))s, \(publications) status publications; no conversation output")
+            print("Live metadata-monitor sample: 15s, CPU \(Double(clock() - startCPU) / Double(CLOCKS_PER_SEC))s, \(publications) status publications; no conversation output")
         }
         let hookActivity = TaskActivitySnapshot(confirmedRunningCount: 2, pendingVerificationCount: 1, recentlyCompletedCount: 4)
         let hookSummary = TaskStatusSummary(activity: hookActivity, runningCount: 0, recentlyCompletedCount: 99, unknownCount: 0)

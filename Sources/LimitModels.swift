@@ -178,6 +178,9 @@ struct LegacyTaskDiagnostics: Equatable {
 /// Local lifecycle evidence, not a server-authoritative task/goal status.
 struct TaskStatusSummary: Equatable {
     var diagnosticSnapshot: DiagnosticTaskSnapshotReference? = nil
+    // The same engine snapshot survives legacy neutral presentation and completion decoration.
+    var snapshotSequence: UInt64 = 0
+    var observationGeneration: UInt64 = 0
     // When present, activity is the sole source for display; legacy counts are ignored.
     var activity: TaskActivitySnapshot? = nil
     // Nil preserves legacy/source-only callers; the app always supplies a bounded feedback decision.
@@ -246,6 +249,23 @@ struct TaskStatusSummary: Equatable {
             "Only execution states confirmed by local logs are shown; this does not mean the overall goal is complete."
         )
         return facts + " " + boundary
+    }
+}
+
+/// Typed production observations at the actual presentation consumers. No diagnostic
+/// text or unavailable-state decoration is added to the ordinary UI.
+enum TaskPresentationTrace {
+    static func record(_ state: RateLimitDisplayState, surface: TaskObservationSurface,
+                       action: TaskObservationDisplayAction) {
+        let task = state.taskStatus
+        let activity = task?.activity
+        TaskObservationRelay.shared.record(.surface(
+            sequence: task?.snapshotSequence ?? 0, generation: task?.observationGeneration ?? 0,
+            surface: surface, action: task == nil ? .disabled : action,
+            running: activity?.confirmedRunningCount ?? task?.runningCount ?? 0,
+            pending: activity?.pendingVerificationCount ?? task?.unknownCount ?? 0,
+            completionVisible: task?.completionFeedbackVisible ?? false,
+            mode: activity == nil ? .legacy : .hooks))
     }
 }
 

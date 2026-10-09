@@ -26,8 +26,10 @@ struct ControllerTests {
         let f = try Fixture(); let file = try f.log()
         let controller = HookConnectionController(directory: f.ipc, home: f.home)
         var latest: TaskActivitySnapshot?
+        var latestEngine: TaskEngineSnapshot?
         var reads: HookMeasurements?
         controller.onUpdate = { latest = $0 }; controller.onMeasurements = { reads = $0 }
+        controller.onEngineSnapshot = { latestEngine = $0 }
         controller.start(); defer { controller.stop() }
         try await waitUntil { latest != nil }
         #expect(latest?.compactText == "—")
@@ -47,16 +49,20 @@ struct ControllerTests {
         try await waitUntil { latest?.sourceHealth.first?.state == .suspended }
         #expect(latest?.confirmedRunningCount == 0)
         controller.resume()
-        try await waitUntil { latest?.sourceHealth.first?.state == .awaitingEvents }
+        // Health now describes the shared continuous log source, not receipt of an
+        // optional Hook. A restored active record is still pending verification.
+        try await waitUntil { latest?.sourceHealth.first?.state == .connected }
         #expect(latest?.confirmedRunningCount == 0)
         try f.append("task_complete", to: file, date: Date())
-        try await waitUntil { latest?.recentlyCompletedCount == 1 }
-        #expect(latest?.recentCompletions.first?.id != completion?.id)
+        try await waitUntil { latestEngine?.records[TaskIdentity(session: "s1")]?.phase == .completed }
+        #expect(latest?.recentlyCompletedCount == 0)
+        #expect(latest?.recentCompletions.isEmpty == true, "Recovery may confirm terminal history but must not replay completion feedback")
+        #expect(completion != nil, "The earlier live-generation completion was observed")
         let terminal = latest?.recentCompletions
         // Allow the deliberately coalesced metadata cache write to finish before a restart.
         try await Task.sleep(nanoseconds: 180_000_000)
         controller.stop(); controller.start()
-        try await waitUntil { latest?.recentCompletions == terminal && latest?.sourceHealth.first?.state == .awaitingEvents }
+        try await waitUntil { latest?.recentCompletions == terminal && latest?.sourceHealth.first?.state == .connected }
         #expect(latest?.confirmedRunningCount == 0)
         #expect((reads?.bytesRead ?? .max) < HookBudget.recoveryBytes)
     }
@@ -93,7 +99,7 @@ struct ControllerTests {
         #expect(latest?.confirmedRunningCount == 0)
         #expect(latest?.sourceHealth.first?.state == .unavailable)
         controller.resume()
-        try await waitUntil { latest?.sourceHealth.first?.state == .awaitingEvents }
+        try await waitUntil { latest?.sourceHealth.first?.state == .connected }
         #expect(latest?.confirmedRunningCount == 0)
         try f.append("task_started", turn: "t3", to: file, date: Date())
         try await waitUntil { latest?.confirmedRunningCount == 1 }
