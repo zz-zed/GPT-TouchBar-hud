@@ -288,5 +288,31 @@
   ],
   "release_notes_confirmed": true,
   "physical_acceptance": "not_performed",
-  "installed_app_replaced": false
+  "installed_app_replaced": false,
+  "ci_followup": {
+    "failed_source_sha": "67451d931fb4c09eb67c31592c5a0ff40629614c",
+    "failed_run": 37910409137,
+    "changes": [
+      "Observe actual retry delay and bounded reconnection completion",
+      "Identify diagnostic review control by accessibility identifier",
+      "Bound animation completion wait and retain terminal geometry assertions"
+    ],
+    "checks": [
+      {
+        "log": "build/integration-20261009/test-verified-quota-ci-fix.log",
+        "exit_code": 0,
+        "sha256": "c188da035161d9cf8164bc7a71875fff5a7160576050acb0607ed3e6fb329a55"
+      },
+      {
+        "log": "build/integration-20261009/test-diagnostic-logging-ci-fix.log",
+        "exit_code": 0,
+        "sha256": "13bdefc75f758ebc854792e2a4b821c4aec58f5545818bb3b443eed95b9ba27d"
+      },
+      {
+        "log": "build/integration-20261009/test-notch-hud-ci-fix.log",
+        "exit_code": 0,
+        "sha256": "6d975e308ad5aea8c1f93bdbae47524490599c948c2f2de81f7749d522e7a304"
+      }
+    ]
+  }
 }

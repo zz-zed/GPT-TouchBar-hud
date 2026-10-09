@@ -124,6 +124,7 @@ final class ConnectionDiagnosticsWindowController: NSWindowController, NSWindowD
         review.isEditable = false
         review.isSelectable = true
         review.isRichText = false
+        review.setAccessibilityIdentifier("diagnostic-export-review")
         review.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         review.textContainerInset = NSSize(width: 10, height: 10)
         review.isVerticallyResizable = true
