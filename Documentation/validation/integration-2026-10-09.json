@@ -314,5 +314,16 @@
         "sha256": "6d975e308ad5aea8c1f93bdbae47524490599c948c2f2de81f7749d522e7a304"
       }
     ]
+  },
+  "compiler_followup": {
+    "failed_run": 37912035068,
+    "failed_source_sha": "37b062f0be10f72e54dbc2853dc08c161d0e1133",
+    "reason": "Swift Collection/Sequence split overload ambiguity in new integration test",
+    "change": "Explicit UInt8 array and Data mapping closure",
+    "local_checks": {
+      "exit_code": 0,
+      "log": "build/integration-20261009/test-unified-diagnostic-swift-ci-fix.log",
+      "sha256": "38ad63351ad2d2d72403d0b0f5da1e64f50084ca8b6813663c34a9a0341202a5"
+    }
   }
 }

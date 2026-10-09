@@ -171,7 +171,10 @@ private final class ReliabilityFixture {
             check(latest?.diagnosticSnapshot?.runningCount == 32, "Late weak events do not reactivate completed task")
             var flushed = false; recorder.flush { flushed = true }; wait { flushed }
             let events = try FileManager.default.contentsOfDirectory(at: diagnosticRoot, includingPropertiesForKeys: nil)
-                .filter { $0.pathExtension == "jsonl" }.flatMap { try Data(contentsOf: $0).split(separator: 10).map(Data.init) }
+                .filter { $0.pathExtension == "jsonl" }.flatMap { url -> [Data] in
+                    let bytes = [UInt8](try Data(contentsOf: url))
+                    return bytes.split(separator: UInt8(10)).map { Data($0) }
+                }
             let envelopes = try events.map { try DiagnosticEventEnvelope.decoder().decode(DiagnosticEventEnvelope.self, from: $0) }
             check(envelopes.contains { if case .taskTrace(.read(_, _, let metrics)) = $0.event { return (metrics.backlogBytes ?? 0) > 0 && metrics.skippedBytes == 0 }; return false }, "Actual backlog reads are persisted without skip")
             check(envelopes.contains { if case .taskTrace(.consumption(_, let value)) = $0.event { return value.surface == .menuBar }; return false }, "Actual display consumes matching snapshot")
