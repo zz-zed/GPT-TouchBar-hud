@@ -6,6 +6,7 @@ final class TaskMonitoringCoordinator {
     var onDiagnosticSnapshot: ((DiagnosticTaskSnapshotReference?) -> Void)?
     private let diagnostics: DiagnosticRecording
     private let engineTrace: DiagnosticTaskEngineTrace
+    private var currentDiagnosticReference: DiagnosticTaskSnapshotReference?
     private var currentDiagnosticBatch: UInt64?
     var onUpdate: ((TaskStatusSummary?) -> Void)?
     private let legacy: TaskStatusMonitor
@@ -15,7 +16,6 @@ final class TaskMonitoringCoordinator {
          sink: TaskObservationSink = TaskObservationRelay.shared, diagnostics: DiagnosticRecording = NoopDiagnosticRecorder()) {
         self.legacy = legacy; self.hooks = hooks; self.sink = sink; self.diagnostics = diagnostics
         engineTrace = DiagnosticTaskEngineTrace(recorder: diagnostics)
-        if !(diagnostics is NoopDiagnosticRecorder) { TaskObservationRelay.shared.connect(engineTrace) }
     }
     private var generation = 0
     private var enabled = false
@@ -23,9 +23,21 @@ final class TaskMonitoringCoordinator {
     static var experimentEnabled: Bool { UserDefaults.standard.object(forKey: "hookTaskMonitoringEnabled") as? Bool ?? false }
 
     func start(displayEnabled: Bool, experimental: Bool = TaskMonitoringCoordinator.experimentEnabled) {
+        if !(diagnostics is NoopDiagnosticRecorder) { TaskObservationRelay.shared.connect(engineTrace) }
         stop(); enabled = displayEnabled; self.experimental = experimental
+        diagnostics.record(.task(stage: .mode, mode: displayEnabled ? (experimental ? .hooks : .legacy) : .disabled))
+        if displayEnabled { diagnostics.record(.task(stage: .monitorStarted, mode: experimental ? .hooks : .legacy)) }
         guard displayEnabled else { onUpdate?(nil); return }
         let token = generation
+        let observation: (UInt64, UInt64) -> Void = { [weak self] sequence, sourceGeneration in
+            guard let self, self.enabled, self.generation == token else { return }
+            let value = self.engineTrace.reference(sequence: sequence, generation: sourceGeneration)
+            guard value != self.currentDiagnosticReference else { return }
+            self.currentDiagnosticReference = value
+            self.onDiagnosticSnapshot?(value)
+        }
+        legacy.onDiagnosticSnapshot = observation
+        hooks.onDiagnosticSnapshot = observation
         if experimental {
             onUpdate?(TaskStatusSummary(activity: TaskActivitySnapshot(sourceHealth: [HookSourceHealth(state: .awaitingEvents)])))
             hooks.onUpdate = { [weak self] snapshot in
@@ -34,6 +46,8 @@ final class TaskMonitoringCoordinator {
                 self.sink.record(.delivery(sequence: snapshot.snapshotSequence,
                                           generation: snapshot.observationGeneration, accepted: accepted, stage: .coordinator))
                 guard accepted else { return }
+                self.diagnostics.record(.task(stage: .mainAccepted, batch: snapshot.snapshotSequence,
+                    mode: self.experimental ? .hooks : .legacy))
                 var value = TaskStatusSummary(snapshotSequence: snapshot.snapshotSequence,
                     observationGeneration: snapshot.observationGeneration, activity: snapshot)
                 value.diagnosticSnapshot = self.engineTrace.reference(sequence: snapshot.snapshotSequence, generation: snapshot.observationGeneration)
@@ -50,6 +64,8 @@ final class TaskMonitoringCoordinator {
                 self.sink.record(.delivery(sequence: snapshot.snapshotSequence,
                                           generation: snapshot.observationGeneration, accepted: accepted, stage: .coordinator))
                 guard accepted else { return }
+                self.diagnostics.record(.task(stage: .mainAccepted, batch: snapshot.snapshotSequence,
+                    mode: self.experimental ? .hooks : .legacy))
                 var value = snapshot
                 value.diagnosticSnapshot = self.engineTrace.reference(sequence: snapshot.snapshotSequence, generation: snapshot.observationGeneration)
                 self.currentDiagnosticBatch = snapshot.snapshotSequence
@@ -66,7 +82,7 @@ final class TaskMonitoringCoordinator {
             onUpdate?(TaskStatusSummary(activity: TaskActivitySnapshot(sourceHealth: [HookSourceHealth(state: .unavailable)])))
         } else { onUpdate?(Self.legacyUnavailable(.hostUnavailable)) }
     }
-    func stop() { generation += 1; enabled = false; legacy.stop(); hooks.stop() }
+    func stop() { if enabled { diagnostics.record(.task(stage: .monitorStopped, mode: experimental ? .hooks : .legacy)) }; generation += 1; enabled = false; currentDiagnosticReference = nil; legacy.stop(); hooks.stop() }
     func recordDisplaySubmission() {
         guard let batch = currentDiagnosticBatch else { return }
         diagnostics.record(.task(stage: .uiSubmitted, batch: batch, mode: experimental ? .hooks : .legacy))

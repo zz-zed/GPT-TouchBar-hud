@@ -10,6 +10,7 @@ public struct HookMeasurements: Sendable {
 
 /// Compatibility facade: Hook notifications only accelerate the same continuous engine.
 public final class HookConnectionController {
+    public var onDiagnosticSnapshot: ((UInt64, UInt64) -> Void)?
     public var onUpdate: ((TaskActivitySnapshot) -> Void)?
     public var onEngineSnapshot: ((TaskEngineSnapshot) -> Void)?
     public var onMeasurements: ((HookMeasurements) -> Void)?
@@ -21,8 +22,10 @@ public final class HookConnectionController {
         runtime = TaskEngineController(home: home, mode: .hooks, directory: directory,
                                        checkpointURL: checkpointURL, sink: sink)
         runtime.onUpdate = { [weak self] snapshot in
-            self?.onEngineSnapshot?(snapshot); self?.onUpdate?(snapshot.activity)
+            self?.onUpdate?(snapshot.activity)
         }
+        runtime.onEngineSnapshot = { [weak self] in self?.onEngineSnapshot?($0) }
+        runtime.onDiagnosticSnapshot = { [weak self] in self?.onDiagnosticSnapshot?($0, $1) }
         runtime.onMeasurements = { [weak self] in self?.onMeasurements?($0) }
     }
     public func start() { runtime.start() }

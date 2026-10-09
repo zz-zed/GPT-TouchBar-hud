@@ -100,8 +100,10 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         // The controller also owns the responder-chain Touch Bar. Its updates
         // must continue independently of the floating window's visibility.
         if hudView.window?.isVisible != false { hudView.update(with: state) }
-        else { taskTrace.record(state, action: .skipped, reason: .hidden) }
-        else { TaskPresentationTrace.record(state, surface: .floatingHUD, action: .hidden) }
+        else {
+            taskTrace.record(state, action: .skipped, reason: .hidden)
+            TaskPresentationTrace.record(state, surface: .floatingHUD, action: .hidden)
+        }
         touchBarView.update(with: state)
     }
 

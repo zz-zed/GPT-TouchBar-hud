@@ -213,7 +213,7 @@ final class DiagnosticExportCoordinator {
                     try operation.check()
                     guard snapshot.recordingGeneration == self.recorder.recordingGeneration else { throw DiagnosticExportError.invalidated }
                     self.finish(operation) { completion(.success(snapshot)) }
-                } catch { self.fail(operation, Self.classify(error)) }
+                } catch { self.fail(operation, Self.classify(error), workerFinished: true) }
             }
         }
     }
@@ -235,7 +235,7 @@ final class DiagnosticExportCoordinator {
                     try DiagnosticZIP.validate(data, files: snapshot.files, checkpoint: operation.check)
                 }, generationValid: { snapshot.recordingGeneration == recorder.recordingGeneration })
                 finish(operation) { completion(.success(())) }
-            } catch { fail(operation, Self.classify(error)) }
+            } catch { fail(operation, Self.classify(error), workerFinished: true) }
         }
     }
 
@@ -258,15 +258,18 @@ final class DiagnosticExportCoordinator {
         guard active === operation, completion != nil else { lock.unlock(); return }
         completion = nil
         lock.unlock()
-        DispatchQueue.main.async(execute: deliver)
+        // The current worker's deferred end must run before completion permits a new operation.
+        queue.async { DispatchQueue.main.async(execute: deliver) }
     }
-    private func fail(_ operation: DiagnosticExportOperation, _ error: DiagnosticExportError) {
+    private func fail(_ operation: DiagnosticExportOperation, _ error: DiagnosticExportError, workerFinished: Bool = false) {
         lock.lock()
         guard active === operation, completion != nil else { lock.unlock(); return }
         let callback = completion
         completion = nil
         lock.unlock()
-        DispatchQueue.main.async { callback?(error) }
+        let deliver = { DispatchQueue.main.async { callback?(error) } }
+        if workerFinished { queue.async(execute: deliver) }
+        else { deliver() } // Timeout/cancel is immediate while the slow source retains its slot.
     }
     /// A timed-out or cancelled source may still be returning. Keep its slot reserved
     /// until its worker exits, so another snapshot cannot stack memory or disk work.

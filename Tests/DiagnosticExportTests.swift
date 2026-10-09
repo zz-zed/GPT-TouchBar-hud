@@ -199,7 +199,10 @@ enum DiagnosticExportTests {
         try FileManager.default.createSymbolicLink(at: linkedParent, withDestinationURL: root)
         check(fails(save(exporter, snapshot, linkedParent.appendingPathComponent("unsafe.zip")), .unsafeDestination), "Symlink parent is rejected without following it")
         check(fails(save(exporter, snapshot, root.appendingPathComponent("missing/no.zip")), .unsafeDestination), "Missing parent reports failure")
-        check(fails(save(exporter, snapshot, eventDirectory), .unsafeDestination), "Existing directory cannot be overwritten as ZIP")
+        for _ in 0..<10 {
+            let directorySaveResult = save(exporter, snapshot, eventDirectory)
+            check(fails(directorySaveResult, .unsafeDestination), "Completed operation releases its slot before callback; directory stays protected: \(directorySaveResult)")
+        }
         let tooLarge = DiagnosticExportSnapshot(id: UUID(), createdAt: time, recordingGeneration: recorder.recordingGeneration,
             files: snapshot.files.map { $0.name == "events.jsonl" ? DiagnosticExportFile(name: $0.name, data: Data(count: 13 * 1024 * 1024)) : $0 }, hasGaps: true)
         check(fails(save(exporter, tooLarge, root.appendingPathComponent("too-large.zip")), .budgetExceeded), "Snapshot plus ZIP budget is enforced before packaging")

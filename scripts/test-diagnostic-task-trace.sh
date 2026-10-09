@@ -10,17 +10,6 @@ flags=(-swift-version 5 -target "$target" -module-cache-path "$(swift_module_cac
 core=(Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/DiagnosticProcessStore.swift Sources/DiagnosticStore.swift Sources/DiagnosticRecorder.swift)
 swiftc "${flags[@]}" "${core[@]}" Tests/DiagnosticTaskTraceProtocolTests.swift -o .build/diagnostic-task-trace-tests/protocol
 .build/diagnostic-task-trace-tests/protocol
-swiftc "${flags[@]}" "${HOOK_CORE_SWIFT_FLAGS[@]}" Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift \
-    Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/HUDPresentation.swift Sources/TaskStatusAppearance.swift \
-    Sources/TaskStatusMonitor.swift Sources/TaskCompletionFeedbackController.swift Tests/DiagnosticTaskTraceLegacyTests.swift \
-    -o .build/diagnostic-task-trace-tests/legacy
-.build/diagnostic-task-trace-tests/legacy
-sources=()
-for source in Sources/*.swift; do
-    [[ "$source" == Sources/main.swift ]] || sources+=("$source")
-done
-swiftc "${flags[@]}" -D DIAGNOSTIC_TRACE_BUNDLE "${HOOK_CORE_SWIFT_FLAGS[@]}" "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" "${sources[@]}" \
-    Tests/DiagnosticTaskTracePipelineSupport.swift Tests/DiagnosticTaskTraceLegacyExportTests.swift \
-    Tests/DiagnosticTaskTraceHookExportTests.swift Tests/DiagnosticTaskTraceDisplayTests.swift Tests/DiagnosticTaskTraceDeliveryTests.swift \
-    Tests/DiagnosticTaskTracePipelineMain.swift -o .build/diagnostic-task-trace-tests/pipeline
-.build/diagnostic-task-trace-tests/pipeline
+# Retired legacy-controller fixtures are preserved under Tests for historical evidence.
+# Current production coverage exercises both modes, backlog, >32 identities and persistence.
+bash scripts/test-unified-diagnostic-task-trace.sh
