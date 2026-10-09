@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private let quotaAlerts = QuotaAlertMonitor()
     private var connectionDiagnostics: ConnectionDiagnosticsWindowController?
     private var autoLaunchError: String?
+    private var autoLaunchBusy = false
+    private var waitingForCacheAtExit = false
     private var latestResetNewsState = ResetNewsViewState()
     private var resetNewsRuntimeRunning = false
     private lazy var resetNewsPopover: ResetNewsPopoverController = {
@@ -139,9 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(resumePanels), name: NSNotification.Name("com.apple.screenIsUnlocked"), object: nil)
         configureStatusItem()
         configureLifecycleMonitor()
-        if case .failure(let error) = HostAutoLauncher.installOrUpdate() {
-            autoLaunchError = error.localizedDescription
-        }
+        configureAutoLaunch()
         HostAutoLauncher.clearManualQuitLock()
 
         taskMonitor.prepareForHost(displayEnabled: taskStatusEnabled)
@@ -213,7 +213,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard appUpdater.canQuit else { appUpdater.presentInstallationProgress(); return .terminateCancel }
-        return .terminateNow
+        guard !waitingForCacheAtExit else { return .terminateLater }
+        waitingForCacheAtExit = true
+        resetNewsMonitor.stop()
+        var replied = false
+        let reply = {
+            guard !replied else { return }
+            replied = true
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        resetNewsMonitor.flush(completion: reply)
+        // A stalled disk must not prevent the user from quitting indefinitely.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: reply)
+        return .terminateLater
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -248,7 +260,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         summaryState = state
         if statusMenuOpen { (summaryMenuItem?.view as? StatusSummaryView)?.update(state, news: latestResetNewsState) }
         preferences?.update(appearance: hudAppearance, state: state, taskEnabled: taskStatusEnabled, persistentEnabled: persistentTouchBar.isEnabled, persistentAvailable: persistentTouchBar.isAvailable, appUpdate: appUpdater.viewState)
-        preferences?.updateAutoLaunch(enabled: HostAutoLauncher.isEnabled, error: autoLaunchError)
+        preferences?.updateAutoLaunch(enabled: HostAutoLauncher.isEnabled, error: autoLaunchError, busy: autoLaunchBusy)
         updateQuotaAlertPreferences()
     }
 
@@ -468,12 +480,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
                 self?.updateQuotaAlertPreferences()
             }
             controller.onAutoLaunch = { [weak self] enabled in
-                guard let self else { return }
-                switch HostAutoLauncher.setEnabled(enabled) {
-                case .success: self.autoLaunchError = nil
-                case .failure(let error): self.autoLaunchError = error.localizedDescription
-                }
-                self.preferences?.updateAutoLaunch(enabled: HostAutoLauncher.isEnabled, error: self.autoLaunchError)
+                self?.configureAutoLaunch(enabled: enabled)
             }
             controller.onConnectionDiagnostics = { [weak self] in
                 guard let self else { return }
@@ -788,6 +795,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             check.toolTip = AppUpdater.versionLabel
             check.isEnabled = !state.isInstalling
         }
+    }
+
+    private func configureAutoLaunch(enabled: Bool? = nil) {
+        guard !autoLaunchBusy else { return }
+        autoLaunchBusy = true
+        preferences?.updateAutoLaunch(enabled: HostAutoLauncher.isEnabled, error: autoLaunchError, busy: true)
+        let completion: (Result<Void, Error>) -> Void = { [weak self] result in
+            guard let self else { return }
+            self.autoLaunchBusy = false
+            switch result {
+            case .success: self.autoLaunchError = nil
+            case .failure(let error): self.autoLaunchError = error.localizedDescription
+            }
+            self.preferences?.updateAutoLaunch(enabled: HostAutoLauncher.isEnabled, error: self.autoLaunchError)
+        }
+        if let enabled { HostAutoLauncher.setEnabled(enabled, completion: completion) }
+        else { HostAutoLauncher.installOrUpdate(completion: completion) }
     }
 
     private func quitApp() {

@@ -114,24 +114,40 @@ protocol ResetNewsFetching: AnyObject {
     func fetch(completion: @escaping (ResetNewsFetchResult) -> Void) -> ResetNewsCancellable
 }
 
+private final class ResetNewsDecodeGate {
+    private let lock = NSLock()
+    private var cancelled = false
+    var isCancelled: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return cancelled
+    }
+    func cancel() {
+        lock.lock(); defer { lock.unlock() }
+        cancelled = true
+    }
+}
+
 final class ResetNewsFeedClient: ResetNewsFetching {
     private let transport: ResetNewsHTTPTransport
     private let now: () -> Date
     private let bundleVersion: String
+    private let decodeQueue: DispatchQueue
 
     init(transport: ResetNewsHTTPTransport = ResetNewsURLSessionTransport(),
          bundleVersion: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev",
-         now: @escaping () -> Date = Date.init) {
+         now: @escaping () -> Date = Date.init,
+         decodeQueue: DispatchQueue = DispatchQueue(label: "io.github.zz-zed.GPTTouchBarHUD.news-decode", qos: .utility)) {
         self.transport = transport
         self.bundleVersion = bundleVersion
         self.now = now
+        self.decodeQueue = decodeQueue
     }
 
     func fetch(completion: @escaping (ResetNewsFetchResult) -> Void) -> ResetNewsCancellable {
         precondition(Thread.isMainThread)
         var tasks: [ResetNewsCancellable] = []
         var results: [ResetNewsEndpointResult] = []
-        var cancelled = false
+        let gate = ResetNewsDecodeGate()
         let sources: [ResetNewsSource] = [.feed, .timeline, .forecast]
         for source in sources {
             // These fixed URLs contain no credentials or user-specific data.
@@ -142,19 +158,31 @@ final class ResetNewsFeedClient: ResetNewsFetching {
             request.setValue("GPT-TouchBar-HUD/\(bundleVersion) (+https://github.com/zz-zed/GPT-TouchBar-hud)", forHTTPHeaderField: "User-Agent")
             tasks.append(transport.send(request) { [weak self] data, response, error in
                 DispatchQueue.main.async {
-                    guard !cancelled, let self else { return }
-                    results.append(self.decode(data: data, response: response, error: error, source: source))
-                    if results.count == sources.count {
-                        completion(ResetNewsFetchResult(endpoints: results.sorted { $0.source.rawValue < $1.source.rawValue }))
+                    guard !gate.isCancelled, let self else { return }
+                    let receivedAt = self.now()
+                    self.decodeQueue.async {
+                        guard !gate.isCancelled else { return }
+                        let decoded = Self.decode(data: data, response: response, error: error, source: source, now: receivedAt)
+                        DispatchQueue.main.async {
+                            guard !gate.isCancelled else { return }
+                            results.append(decoded)
+                            if results.count == sources.count {
+                                completion(ResetNewsFetchResult(endpoints: results.sorted { $0.source.rawValue < $1.source.rawValue }))
+                            }
+                        }
                     }
                 }
             })
         }
-        return ResetNewsCancellation { cancelled = true; tasks.forEach { $0.cancel() } }
+        return ResetNewsCancellation {
+            precondition(Thread.isMainThread)
+            gate.cancel(); tasks.forEach { $0.cancel() }
+        }
     }
 
-    private func decode(data: Data?, response: URLResponse?, error: Error?, source: ResetNewsSource) -> ResetNewsEndpointResult {
-        var metadata = (response as? HTTPURLResponse).map { ResetNewsHTTPMetadata.parse($0, now: now()) } ?? .init()
+    private static func decode(data: Data?, response: URLResponse?, error: Error?, source: ResetNewsSource, now: Date) -> ResetNewsEndpointResult {
+        precondition(!Thread.isMainThread)
+        var metadata = (response as? HTTPURLResponse).map { ResetNewsHTTPMetadata.parse($0, now: now) } ?? .init()
         func failure(_ error: ResetNewsFetchError) -> ResetNewsEndpointResult {
             .init(source: source, items: [], metadata: metadata, error: error)
         }

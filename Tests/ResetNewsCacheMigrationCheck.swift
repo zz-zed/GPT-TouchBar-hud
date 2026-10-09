@@ -13,6 +13,10 @@ import ResetNewsCore
         let policy = ResetForecastPolicy()
         let expected = policy.retaining(before.items, now: now)
         let repository = ResetNewsRepository(directory: directory, now: now)
+        repository.load {}
+        let deadline = Date().addingTimeInterval(5)
+        while !repository.isLoaded && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
+        precondition(repository.isLoaded, "Asynchronous migration completed")
         let after = try JSONDecoder().decode(ResetNewsStoredState.self, from: Data(contentsOf: file))
         precondition(after == repository.state && after.items == expected)
         let readableIDs = Set(after.items.map(\.id) + (after.forecast?.item(now: now).map { [$0.id] } ?? []))

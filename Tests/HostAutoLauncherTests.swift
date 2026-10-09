@@ -106,6 +106,8 @@ enum HostAutoLauncherTests {
         try testRegistrationOwnership()
         try testLegacyScope()
         try testMissingExecutableDoesNotWait()
+        try testCommandTimeout()
+        try testSerializedBackgroundOperations()
         try testShellBehavior(sourceURL: URL(fileURLWithPath: CommandLine.arguments[1]))
         print("PASS: \(checks) host auto-launcher checks")
     }
@@ -206,6 +208,10 @@ enum HostAutoLauncherTests {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeCommand.path)
         let result = try HostLaunchctlResult.run(arguments: [], executableURL: fakeCommand)
         check(result.status == 5 && result.output.contains("fake-error"), "Command runner captures exit status and error output")
+        try "#!/bin/sh\nprintf '%131072s' ''\n".write(to: fakeCommand, atomically: true, encoding: .utf8)
+        let large = try HostLaunchctlResult.run(arguments: [], executableURL: fakeCommand)
+        check(large.status == 0 && large.output.utf8.count == 64 * 1024,
+              "Output beyond pipe capacity finishes and captured diagnostics remain bounded")
     }
 
     private static func testShellBehavior(sourceURL: URL) throws {
@@ -273,5 +279,69 @@ enum HostAutoLauncherTests {
         try run(preference: "0", host: "stopped")
         try run(preference: "0")
         check(!FileManager.default.fileExists(atPath: opened.path), "Permanent opt-out remains after host restart")
+    }
+
+    private static func testCommandTimeout() throws {
+        let fixture = try Fixture()
+        defer { try? fixture.cleanup() }
+        let command = fixture.root.appendingPathComponent("stalled-launchctl")
+        let pidFile = fixture.root.appendingPathComponent("pid")
+        try "#!/bin/sh\ntrap '' TERM\necho $$ > \"$1\"\nexec /bin/sleep 30\n"
+            .write(to: command, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: command.path)
+        let started = Date()
+        do {
+            _ = try HostLaunchctlResult.run(arguments: [pidFile.path], executableURL: command, timeout: 0.5)
+            preconditionFailure("Stalled command must time out")
+        } catch HostAutoLaunchError.commandTimedOut {
+            check(Date().timeIntervalSince(started) < 2, "An uncooperative command has a bounded wait")
+        }
+        let pid = Int32(try String(contentsOf: pidFile).trimmingCharacters(in: .whitespacesAndNewlines))!
+        check(kill(pid, 0) == -1 && errno == ESRCH, "Timeout reaps only the owned fixture, including a command ignoring TERM")
+        var manager = fixture.manager
+        manager.runLaunchctl = { _ in throw HostAutoLaunchError.commandTimedOut("bootout") }
+        check(failed(manager.setEnabled(false)) && manager.preferences.isEnabled,
+              "Timed-out registration never commits an unverified preference")
+    }
+
+    private static func testSerializedBackgroundOperations() throws {
+        let fixture = try Fixture()
+        defer { try? fixture.cleanup() }
+        let entered = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+        let service = HostAutoLaunchService {
+            var manager = fixture.manager
+            manager.runLaunchctl = { arguments in
+                precondition(!Thread.isMainThread, "System commands must run off main")
+                if arguments[0] == "bootstrap" {
+                    entered.signal()
+                    precondition(release.wait(timeout: .now() + 2) == .success)
+                }
+                return try fixture.launchctl.run(arguments)
+            }
+            return manager
+        }
+        var completions: [Bool] = []
+        service.setEnabled(true) { result in
+            precondition(Thread.isMainThread)
+            check(!failed(result), "Background enable succeeds")
+            completions.append(true)
+        }
+        check(entered.wait(timeout: .now() + 2) == .success, "Slow registration started in the worker")
+        service.setEnabled(false) { result in
+            precondition(Thread.isMainThread)
+            check(!failed(result), "Queued disable succeeds")
+            completions.append(false)
+        }
+        var responsive = false
+        DispatchQueue.main.async { responsive = true }
+        let deadline = Date().addingTimeInterval(2)
+        while !responsive && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
+        check(responsive && completions.isEmpty, "Main remains responsive while launchctl is blocked")
+        release.signal()
+        while completions.count < 2 && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
+        check(completions == [true, false], "Rapid setting operations finish in submission order")
+        check(!fixture.manager.preferences.isEnabled && !fixture.launchctl.loaded.contains(fixture.target),
+              "The last verified operation owns the saved preference and final registration")
     }
 }
