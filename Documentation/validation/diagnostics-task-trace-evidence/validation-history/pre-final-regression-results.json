@@ -1,0 +1,170 @@
+[
+  {
+    "suite": "test-diagnostic-logging",
+    "command": "bash scripts/test-diagnostic-logging.sh",
+    "exitCode": 0,
+    "durationSeconds": 112.92,
+    "log": ".build/diagnostic-task-trace-validation/diagnostic-logging.log",
+    "earlierFailure": {
+      "suite": "test-diagnostic-logging",
+      "command": "bash scripts/test-diagnostic-logging.sh",
+      "exitCode": 133,
+      "durationSeconds": 17.64,
+      "log": ".build/diagnostic-task-trace-validation/diagnostic-logging-first-failure.log"
+    }
+  },
+  {
+    "suite": "test-diagnostic-upgrade-storage",
+    "command": "bash scripts/test-diagnostic-upgrade-storage.sh",
+    "exitCode": 0,
+    "durationSeconds": 6.68,
+    "log": ".build/diagnostic-task-trace-validation/diagnostic-upgrade-storage.log"
+  },
+  {
+    "suite": "test-diagnostic-upgrade-installer",
+    "command": "bash scripts/test-diagnostic-upgrade-installer.sh",
+    "exitCode": 0,
+    "durationSeconds": 12.0,
+    "log": ".build/diagnostic-task-trace-validation/diagnostic-upgrade-installer.log"
+  },
+  {
+    "suite": "test-diagnostic-upgrade-recovery",
+    "command": "bash scripts/test-diagnostic-upgrade-recovery.sh",
+    "exitCode": 0,
+    "durationSeconds": 7.32,
+    "log": ".build/diagnostic-task-trace-validation/diagnostic-upgrade-recovery.log"
+  },
+  {
+    "suite": "test-app-update",
+    "command": "bash scripts/test-app-update.sh",
+    "exitCode": 0,
+    "durationSeconds": 2.84,
+    "log": ".build/diagnostic-task-trace-validation/app-update.log"
+  },
+  {
+    "suite": "test-app-update-progress",
+    "command": "bash scripts/test-app-update-progress.sh",
+    "exitCode": 0,
+    "durationSeconds": 22.32,
+    "log": ".build/diagnostic-task-trace-validation/app-update-progress.log"
+  },
+  {
+    "suite": "test-single-instance",
+    "command": "bash scripts/test-single-instance.sh",
+    "exitCode": 0,
+    "durationSeconds": 2.47,
+    "log": ".build/diagnostic-task-trace-validation/single-instance.log"
+  },
+  {
+    "suite": "test-connection-diagnostics",
+    "command": "bash scripts/test-connection-diagnostics.sh",
+    "exitCode": 0,
+    "durationSeconds": 10.19,
+    "log": ".build/diagnostic-task-trace-validation/connection-diagnostics.log"
+  },
+  {
+    "suite": "test-task-status",
+    "command": "bash scripts/test-task-status.sh",
+    "exitCode": 0,
+    "durationSeconds": 8.1,
+    "log": ".build/diagnostic-task-trace-validation/task-status.log"
+  },
+  {
+    "suite": "test-hook-integration",
+    "command": "bash scripts/test-hook-integration.sh",
+    "exitCode": 0,
+    "durationSeconds": 7.73,
+    "log": ".build/diagnostic-task-trace-validation/hook-integration.log"
+  },
+  {
+    "suite": "test-hooks",
+    "command": "bash scripts/test-hooks.sh",
+    "exitCode": 0,
+    "durationSeconds": 15.26,
+    "log": ".build/diagnostic-task-trace-validation/hooks.log"
+  },
+  {
+    "suite": "test-verified-quota",
+    "command": "bash scripts/test-verified-quota.sh",
+    "exitCode": 0,
+    "durationSeconds": 5.88,
+    "log": ".build/diagnostic-task-trace-validation/verified-quota.log"
+  },
+  {
+    "suite": "test-touchbar",
+    "command": "bash scripts/test-touchbar.sh",
+    "exitCode": 0,
+    "durationSeconds": 9.29,
+    "log": ".build/diagnostic-task-trace-validation/touchbar.log"
+  },
+  {
+    "suite": "test-notch-hud",
+    "command": "bash scripts/test-notch-hud.sh",
+    "exitCode": 0,
+    "durationSeconds": 49.83,
+    "log": ".build/diagnostic-task-trace-validation/notch-hud.log"
+  },
+  {
+    "suite": "test-design-layout",
+    "command": "bash scripts/test-design-layout.sh",
+    "exitCode": 0,
+    "durationSeconds": 35.86,
+    "log": ".build/diagnostic-task-trace-validation/design-layout.log"
+  },
+  {
+    "suite": "test-status-menu",
+    "command": "bash scripts/test-status-menu.sh",
+    "exitCode": 0,
+    "durationSeconds": 12.18,
+    "log": ".build/diagnostic-task-trace-validation/status-menu.log"
+  },
+  {
+    "suite": "test-idle-performance",
+    "command": "bash scripts/test-idle-performance.sh",
+    "exitCode": 0,
+    "durationSeconds": 31.94,
+    "log": ".build/diagnostic-task-trace-validation/idle-performance.log"
+  },
+  {
+    "suite": "test-token-usage",
+    "command": "bash scripts/test-token-usage.sh",
+    "exitCode": 0,
+    "durationSeconds": 9.25,
+    "log": ".build/diagnostic-task-trace-validation/token-usage.log"
+  },
+  {
+    "suite": "test-account-token-usage",
+    "command": "bash scripts/test-account-token-usage.sh",
+    "exitCode": 0,
+    "durationSeconds": 3.99,
+    "log": ".build/diagnostic-task-trace-validation/account-token-usage.log"
+  },
+  {
+    "suite": "test-host-lifecycle",
+    "command": "bash scripts/test-host-lifecycle.sh",
+    "exitCode": 0,
+    "durationSeconds": 1.38,
+    "log": ".build/diagnostic-task-trace-validation/host-lifecycle.log"
+  },
+  {
+    "suite": "test-host-auto-launcher",
+    "command": "bash scripts/test-host-auto-launcher.sh",
+    "exitCode": 0,
+    "durationSeconds": 6.44,
+    "log": ".build/diagnostic-task-trace-validation/host-auto-launcher.log"
+  },
+  {
+    "suite": "test-touchbar-layout",
+    "command": "bash scripts/test-touchbar-layout.sh",
+    "exitCode": 0,
+    "durationSeconds": 5.74,
+    "log": ".build/diagnostic-task-trace-validation/touchbar-layout.log"
+  },
+  {
+    "suite": "test-release-workflows",
+    "command": "bash scripts/test-release-workflows.sh",
+    "exitCode": 0,
+    "durationSeconds": 0.63,
+    "log": ".build/diagnostic-task-trace-validation/release-workflows.log"
+  }
+]

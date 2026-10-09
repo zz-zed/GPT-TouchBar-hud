@@ -12,13 +12,24 @@ public struct HookMeasurements: Sendable {
     public var filesRead = 0
     public var reconciliations = 0
     public var hooksReceived = 0
+    public var acceptedLiveStarts = 0
 }
 
 /// Public methods and onUpdate are main-thread owned; one serial utility queue owns all I/O/state.
 /// DispatchSource is required for socket/vnode readiness and its bounded lifecycle; no task per event.
 public final class HookConnectionController {
     public var onUpdate: ((TaskActivitySnapshot) -> Void)?
+    public var onTaskStartObserved: (() -> Void)?
+    private var observedStarts = 0
     public var onMeasurements: ((HookMeasurements) -> Void)?
+    /// Raw observations are worker-queue owned. The application must anonymize before persistence.
+    public var onTrace: ((HookTaskTraceBatch) -> Void)?
+    /// Main queue, immediately before the matching production update (or its suppressed delivery).
+    public var onTraceDelivery: ((UInt64, UInt64, Bool) -> Void)?
+    public var onTraceDiscarded: ((UInt64, UInt64) -> Void)?
+    /// A lightweight thread-safe application gate, sampled at worker boundaries without I/O.
+    public var traceEnabled: (() -> Bool)?
+    public var traceEpoch: (() -> UInt64)?
     private let worker: HookWorker
     private var generation = 0
     public init(directory: URL = HookPaths.defaultDirectory, home: URL = URL(fileURLWithPath:
@@ -27,16 +38,36 @@ public final class HookConnectionController {
     }
     public func start() {
         precondition(Thread.isMainThread)
-        generation += 1; let token = generation
+        generation += 1; observedStarts = 0; let token = generation
         worker.queue.async { [weak self] in
             guard let self else { return }
-            self.worker.start { [weak self] snapshot, measurements in
+            self.worker.start(generation: UInt64(token)) { [weak self] snapshot, measurements, trace, delivered in
                 DispatchQueue.main.async { [weak self] in
-                    guard let self, self.generation == token else { return }
+                    guard let self else { return }
+                    guard self.generation == token else {
+                        if let trace { self.onTraceDiscarded?(trace.0, trace.1) }
+                        return
+                    }
+                    if let trace { self.onTraceDelivery?(trace.0, trace.1, delivered) }
+                    guard delivered else { return }
+                    if measurements.acceptedLiveStarts > self.observedStarts {
+                        self.observedStarts = measurements.acceptedLiveStarts
+                        self.onTaskStartObserved?()
+                    }
+                    // Correlate an accepted start with the snapshot that carries its result.
+                    guard self.generation == token else { return }
                     self.onUpdate?(snapshot); self.onMeasurements?(measurements)
                 }
             }
         }
+    }
+    public func setTraceEnabled(_ enabled: Bool) {
+        precondition(Thread.isMainThread)
+        let handler = enabled ? onTrace : nil
+        let gate = traceEnabled
+        let epoch = traceEpoch
+        let worker = worker
+        worker.queue.async { worker.configureTrace(handler, gate: gate, epoch: epoch) }
     }
     public func stop() {
         precondition(Thread.isMainThread); generation += 1
@@ -54,7 +85,17 @@ private final class HookWorker {
     private let resolver: TaskEvidenceResolver
     private var reducer = TaskStateReducer()
     private var receiver: HookReceiver?
-    private var observer: ((TaskActivitySnapshot, HookMeasurements) -> Void)?
+    private var observer: ((TaskActivitySnapshot, HookMeasurements, (UInt64, UInt64)?, Bool) -> Void)?
+    private var traceHandler: ((HookTaskTraceBatch) -> Void)?
+    private var traceGate: (() -> Bool)?
+    private var traceEpochProvider: (() -> UInt64)?
+    private var currentTraceEpoch: UInt64 = 0
+    private var traceCaptureEnabled = false
+    private var traceGeneration: UInt64 = 0
+    private var traceSequence: UInt64 = 0
+    private var tracePending: [HookTaskTraceObservation] = []
+    private var traceDropped = 0
+    private var previousMembers: HookTaskMemberSnapshot?
     private var watches: [TaskIdentity: DispatchSourceFileSystemObject] = [:]
     private var scheduled: [TaskIdentity: DispatchWorkItem] = [:]
     private var scheduleState = HookVerificationSchedule()
@@ -68,10 +109,39 @@ private final class HookWorker {
     private var epoch = 0
     private var lastPersistedData: Data?
     private var previous: TaskActivitySnapshot?
+    private var liveSince = Date.distantFuture
+    private var publishedStarts = 0
     init(directory: URL, home: URL) { self.directory = directory; resolver = TaskEvidenceResolver(home: home) }
-    func start(observer: @escaping (TaskActivitySnapshot, HookMeasurements) -> Void) {
-        stop(); enabled = true; hostAvailable = true; self.observer = observer
+    func configureTrace(_ handler: ((HookTaskTraceBatch) -> Void)?, gate: (() -> Bool)?, epoch: (() -> UInt64)?) {
+        traceHandler = handler; traceGate = gate; traceEpochProvider = epoch
+        tracePending.removeAll(); traceDropped = 0; previousMembers = nil
+        refreshTraceGate()
+        if enabled { publish() }
+    }
+    private func refreshTraceGate() {
+        let active = traceHandler != nil && (traceGate?() ?? true)
+        let epoch = traceEpochProvider?() ?? 0
+        if active != traceCaptureEnabled || epoch != currentTraceEpoch {
+            traceCaptureEnabled = active
+            currentTraceEpoch = epoch
+            tracePending.removeAll(); traceDropped = 0; previousMembers = nil
+        }
+        installTraceObservers()
+    }
+    private func installTraceObservers() {
+        guard traceCaptureEnabled else { reducer.traceObserver = nil; resolver.traceObserver = nil; return }
+        let capture: @Sendable (HookTaskTraceObservation) -> Void = { [weak self] observation in
+            guard let self, self.traceCaptureEnabled, self.traceGate?() ?? true,
+                  self.traceEpochProvider?() ?? 0 == self.currentTraceEpoch else { return }
+            if self.tracePending.count < 2_048 { self.tracePending.append(observation) }
+            else { self.traceDropped += 1 }
+        }
+        reducer.traceObserver = capture; resolver.traceObserver = capture
+    }
+    func start(generation: UInt64, observer: @escaping (TaskActivitySnapshot, HookMeasurements, (UInt64, UInt64)?, Bool) -> Void) {
+        stop(); liveSince = Date(); publishedStarts = 0; enabled = true; hostAvailable = true; self.observer = observer
         reducer = TaskStateReducer(); measurements = HookMeasurements(); previous = nil; lastPersistedData = nil
+        traceGeneration = generation; traceSequence = 0; installTraceObservers()
         do {
             try HookPaths.ensurePrivateDirectory(directory)
             let cacheURL = directory.appendingPathComponent("state.json")
@@ -91,6 +161,7 @@ private final class HookWorker {
             timer.setEventHandler { [weak self] in
                 guard let self, !self.suspended else { return }
                 // Aging only: no candidate discovery or full-file scan on this timer.
+                self.refreshTraceGate()
                 self.reducer.tick(now: Date()); self.publish()
             }
             healthTimer = timer; timer.resume()
@@ -104,8 +175,10 @@ private final class HookWorker {
         for work in scheduled.values { work.cancel() }; scheduled.removeAll(); scheduleState.clear()
         for watch in watches.values { watch.cancel() }; watches.removeAll()
         receiver?.stop(); receiver = nil; resolver.reset(); submitTimes.removeAll(); observer = nil
+        tracePending.removeAll(); traceDropped = 0; previousMembers = nil
     }
     func suspend() {
+        refreshTraceGate()
         guard enabled else { return }; suspended = true
         reducer.invalidate(.sleep, now: Date()); reducer.health.state = .suspended
         for work in scheduled.values { work.cancel() }; scheduled.removeAll(); scheduleState.clear(); submitTimes.removeAll()
@@ -113,10 +186,12 @@ private final class HookWorker {
         resolver.reset(); publish()
     }
     func resume() {
+        refreshTraceGate()
         guard enabled else { return }; suspended = false; hostAvailable = true
         reducer.health.state = .awaitingEvents; reconcileRecovery(); publish()
     }
     func unavailable() {
+        refreshTraceGate()
         guard enabled else { return }
         hostAvailable = false; epoch += 1
         for work in scheduled.values { work.cancel() }; scheduled.removeAll(); scheduleState.clear()
@@ -127,11 +202,13 @@ private final class HookWorker {
         publish()
     }
     private func reconcileRecovery() {
+        refreshTraceGate()
         let tasks = Array(Set(reducer.records.keys.map(\.task))).sorted { $0.session < $1.session }
         consume(resolver.recover(tasks: tasks, now: Date()))
         for task in resolver.observedFiles.keys { schedule(task, delay: 0.12, restart: true) }
     }
     private func receive(_ event: HookEvent) {
+        refreshTraceGate()
         guard enabled else { return }
         measurements.hooksReceived += 1
         let now = Date(); let task = TaskIdentity(source: event.source, session: event.session)
@@ -164,6 +241,7 @@ private final class HookWorker {
         scheduled[task] = work; queue.asyncAfter(deadline: .now() + delay, execute: work)
     }
     private func reconcile(_ task: TaskIdentity) {
+        refreshTraceGate()
         let now = Date()
         let report = resolver.resolve(task: task, now: now, liveSince: submitTimes[task])
         if let failure = report.gaps.intersection([.missingLog, .invalidPath, .malformedLog]).first {
@@ -177,10 +255,20 @@ private final class HookWorker {
     private func consume(_ report: EvidenceReport) {
         measurements.bytesRead += report.bytesRead; measurements.filesRead += report.filesRead; measurements.reconciliations += 1
         let now = Date()
-        for task in report.resetTasks { reducer.invalidate(.rotatedLog, now: now, task: task, resetPositions: true) }
+        for task in report.resetTasks { reducer.invalidate(.rotatedLog, now: now, task: task, resetPositions: true,
+                                                          traceReason: report.traceResetReasons[task]) }
         for gap in report.gaps { reducer.gap(gap, now: now) }
         for task in report.excluded { reducer.exclude(task); resolver.forget(task) }
-        for evidence in report.evidence { reducer.apply(evidence, now: now) }
+        for evidence in report.evidence {
+            let previous = reducer.records[evidence.identity]
+            reducer.apply(evidence, now: now)
+            if evidence.kind == .started, evidence.live, evidence.date >= liveSince,
+               previous?.lastPosition != evidence.position,
+               let accepted = reducer.records[evidence.identity], accepted.lastPosition == evidence.position,
+               accepted.phase == .active {
+                measurements.acceptedLiveStarts += 1
+            }
+        }
         updateWatches()
     }
     private func updateWatches() {
@@ -207,10 +295,14 @@ private final class HookWorker {
     }
     private func publish() {
         guard enabled else { return }
-        let snapshot = reducer.snapshot(now: Date())
+        refreshTraceGate()
+        var members: HookTaskMemberSnapshot?
+        let snapshot = reducer.snapshot(now: Date(), onMembers: traceCaptureEnabled ? { members = $0 } : nil)
         // Ignore timestamp-only updates, while preserving changed counts/coverage/completion IDs.
         var comparison = snapshot; comparison.updatedAt = previous?.updatedAt ?? snapshot.updatedAt
-        if comparison != previous { previous = snapshot; observer?(snapshot, measurements) }
+        let delivered = comparison != previous || publishedStarts != measurements.acceptedLiveStarts
+        if delivered { previous = snapshot; publishedStarts = measurements.acceptedLiveStarts }
+        deliver(snapshot, members: members, businessDelivery: delivered)
         guard persistWork == nil else { return }
         let work = DispatchWorkItem { [weak self] in
             guard let self, self.enabled else { return }; self.persistWork = nil
@@ -226,9 +318,25 @@ private final class HookWorker {
                 self.lastPersistedData = data
             } catch {
                 self.reducer.gap(.disconnected, now: Date()); self.reducer.health.state = .degraded
-                self.observer?(self.reducer.snapshot(now: Date()), self.measurements)
+                var members: HookTaskMemberSnapshot?
+                self.refreshTraceGate()
+                let snapshot = self.reducer.snapshot(now: Date(), onMembers: self.traceCaptureEnabled ? { members = $0 } : nil)
+                self.deliver(snapshot, members: members, businessDelivery: true)
             }
         }
         persistWork = work; queue.asyncAfter(deadline: .now() + 0.1, execute: work)
+    }
+    private func deliver(_ snapshot: TaskActivitySnapshot, members: HookTaskMemberSnapshot?, businessDelivery: Bool) {
+        var trace: (UInt64, UInt64)?
+        if let members, let traceHandler,
+           !tracePending.isEmpty || traceDropped > 0 || members != previousMembers || businessDelivery {
+            traceSequence &+= 1
+            let batch = HookTaskTraceBatch(generation: traceGeneration, traceEpoch: currentTraceEpoch, sequence: traceSequence,
+                observations: tracePending, observationsDropped: traceDropped, members: members,
+                activity: snapshot, businessDelivery: businessDelivery)
+            tracePending.removeAll(keepingCapacity: true); traceDropped = 0; previousMembers = members
+            traceHandler(batch); trace = (batch.generation, batch.sequence)
+        }
+        if businessDelivery || trace != nil { observer?(snapshot, measurements, trace, businessDelivery) }
     }
 }

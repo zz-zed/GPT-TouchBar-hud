@@ -1,0 +1,20 @@
+{
+  "baseHEAD": "2059fd678fc2eea86ee5ed1a517d1b5d383a59d3",
+  "worktree": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken",
+  "originalWorkspace": "/Users/didi/Desktop/codex-space/TouchBarCodexToken",
+  "planSHA256": "08beeafca2961ee7177984fffef55f94396d32839b21285117a9f288ddd5a5cc",
+  "originalUncommittedFiles": {
+    "Sources/AppDelegate.swift": "284e88ff991ba89fdf510fc74ce7e5f658660069deb81fb9916a3f4e156bbf9f",
+    "Sources/HostAutoLauncher.swift": "b52a3425d79c2df3333cec6af61353a7e2c3407a086e0ba90e422b47310d4da4",
+    "Sources/PreferencesWindowController.swift": "c7233f7466dff51d5f4ebf883874b975dd82d5f7ac0e69b7e514fd84cf737386",
+    "Sources/ResetNewsFeedClient.swift": "985ca251bc757ced5f522e0eab65248bf33013d44887cde1b83088ec62f9acc3",
+    "Sources/ResetNewsMonitor.swift": "6f9073a769742fd9d97aca7a2d7d21797b16c8625c960d1fa50dfe4524804321",
+    "Sources/ResetNewsRepository.swift": "403f9f1ef9e951c77a7751c6c1212035cd99d9d81446cf7057b0b43b9206f1f4",
+    "Tests/DesignLayoutTests.swift": "c888964a85985b408c0f0b6cf9a44abe0fcd41a08f87481a113ea03f17ee21a6",
+    "Tests/HostAutoLauncherTests.swift": "5a70ad016b7925c79da242250c8dfd92943ccaae2bca3907f2a01dd871316c7f",
+    "Tests/ResetNewsCacheMigrationCheck.swift": "481aa609ec3d0aeab5b53d5e6cf13e6e37537d400631fa3d50b95eede807d1ac",
+    "Tests/ResetNewsRuntimeTests.swift": "b9aea110f07bf57fcc5b6f234fceba464087f6b792c57d3903fe3682ec0f1887"
+  },
+  "inheritedChanges": [],
+  "baselineDecision": "Use same committed HEAD; existing background and reset-news changes are not required for observational diagnostics. Original workspace read-only."
+}

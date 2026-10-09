@@ -1,0 +1,8 @@
+{
+  "checks" : 29,
+  "diagnosticAcceptance" : "passed",
+  "physicalVisibility" : "unverified; test windows never presented",
+  "schemaVersion" : 1,
+  "scope" : "actual timer, main callback, four consumers and frozen ZIP; missing pages\/identities\/predecessor plus global drops",
+  "zipDirectory" : "\/Users\/didi\/.codex\/worktrees\/f5be\/TouchBarCodexToken\/.build\/diagnostic-task-trace-tests\/display-D259BBDE-6FD2-4BA8-A9BB-978D4238063C"
+}

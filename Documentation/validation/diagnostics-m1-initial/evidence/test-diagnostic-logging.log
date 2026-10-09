@@ -1,0 +1,12 @@
+PASS: 22 diagnostic environment checks
+Testing noImplicitIO
+Testing whitelistAndCorruption
+Testing retentionAndBudgets
+Testing queueAndFailure
+Testing boundaries
+Testing aggregationAndClock
+Testing shutdownMarker
+DiagnosticRecorderTests: 216 checks passed
+PASS: 67 diagnostic export checks
+PASS: diagnostic integration, unknown versus empty, correlated scan/UI, bounded reads, stale callback and private connection metadata
+PASS: application output channels use typed diagnostic boundary

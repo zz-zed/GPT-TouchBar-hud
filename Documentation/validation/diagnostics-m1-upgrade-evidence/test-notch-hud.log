@@ -1,0 +1,6 @@
+Native fixture: screen=(0.0, 0.0, 1680.0, 1050.0), visibleFrame=(0.0, 0.0, 1680.0, 1020.0), anchor=(840.0, 1050.0)
+SwiftUI AX tree unavailable; exercising fixture-window local mouse events instead.
+Native regular expanded size: (340.0, 259.0)
+Live synthetic panel: requested=true, visible=true, onSpace=true, occlusion=8194
+Intermediate anchor: top=1050.0, expected=1050.0, center=840.0, expected=840.0
+PASS: 204018 notch fusion and V2 checks

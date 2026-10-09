@@ -43,6 +43,7 @@ final class NotchDetailContent: NSView {
 
 /// A continuous shell from the screen edge, with content and input below the camera.
 final class NotchHUDView: NSView {
+    var taskTrace = DiagnosticTaskDisplayObserver(NoopDiagnosticRecorder(), surface: .notch, consumer: .notchLegacy)
     var onToggle: (() -> Void)?
     var onRefresh: (() -> Void)?
     var onSettings: (() -> Void)?
@@ -152,10 +153,16 @@ final class NotchHUDView: NSView {
         return max(24, ceil(rect.height) + 6) + summaryTopPadding
     }
     func update(_ state: RateLimitDisplayState, expanded: Bool, taskDisplayEnabled: Bool = true, abbreviateLabels: Bool = false) {
+        var observed = state
+        observed.taskTrace.tasksEnabled = taskDisplayEnabled
         self.state = state
         self.expanded = expanded
         rows = HUDMetric.rows(for: state)
         let task = NotchTaskPresentation(state.taskStatus, enabled: taskDisplayEnabled)
+        let compact: DiagnosticTaskCompactRule = !taskDisplayEnabled ? .hidden : (task.badge.contains("9+") ? .ninePlus : .exact)
+        let presentation: DiagnosticTaskPresentation = task.appearance == .unknown ? .unknown : (state.taskStatus?.diagnosticPresentation ?? .unknown)
+        taskTrace.record(observed, action: .received, compact: compact, presentation: presentation)
+        taskTrace.record(observed, action: .renderRequested, compact: compact, presentation: presentation)
         let values = rows.isEmpty ? DisplayLanguage.text("额度 —", "Quota —") : rows.map(\.compact).joined(separator: "  ")
         summaryText = (taskDisplayEnabled ? task.badge + "  " : "") + values + (state.errorMessage == nil ? "" : " !")
         // One attributed group is both rendered and measured: no phantom digits or separators.
@@ -393,8 +400,9 @@ final class LegacyNotchHUDController: NSObject {
     var animationsEnabled = true
     var isAnimating: Bool { transition != nil }
 
-    override init() {
+    init(diagnostics: DiagnosticRecording = NoopDiagnosticRecorder()) {
         super.init()
+        view.taskTrace = DiagnosticTaskDisplayObserver(diagnostics, surface: .notch, consumer: .notchLegacy)
         panel.contentView = view
         view.onToggle = { [weak self] in self?.toggleExpanded() }
         view.onCollapse = { [weak self] in self?.collapse() }

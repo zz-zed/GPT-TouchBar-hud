@@ -1,0 +1,2 @@
+TouchBarTests/PersistentTouchBarTests.swift:22: Precondition failed: Persistent HUD activation preserves the frontmost app
+scripts/test-touchbar.sh: line 23: 31702 Trace/BPT trap: 5          "$TEST_APP/Contents/MacOS/TouchBarTests" "$@"

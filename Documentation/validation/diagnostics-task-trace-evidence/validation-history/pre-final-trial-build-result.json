@@ -1,0 +1,9 @@
+{
+  "exitCode": 0,
+  "appPath": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-97dd2297921d/GPT TouchBar HUD.app",
+  "sourceBefore": "0c057ebd431cfc66abb985184cb4e851842f35e1ecdea954d6ffd6ae5cef6692",
+  "sourceAfter": "0c057ebd431cfc66abb985184cb4e851842f35e1ecdea954d6ffd6ae5cef6692",
+  "sourceUnchangedDuringBuild": true,
+  "durationSeconds": 79.82,
+  "command": "HUD_BUILD_ARCHS=arm64 HUD_APP_DIR=<unique empty path> bash scripts/build-app.sh"
+}

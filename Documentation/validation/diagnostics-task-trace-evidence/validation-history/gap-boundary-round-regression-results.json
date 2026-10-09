@@ -1,0 +1,93 @@
+[
+  {
+    "suite": "test-diagnostic-logging",
+    "command": "bash scripts/test-diagnostic-logging.sh",
+    "exitCode": 0,
+    "durationSeconds": 114.66,
+    "log": ".build/diagnostic-task-trace-validation-final/diagnostic-logging.log"
+  },
+  {
+    "suite": "test-diagnostic-upgrade-storage",
+    "command": "bash scripts/test-diagnostic-upgrade-storage.sh",
+    "exitCode": 0,
+    "durationSeconds": 6.22,
+    "log": ".build/diagnostic-task-trace-validation-final/diagnostic-upgrade-storage.log"
+  },
+  {
+    "suite": "test-diagnostic-upgrade-installer",
+    "command": "bash scripts/test-diagnostic-upgrade-installer.sh",
+    "exitCode": 0,
+    "durationSeconds": 12.1,
+    "log": ".build/diagnostic-task-trace-validation-final/diagnostic-upgrade-installer.log"
+  },
+  {
+    "suite": "test-diagnostic-upgrade-recovery",
+    "command": "bash scripts/test-diagnostic-upgrade-recovery.sh",
+    "exitCode": 0,
+    "durationSeconds": 6.42,
+    "log": ".build/diagnostic-task-trace-validation-final/diagnostic-upgrade-recovery.log"
+  },
+  {
+    "suite": "test-app-update",
+    "command": "bash scripts/test-app-update.sh",
+    "exitCode": 0,
+    "durationSeconds": 2.82,
+    "log": ".build/diagnostic-task-trace-validation-final/app-update.log"
+  },
+  {
+    "suite": "test-app-update-progress",
+    "command": "bash scripts/test-app-update-progress.sh",
+    "exitCode": 0,
+    "durationSeconds": 22.16,
+    "log": ".build/diagnostic-task-trace-validation-final/app-update-progress.log"
+  },
+  {
+    "suite": "test-single-instance",
+    "command": "bash scripts/test-single-instance.sh",
+    "exitCode": 0,
+    "durationSeconds": 2.31,
+    "log": ".build/diagnostic-task-trace-validation-final/single-instance.log"
+  },
+  {
+    "suite": "test-connection-diagnostics",
+    "command": "bash scripts/test-connection-diagnostics.sh",
+    "exitCode": 0,
+    "durationSeconds": 9.79,
+    "log": ".build/diagnostic-task-trace-validation-final/connection-diagnostics.log"
+  },
+  {
+    "suite": "test-task-status",
+    "command": "bash scripts/test-task-status.sh",
+    "exitCode": 0,
+    "durationSeconds": 8.24,
+    "log": ".build/diagnostic-task-trace-validation-final/task-status.log"
+  },
+  {
+    "suite": "test-hook-integration",
+    "command": "bash scripts/test-hook-integration.sh",
+    "exitCode": 0,
+    "durationSeconds": 6.92,
+    "log": ".build/diagnostic-task-trace-validation-final/hook-integration.log"
+  },
+  {
+    "suite": "test-hooks",
+    "command": "bash scripts/test-hooks.sh",
+    "exitCode": 0,
+    "durationSeconds": 14.44,
+    "log": ".build/diagnostic-task-trace-validation-final/hooks.log"
+  },
+  {
+    "suite": "test-verified-quota",
+    "command": "bash scripts/test-verified-quota.sh",
+    "exitCode": 0,
+    "durationSeconds": 5.81,
+    "log": ".build/diagnostic-task-trace-validation-final/verified-quota.log"
+  },
+  {
+    "suite": "test-touchbar",
+    "command": "bash scripts/test-touchbar.sh",
+    "exitCode": 0,
+    "durationSeconds": 10.53,
+    "log": ".build/diagnostic-task-trace-validation-final/touchbar.log"
+  }
+]

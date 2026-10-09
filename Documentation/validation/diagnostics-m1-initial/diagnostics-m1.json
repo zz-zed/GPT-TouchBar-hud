@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 1,
+  "iteration": "M1",
+  "recordedAtUTC": "2026-10-08T07:44:23.900465+00:00",
+  "implementationStatus": "implemented; local validation completed with explicit toolchain and real-device gaps",
+  "source": {
+    "head": "2059fd678fc2eea86ee5ed1a517d1b5d383a59d3",
+    "workingTree": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken",
+    "committed": false,
+    "inheritedUncommittedChanges": [],
+    "sourceDigest": "cd8653f5968067cef46003bf464ead2c08d45a39fcf22a4c5e7e92218e312e51",
+    "sourceDigestAlgorithm": "SHA-256 of canonical sorted build-input path-to-content-hash map",
+    "inputManifest": "Documentation/validation/diagnostics-m1-source.json",
+    "originalWorkspaceFilesUnchanged": true,
+    "planOriginalSHA256": "08beeafca2961ee7177984fffef55f94396d32839b21285117a9f288ddd5a5cc"
+  },
+  "host": {
+    "system": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "processArchitecture": "arm64",
+    "swift": "swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+    "sdk": "27.0"
+  },
+  "diagnosticChecks": {
+    "environment": 22,
+    "recorder": 216,
+    "export": 67,
+    "countedChecks": 305,
+    "productionChainIntegration": "passed",
+    "applicationOutputChannelAudit": "passed"
+  },
+  "tests": [
+    {
+      "suite": "test-diagnostic-logging",
+      "command": "bash scripts/test-diagnostic-logging.sh",
+      "exitCode": 0,
+      "durationSeconds": 30.98,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-diagnostic-logging.log",
+      "logSHA256": "1254f7a0e7ba2c1fbff2c2b14409db996cf1e6a69afada3b3d0767c85b38be0d"
+    },
+    {
+      "suite": "test-connection-diagnostics",
+      "command": "bash scripts/test-connection-diagnostics.sh",
+      "exitCode": 0,
+      "durationSeconds": 8.46,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-connection-diagnostics.log",
+      "logSHA256": "4d44a05aae668b083a9699b4b3d86f97abe46df4036be655c4493ee55bb73998"
+    },
+    {
+      "suite": "test-notch-hud",
+      "command": "bash scripts/test-notch-hud.sh",
+      "exitCode": 0,
+      "durationSeconds": 77.25,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-notch-hud.log",
+      "logSHA256": "9f9406ef15c74451d4324da2110a8f06afaa744057d0bad20cc193c112f4da33"
+    },
+    {
+      "suite": "test-design-layout",
+      "command": "bash scripts/test-design-layout.sh",
+      "exitCode": 0,
+      "durationSeconds": 36.31,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-design-layout.log",
+      "logSHA256": "3362ca120f68c0dc38bf92f865d4e681aefa5850df0f726794e42c2ec664710f"
+    },
+    {
+      "suite": "test-status-menu",
+      "command": "bash scripts/test-status-menu.sh",
+      "exitCode": 0,
+      "durationSeconds": 15.59,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-status-menu.log",
+      "logSHA256": "9143102c74500d22641f0bd4a1590ad83311d7cbec90fad895fae91d6f79bf13"
+    },
+    {
+      "suite": "test-idle-performance",
+      "command": "bash scripts/test-idle-performance.sh",
+      "exitCode": 0,
+      "durationSeconds": 37.08,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-idle-performance.log",
+      "logSHA256": "1788f8ddf5bb37e5a4c992705d540855e3bfbece36f26c9ae0dafa31e731b2d3"
+    },
+    {
+      "suite": "test-hooks",
+      "command": "bash scripts/test-hooks.sh",
+      "exitCode": 0,
+      "durationSeconds": 54.55,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-hooks.log",
+      "logSHA256": "e39a38e6c25ca2d1f5b4026a52e7dd37bccd25eb387e242dd43fbef6ae642124"
+    },
+    {
+      "suite": "test-task-status",
+      "command": "bash scripts/test-task-status.sh",
+      "exitCode": 0,
+      "checks": 82,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-task-status.log",
+      "logSHA256": "1d166e0b314cee1da56394fef8d9f791da59e4056417cdf50da1170107788cee"
+    },
+    {
+      "suite": "test-hook-integration",
+      "command": "bash scripts/test-hook-integration.sh",
+      "exitCode": 0,
+      "checks": null,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-hook-integration.log",
+      "logSHA256": "861cea0e3f9a60add144c45aa4d1542857c9535506f028b75e0ba577197b865d"
+    },
+    {
+      "suite": "test-verified-quota",
+      "command": "bash scripts/test-verified-quota.sh",
+      "exitCode": 0,
+      "checks": 52,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-verified-quota.log",
+      "logSHA256": "054926bdb8f58233c78b68f5f309b2404820737a67ad6ca534e4183d593dc64a"
+    },
+    {
+      "suite": "test-touchbar",
+      "command": "bash scripts/test-touchbar.sh",
+      "exitCode": 0,
+      "checks": 52,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-touchbar.log",
+      "logSHA256": "3c4b653a6b8ffbfa482942694f87c7891a711b227679e53d4fb538559196e031"
+    },
+    {
+      "suite": "test-token-usage",
+      "command": "bash scripts/test-token-usage.sh",
+      "exitCode": 0,
+      "checks": 18,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-token-usage.log",
+      "logSHA256": "e90fd5a4c2de26bde0760b4d9fa06afb115bb974c468e250e1fc55933ea9bb7a"
+    },
+    {
+      "suite": "test-account-token-usage",
+      "command": "bash scripts/test-account-token-usage.sh",
+      "exitCode": 0,
+      "checks": 72,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-account-token-usage.log",
+      "logSHA256": "d87a540a292a8787cece46ef9673892d5b3d4b90a13a69db50f104c86bf892b7"
+    },
+    {
+      "suite": "test-host-lifecycle",
+      "command": "bash scripts/test-host-lifecycle.sh",
+      "exitCode": 0,
+      "checks": 25,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-host-lifecycle.log",
+      "logSHA256": "71c69b2a854bdb8bd9677927e924b598d414c556aa88a5fbb8e0aa6a6fc70a24"
+    },
+    {
+      "suite": "test-host-auto-launcher",
+      "command": "bash scripts/test-host-auto-launcher.sh",
+      "exitCode": 0,
+      "checks": 46,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-host-auto-launcher.log",
+      "logSHA256": "64afc83b6477b51934a32795d4b713b9266b9bcd838c2190364039848bb83b06"
+    },
+    {
+      "suite": "test-app-update-progress",
+      "command": "bash scripts/test-app-update-progress.sh",
+      "exitCode": 0,
+      "checks": 223,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-app-update-progress.log",
+      "logSHA256": "7af76d770307298110734f41775e407d13de01d90ef5915cc0e8aeb904c59987"
+    },
+    {
+      "suite": "test-single-instance",
+      "command": "bash scripts/test-single-instance.sh",
+      "exitCode": 0,
+      "checks": 92,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-single-instance.log",
+      "logSHA256": "06423f5efdec3380487a4a37d73d8f3dc4323b022543adcbfcd17d3d2b784abd"
+    },
+    {
+      "suite": "test-touchbar-layout",
+      "command": "bash scripts/test-touchbar-layout.sh",
+      "exitCode": 0,
+      "checks": 471,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-touchbar-layout.log",
+      "logSHA256": "d46c1dbfe5b714e7b0bf539f7c41f9272382552b2db22ae6263091e904e7fb28"
+    },
+    {
+      "suite": "test-release-workflows",
+      "command": "bash scripts/test-release-workflows.sh",
+      "exitCode": 0,
+      "checks": 64,
+      "log": "Documentation/validation/diagnostics-m1-evidence/test-release-workflows.log",
+      "logSHA256": "0e7ed4e4ed7c09e4deee63bc7879d55fc9856bf1a5ec1c5d9d4f2d0cb5b09c49"
+    }
+  ],
+  "independentReview": {
+    "status": "passed after fixes",
+    "record": "Documentation/validation/diagnostics-m1-review.md",
+    "realDiskFull": "not reproduced; injected failures and partial-tail state tested"
+  },
+  "trialApp": {
+    "path": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app",
+    "version": "0.1.40",
+    "buildNumber": "43",
+    "architectures": [
+      "arm64"
+    ],
+    "minimumOSMetadata": "11.0",
+    "signed": "ad-hoc, strict verification passed",
+    "notarized": false,
+    "launched": false,
+    "installed": false,
+    "buildProcess": {
+      "command": "HUD_BUILD_ARCHS=arm64 HUD_APP_DIR=<new isolated directory> bash scripts/build-app.sh",
+      "appPath": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app",
+      "exitCode": 0,
+      "durationSeconds": 70.46,
+      "sourceBefore": "cd8653f5968067cef46003bf464ead2c08d45a39fcf22a4c5e7e92218e312e51",
+      "sourceAfter": "cd8653f5968067cef46003bf464ead2c08d45a39fcf22a4c5e7e92218e312e51",
+      "sourceUnchangedDuringBuild": true
+    },
+    "bundleSHA256": "43ad9b2e24d33d7f184d3836e22200036499814dd9cb2c9668e14cc83bdffb32",
+    "bundleDigestAlgorithm": "SHA-256 of canonical sorted relative-file map (bytes and SHA-256), excludes filesystem metadata",
+    "files": {
+      "Contents/Helpers/HookEmitter": {
+        "bytes": 334128,
+        "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99"
+      },
+      "Contents/Info.plist": {
+        "bytes": 1056,
+        "sha256": "673b05df6a37a8866d59a9502ac00d82ea1367e78100ee42cae1144f8e7409af"
+      },
+      "Contents/MacOS/GPTTouchBarHUD": {
+        "bytes": 5761824,
+        "sha256": "80785ab248d1120a76ad9cf3e4546133c27d347ec2cba9f59f977ec2b2c78001"
+      },
+      "Contents/Resources/AppIcon.icns": {
+        "bytes": 1822741,
+        "sha256": "0a5d1372b809f33738829c961ce5495ebe99d5b83dcc3f3f93c213853dd9d572"
+      },
+      "Contents/Resources/ThirdPartyNotices.txt": {
+        "bytes": 1328,
+        "sha256": "e0c2e9f8cf0ce6452e350c404696b590ae55bf00b8926dfd33d4161d5b8f3dee"
+      },
+      "Contents/Resources/gpt-touchbar-hud-launcher.sh": {
+        "bytes": 1253,
+        "sha256": "16c6d3712bb7a76afdb95a00641981b36975a00aa6b795304e49be707d009a6d"
+      },
+      "Contents/Resources/install-update.sh": {
+        "bytes": 6005,
+        "sha256": "62609ac39064e90bbc930565d62516510e45ba1fff107ed7546c15dd77cf93e5"
+      },
+      "Contents/_CodeSignature/CodeResources": {
+        "bytes": 3419,
+        "sha256": "dcbe7cddc05d4f8774e742dfa4f650b752c4740d17661f311dbf671958363ff4"
+      }
+    },
+    "verification": [
+      {
+        "command": [
+          "codesign",
+          "--verify",
+          "--deep",
+          "--strict",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app"
+        ],
+        "exitCode": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "codesign",
+          "--verify",
+          "--all-architectures",
+          "--strict",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+        ],
+        "exitCode": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "lipo",
+          "-info",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD"
+        ],
+        "exitCode": 0,
+        "output": "Non-fat file: /Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD is architecture: arm64"
+      },
+      {
+        "command": [
+          "xcrun",
+          "vtool",
+          "-show-build",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD"
+        ],
+        "exitCode": 0,
+        "output": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1"
+      },
+      {
+        "command": [
+          "codesign",
+          "-d",
+          "--verbose=4",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD"
+        ],
+        "exitCode": 0,
+        "output": "Executable=/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD\nIdentifier=io.github.zz-zed.GPTTouchBarHUD\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=11448 flags=0x2(adhoc) hashes=351+3 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=bc369b5e3aef754c1e9929a9a18b0504f11ddee3\nCandidateCDHashFull sha256=bc369b5e3aef754c1e9929a9a18b0504f11ddee3f5be2d928568190aff608554\nHash choices=sha256\nCMSDigest=bc369b5e3aef754c1e9929a9a18b0504f11ddee3f5be2d928568190aff608554\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=2736128\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=bc369b5e3aef754c1e9929a9a18b0504f11ddee3\nSignature=adhoc\nInfo.plist entries=14\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=5\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1"
+      },
+      {
+        "command": [
+          "dwarfdump",
+          "--uuid",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD"
+        ],
+        "exitCode": 0,
+        "output": "UUID: 6751B9FD-8A92-399A-932B-3270B4F8F6C6 (arm64) /Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD"
+      },
+      {
+        "command": [
+          "lipo",
+          "-info",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+        ],
+        "exitCode": 0,
+        "output": "Non-fat file: /Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter is architecture: arm64"
+      },
+      {
+        "command": [
+          "xcrun",
+          "vtool",
+          "-show-build",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+        ],
+        "exitCode": 0,
+        "output": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1"
+      },
+      {
+        "command": [
+          "codesign",
+          "-d",
+          "--verbose=4",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+        ],
+        "exitCode": 0,
+        "output": "Executable=/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter\nIdentifier=com.gpt-touchbar-hud.hook-emitter\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=858 flags=0x2(adhoc) hashes=21+2 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=c1531d511d357218b2dd123b923af70ca40935a8\nCandidateCDHashFull sha256=c1531d511d357218b2dd123b923af70ca40935a853b28b513f4c93ee339fbc6b\nHash choices=sha256\nCMSDigest=c1531d511d357218b2dd123b923af70ca40935a853b28b513f4c93ee339fbc6b\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=131072\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=c1531d511d357218b2dd123b923af70ca40935a8\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1"
+      },
+      {
+        "command": [
+          "dwarfdump",
+          "--uuid",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+        ],
+        "exitCode": 0,
+        "output": "UUID: 70FCD7DD-CB28-3B40-9C54-5715B03E67AD (arm64) /Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+      }
+    ]
+  },
+  "intelBuild": {
+    "status": "compile phase reached link; link failed",
+    "attempt": {
+      "command": "HUD_BUILD_ARCHS=\"arm64 x86_64\" HUD_APP_DIR=<new isolated directory> bash scripts/build-app.sh",
+      "appPath": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-acfec972d92d/GPT TouchBar HUD.app",
+      "exitCode": 1,
+      "durationSeconds": 203.94,
+      "sourceBefore": "cd8653f5968067cef46003bf464ead2c08d45a39fcf22a4c5e7e92218e312e51",
+      "sourceAfter": "cd8653f5968067cef46003bf464ead2c08d45a39fcf22a4c5e7e92218e312e51",
+      "sourceUnchangedDuringBuild": true
+    },
+    "reason": "Installed CLT Swift 6.4 back-deployment static compatibility libraries contain arm64/arm64e only; no installed alternative Xcode toolchain was found.",
+    "evidence": "Documentation/validation/diagnostics-m1-evidence/universal-build.log"
+  },
+  "ci": {
+    "configuredArchitectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "workflow": ".github/workflows/build-dmg.yml",
+    "remoteRun": "not dispatched; changes remain local"
+  },
+  "performance": {
+    "eventStormAndSlowWriter": "passed isolated fault-injection checks",
+    "idleBehaviorRegression": "57 checks passed",
+    "threeTenMinuteOnOffRounds": "not run",
+    "averageCPUIncrementPercentagePoints": null,
+    "steadyMemoryIncrementMiB": null,
+    "reason": "No production or trial App was launched. Automated behavior tests are not real CPU, memory, energy measurements."
+  },
+  "unverified": [
+    "Intel Touch Bar hardware",
+    "Apple Silicon Touch Bar hardware",
+    "Apple Silicon notch and external display real use",
+    "non-Touch-Bar real use",
+    "macOS 11 actual runtime",
+    "affected-user OS fault reproduction",
+    "sleep/wake and session switching real workflow",
+    "normal/fault/HUD-restart/host-restart export sequence",
+    "three rounds of 10-minute idle on/off CPU and memory measurements",
+    "Intel linked trial artifact and native Intel tests",
+    "remote dual-architecture CI"
+  ],
+  "limitations": [
+    "ZIP save uses an owned staging directory and atomic rename; cross-volume destinations are refused with guidance to save on the user-profile volume then move using Finder.",
+    "Regular shutdown marker proves only the shutdown request was persisted; missing marker is not proof of a crash.",
+    "While the application is not running, expired retained files are removed at the next enabled or disabled startup.",
+    "Current baseline excludes the original workspace uncommitted background-work changes."
+  ],
+  "externalActions": {
+    "originalMainModified": false,
+    "commit": false,
+    "merge": false,
+    "push": false,
+    "tag": false,
+    "release": false,
+    "installation": false,
+    "appLaunch": false,
+    "upload": false
+  },
+  "earlierAttempts": {
+    "oneRegressionInterruptedByConcurrentSourceEdit": "discarded and rerun on frozen source",
+    "firstBuild": "cancelled to apply independently verified storage fixes"
+  }
+}

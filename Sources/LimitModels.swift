@@ -96,6 +96,8 @@ struct LimitMeter: Equatable {
 
 struct RateLimitDisplayState: Equatable {
     var taskStatus: TaskStatusSummary? = nil
+    // Observation metadata never changes business equality or presentation decisions.
+    var taskTrace = DiagnosticTaskDisplayContext()
     var displayedTaskStatus: TaskStatusSummary? {
         taskStatus.flatMap { $0.activity == nil && $0.isIdle ? nil : $0 }
     }
@@ -175,6 +177,7 @@ struct LegacyTaskDiagnostics: Equatable {
 
 /// Local lifecycle evidence, not a server-authoritative task/goal status.
 struct TaskStatusSummary: Equatable {
+    var diagnosticSnapshot: DiagnosticTaskSnapshotReference? = nil
     // When present, activity is the sole source for display; legacy counts are ignored.
     var activity: TaskActivitySnapshot? = nil
     // Nil preserves legacy/source-only callers; the app always supplies a bounded feedback decision.
@@ -191,6 +194,13 @@ struct TaskStatusSummary: Equatable {
     var legacyDiagnostics: LegacyTaskDiagnostics? = nil
     // Ephemeral hashed identities for deduplicating the four-second presentation signal. Never displayed or persisted.
     var legacyCompletionIDs: Set<String> = []
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.activity == rhs.activity && lhs.completionFeedbackVisible == rhs.completionFeedbackVisible &&
+        lhs.runningCount == rhs.runningCount && lhs.recentlyCompletedCount == rhs.recentlyCompletedCount &&
+        lhs.unknownCount == rhs.unknownCount && lhs.legacyHealth == rhs.legacyHealth &&
+        lhs.legacyDiagnostics == rhs.legacyDiagnostics && lhs.legacyCompletionIDs == rhs.legacyCompletionIDs
+    }
 
     var legacyHasOverallFailure: Bool {
         guard activity == nil else { return false }

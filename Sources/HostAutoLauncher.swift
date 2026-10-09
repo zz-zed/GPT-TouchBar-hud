@@ -13,10 +13,11 @@ enum HostAutoLauncher {
 
     static func installOrUpdate(completion: @escaping (Result<Void, Error>) -> Void) {
         service.installOrUpdate { result in
-            if case .failure(let error) = result {
-                NSLog("%@ failed to install auto launcher: %@", AppIdentity.productName, error.localizedDescription)
+            if case .failure = result {
+                DiagnosticRecorder.shared.record(.componentFailure(component: .autoLauncher, result: .failed))
             }
             completion(result)
+
         }
     }
 
@@ -43,7 +44,7 @@ enum HostAutoLauncher {
                 try "manual quit\n".write(to: lockURL, atomically: true, encoding: .utf8)
             }
         } catch {
-            NSLog("%@ failed to write manual quit lock: %@", AppIdentity.productName, String(describing: error))
+            DiagnosticRecorder.shared.record(.componentFailure(component: .quitMarker, result: .ioFailure))
         }
     }
 

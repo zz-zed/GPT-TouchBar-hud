@@ -15,6 +15,7 @@ enum NotchDetailPage: Int, CaseIterable {
 }
 
 final class NotchPresentationModel: ObservableObject {
+    private let taskTrace: DiagnosticTaskDisplayObserver
     static let alwaysShowKey = "notch.alwaysShowQuota"
     static func savedAlwaysShowQuota(in defaults: UserDefaults = .standard) -> Bool {
         guard defaults.object(forKey: alwaysShowKey) != nil else { return true }
@@ -61,7 +62,9 @@ final class NotchPresentationModel: ObservableObject {
     var onMessageSettings: (() -> Void)?
     var onVisibleMessage: ((String) -> Void)?
 
-    init(clock: NotchClock = NotchSystemClock(), alwaysShowQuota: Bool = true) {
+    init(clock: NotchClock = NotchSystemClock(), alwaysShowQuota: Bool = true,
+         diagnostics: DiagnosticRecording = NoopDiagnosticRecorder()) {
+        taskTrace = DiagnosticTaskDisplayObserver(diagnostics, surface: .notch, consumer: .notchIsland)
         scheduler = NotchDelayScheduler(clock: clock)
         feedbackScheduler = NotchDelayScheduler(clock: clock)
         self.alwaysShowQuota = alwaysShowQuota
@@ -75,12 +78,20 @@ final class NotchPresentationModel: ObservableObject {
         size = layout.size(for: restingState)
     }
     func update(_ state: RateLimitDisplayState, tasksEnabled: Bool) {
+        var observed = state
+        observed.taskTrace.tasksEnabled = tasksEnabled
         // No geometry or transition writes: data refresh cannot erase interaction intent.
         let next = NotchContentAdapter(state, tasksEnabled: tasksEnabled)
+        let compact: DiagnosticTaskCompactRule = !tasksEnabled ? .hidden : (next.task.badge.contains("9+") ? .ninePlus : .exact)
+        let presentation: DiagnosticTaskPresentation = next.task.appearance == .unknown ? .unknown : (state.taskStatus?.diagnosticPresentation ?? .unknown)
+        taskTrace.record(observed, action: .received, compact: compact, presentation: presentation)
         let shouldSignal = next.isRefreshing != content.isRefreshing ||
             (next.hasError && next.state.errorMessage != content.state.errorMessage) ||
             (next.task.appearance == .completed && content.task.appearance != .completed)
-        if !content.hasSamePresentation(as: next) { content = next }
+        if !content.hasSamePresentation(as: next) {
+            taskTrace.record(observed, action: .renderRequested, reason: visible ? nil : .hidden, compact: compact, presentation: presentation)
+            content = next
+        } else { taskTrace.record(observed, action: .skipped, reason: .sameValueSuppressed, compact: compact, presentation: presentation) }
         if shouldSignal { showSweepFeedback() }
     }
     func updateResetNews(_ state: ResetNewsViewState) {

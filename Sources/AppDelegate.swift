@@ -3,15 +3,17 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, NSMenuDelegate, RateLimitStoreDelegate {
     private let touchBarHardware = TouchBarHardware.current
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    private let store = RateLimitStore()
+    private let store = RateLimitStore(diagnostics: DiagnosticRuntimeRecorder.shared)
     private let appUpdater = AppUpdater()
-    private let taskMonitor = TaskMonitoringCoordinator()
+    private let taskMonitor = TaskMonitoringCoordinator(diagnostics: DiagnosticRuntimeRecorder.shared)
+    private let mainTaskTrace = DiagnosticTaskDisplayObserver(DiagnosticRuntimeRecorder.shared, surface: .main, consumer: .main)
+    private let menuTaskTrace = DiagnosticTaskDisplayObserver(DiagnosticRuntimeRecorder.shared, surface: .menuBar, consumer: .menuBar)
+    private var taskPresentationRevision: UInt64 = 0
     private let resetNewsMonitor = ResetNewsMonitor()
     private let quotaAlerts = QuotaAlertMonitor()
     private var connectionDiagnostics: ConnectionDiagnosticsWindowController?
     private var autoLaunchError: String?
     private var autoLaunchBusy = false
-    private var waitingForCacheAtExit = false
     private var latestResetNewsState = ResetNewsViewState()
     private var resetNewsRuntimeRunning = false
     private lazy var resetNewsPopover: ResetNewsPopoverController = {
@@ -25,11 +27,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private var hookPreferences: HookExperimentPreferencesController?
     private lazy var completionFeedback: TaskCompletionFeedbackController = {
         let controller = TaskCompletionFeedbackController()
-        controller.onExpiration = { [weak self] in self?.renderDisplayState() }
+        controller.onExpiration = { [weak self] in
+            guard let self else { return }
+            self.taskPresentationRevision &+= 1
+            self.renderDisplayState(reason: .completionFeedbackExpired)
+        }
         return controller
     }()
     private var latestQuotaState = RateLimitDisplayState.initial
     private var latestTaskStatus: TaskStatusSummary?
+    private var latestTaskDiagnosticSnapshot: DiagnosticTaskSnapshotReference?
     private var taskStatusEnabled: Bool {
         UserDefaults.standard.object(forKey: "taskStatusEnabled") as? Bool ?? true
     }
@@ -50,7 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private var sessionInactive = false
     private var sessionSuspended: Bool { screenLocked || systemSleeping || sessionInactive }
     private lazy var notchHUD: NotchHUDController = {
-        let controller = NotchHUDController()
+        let controller = NotchHUDController(diagnostics: DiagnosticRuntimeRecorder.shared)
         controller.onRefresh = { [weak self] in self?.refreshQuotaNow() }
         controller.onSettings = { [weak self] in self?.openPreferences(nil) }
         controller.onHide = { [weak self] in self?.closeHUD() }
@@ -69,7 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private var checkUpdatesMenuItem: NSMenuItem?
     private var updateProgressMenuItem: NSMenuItem?
     private var menuTaskAppearance: TaskStatusAppearance = .idle
-    private lazy var persistentTouchBar = PersistentTouchBarController()
+    private lazy var persistentTouchBar = PersistentTouchBarController(diagnostics: DiagnosticRuntimeRecorder.shared)
     private var summaryMenuItem: NSMenuItem?
     private var collapseDetailsMenuItem: NSMenuItem?
     private var preferences: PreferencesWindowController?
@@ -86,11 +93,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         },
         contextMenuProvider: { [weak self] in
             self?.makeHUDContextMenu() ?? NSMenu()
-        }
+        },
+        diagnostics: DiagnosticRuntimeRecorder.shared
     )
     private lazy var hudWindow = CompactHUDPanel(contentViewController: hudController)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        DiagnosticRecorder.shared.start(enabled: UserDefaults.standard.object(forKey: DiagnosticRecorder.preferenceKey) as? Bool ?? true)
+        DiagnosticRuntimeRecorder.shared.recovery.start(arguments: ProcessInfo.processInfo.arguments,
+            bundleURL: Bundle.main.bundleURL, bundleIdentifier: Bundle.main.bundleIdentifier)
+        DiagnosticRuntimeRecorder.shared.record(.lifecycle(.launch))
+        DiagnosticRuntimeRecorder.shared.record(.display(surface: .touchBar, action: .capability,
+            result: touchBarHardware == .present ? .success : (touchBarHardware == .absent ? .unsupported : .unknown),
+            reason: touchBarHardware == .present ? nil : (touchBarHardware == .absent ? .noHardware : .unknownHardware)))
+        recordDisplayPreference()
         NSApp.setActivationPolicy(.accessory)
         LegacyAppMigration.terminateLegacyApplications()
         hudPreferences.applyStartupVisibility(hasGeometry: !DisplayTargetResolver.candidates().isEmpty)
@@ -114,7 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         }
         hudController.onOpenTouchBarMessages = { [weak self] in self?.openResetNews() }
         persistentTouchBar.onOpenMessages = { [weak self] in self?.openResetNews() }
-        appUpdater.onInstall = { [weak self] in self?.quitApp() }
+        appUpdater.onInstall = { [weak self] in self?.quitApp(reason: .update) }
         appUpdater.onStateChange = { [weak self] in self?.updateUpdatePresentation() }
         appUpdater.onProgressChange = { [weak self] in
             guard let self else { return }
@@ -124,8 +140,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         taskMonitor.onUpdate = { [weak self] status in
             guard let self else { return }
             self.latestTaskStatus = status
+            if status != nil { self.latestTaskDiagnosticSnapshot = status?.diagnosticSnapshot }
             self.completionFeedback.receive(status, enabled: self.taskStatusEnabled)
-            self.renderDisplayState()
+            self.renderDisplayState(reason: .update)
+            self.taskMonitor.recordDisplaySubmission()
+        }
+        taskMonitor.onDiagnosticSnapshot = { [weak self] reference in
+            // Business equality may suppress a same-count member replacement. Retain the
+            // newer reference for the next real refresh without forcing any UI work.
+            self?.latestTaskStatus?.diagnosticSnapshot = reference
+            self?.latestTaskDiagnosticSnapshot = reference
         }
         NotificationCenter.default.addObserver(self, selector: #selector(screenConfigurationChanged), name: NSApplication.didChangeScreenParametersNotification, object: nil)
         let workspace = NSWorkspace.shared.notificationCenter
@@ -152,6 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         if lifecycleMonitor.hostIsRunningNow() {
             hostDidStart()
         } else {
+            DiagnosticRuntimeRecorder.shared.record(.moduleRecovery(module: .host, state: .unknown, observation: .hostNotRunning))
             if hudRequestedVisible { presentSelectedHUD() }
             renderDisplayState() // Preserve the coordinator's explicit unavailable/disabled state.
         }
@@ -167,6 +192,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     @objc private func screenConfigurationChanged() {
+        DiagnosticRuntimeRecorder.shared.record(.display(surface: .notch, action: .layout))
         notchHUD.environmentChanged()
         if hudRequestedVisible && !sessionSuspended { presentSelectedHUD() }
         renderDisplayState()
@@ -175,6 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     @objc private func frontApplicationChanged() { notchHUD.environmentChanged() }
     @objc private func spaceOrWakeChanged(_ notification: Notification) {
         if notification.name == NSWorkspace.didWakeNotification {
+            DiagnosticRuntimeRecorder.shared.record(.lifecycle(.wake))
             systemSleeping = false
             taskMonitor.resume()
             appUpdater.didWake()
@@ -183,9 +210,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         screenConfigurationChanged()
     }
     @objc private func suspendPanels(_ notification: Notification) {
-        if notification.name.rawValue == "com.apple.screenIsLocked" { screenLocked = true }
-        if notification.name == NSWorkspace.willSleepNotification { systemSleeping = true; taskMonitor.suspend() }
-        if notification.name == NSWorkspace.sessionDidResignActiveNotification { sessionInactive = true }
+        if notification.name.rawValue == "com.apple.screenIsLocked" { screenLocked = true; DiagnosticRuntimeRecorder.shared.record(.lifecycle(.screenLocked)) }
+        if notification.name == NSWorkspace.willSleepNotification { systemSleeping = true; DiagnosticRuntimeRecorder.shared.record(.lifecycle(.sleep)); taskMonitor.suspend() }
+        if notification.name == NSWorkspace.sessionDidResignActiveNotification { sessionInactive = true; DiagnosticRuntimeRecorder.shared.record(.lifecycle(.sessionSuspended)) }
         notchHUD.hide()
         hudWindow.orderOut(nil)
         resetNewsPopover.close()
@@ -193,8 +220,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         renderDisplayState()
     }
     @objc private func resumePanels(_ notification: Notification) {
-        if notification.name.rawValue == "com.apple.screenIsUnlocked" { screenLocked = false }
-        if notification.name == NSWorkspace.sessionDidBecomeActiveNotification { sessionInactive = false }
+        if notification.name.rawValue == "com.apple.screenIsUnlocked" { screenLocked = false; DiagnosticRuntimeRecorder.shared.record(.lifecycle(.screenUnlocked)) }
+        if notification.name == NSWorkspace.sessionDidBecomeActiveNotification { sessionInactive = false; DiagnosticRuntimeRecorder.shared.record(.lifecycle(.sessionResumed)) }
         updateResetNewsGate()
         screenConfigurationChanged()
     }
@@ -211,20 +238,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         statusMenuOpen = false
     }
 
+    private var terminationInProgress = false
+    private var terminationReason: DiagnosticExitReason = .system
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard appUpdater.canQuit else { appUpdater.presentInstallationProgress(); return .terminateCancel }
-        guard !waitingForCacheAtExit else { return .terminateLater }
-        waitingForCacheAtExit = true
+        guard !terminationInProgress else { return .terminateLater }
+        terminationInProgress = true
+        let deadline = DispatchTime.now() + .seconds(3)
         resetNewsMonitor.stop()
+        let group = DispatchGroup()
+        group.enter()
+        resetNewsMonitor.flush { group.leave() }
+        group.enter()
+        DiagnosticUpgradeRecovery.prepareTermination(deadline: deadline, reason: terminationReason) { group.leave() }
         var replied = false
         let reply = {
             guard !replied else { return }
             replied = true
             sender.reply(toApplicationShouldTerminate: true)
         }
-        resetNewsMonitor.flush(completion: reply)
-        // A stalled disk must not prevent the user from quitting indefinitely.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: reply)
+        group.notify(queue: .main, execute: reply)
+        DispatchQueue.main.asyncAfter(deadline: deadline, execute: reply)
         return .terminateLater
     }
 
@@ -247,12 +282,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         } else if !state.isRefreshing {
             quotaAlerts.update(state: state, accountKey: store.verifiedAccountKey, limitID: store.currentLimitID)
         }
-        renderDisplayState()
+        renderDisplayState(reason: .quotaRefresh)
     }
 
-    private func renderDisplayState() {
+    private func renderDisplayState(reason: DiagnosticTaskConsumptionReason = .layoutRefresh) {
         var state = latestQuotaState
         state.taskStatus = taskStatusEnabled ? completionFeedback.applying(to: latestTaskStatus) : nil
+        state.taskTrace = DiagnosticTaskDisplayContext(reference: taskStatusEnabled ? latestTaskStatus?.diagnosticSnapshot : latestTaskDiagnosticSnapshot,
+            tasksEnabled: taskStatusEnabled, presentationRevision: taskPresentationRevision, reason: reason)
+        mainTaskTrace.record(state, action: reason == .completionFeedbackExpired ? .presentationRevised : .received)
         updateStatusTitle(with: state)
         hudController.update(with: state)
         notchHUD.update(state, taskDisplayEnabled: taskStatusEnabled)
@@ -595,6 +633,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func updateStatusTitle(with state: RateLimitDisplayState) {
         guard let button = statusItem.button else {
+            menuTaskTrace.record(state, action: .skipped, reason: .unavailable, compact: .hidden)
             return
         }
         let task = state.displayedTaskStatus
@@ -636,15 +675,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         button.setAccessibilityLabel(AppIdentity.productName + (task.map { " · " + $0.label } ?? "") + updateLabel)
 
         let presentation = MenuBarPresentation(state: state, mode: menuDisplayMode, panelVisible: notchHUD.isVisible || hudWindow.isVisible, hasUpdate: availableVersion != nil)
-        presentation.apply(to: statusItem)
+        presentation.apply(to: statusItem, taskTrace: menuTaskTrace)
     }
 
     private func setDisplayMode(_ mode: HUDDisplayMode) {
         hudDisplayMode = mode
+        recordDisplayPreference()
         notchHUD.environmentChanged()
         if hudRequestedVisible && !sessionSuspended { presentSelectedHUD() }
         renderDisplayState()
     }
+    private func recordDisplayPreference() {
+        let mode: DiagnosticDisplayMode
+        switch hudDisplayMode {
+        case .automatic: mode = .automatic
+        case .floating: mode = .floating
+        case .notch: mode = .notch
+        }
+        DiagnosticRuntimeRecorder.shared.record(.display(surface: .notch, action: .mode,
+                                                   mode: mode, reason: hudRequestedVisible ? nil : .hidden))
+    }
+
     private func setMenuMode(_ mode: MenuBarDisplayMode) {
         menuDisplayMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: MenuBarDisplayMode.defaultsKey)
@@ -665,6 +716,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func showHUDWindow() {
         hudRequestedVisible = true
+        recordDisplayPreference()
         if !sessionSuspended { presentSelectedHUD() }
         renderDisplayState()
     }
@@ -677,12 +729,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             notchHUD.hide()
             hudController.prepareToShow()
             hudWindow.orderFrontPinned()
+            DiagnosticRuntimeRecorder.shared.record(.display(surface: .floating, action: .request))
             hudWindow.recoverPositionIfOffscreen()
         }
         updateMenuState()
     }
 
     private func hostDidStart() {
+        DiagnosticRuntimeRecorder.shared.record(.moduleRecovery(module: .host, state: .unknown, observation: .hostRunning))
         if !sessionSuspended { quotaAlerts.resume() }
         completionFeedback.reset()
         taskMonitor.start(displayEnabled: taskStatusEnabled)
@@ -699,6 +753,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func hostDidStop() {
+        terminationReason = .hostExit
+        DiagnosticRuntimeRecorder.shared.record(.moduleRecovery(module: .host, state: .unknown, observation: .hostNotRunning))
         quotaAlerts.suspend()
         completionFeedback.reset()
         stopResetNews()
@@ -729,6 +785,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func closeHUD() {
         hudRequestedVisible = false
+        recordDisplayPreference()
         notchHUD.hide()
         hudWindow.orderOut(nil)
         updateMenuState()
@@ -814,8 +871,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         else { HostAutoLauncher.installOrUpdate(completion: completion) }
     }
 
-    private func quitApp() {
+    private func quitApp(reason: DiagnosticExitReason = .manual) {
         guard appUpdater.canQuit else { appUpdater.presentInstallationProgress(); return }
+        terminationReason = reason
         quotaAlerts.suspend()
         completionFeedback.reset()
         stopResetNews()
