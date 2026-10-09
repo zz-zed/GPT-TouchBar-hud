@@ -246,11 +246,17 @@ enum DiagnosticUpgradeStorageTests {
         let lock = open(directory.appendingPathComponent(DiagnosticProcessStore.lockName).path, O_RDWR | O_NOFOLLOW)
         check(lock >= 0 && flock(lock, LOCK_EX | LOCK_NB) == 0, "hold cross-process lock across toggle")
         var toggle: Result<Bool, Error>?
-        let begin = Date()
-        wait { done in recorder.setEnabledReporting(false) { toggle = $0; done() } }
+        let begin = ProcessInfo.processInfo.systemUptime
+        wait { done in
+            recorder.setEnabledReporting(false) { toggle = $0; done() }
+            check(!recorder.isEnabled, "Disable immediately stops local admission before durable reply")
+        }
         if case .failure(let error) = toggle! { check((error as? DiagnosticStoreError) == .lockBusy, "durable toggle lock timeout reported") }
         else { preconditionFailure("busy durable disable falsely confirmed") }
-        check(Date().timeIntervalSince(begin) < 1.5 && !recorder.isEnabled, "disable failure bounded and stops local admission")
+        let elapsed = ProcessInfo.processInfo.systemUptime - begin
+        print("Busy disable callback elapsed: \(elapsed)"); fflush(stdout)
+        check(elapsed < 1.5, "disable failure is bounded by a fixed retry deadline")
+        check(!recorder.isEnabled, "failed durable disable keeps local admission stopped")
         _ = flock(lock, LOCK_UN); close(lock)
         check(helper.record(stage: .backupStarted) == .persisted, "failed disable explicitly leaves other producer unconfirmed")
         wait { done in recorder.setEnabledReporting(false) { toggle = $0; done() } }

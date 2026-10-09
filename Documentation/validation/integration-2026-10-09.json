@@ -325,5 +325,28 @@
       "log": "build/integration-20261009/test-unified-diagnostic-swift-ci-fix.log",
       "sha256": "38ad63351ad2d2d72403d0b0f5da1e64f50084ca8b6813663c34a9a0341202a5"
     }
+  },
+  "control_deadline_followup": {
+    "failed_run": 37912982148,
+    "failed_source_sha": "3585fb79004c601659b9026f5f989f0afef2dff0",
+    "reason": "Relative retry scheduling exceeded the control budget on loaded CI",
+    "change": "A fixed 500 ms DispatchTime deadline, including queue delay",
+    "checks": [
+      {
+        "exit_code": 0,
+        "log": "build/integration-20261009/test-upgrade-storage-deadline.log",
+        "sha256": "74056a7c8d4582a19cc9ab7a926f10ddbe62fc9aa063632c5161e0c6ce657836"
+      },
+      {
+        "exit_code": 0,
+        "log": "build/integration-20261009/test-diagnostic-logging-deadline.log",
+        "sha256": "13bdefc75f758ebc854792e2a4b821c4aec58f5545818bb3b443eed95b9ba27d"
+      },
+      {
+        "exit_code": 0,
+        "log": "build/integration-20261009/test-upgrade-recovery-deadline.log",
+        "sha256": "aede890f844a27ac4d7a3d59aac0ea113c0ce3b559c3acdb41fe9d972e964d2b"
+      }
+    ]
   }
 }
