@@ -254,9 +254,9 @@ final class PreferencesWindowController: NSWindowController {
         autoLaunchStatus.lineBreakMode = .byTruncatingTail
         autoLaunchStatus.textColor = .secondaryLabelColor
         autoLaunch.state = HostAutoLauncher.isEnabled ? .on : .off
-        let diagnostics = NSButton(title: "连接检查与诊断…", target: self, action: #selector(openConnectionDiagnostics))
+        let diagnostics = NSButton(title: "诊断与反馈…", target: self, action: #selector(openConnectionDiagnostics))
         diagnostics.setAccessibilityIdentifier("settings.connectionDiagnostics")
-        let general = column([autoLaunch, autoLaunchStatus, row("显示模式", [displayMode]), modeAvailability, visible, row("刘海常驻形态", [notchRestingState]), note("Compact 悬停展示额度；Peek 常驻展示额度。"), row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, diagnostics])
+        let general = column([autoLaunch, autoLaunchStatus, row("显示模式", [displayMode]), modeAvailability, visible, row("刘海常驻形态", [notchRestingState]), note("Compact 悬停展示额度；Peek 常驻展示额度。"), row("菜单栏内容", [menuMode]), row("信息语言", [language]), tasks, diagnostics, note("基础诊断记录默认开启，仅保存在本机；可在诊断与反馈中关闭、清除或审阅后导出。")])
         let appearancePanel = column([row("界面材质", [material]), note("跟随系统在 macOS 26 及以上使用 Liquid Glass；较旧系统使用经典外观。"), row("浮窗颜色", [color]), row("背景不透明度", [backgroundSlider, backgroundValue]), row("文字不透明度", [foregroundSlider, foregroundValue]), note("颜色和透明度仅用于经典浮窗；切换材质会保留这些数值。系统辅助功能设置优先。")])
         updateStatus.font = .systemFont(ofSize: 11)
         updateStatus.textColor = .secondaryLabelColor

@@ -19,6 +19,9 @@ final class RateLimitStore {
     weak var delegate: RateLimitStoreDelegate?
 
     private let client: RateLimitClient
+    private let diagnostics: DiagnosticRecording
+    private var hasConnected = false
+    private var hadConnectionFailure = false
     private lazy var quotaReader = VerifiedQuotaReader(client: client)
     private lazy var accountUsage = AccountTokenUsageStore(client: client)
     private(set) var verifiedAccountKey: String?
@@ -37,9 +40,11 @@ final class RateLimitStore {
     private var generation = 0
     private var requestGeneration = 0
 
-    init(client: RateLimitClient = CodexAppServerClient(), retryDelays: [TimeInterval] = [1, 2, 5, 15, 30, 60]) {
+    init(client: RateLimitClient? = nil, retryDelays: [TimeInterval] = [1, 2, 5, 15, 30, 60],
+         diagnostics: DiagnosticRecording = NoopDiagnosticRecorder()) {
         precondition(!retryDelays.isEmpty && retryDelays.allSatisfy { $0 > 0 && $0.isFinite })
-        self.client = client
+        self.client = client ?? CodexAppServerClient(diagnostics: diagnostics)
+        self.diagnostics = diagnostics
         self.retryDelays = retryDelays
     }
 
@@ -84,6 +89,7 @@ final class RateLimitStore {
         connectionRevision += 1
         let attempt = connectionRevision
         let revision = generation
+        diagnostics.record(.connection(phase: .start, generation: UInt64(attempt), retryCount: retryCount, layer: .store))
         state.isRefreshing = true
         state.errorMessage = nil
         publish()
@@ -105,6 +111,10 @@ final class RateLimitStore {
             switch result {
             case .success:
                 self.connectionState = .connected
+                self.diagnostics.record(.connection(phase: self.hadConnectionFailure || self.hasConnected ? .recovered : .initialize,
+                                                    generation: UInt64(attempt), layer: .store))
+                self.hasConnected = true
+                self.hadConnectionFailure = false
                 self.connectionEstablishedAt = ProcessInfo.processInfo.systemUptime
                 let force = self.forceTokenUsageAfterConnection
                 self.forceTokenUsageAfterConnection = false
@@ -197,6 +207,7 @@ final class RateLimitStore {
     }
 
     private func connectionFailed(_ error: Error) {
+        hadConnectionFailure = true
         let revision = generation
         if let connectedAt = connectionEstablishedAt,
            ProcessInfo.processInfo.systemUptime - connectedAt >= 60 { retryCount = 0 }
@@ -213,6 +224,9 @@ final class RateLimitStore {
         retryTimer?.invalidate()
         let delay = retryDelays[min(retryCount, retryDelays.count - 1)]
         retryCount = min(retryCount + 1, retryDelays.count - 1)
+        diagnostics.record(.connection(phase: .retry, generation: UInt64(connectionRevision),
+                                       result: CodexAppServerClient.diagnosticResult(for: error), retryCount: retryCount,
+                                       delayMilliseconds: Int(min(86_400_000, delay * 1_000)), layer: .store))
         let timer = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
             guard let self, self.isStarted, self.generation == revision,
                   self.connectionState == .waitingToRetry else { return }

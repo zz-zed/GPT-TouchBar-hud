@@ -99,6 +99,9 @@ final class CodexAppServerClient: AccountUsageClient {
     private var connectionGeneration = 0
     private let executableURL: URL?
     private let clientVersion: String
+    private let diagnostics: DiagnosticRecording
+    private let diagnosticSource: DiagnosticConnectionSource
+    private var lastRequestResults: [DiagnosticRequestKind: DiagnosticResult] = [:]
     private var isInitialized = false
     private var startCompletions: [(Result<Void, Error>) -> Void] = []
     private var connectionClosedHandler: ((Error) -> Void)?
@@ -112,9 +115,13 @@ final class CodexAppServerClient: AccountUsageClient {
         set { queue.async { self.connectionClosedHandler = newValue } }
     }
 
-    init(executableURL: URL? = nil, clientVersion: String = CodexAppServerClient.version()) {
+    init(executableURL: URL? = nil, clientVersion: String = CodexAppServerClient.version(),
+         diagnostics: DiagnosticRecording = NoopDiagnosticRecorder(),
+         diagnosticSource: DiagnosticConnectionSource = .business) {
         self.executableURL = executableURL
         self.clientVersion = clientVersion
+        self.diagnostics = diagnostics
+        self.diagnosticSource = diagnosticSource
     }
 
     static func version(in bundle: Bundle = .main) -> String {
@@ -166,23 +173,32 @@ final class CodexAppServerClient: AccountUsageClient {
                 return
             }
 
+            let startedAt = ProcessInfo.processInfo.systemUptime
             do {
                 try self.launchProcess()
                 self.startCompletions.append(completion)
                 let revision = self.connectionGeneration
                 self.initialize { result in
                     self.queue.async {
-                        guard self.connectionGeneration == revision else { return }
+                        guard self.connectionGeneration == revision else {
+                            self.diagnostics.record(.connection(source: self.diagnosticSource, phase: .staleCallback,
+                                                                generation: UInt64(revision), result: .stale))
+                            return
+                        }
                         switch result {
                         case .success:
                             self.isInitialized = true
+                            self.recordConnection(.initialize, durationMilliseconds: Self.elapsed(since: startedAt))
                             self.finishStarting(.success(()))
                         case .failure(let error):
+                            self.recordConnection(.initialize, result: Self.diagnosticResult(for: error),
+                                                  durationMilliseconds: Self.elapsed(since: startedAt))
                             self.closeConnection(error)
                         }
                     }
                 }
             } catch {
+                self.recordConnection(.start, result: Self.diagnosticResult(for: error), durationMilliseconds: Self.elapsed(since: startedAt))
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }
@@ -191,7 +207,10 @@ final class CodexAppServerClient: AccountUsageClient {
     }
 
     func stop() {
-        queue.async { self.closeConnection(CodexAppServerError.processUnavailable) }
+        queue.async {
+            if self.process != nil { self.recordConnection(.exit, result: .stopped) }
+            self.closeConnection(CodexAppServerError.processUnavailable)
+        }
     }
 
     /// Queue-confined cleanup also invalidates callbacks already queued by old pipes.
@@ -245,9 +264,11 @@ final class CodexAppServerClient: AccountUsageClient {
     private func launchProcess() throws {
         closeConnection(CodexAppServerError.processUnavailable)
         guard let codexURL = executableURL ?? CodexRuntimeLocator.locate() else {
+            recordConnection(.runtime, result: .missing)
             throw CodexAppServerError.runtimeNotFound
         }
 
+        recordConnection(.runtime)
         let process = Process()
         let inputPipe = Pipe()
         let outputPipe = Pipe()
@@ -266,7 +287,12 @@ final class CodexAppServerClient: AccountUsageClient {
                 return
             }
             self?.queue.async {
-                guard let self, self.connectionGeneration == generation else { return }
+                guard let self else { return }
+                guard self.connectionGeneration == generation else {
+                    self.diagnostics.record(.connection(source: self.diagnosticSource, phase: .staleCallback,
+                                                        generation: UInt64(generation), result: .stale))
+                    return
+                }
                 self.consumeOutput(data)
             }
         }
@@ -275,14 +301,22 @@ final class CodexAppServerClient: AccountUsageClient {
             _ = handle.availableData
         }
 
-        process.terminationHandler = { [weak self] _ in
+        process.terminationHandler = { [weak self] terminated in
+            let exitStatus = Int(terminated.terminationStatus)
             self?.queue.async {
-                guard let self, self.connectionGeneration == generation else { return }
+                guard let self else { return }
+                guard self.connectionGeneration == generation else {
+                    self.diagnostics.record(.connection(source: self.diagnosticSource, phase: .staleCallback,
+                                                        generation: UInt64(generation), result: .stale))
+                    return
+                }
+                self.recordConnection(.exit, result: .unavailable, exitStatus: exitStatus)
                 self.closeConnection(CodexAppServerError.processUnavailable, notify: true)
             }
         }
 
         try process.run()
+        recordConnection(.start)
 
         self.process = process
         self.inputPipe = inputPipe
@@ -320,7 +354,11 @@ final class CodexAppServerClient: AccountUsageClient {
 
     private func request(method: String, params: Any?, completion: @escaping (Result<Any, Error>) -> Void) {
         queue.async { [self] in
+            let kind = Self.requestKind(method)
+            let startedAt = ProcessInfo.processInfo.systemUptime
+            let revision = self.connectionGeneration
             guard let writer = self.inputPipe?.fileHandleForWriting, self.process?.isRunning == true else {
+                self.recordRequest(kind, result: .unavailable, revision: revision, startedAt: startedAt)
                 DispatchQueue.main.async {
                     completion(.failure(CodexAppServerError.processUnavailable))
                 }
@@ -329,7 +367,13 @@ final class CodexAppServerClient: AccountUsageClient {
 
             let requestId = self.nextRequestId
             self.nextRequestId += 1
-            self.pendingResponses[requestId] = { result in
+            self.pendingResponses[requestId] = { [weak self] result in
+                let classification: DiagnosticResult
+                switch result {
+                case .success: classification = .success
+                case .failure(let error): classification = Self.diagnosticResult(for: error)
+                }
+                self?.recordRequest(kind, result: classification, revision: revision, startedAt: startedAt)
                 DispatchQueue.main.async {
                     completion(result)
                 }
@@ -353,6 +397,7 @@ final class CodexAppServerClient: AccountUsageClient {
                 writer.write(framed)
             } catch {
                 self.pendingResponses.removeValue(forKey: requestId)
+                self.recordRequest(kind, result: Self.diagnosticResult(for: error), revision: revision, startedAt: startedAt)
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }
@@ -362,7 +407,10 @@ final class CodexAppServerClient: AccountUsageClient {
 
     private func consumeOutput(_ data: Data) {
         do { try outputBuffer.append(data) { self.consumeLine($0) } }
-        catch { closeConnection(error, notify: true) }
+        catch {
+            recordConnection(.request, result: Self.diagnosticResult(for: error))
+            closeConnection(error, notify: true)
+        }
     }
 
     private func consumeLine(_ data: Data) {
@@ -418,6 +466,52 @@ final class CodexAppServerClient: AccountUsageClient {
             return Int(string)
         }
         return nil
+    }
+
+    private func recordConnection(_ phase: DiagnosticConnectionPhase, result: DiagnosticResult = .success,
+                                  durationMilliseconds: Int? = nil, exitStatus: Int? = nil) {
+        diagnostics.record(.connection(source: diagnosticSource, phase: phase,
+                                       generation: UInt64(connectionGeneration), result: result,
+                                       durationMilliseconds: durationMilliseconds, exitStatus: exitStatus))
+    }
+
+    private func recordRequest(_ request: DiagnosticRequestKind, result: DiagnosticResult,
+                               revision: Int, startedAt: TimeInterval) {
+        // Stable successful polling is silent; failures and recovery remain observable.
+        guard result != .success || lastRequestResults[request] != .success else { return }
+        let previous = lastRequestResults.updateValue(result, forKey: request)
+        let phase: DiagnosticConnectionPhase = result == .timedOut ? .timeout
+            : (result == .success && previous != nil && previous != .success ? .recovered : .request)
+        diagnostics.record(.connection(source: diagnosticSource, phase: phase, generation: UInt64(revision),
+                                       request: request, result: result,
+                                       durationMilliseconds: Self.elapsed(since: startedAt)))
+    }
+
+    static func diagnosticResult(for error: Error) -> DiagnosticResult {
+        guard let error = error as? CodexAppServerError else { return .failed }
+        switch error {
+        case .runtimeNotFound: return .missing
+        case .processUnavailable: return .unavailable
+        case .malformedResponse: return .malformedResponse
+        case .serverError: return .serverError
+        case .missingResult: return .missingResult
+        case .requestTimedOut: return .timedOut
+        case .responseTooLarge: return .responseTooLarge
+        }
+    }
+
+    private static func requestKind(_ method: String) -> DiagnosticRequestKind {
+        switch method {
+        case "initialize": return .initialize
+        case "account/read": return .accountRead
+        case "account/rateLimits/read": return .rateLimitsRead
+        case "account/usage/read": return .tokenUsageRead
+        default: return .other
+        }
+    }
+
+    private static func elapsed(since start: TimeInterval) -> Int {
+        Int(min(86_400_000, max(0, (ProcessInfo.processInfo.systemUptime - start) * 1_000)))
     }
 
     private func failPendingResponses(_ error: Error) {

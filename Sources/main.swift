@@ -1,5 +1,8 @@
 import AppKit
 
+// Capture this process identity before an installer can replace its bundle.
+_ = DiagnosticProcessIdentity.current
+
 // The temporary update window has no HUD services, and must survive
 // the owning HUD process. Only the private copied executable accepts this mode.
 if AppUpdateProgressHelper.runIfRequested() { exit(EXIT_SUCCESS) }
@@ -19,6 +22,6 @@ do {
         app.run()
     }
 } catch {
-    NSLog("%@ could not acquire its application lock: %@", AppIdentity.productName, String(describing: error))
+    DiagnosticRecorder.shared.record(.componentFailure(component: .instanceLock, result: .ioFailure))
     exit(EXIT_FAILURE)
 }

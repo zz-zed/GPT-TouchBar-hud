@@ -12,8 +12,14 @@ final class AppUpdateProgressHelper: NSObject, NSApplicationDelegate {
     private var successSince: Date?
     private var lostInstallerSince: Date?
     private var statusItem: NSStatusItem?
+    private let diagnosticQueue = DispatchQueue(label: "GPTTouchBarHUD.update.helper.diagnostics", qos: .utility)
+    private var diagnosticWriter: DiagnosticUpgradeWriter?
+    private var diagnosticBootstrapScheduled = false
+    private var recordedInstallerLoss = false
+    private var recordedLateReceipt = false
 
     static func runIfRequested(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
+        if DiagnosticInstallerBridge.recordIfRequested(arguments: arguments) { exit(EXIT_SUCCESS) }
         if arguments.count > 1, arguments[1] == "--check-update-launch" {
             guard arguments.count == 5,
                   let channel = try? AppUpdateProgressChannel.load(directory: URL(fileURLWithPath: arguments[2]), sessionID: arguments[3]),
@@ -81,7 +87,21 @@ final class AppUpdateProgressHelper: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: channel.context.targetPath), configuration: configuration)
     }
 
+    private func observeDiagnostic(_ stage: DiagnosticUpgradeStage) {
+        diagnosticQueue.async { [weak self] in _ = self?.diagnosticWriter?.record(stage: stage, result: DiagnosticInstallerBridge.result(for: stage)) }
+    }
+
+    private func bootstrapDiagnosticsIfPresent() {
+        guard !diagnosticBootstrapScheduled, let bootstrap = DiagnosticInstallerBridge.protectedBootstrap(channel: channel) else { return }
+        diagnosticBootstrapScheduled = true
+        diagnosticQueue.async { [weak self] in
+            self?.diagnosticWriter = try? DiagnosticUpgradeWriter.bootstrapFromProtectedHandoff(bootstrap.handoff,
+                role: .progressHelper, identity: bootstrap.handoff.sourceIdentity)
+        }
+    }
+
     private func poll() {
+        bootstrapDiagnosticsIfPresent()
         if let command = channel.readValue("helper-command.json", as: AppUpdateProgressChannel.Command.self),
            command.sessionID == channel.context.sessionID, command.requestID != lastCommandID {
             lastCommandID = command.requestID
@@ -111,6 +131,10 @@ final class AppUpdateProgressHelper: NSObject, NSApplicationDelegate {
             let installerAlive = installer.map { $0.sessionID == channel.context.sessionID && $0.pid > 0 && kill($0.pid, 0) == 0 } ?? false
             if installerAlive { lostInstallerSince = nil }
             else if let since = lostInstallerSince, Date().timeIntervalSince(since) >= 2 {
+                if !recordedInstallerLoss {
+                    recordedInstallerLoss = true
+                    observeDiagnostic(.progressHelperInstallerLost)
+                }
                 progress.phase = .failed; progress.recovery = .needsRecovery
                 progress.message = "安装已中断，请查看本次更新日志和应用，确认安装状态。"
             } else if lostInstallerSince == nil { lostInstallerSince = Date() }
@@ -118,6 +142,11 @@ final class AppUpdateProgressHelper: NSObject, NSApplicationDelegate {
         if !ownerAlive, progress.isActive || progress.phase == .launchUnconfirmed {
             // The temporary menu also remains available while a late launch receipt is possible.
             statusItem?.button?.toolTip = progress.heading
+        }
+        if !recordedLateReceipt, lastProgress?.phase == .launchUnconfirmed,
+           progress.phase == .succeeded, channel.launchMatches(version: channel.context.targetVersion) {
+            recordedLateReceipt = true
+            observeDiagnostic(.progressHelperLateReceiptObserved)
         }
         if progress != lastProgress { lastProgress = progress; controller.update(progress) }
         if progress.phase == .succeeded {

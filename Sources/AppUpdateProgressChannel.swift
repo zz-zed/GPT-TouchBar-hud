@@ -143,7 +143,7 @@ struct AppUpdateProgressChannel {
         try? channel.write(Launch(sessionID: channel.context.sessionID, version: version, pid: getpid()), name: "launch.json")
     }
 
-    private static let fileNames: Set<String> = ["context.json", "progress.json", "install.json", "launch.json", "command.json", "helper-command.json", "installer-process.json"]
+    private static let fileNames: Set<String> = ["context.json", "progress.json", "install.json", "launch.json", "command.json", "helper-command.json", "installer-process.json", "diagnostic-handoff.json"]
     private static func read<T: Decodable>(_ file: URL) throws -> T {
         let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
         guard attributes[.type] as? FileAttributeType == .typeRegular,

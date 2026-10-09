@@ -124,8 +124,11 @@ enum PersistentTouchBarTests {
             initialAppearance: HUDAppearance(colorChoice: .black, backgroundOpacity: 0.86, contentOpacity: 1),
             onRefresh: {}, onClose: { closeRequests += 1 }, onPresentTouchBar: { controller.presentNow() }, contextMenuProvider: { NSMenu() }
         )
+        // Compare across the action itself; the earlier baseline spans several event-loop drains
+        // during which the user or another app may legitimately change foreground focus.
+        let activationFrontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         hud.activateTouchBar(bringAppForward: true)
-        check(NSWorkspace.shared.frontmostApplication?.processIdentifier == frontmostPID, "Persistent HUD activation preserves the frontmost app")
+        check(NSWorkspace.shared.frontmostApplication?.processIdentifier == activationFrontmostPID, "Persistent HUD activation preserves the frontmost app")
 
         let hudView = hud.view
         hud.onOpenMessages = { openedMessages += 1 }

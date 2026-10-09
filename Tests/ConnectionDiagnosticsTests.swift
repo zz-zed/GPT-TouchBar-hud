@@ -225,10 +225,20 @@ enum ConnectionDiagnosticsTests {
 
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
+        let diagnosticTestRoot = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent("diagnostic-window-" + UUID().uuidString, isDirectory: true)
+        let diagnosticDefaultsName = "diagnostic-window-" + UUID().uuidString
+        let diagnosticDefaults = UserDefaults(suiteName: diagnosticDefaultsName)!
+        defer {
+            try? FileManager.default.removeItem(at: diagnosticTestRoot)
+            diagnosticDefaults.removePersistentDomain(forName: diagnosticDefaultsName)
+        }
+        let localRecorder = DiagnosticRecorder(directory: diagnosticTestRoot)
+        let localExporter = DiagnosticExportCoordinator(recorder: localRecorder)
         let windowClient = FakeDiagnosticClient()
         windowClient.hold = .tokenUsage
         let windowRunner = runner(windowClient)
-        let controller = ConnectionDiagnosticsWindowController(runner: windowRunner)
+        let controller = ConnectionDiagnosticsWindowController(runner: windowRunner, recorder: localRecorder, exporter: localExporter, defaults: diagnosticDefaults)
         controller.startCheck()
         let content = controller.window!.contentView!
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
@@ -245,14 +255,14 @@ enum ConnectionDiagnosticsTests {
         check(scroll.hasVerticalScroller && !review.isEditable && review.isSelectable,
               "Full report remains readable and selectable without edits")
         try snapshot(content, name: "connection-diagnostics")
-        controller.window?.setContentSize(NSSize(width: 600, height: 440))
+        controller.window?.setContentSize(NSSize(width: 680, height: 670))
         content.layoutSubtreeIfNeeded()
         check(scroll.frame.width > 500 && scroll.frame.height >= 230, "Report fits the minimum window size")
 
         let closeClient = FakeDiagnosticClient()
         closeClient.hold = .connection
         let closeRunner = runner(closeClient)
-        let closeController = ConnectionDiagnosticsWindowController(runner: closeRunner)
+        let closeController = ConnectionDiagnosticsWindowController(runner: closeRunner, recorder: localRecorder, exporter: localExporter, defaults: diagnosticDefaults)
         closeController.startCheck()
         closeController.window?.close()
         let closed = closeRunner.report!.text

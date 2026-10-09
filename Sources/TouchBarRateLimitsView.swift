@@ -2,6 +2,7 @@ import AppKit
 import QuartzCore
 
 final class TouchBarRateLimitsView: NSView {
+    private let taskTrace: DiagnosticTaskDisplayObserver
     private struct LayoutContent: Equatable {
         let badge: String?
         let appearance: TaskStatusAppearance
@@ -36,7 +37,8 @@ final class TouchBarRateLimitsView: NSView {
     private let usageDivider = NSBox()
     private let balanceDivider = NSBox()
 
-    init() {
+    init(diagnostics: DiagnosticRecording = NoopDiagnosticRecorder(), consumer: DiagnosticTaskTraceConsumer = .touchBarResponder) {
+        taskTrace = DiagnosticTaskDisplayObserver(diagnostics, surface: .touchBar, consumer: consumer)
         super.init(frame: .zero)
         configure()
         accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -112,6 +114,7 @@ final class TouchBarRateLimitsView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
+        taskTrace.record(state, action: .received)
         currentState = state
         let forecastAccessibilityLabel = ResetForecastIndicator.accessibilityLabel(messageForecastCount)
         messagesButton.toolTip = forecastAccessibilityLabel
@@ -155,7 +158,11 @@ final class TouchBarRateLimitsView: NSView {
         defer {
             setAccessibilityLabel(([status?.label].compactMap { $0 } + rows.map { "\($0.0) \($0.1) \($0.2)" } + usageLabels.map(\.stringValue) + (next.balance == nil ? [] : [balanceValue.stringValue]) + (messagesButton.isHidden ? [] : [messagesButton.title])).joined(separator: ", "))
         }
-        guard next != renderedLayout else { return }
+        guard next != renderedLayout else {
+            taskTrace.record(state, action: .skipped, reason: .sameValueSuppressed)
+            return
+        }
+        taskTrace.record(state, action: .renderRequested)
         renderedLayout = next
         layoutUpdateCount += 1
         taskBadge.stringValue = status?.badge ?? ""
