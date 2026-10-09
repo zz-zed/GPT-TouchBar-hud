@@ -4,6 +4,9 @@ import AppKit
 final class NotchHUDController {
     let island: NotchIslandController?
     private let legacy: LegacyNotchHUDController?
+    private let diagnostics: DiagnosticRecording
+    private var lastShowResult: Bool?
+    private var lastLegacyVisibility: Bool?
     var onRefresh: (() -> Void)? { didSet { island?.model.onRefresh = onRefresh; legacy?.onRefresh = onRefresh } }
     var onSettings: (() -> Void)? { didSet { island?.onSettings = onSettings; legacy?.onSettings = onSettings } }
     var onHide: (() -> Void)? { didSet { island?.model.onHide = onHide; legacy?.onHide = onHide } }
@@ -14,14 +17,31 @@ final class NotchHUDController {
     var onVisibleMessage: ((String) -> Void)? { didSet { island?.model.onVisibleMessage = onVisibleMessage } }
     var isExpanded: Bool { island.map { $0.model.state == .expanded } ?? legacy?.isExpanded ?? false }
     var isVisible: Bool { island?.isVisible ?? legacy?.isVisible ?? false }
-    init(useLegacy: Bool = ProcessInfo.processInfo.environment["GPT_HUD_NOTCH_RENDERER"] == "legacy") {
-        island = useLegacy ? nil : NotchIslandController()
-        legacy = useLegacy ? LegacyNotchHUDController() : nil
+    init(useLegacy: Bool = ProcessInfo.processInfo.environment["GPT_HUD_NOTCH_RENDERER"] == "legacy",
+         diagnostics: DiagnosticRecording = NoopDiagnosticRecorder()) {
+        self.diagnostics = diagnostics
+        island = useLegacy ? nil : NotchIslandController(diagnostics: diagnostics)
+        legacy = useLegacy ? LegacyNotchHUDController(diagnostics: diagnostics) : nil
     }
     @discardableResult func show(in geometry: NotchHUDGeometry? = NotchHUDGeometry.current()) -> Bool {
-        island?.show(in: geometry) ?? legacy?.show(in: geometry) ?? false
+        let result = island?.show(in: geometry) ?? legacy?.show(in: geometry) ?? false
+        if lastShowResult != result {
+            diagnostics.record(.display(surface: .notch, action: result ? .request : .skipped,
+                                        result: result ? .success : .skipped,
+                                        reason: result ? nil : (geometry == nil ? .geometryUnavailable : .layoutUnusable)))
+            lastShowResult = result
+        }
+        if legacy != nil, lastLegacyVisibility != isVisible {
+            lastLegacyVisibility = isVisible
+            diagnostics.record(.display(surface: .notch, action: .window, visible: isVisible))
+        }
+        return result
     }
-    func hide() { island?.hide(); legacy?.hide() }
+    func hide() {
+        if lastShowResult == true || isVisible { diagnostics.record(.display(surface: .notch, action: .hide)) }
+        lastShowResult = false
+        island?.hide(); legacy?.hide()
+    }
     func update(_ state: RateLimitDisplayState, taskDisplayEnabled: Bool = true) {
         island?.model.update(state, tasksEnabled: taskDisplayEnabled)
         legacy?.update(state, taskDisplayEnabled: taskDisplayEnabled)
@@ -44,13 +64,22 @@ final class NotchIslandController: NSObject, NSMenuDelegate {
     private(set) var visibility = NotchVisibility()
     var isVisible: Bool { visibility.isVisible }
     private var reportedVisible = false
+    private let diagnostics: DiagnosticRecording
+    private var observedWindow: WindowObservation?
+    private struct WindowObservation: Equatable {
+        let visible: Bool
+        let onActiveSpace: Bool
+        let unoccluded: Bool
+    }
     private var powerObserver: NSObjectProtocol?
     private let automaticallyTracksMouse: Bool
     private(set) var frameChanges = 0
 
-    init(defaults: UserDefaults = .standard, clock: NotchClock = NotchSystemClock(), automaticallyTracksMouse: Bool = true) {
+    init(defaults: UserDefaults = .standard, clock: NotchClock = NotchSystemClock(), automaticallyTracksMouse: Bool = true,
+         diagnostics: DiagnosticRecording = NoopDiagnosticRecorder()) {
+        self.diagnostics = diagnostics
         self.automaticallyTracksMouse = automaticallyTracksMouse
-        model = NotchPresentationModel(clock: clock, alwaysShowQuota: NotchPresentationModel.savedAlwaysShowQuota(in: defaults))
+        model = NotchPresentationModel(clock: clock, alwaysShowQuota: NotchPresentationModel.savedAlwaysShowQuota(in: defaults), diagnostics: diagnostics)
         model.setMaterial(HUDAppearance.load(from: defaults).material)
         host = NotchHostingView(model: model, bridge: bridge)
         interaction = NotchInteractionController(panel: panel, bridge: bridge, model: model)
@@ -111,6 +140,13 @@ final class NotchIslandController: NSObject, NSMenuDelegate {
     @objc func refreshVisibility() {
         visibility.onActiveSpace = panel.isOnActiveSpace
         visibility.unoccluded = panel.isVisible && panel.occlusionState.contains(.visible)
+        let observation = WindowObservation(visible: panel.isVisible, onActiveSpace: panel.isOnActiveSpace,
+                                            unoccluded: visibility.unoccluded)
+        if observation != observedWindow {
+            observedWindow = observation
+            diagnostics.record(.display(surface: .notch, action: .window, visible: observation.visible,
+                                        reason: !observation.onActiveSpace ? .inactiveSpace : (observation.visible && !observation.unoccluded ? .occluded : nil)))
+        }
         model.setVisible(isVisible)
         if isVisible {
             if automaticallyTracksMouse { interaction.start() }

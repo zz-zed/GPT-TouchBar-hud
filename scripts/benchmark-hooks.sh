@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/hook-core-build.sh
-swiftc -O "${HOOK_CORE_SWIFT_FLAGS[@]}" Sources/LimitModels.swift Sources/TaskStatusMonitor.swift Tests/HookMonitoringBenchmark.swift -o .build/hook-core-standalone/Benchmark
+swiftc -O "${HOOK_CORE_SWIFT_FLAGS[@]}" Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/TaskStatusMonitor.swift Tests/HookMonitoringBenchmark.swift -o .build/hook-core-standalone/Benchmark
 fixture_dir="$(mktemp -d /private/tmp/hud-benchmark.XXXXXX)"
 trap 'rm -rf "$fixture_dir"' EXIT
 python3 - "$fixture_dir" <<'PY'

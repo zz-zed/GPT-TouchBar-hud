@@ -111,11 +111,17 @@ jobs:
         if: matrix.suite == 'data'
         run: |
           bash scripts/test-task-status.sh
+          bash scripts/test-hook-integration.sh
+          bash scripts/test-token-usage.sh
           bash scripts/test-account-token-usage.sh
           bash scripts/test-verified-quota.sh
           bash scripts/test-quota-alerts.sh
           bash scripts/test-host-auto-launcher.sh
           bash scripts/test-connection-diagnostics.sh
+          bash scripts/test-diagnostic-logging.sh
+          bash scripts/test-diagnostic-upgrade-storage.sh
+          bash scripts/test-diagnostic-upgrade-installer.sh
+          bash scripts/test-diagnostic-upgrade-recovery.sh
           bash scripts/test-host-lifecycle.sh
           bash scripts/test-single-instance.sh
 
@@ -145,6 +151,9 @@ jobs:
           bash scripts/test-status-menu.sh
           bash scripts/test-notch-hud.sh
           bash scripts/test-notch-presentation.sh
+          bash scripts/test-touchbar.sh
+          bash scripts/test-touchbar-layout.sh
+          bash scripts/test-design-layout.sh
 
   build:
     name: Build DMG (${{ matrix.arch }})

@@ -24,7 +24,7 @@ enum ConnectionDiagnosticStep: Int, CaseIterable {
 }
 
 /// All user-visible outcomes are fixed strings. Raw errors and account responses never enter a report.
-enum ConnectionDiagnosticFinding: Equatable {
+enum ConnectionDiagnosticFinding: String, Codable, Equatable {
     case waiting, checking, passed, signedIn, signedOut, noData
     case runtimeMissing, unavailable, timedOut, invalidResponse, serviceRejected, unexpectedFailure
     case prerequisiteFailed, accountUnverified, accountChanged, cancelled
@@ -197,7 +197,10 @@ final class ConnectionDiagnosticsRunner {
     var onUpdate: ((ConnectionDiagnosticsReport) -> Void)?
 
     init(locateRuntime: @escaping () -> URL? = { CodexRuntimeLocator.locate() },
-         makeClient: @escaping (URL) -> ConnectionDiagnosticsClient = { CodexAppServerClient(executableURL: $0) },
+         makeClient: @escaping (URL) -> ConnectionDiagnosticsClient = {
+             CodexAppServerClient(executableURL: $0, diagnostics: DiagnosticRecorder.shared,
+                                  diagnosticSource: .check)
+         },
          environment: @escaping (URL?) -> ConnectionDiagnosticsEnvironment = ConnectionDiagnosticsEnvironment.current,
          now: @escaping () -> Date = Date.init) {
         self.locateRuntime = locateRuntime

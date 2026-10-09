@@ -10,6 +10,6 @@ source scripts/swift-module-cache.sh
 SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
 swiftc "${HOOK_CORE_SWIFT_FLAGS[@]}" "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" \
   -module-cache-path "$SWIFT_MODULE_CACHE" \
-  Sources/LimitModels.swift Sources/QuotaAlerts.swift Sources/ResetNewsNotificationController.swift \
+  Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/QuotaAlerts.swift Sources/ResetNewsNotificationController.swift \
   Tests/QuotaAlertTests.swift -o "$TEST_BUILD/QuotaAlertTests"
 "$TEST_BUILD/QuotaAlertTests"

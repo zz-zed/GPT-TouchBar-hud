@@ -10,6 +10,8 @@ public struct EvidenceReport {
     public var files: [TaskIdentity: URL] = [:]
     public var bytesRead = 0
     public var filesRead = 0
+    // Populated only while observing, so diagnostic attribution does not change production gaps.
+    public var traceResetReasons: [TaskIdentity: HookTaskDecisionReason] = [:]
 }
 
 /// Worker-confined reader; lookup only the requested session except once at recovery.
@@ -23,16 +25,30 @@ public final class TaskEvidenceResolver {
         var changedAt: Date
         var latest: [String: TaskEvidence] = [:]
         var path: URL
+        var traceGeneration: UInt64 = 0
     }
     private struct Row { let task: TaskIdentity; let url: URL; let source: String }
     public let home: URL
     private var cursors: [TaskIdentity: Cursor] = [:]
     private let formatter = ISO8601DateFormatter()
+    public var traceObserver: (@Sendable (HookTaskTraceObservation) -> Void)?
+    private var nextTraceGeneration: UInt64 = 0
     public init(home: URL) { self.home = home }
     var retainedEvidenceCount: Int { cursors.values.reduce(0) { $0 + $1.latest.count } }
     public var observedFiles: [TaskIdentity: URL] { cursors.mapValues(\.path) }
-    public func forget(_ task: TaskIdentity) { cursors.removeValue(forKey: task) }
-    public func reset() { cursors.removeAll() }
+    public func forget(_ task: TaskIdentity) {
+        if cursors.removeValue(forKey: task) != nil { traceInventory(task, reason: .forgotten, added: false) }
+    }
+    public func reset() {
+        let removed = traceObserver == nil ? [] : Array(cursors.keys)
+        cursors.removeAll()
+        for task in removed { traceInventory(task, reason: .reset, added: false) }
+    }
+    private func traceInventory(_ task: TaskIdentity, reason: HookTaskInventoryReason, added: Bool) {
+        guard let traceObserver else { return }
+        traceObserver(.inventory(HookTaskInventoryObservation(task: task, reason: reason, added: added,
+            inventoryCount: cursors.count, inventoryLimit: HookBudget.recoveryFiles)))
+    }
 
     /// Initial history can establish terminal facts, but never a live running claim.
     public func recover(tasks: [TaskIdentity], now: Date) -> EvidenceReport {
@@ -64,6 +80,16 @@ public final class TaskEvidenceResolver {
         } catch { var result = EvidenceReport(); result.gaps.insert(.invalidPath); return result }
     }
     private func lookup(task: TaskIdentity?, now: Date) throws -> [Row] {
+        var returned: Int?
+        var valid: Int?
+        var completed = false
+        defer {
+            if let traceObserver {
+                traceObserver(.discovery(HookTaskDiscoveryObservation(query: task == nil ? .recentRecovery : .target,
+                    queryLimit: task == nil ? 33 : 1, inventoryLimit: HookBudget.recoveryFiles,
+                    returnedRows: returned, validRows: valid, queryComplete: completed, coverageLimited: true)))
+            }
+        }
         if let task { guard task.source == "codexLocal", HookEvent.validID(task.session) else { throw HookFailure.malformed } }
         let url = home.appendingPathComponent("state_5.sqlite")
         let verified = try HookPaths.openRegular(url); defer { close(verified) }
@@ -92,57 +118,88 @@ public final class TaskEvidenceResolver {
             else { sqlite3_bind_int64(statement, 1, Int64(now.addingTimeInterval(-HookBudget.staleSeconds).timeIntervalSince1970)) }
             var rows: [Row] = []
             var step = sqlite3_step(statement)
+            returned = 0; valid = 0
             while step == SQLITE_ROW {
+                returned? += 1
                 guard (0...2).allSatisfy({ sqlite3_column_bytes(statement, Int32($0)) <= 4096 }),
                       let id = sqlite3_column_text(statement, 0), let path = sqlite3_column_text(statement, 1),
                       let source = sqlite3_column_text(statement, 2) else { throw HookFailure.budget }
                 let session = String(cString: id)
                 guard HookEvent.validID(session) else { throw HookFailure.malformed }
                 rows.append(Row(task: TaskIdentity(session: session), url: URL(fileURLWithPath: String(cString: path)), source: String(cString: source)))
+                valid = rows.count
                 step = sqlite3_step(statement)
             }
             guard step == SQLITE_DONE else { throw HookFailure.io }
             let afterFD = try HookPaths.openRegular(url); defer { close(afterFD) }
             var after = stat(); guard fstat(afterFD, &after) == 0, after.st_ino == before.st_ino, after.st_dev == before.st_dev else { throw HookFailure.changed }
+            completed = true
             return rows
         }
     }
     private func read(_ row: Row, now: Date, liveSince: Date?) -> EvidenceReport {
         var report = EvidenceReport()
+        var trace: HookTaskReadObservation? = traceObserver == nil ? nil : HookTaskReadObservation(task: row.task, path: row.url)
+        let before = cursors[row.task]
+        trace?.fileGeneration = before?.traceGeneration ?? 0
+        trace?.offsetBefore = before?.offset ?? 0
+        trace?.pendingBefore = before?.pending.count ?? 0
+        defer {
+            if var value = trace {
+                value.bytesRead = report.bytesRead
+                if value.reasons.isEmpty { value.reasons.insert(.normal) }
+                traceObserver?(.read(value))
+            }
+        }
         if let source = try? JSONSerialization.jsonObject(with: Data(row.source.utf8)) as? [String: Any], source["subagent"] != nil {
+            trace?.reasons.insert(.sourceExcluded)
             report.excluded.insert(row.task); return report
         }
-        guard ["cli", "exec", "vscode"].contains(row.source) else { report.gaps.insert(.orderingConflict); return report }
+        guard ["cli", "exec", "vscode"].contains(row.source) else { trace?.reasons.insert(.sourceUnsupported); report.gaps.insert(.orderingConflict); return report }
         do {
             let roots = ["sessions", "archived_sessions"].map { home.appendingPathComponent($0).path + "/" }
-            guard roots.contains(where: { row.url.path.hasPrefix($0) }), row.url.path.hasSuffix(".jsonl") else { throw HookFailure.unsafePath }
+            guard roots.contains(where: { row.url.path.hasPrefix($0) }), row.url.path.hasSuffix(".jsonl") else { trace?.reasons.insert(.pathRejected); throw HookFailure.unsafePath }
             let fd = try HookPaths.openRegular(row.url); defer { close(fd) }
             var info = stat(); guard fstat(fd, &info) == 0, info.st_size >= 0 else { throw HookFailure.io }
+            trace?.fileSize = UInt64(info.st_size)
             var cursor = cursors[row.task]
             let hadCursor = cursor != nil
             let reset = cursor.map { $0.inode != info.st_ino || UInt64(info.st_size) < $0.offset || $0.path != row.url } ?? true
             if reset {
+                trace?.reasons.insert(hadCursor ? .fileReset : .initialBaseline)
                 // Verify the indexed file's session identity before accepting any tail evidence.
                 var head = [UInt8](repeating: 0, count: 8192)
                 let count = pread(fd, &head, head.count, 0)
                 guard count >= 0 else { throw HookFailure.io }
                 report.bytesRead += count
+                trace?.headerBytesRead = count
                 guard let end = head.prefix(count).firstIndex(of: 10),
                       let object = try? JSONSerialization.jsonObject(with: Data(head[..<end])) as? [String: Any],
                       object["type"] as? String == "session_meta", let payload = object["payload"] as? [String: Any],
                       payload["id"] as? String == row.task.session else { throw HookFailure.malformed }
-                if let source = payload["source"] as? [String: Any], source["subagent"] != nil { report.excluded.insert(row.task); return report }
+                if let source = payload["source"] as? [String: Any], source["subagent"] != nil { trace?.reasons.insert(.sourceExcluded); report.excluded.insert(row.task); return report }
                 cursor = Cursor(inode: info.st_ino, changedAt: now, path: row.url)
-                if hadCursor { report.gaps.insert(.rotatedLog); report.resetTasks.insert(row.task) }
+                if hadCursor {
+                    report.gaps.insert(.rotatedLog); report.resetTasks.insert(row.task)
+                    if trace != nil { report.traceResetReasons[row.task] = .fileReset }
+                }
             }
             guard var current = cursor else { throw HookFailure.io }
+            if trace != nil, current.traceGeneration == 0 {
+                nextTraceGeneration &+= 1; current.traceGeneration = nextTraceGeneration
+            }
+            trace?.fileGeneration = current.traceGeneration
             let size = UInt64(info.st_size)
             let remaining = HookBudget.readBytes - report.bytesRead
             if size - current.offset > UInt64(remaining) {
+                trace?.skippedBytes = size - UInt64(remaining) - current.offset
+                trace?.discardedPartialBytes += current.pending.count
+                trace?.reasons.insert(.readBudgetSkip)
                 current.offset = size - UInt64(remaining)
                 current.pending.removeAll(); current.latest.removeAll(); current.discardLine = true
                 current.pendingStart = current.offset
                 report.gaps.insert(.truncatedLog); report.resetTasks.insert(row.task)
+                if trace != nil { report.traceResetReasons[row.task] = .readBudgetSkip }
             }
             let countToRead = min(remaining, Int(size - current.offset))
             var bytes = [UInt8](repeating: 0, count: countToRead)
@@ -157,9 +214,14 @@ public final class TaskEvidenceResolver {
                 while let end = current.pending[start...].firstIndex(of: 10) {
                     let absolute = current.pendingStart + UInt64(end - current.pending.startIndex)
                     defer { start = current.pending.index(after: end) }
-                    if current.discardLine { current.discardLine = false; continue }
+                    if current.discardLine {
+                        trace?.discardedPartialBytes += end - start + 1
+                        trace?.reasons.insert(.discardedHalfLine)
+                        current.discardLine = false; continue
+                    }
                     let line = Data(current.pending[start..<end])
                     guard let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else {
+                        trace?.reasons.insert(.malformedLine)
                         report.gaps.insert(.malformedLog); continue
                     }
                     guard object["type"] as? String == "event_msg", let payload = object["payload"] as? [String: Any],
@@ -167,6 +229,7 @@ public final class TaskEvidenceResolver {
                     guard let kind = TaskLifecyclePolicy.kind(for: type) else { continue }
                     guard let turn = payload["turn_id"] as? String, HookEvent.validID(turn),
                           let timestamp = object["timestamp"] as? String, let date = date(timestamp), date <= now.addingTimeInterval(5) else {
+                        trace?.reasons.insert(.invalidEventMetadata)
                         report.gaps.insert(.orderingConflict); continue
                     }
                     // Initial reads are live only when correlated to a received submit, not file mtime.
@@ -190,6 +253,8 @@ public final class TaskEvidenceResolver {
                 let consumed = start - current.pending.startIndex
                 current.pending = Data(current.pending[start...]); current.pendingStart += UInt64(consumed)
                 if current.pending.count > HookBudget.readBytes {
+                    trace?.discardedPartialBytes += current.pending.count
+                    trace?.reasons.insert(.pendingLineCleared)
                     current.pending.removeAll(); current.discardLine = true; report.gaps.insert(.truncatedLog)
                 }
             }
@@ -201,19 +266,28 @@ public final class TaskEvidenceResolver {
             }
             report.files[row.task] = row.url
             cursors[row.task] = current
+            trace?.offsetAfter = current.offset
+            trace?.pendingAfter = current.pending.count
+            trace?.backlogBytes = size - current.offset
+            if !hadCursor { traceInventory(row.task, reason: .discovered, added: true) }
             if retainedEvidenceCount > HookBudget.turns {
                 // This is a retention policy, not a claim of cross-session event order.
                 let retained = cursors.flatMap { task, cursor in cursor.latest.map { (task, $0.key, $0.value.date) } }
                     .sorted { $0.2 < $1.2 }
-                for (task, turn, _) in retained.prefix(retained.count - HookBudget.turns) { cursors[task]?.latest.removeValue(forKey: turn) }
+                for (task, turn, _) in retained.prefix(retained.count - HookBudget.turns) {
+                    cursors[task]?.latest.removeValue(forKey: turn)
+                    traceInventory(task, reason: .evidenceCapacity, added: false)
+                }
                 report.gaps.insert(.capacity)
             }
             if cursors.count > HookBudget.recoveryFiles {
-                if let oldest = cursors.filter({ $0.key != row.task }).min(by: { $0.value.changedAt < $1.value.changedAt })?.key { cursors.removeValue(forKey: oldest) }
+                if let oldest = cursors.filter({ $0.key != row.task }).min(by: { $0.value.changedAt < $1.value.changedAt })?.key {
+                    cursors.removeValue(forKey: oldest); traceInventory(oldest, reason: .cursorCapacity, added: false)
+                }
                 report.gaps.insert(.recoveryBudget)
             }
-        } catch HookFailure.malformed { report.gaps.insert(.malformedLog) }
-        catch { report.gaps.insert(.invalidPath) }
+        } catch HookFailure.malformed { trace?.reasons.insert(.malformedHeader); report.gaps.insert(.malformedLog) }
+        catch { if trace?.reasons.contains(.pathRejected) != true { trace?.reasons.insert(.readFailed) }; report.gaps.insert(.invalidPath) }
         return report
     }
     private func date(_ value: String) -> Date? {
@@ -224,6 +298,7 @@ public final class TaskEvidenceResolver {
     private func merge(_ value: EvidenceReport, into result: inout EvidenceReport) {
         result.evidence += value.evidence; result.gaps.formUnion(value.gaps); result.excluded.formUnion(value.excluded)
         result.resetTasks.formUnion(value.resetTasks); result.files.merge(value.files) { _, rhs in rhs }
+        result.traceResetReasons.merge(value.traceResetReasons) { _, rhs in rhs }
         result.bytesRead += value.bytesRead; result.filesRead += value.filesRead
         if result.evidence.count > HookBudget.turns {
             result.evidence.removeFirst(result.evidence.count - HookBudget.turns)

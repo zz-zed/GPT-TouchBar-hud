@@ -78,11 +78,13 @@ struct HUDMetric: Equatable {
 }
 
 struct MenuBarPresentation {
+    private let diagnosticState: RateLimitDisplayState
     let title: String
     let statusItemLength: CGFloat
     let hasUpdate: Bool
 
     init(state: RateLimitDisplayState, mode: MenuBarDisplayMode, panelVisible: Bool, hasUpdate: Bool = false) {
+        diagnosticState = state
         self.hasUpdate = hasUpdate
         let resolved = mode.resolved(panelVisible: panelVisible)
         let all = HUDMetric.rows(for: state)
@@ -97,9 +99,13 @@ struct MenuBarPresentation {
         statusItemLength = NSStatusItem.variableLength
     }
 
-    func apply(to statusItem: NSStatusItem) {
+    func apply(to statusItem: NSStatusItem, taskTrace: DiagnosticTaskDisplayObserver? = nil) {
+        taskTrace?.record(diagnosticState, action: .received, compact: .hidden)
         if statusItem.length != statusItemLength { statusItem.length = statusItemLength }
-        guard let button = statusItem.button else { return }
+        guard let button = statusItem.button else {
+            taskTrace?.record(diagnosticState, action: .skipped, reason: .unavailable, compact: .hidden)
+            return
+        }
         let styled = NSMutableAttributedString(string: title, attributes: [
             .font: button.font ?? NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
             .foregroundColor: NSColor.labelColor
@@ -109,6 +115,7 @@ struct MenuBarPresentation {
                                  range: NSRange(location: (title as NSString).length - 1, length: 1))
         }
         if button.attributedTitle != styled { button.attributedTitle = styled }
+        taskTrace?.record(diagnosticState, action: .renderRequested, compact: .hidden)
     }
 }
 

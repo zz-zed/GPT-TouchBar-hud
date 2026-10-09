@@ -7,7 +7,9 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     }
 
     private let hudView: CompactQuotaHUDView
-    private lazy var touchBarView = TouchBarRateLimitsView()
+    private let diagnostics: DiagnosticRecording
+    private let taskTrace: DiagnosticTaskDisplayObserver
+    private lazy var touchBarView = TouchBarRateLimitsView(diagnostics: diagnostics, consumer: .touchBarResponder)
     private var currentState = RateLimitDisplayState.initial
     private let onRefresh: () -> Void
     private let onClose: () -> Void
@@ -27,8 +29,11 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         onRefresh: @escaping () -> Void,
         onClose: @escaping () -> Void,
         onPresentTouchBar: @escaping () -> Bool,
-        contextMenuProvider: @escaping () -> NSMenu
+        contextMenuProvider: @escaping () -> NSMenu,
+        diagnostics: DiagnosticRecording = NoopDiagnosticRecorder()
     ) {
+        self.diagnostics = diagnostics
+        taskTrace = DiagnosticTaskDisplayObserver(diagnostics, surface: .floating, consumer: .floatingController)
         self.onRefresh = onRefresh
         self.onClose = onClose
         self.onPresentTouchBar = onPresentTouchBar
@@ -36,7 +41,8 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
             initialAppearance: initialAppearance,
             onRefresh: onRefresh,
             onClose: onClose,
-            contextMenuProvider: contextMenuProvider
+            contextMenuProvider: contextMenuProvider,
+            diagnostics: diagnostics
         )
         super.init(nibName: nil, bundle: nil)
         self.hudView.touchBarProvider = self
@@ -86,12 +92,14 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         currentState = state
 
         guard isViewLoaded else {
+            taskTrace.record(state, action: .skipped, reason: .notLoaded)
             return
         }
 
         // The controller also owns the responder-chain Touch Bar. Its updates
         // must continue independently of the floating window's visibility.
         if hudView.window?.isVisible != false { hudView.update(with: state) }
+        else { taskTrace.record(state, action: .skipped, reason: .hidden) }
         touchBarView.update(with: state)
     }
 
@@ -119,6 +127,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
 }
 
 final class CompactQuotaHUDView: NSView {
+    private let taskTrace: DiagnosticTaskDisplayObserver
     private struct Content: Equatable {
         let fivePercent: Int?
         let weeklyPercent: Int?
@@ -163,8 +172,10 @@ final class CompactQuotaHUDView: NSView {
         initialAppearance: HUDAppearance,
         onRefresh: @escaping () -> Void,
         onClose: @escaping () -> Void,
-        contextMenuProvider: @escaping () -> NSMenu
+        contextMenuProvider: @escaping () -> NSMenu,
+        diagnostics: DiagnosticRecording = NoopDiagnosticRecorder()
     ) {
+        taskTrace = DiagnosticTaskDisplayObserver(diagnostics, surface: .floating, consumer: .floatingView)
         self.onRefresh = onRefresh
         self.onClose = onClose
         self.contextMenuProvider = contextMenuProvider
@@ -224,6 +235,7 @@ final class CompactQuotaHUDView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
+        taskTrace.record(state, action: .received, compact: .exact)
         let taskStatus = state.displayedTaskStatus
         toolTip = state.statusText
         taskLabel.toolTip = taskStatus?.detail
@@ -233,7 +245,11 @@ final class CompactQuotaHUDView: NSView {
                            refreshing: state.isRefreshing, hasError: state.errorMessage != nil,
                            task: taskStatus?.label, appearance: TaskStatusAppearance(taskStatus),
                            language: DisplayLanguage.current)
-        guard next != renderedContent else { return }
+        guard next != renderedContent else {
+            taskTrace.record(state, action: .skipped, reason: .sameValueSuppressed, compact: .exact)
+            return
+        }
+        taskTrace.record(state, action: .renderRequested, compact: .exact)
         renderedContent = next
         layoutUpdateCount += 1
         refreshButton.isEnabled = !state.isRefreshing
