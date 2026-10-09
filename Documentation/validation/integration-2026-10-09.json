@@ -348,5 +348,23 @@
         "sha256": "aede890f844a27ac4d7a3d59aac0ea113c0ce3b559c3acdb41fe9d972e964d2b"
       }
     ]
+  },
+  "reset_runtime_compiler_followup": {
+    "failed_run": 37913920209,
+    "failed_source_sha": "807c8e94ba7a29901bbbc5f270d9f1a8fce78658",
+    "reason": "Swift closure captured a later local declaration shadowing the repository property",
+    "change": "Declare a distinctly named loadedRepository before the load-wait closure",
+    "checks": [
+      {
+        "exit_code": 0,
+        "log": "build/integration-20261009/test-reset-news-swift-ci-fix.log",
+        "sha256": "8b34f6813ddbec41c7a3f2eed1a491ebe49d0f25dd28f983c659ec857ba8512b"
+      },
+      {
+        "exit_code": 0,
+        "log": "build/integration-20261009/test-hooks-final-ci-review.log",
+        "sha256": "44b809663587e735e095aae0ad042b35dfa97087e72d7487014abdbcc49c94e3"
+      }
+    ]
   }
 }

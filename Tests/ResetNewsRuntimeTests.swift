@@ -103,9 +103,9 @@ private final class RuntimeHarness {
         monitor = ResetNewsMonitor(repository: repository, client: client, notifications: notifications,
                                    scheduler: scheduler, defaults: defaults, now: { clock.date }, jitter: { 0 },
                                    calendar: { clock.calendar }, notificationCenter: notificationCenter)
-        if waitForLoad { ResetNewsRuntimeTests.pump { repository.isLoaded } }
-        let repository = self.repository
-        if waitForWrites { client.afterCompletion = { repository.drainForTesting() } }
+        let loadedRepository = self.repository
+        if waitForLoad { ResetNewsRuntimeTests.pump { loadedRepository.isLoaded } }
+        if waitForWrites { client.afterCompletion = { loadedRepository.drainForTesting() } }
     }
     deinit {
         defaults.removePersistentDomain(forName: suite)
