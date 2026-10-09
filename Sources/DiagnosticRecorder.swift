@@ -108,17 +108,19 @@ final class DiagnosticRecorder: DiagnosticRecording {
             outstandingBytes = 0
             pumpScheduled = false
             let next = generation
+            let deadline = DispatchTime.now() + .milliseconds(500)
             // Enqueue under the admission lock so new-generation events cannot precede this boundary.
             ioQueue.async { [self] in
                 resetWorker(to: next)
-                applyControl(value, initial: initial, generation: next, attempt: 0, completion: completion, reporting: reporting)
+                applyControl(value, initial: initial, generation: next, attempt: 0, deadline: deadline,
+                             completion: completion, reporting: reporting)
             }
         }
     }
 
     /// Control changes retry a busy lock for at most 500 ms without blocking any queue thread.
     /// A failed durable disable stops this recorder but is explicitly unconfirmed for other processes.
-    private func applyControl(_ value: Bool, initial: Bool, generation expected: UInt64, attempt: Int,
+    private func applyControl(_ value: Bool, initial: Bool, generation expected: UInt64, attempt: Int, deadline: DispatchTime,
                               completion: (() -> Void)?, reporting: ((Result<Bool, Error>) -> Void)?) {
         guard locked({ generation == expected }) else {
             reporting?(.failure(DiagnosticStoreError.cancelled)); completion?(); return
@@ -131,9 +133,12 @@ final class DiagnosticRecorder: DiagnosticRecording {
                 locked { if generation == expected { enabled = effective } }
             }
         } catch {
-            if (error as? DiagnosticStoreError) == .lockBusy && attempt < 20 {
-                ioQueue.asyncAfter(deadline: .now() + 0.025) { [self] in
-                    applyControl(value, initial: initial, generation: expected, attempt: attempt + 1,
+            if (error as? DiagnosticStoreError) == .lockBusy && attempt < 20 && DispatchTime.now() < deadline {
+                // A busy worker must not stretch twenty relative delays beyond the
+                // control operation's fixed budget.
+                let retryAt = min(DispatchTime.now() + .milliseconds(25), deadline)
+                ioQueue.asyncAfter(deadline: retryAt) { [self] in
+                    applyControl(value, initial: initial, generation: expected, attempt: attempt + 1, deadline: deadline,
                                  completion: completion, reporting: reporting)
                 }
                 return
