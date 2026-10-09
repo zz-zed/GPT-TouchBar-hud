@@ -39,6 +39,8 @@ public final class TaskEngineController {
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex").path)
     }
     public var onUpdate: ((TaskEngineSnapshot) -> Void)?
+    public var onEngineSnapshot: ((TaskEngineSnapshot) -> Void)?
+    public var onDiagnosticSnapshot: ((UInt64, UInt64) -> Void)?
     public var onMeasurements: ((HookMeasurements) -> Void)?
     // Modes share a checkpoint. One process queue orders old-mode saves before the
     // next mode loads, without blocking the main thread or racing atomic replacements.
@@ -169,6 +171,12 @@ public final class TaskEngineController {
         comparison.updatedAt = previous?.updatedAt ?? comparison.updatedAt
         comparison.snapshotSequence = previous?.snapshotSequence ?? comparison.snapshotSequence
         comparison.observationGeneration = previous?.observationGeneration ?? comparison.observationGeneration
+        // A successful unchanged poll advances its timestamp without changing display facts.
+        for index in comparison.sourceHealth.indices {
+            if let prior = previous?.sourceHealth.first(where: { $0.source == comparison.sourceHealth[index].source }) {
+                comparison.sourceHealth[index].lastReceipt = prior.lastReceipt
+            }
+        }
         // Member replacements also require delivery even if the displayed number stays constant.
         if comparison != previous || snapshot.runningIDs != previousRunning {
             previous = snapshot.activity
@@ -179,7 +187,18 @@ public final class TaskEngineController {
                 let accepted = self.gate.accepts(current)
                 self.sink.record(.delivery(sequence: snapshot.sequence, generation: current, accepted: accepted))
                 guard accepted else { return }
+                self.onEngineSnapshot?(snapshot)
+                self.onDiagnosticSnapshot?(snapshot.sequence, snapshot.generation)
                 self.onUpdate?(snapshot); self.onMeasurements?(measure)
+            }
+        }
+        else {
+            // Observational references can change after clear/off/on while business state is equal.
+            // This callback never forces the business onUpdate or rendering path.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.gate.accepts(current) else { return }
+                self.onEngineSnapshot?(snapshot)
+                self.onDiagnosticSnapshot?(snapshot.sequence, snapshot.generation)
             }
         }
         if !paused { schedule(after: snapshot.hasBacklog ? 0.05 : 1.0) }

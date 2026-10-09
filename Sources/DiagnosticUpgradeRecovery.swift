@@ -7,7 +7,11 @@ final class DiagnosticRuntimeRecorder: DiagnosticRecording {
     var taskTraceState: DiagnosticTaskTraceState { DiagnosticRecorder.shared.taskTraceState }
     func record(_ event: DiagnosticEvent, expectedGeneration: UInt64) {
         DiagnosticRecorder.shared.record(event, expectedGeneration: expectedGeneration)
-        // Task observations do not participate in upgrade recovery inference.
+        // Only explicit recovery observations affect the recovery summary; task-trace events do not.
+        if case .moduleRecovery = event {
+            let gate = DiagnosticRecorder.shared.taskTraceState
+            if gate.enabled, gate.generation == expectedGeneration { recovery.observe(event) }
+        }
     }
     func record(_ event: DiagnosticEvent) {
         DiagnosticRecorder.shared.record(event)

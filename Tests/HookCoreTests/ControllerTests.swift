@@ -2,16 +2,26 @@ import Foundation
 import Testing
 @testable import HookCore
 
+private final class ControllerStartObservations: TaskObservationSink, @unchecked Sendable {
+    private let lock = NSLock()
+    private var starts = 0
+    func record(_ event: TaskObservation) {
+        if case .transition(_, _, _, _, _, .active, .liveStart) = event {
+            lock.lock(); starts += 1; lock.unlock()
+        }
+    }
+    var count: Int { lock.lock(); defer { lock.unlock() }; return starts }
+}
+
 struct ControllerTests {
     @Test @MainActor func acceptedStartPrecedesItsSnapshot() async throws {
         let f = try Fixture(); let file = try f.log()
-        let controller = HookConnectionController(directory: f.ipc, home: f.home)
+        let observations = ControllerStartObservations()
+        let controller = HookConnectionController(directory: f.ipc, home: f.home, sink: observations)
         var latest: TaskActivitySnapshot?
-        var starts = 0
         var startPrecededSnapshot = false
-        controller.onTaskStartObserved = { starts += 1 }
         controller.onUpdate = { snapshot in
-            if snapshot.confirmedRunningCount > 0 { startPrecededSnapshot = starts == 1 }
+            if snapshot.confirmedRunningCount > 0 { startPrecededSnapshot = observations.count == 1 }
             latest = snapshot
         }
         controller.start(); defer { controller.stop() }
@@ -19,7 +29,7 @@ struct ControllerTests {
         #expect(HookEmitter.send(HookEvent(kind: .submitted, session: "s1", turn: "t1"), socketURL: f.ipc.appendingPathComponent("events.sock")))
         try f.append("task_started", to: file, date: Date())
         try await waitUntil { latest?.confirmedRunningCount == 1 }
-        #expect(starts == 1)
+        #expect(observations.count == 1)
         #expect(startPrecededSnapshot)
     }
     @Test @MainActor func endToEndResumeStopContinuationAndRestart() async throws {

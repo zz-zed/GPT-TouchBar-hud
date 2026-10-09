@@ -3,14 +3,16 @@ import HookCore
 
 /// Ordinary presentation adapter over the same production runtime used by Hooks.
 final class TaskStatusMonitor {
+    var onDiagnosticSnapshot: ((UInt64, UInt64) -> Void)?
     var onUpdate: ((TaskStatusSummary) -> Void)?
     var onSnapshot: ((TaskEngineSnapshot) -> Void)?
     private let runtime: TaskEngineController
     init(home: URL = TaskEngineController.defaultHome, checkpointURL: URL? = nil,
          sink: TaskObservationSink = TaskObservationRelay.shared) {
         runtime = TaskEngineController(home: home, mode: .legacy, checkpointURL: checkpointURL, sink: sink)
+        runtime.onEngineSnapshot = { [weak self] in self?.onSnapshot?($0) }
+        runtime.onDiagnosticSnapshot = { [weak self] in self?.onDiagnosticSnapshot?($0, $1) }
         runtime.onUpdate = { [weak self] snapshot in
-            self?.onSnapshot?(snapshot)
             self?.onUpdate?(Self.summary(snapshot))
         }
     }

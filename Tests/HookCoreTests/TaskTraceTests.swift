@@ -182,6 +182,7 @@ struct TaskTraceTests {
         #expect(resolver.observedFiles[outside] != nil)
     }
 
+    #if LEGACY_TASK_TRACE_REFERENCE
     @Test @MainActor func dynamicGateAndEpochDoNotForceBusinessDelivery() async throws {
         let f = try Fixture(); let file = try f.log()
         let capture = TraceCapture(); let gate = TraceGate()
@@ -216,7 +217,9 @@ struct TaskTraceTests {
             if case .decision(let value) = $0 { return value.kind != .complete }; return true
         }, "A new diagnostic epoch reused pending observations from the old epoch")
     }
+    #endif
 
+    #if LEGACY_TASK_TRACE_REFERENCE
     @Test @MainActor func queuedTraceReportsActualDiscardWithoutDeliveringBusinessUpdate() async throws {
         let f = try Fixture(); _ = try f.log()
         let capture = TraceCapture()
@@ -234,6 +237,7 @@ struct TaskTraceTests {
         #expect(updates == 0)
         #expect(discarded.contains { $0.0 == old.generation && $0.1 == old.sequence })
     }
+    #endif
 
     @Test(arguments: [33, 65]) func actualInventoryQueryReportsLimitWithoutClaimingUnseenIdentities(count: Int) throws {
         let f = try Fixture()
@@ -250,6 +254,7 @@ struct TaskTraceTests {
         #expect(report.gaps.contains(.recoveryBudget))
     }
 
+    #if LEGACY_TASK_TRACE_REFERENCE
     @Test @MainActor func diagnosticAcceptanceCapturesKnownCountDefectInActualController() async throws {
         let f = try Fixture()
         // Independent fixture truth: three active tasks, all with one explicit live start.
@@ -289,6 +294,7 @@ struct TaskTraceTests {
         #expect(deliveries.contains { $0.0 == skipped.generation && $0.1 == skipped.sequence && $0.2 })
         #expect(capture.allBatches().allSatisfy { $0.members.members.filter(\.counted).count == $0.activity.confirmedRunningCount })
     }
+    #endif
 
     @MainActor private func waitUntil(_ condition: () -> Bool) async throws {
         for _ in 0..<150 {

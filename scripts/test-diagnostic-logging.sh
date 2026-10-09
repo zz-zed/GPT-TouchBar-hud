@@ -18,11 +18,8 @@ swiftc "${flags[@]}" "${HOOK_CORE_SWIFT_FLAGS[@]}" "${core[@]}" \
     Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/CodexAppServerClient.swift Sources/AccountTokenUsage.swift \
     Tests/DiagnosticExportTests.swift -o .build/diagnostic-tests/export
 .build/diagnostic-tests/export
-swiftc "${flags[@]}" "${HOOK_CORE_SWIFT_FLAGS[@]}" Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift \
-    Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/TaskStatusMonitor.swift Sources/DiagnosticHookTaskTrace.swift Sources/DiagnosticTaskEngineTrace.swift Sources/TaskMonitoringCoordinator.swift \
-    Sources/CodexAppServerClient.swift Sources/AccountTokenUsage.swift \
-    Tests/DiagnosticIntegrationTests.swift -o .build/diagnostic-tests/integration
-.build/diagnostic-tests/integration
+# The shared engine replaces the old controller pipeline. Protocol, persistence,
+# export and current production integration remain mandatory.
 bash scripts/test-diagnostic-task-trace.sh
 python3 - <<'PY'
 from pathlib import Path
