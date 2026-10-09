@@ -93,6 +93,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
 
         guard isViewLoaded else {
             taskTrace.record(state, action: .skipped, reason: .notLoaded)
+            TaskPresentationTrace.record(state, surface: .floatingHUD, action: .notLoaded)
             return
         }
 
@@ -100,6 +101,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         // must continue independently of the floating window's visibility.
         if hudView.window?.isVisible != false { hudView.update(with: state) }
         else { taskTrace.record(state, action: .skipped, reason: .hidden) }
+        else { TaskPresentationTrace.record(state, surface: .floatingHUD, action: .hidden) }
         touchBarView.update(with: state)
     }
 
@@ -236,6 +238,7 @@ final class CompactQuotaHUDView: NSView {
 
     func update(with state: RateLimitDisplayState) {
         taskTrace.record(state, action: .received, compact: .exact)
+        TaskPresentationTrace.record(state, surface: .floatingHUD, action: .renderRequested)
         let taskStatus = state.displayedTaskStatus
         toolTip = state.statusText
         taskLabel.toolTip = taskStatus?.detail

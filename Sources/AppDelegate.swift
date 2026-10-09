@@ -9,8 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private let mainTaskTrace = DiagnosticTaskDisplayObserver(DiagnosticRuntimeRecorder.shared, surface: .main, consumer: .main)
     private let menuTaskTrace = DiagnosticTaskDisplayObserver(DiagnosticRuntimeRecorder.shared, surface: .menuBar, consumer: .menuBar)
     private var taskPresentationRevision: UInt64 = 0
-    private let resetNewsMonitor = ResetNewsMonitor()
-    private let quotaAlerts = QuotaAlertMonitor()
+    private let resetNewsMonitor: ResetNewsMonitor
+    private let quotaAlerts: QuotaAlertMonitor
     private var connectionDiagnostics: ConnectionDiagnosticsWindowController?
     private var autoLaunchError: String?
     private var autoLaunchBusy = false
@@ -97,6 +97,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         diagnostics: DiagnosticRuntimeRecorder.shared
     )
     private lazy var hudWindow = CompactHUDPanel(contentViewController: hudController)
+
+    init(resetNewsMonitor: ResetNewsMonitor = ResetNewsMonitor(), quotaAlerts: QuotaAlertMonitor = QuotaAlertMonitor()) {
+        self.resetNewsMonitor = resetNewsMonitor
+        self.quotaAlerts = quotaAlerts
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DiagnosticRecorder.shared.start(enabled: UserDefaults.standard.object(forKey: DiagnosticRecorder.preferenceKey) as? Bool ?? true)
@@ -631,11 +637,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         }
     }
 
-    private func updateStatusTitle(with state: RateLimitDisplayState) {
+    func updateStatusTitle(with state: RateLimitDisplayState) {
         guard let button = statusItem.button else {
             menuTaskTrace.record(state, action: .skipped, reason: .unavailable, compact: .hidden)
+            TaskPresentationTrace.record(state, surface: .menuBar, action: .unavailable)
             return
         }
+        TaskPresentationTrace.record(state, surface: .menuBar, action: .renderRequested)
         let task = state.displayedTaskStatus
         let appearance = TaskStatusAppearance(task)
         if menuTaskAppearance != appearance {

@@ -122,6 +122,7 @@ final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
             taskTrace.record(state, action: .skipped,
                 reason: !isEnabled ? .disabled : (!isAvailable ? .noInterface : (!isScreenAwake ? .sleeping : .notLoaded)))
         }
+        if limitsView == nil { TaskPresentationTrace.record(state, surface: .touchBar, action: .notLoaded) }
         limitsView?.update(with: state)
     }
     func updateMessages(forecastCount: Int?, available: Bool) {

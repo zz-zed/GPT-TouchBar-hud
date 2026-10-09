@@ -4,6 +4,7 @@ import HookCore
 /// Runs inside the serial notch/menu harness; fixed clocks exercise the real app controller.
 enum HookPresentationIntegrationChecks {
     static func run(geometry: NotchHUDGeometry) throws {
+        try TaskPresentationTraceChecks.run()
         func check(_ value: @autoclosure () -> Bool, _ message: String) { NotchHUDTests.check(value(), message) }
         func event(_ id: String, _ date: Date) -> TaskCompletion {
             TaskCompletion(identity: TurnIdentity(task: TaskIdentity(session: "fixture"), turn: id), occurredAt: date)

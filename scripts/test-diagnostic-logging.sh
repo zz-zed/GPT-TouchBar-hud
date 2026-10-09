@@ -19,7 +19,7 @@ swiftc "${flags[@]}" "${HOOK_CORE_SWIFT_FLAGS[@]}" "${core[@]}" \
     Tests/DiagnosticExportTests.swift -o .build/diagnostic-tests/export
 .build/diagnostic-tests/export
 swiftc "${flags[@]}" "${HOOK_CORE_SWIFT_FLAGS[@]}" Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift \
-    Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/TaskStatusMonitor.swift Sources/DiagnosticHookTaskTrace.swift Sources/TaskMonitoringCoordinator.swift \
+    Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/TaskStatusMonitor.swift Sources/DiagnosticHookTaskTrace.swift Sources/DiagnosticTaskEngineTrace.swift Sources/TaskMonitoringCoordinator.swift \
     Sources/CodexAppServerClient.swift Sources/AccountTokenUsage.swift \
     Tests/DiagnosticIntegrationTests.swift -o .build/diagnostic-tests/integration
 .build/diagnostic-tests/integration
