@@ -6,8 +6,10 @@ final class TaskMonitoringCoordinator {
     var onUpdate: ((TaskStatusSummary?) -> Void)?
     private let legacy: TaskStatusMonitor
     private let hooks: HookConnectionController
-    init(legacy: TaskStatusMonitor = TaskStatusMonitor(), hooks: HookConnectionController = HookConnectionController()) {
-        self.legacy = legacy; self.hooks = hooks
+    private let sink: TaskObservationSink
+    init(legacy: TaskStatusMonitor = TaskStatusMonitor(), hooks: HookConnectionController = HookConnectionController(),
+         sink: TaskObservationSink = TaskObservationRelay.shared) {
+        self.legacy = legacy; self.hooks = hooks; self.sink = sink
     }
     private var generation = 0
     private var enabled = false
@@ -21,14 +23,23 @@ final class TaskMonitoringCoordinator {
         if experimental {
             onUpdate?(TaskStatusSummary(activity: TaskActivitySnapshot(sourceHealth: [HookSourceHealth(state: .awaitingEvents)])))
             hooks.onUpdate = { [weak self] snapshot in
-                guard let self, self.enabled, self.generation == token, self.experimental else { return }
-                self.onUpdate?(TaskStatusSummary(activity: snapshot))
+                guard let self else { return }
+                let accepted = self.enabled && self.generation == token && self.experimental
+                self.sink.record(.delivery(sequence: snapshot.snapshotSequence,
+                                          generation: snapshot.observationGeneration, accepted: accepted, stage: .coordinator))
+                guard accepted else { return }
+                self.onUpdate?(TaskStatusSummary(snapshotSequence: snapshot.snapshotSequence,
+                    observationGeneration: snapshot.observationGeneration, activity: snapshot))
             }
             hooks.start()
         } else {
             onUpdate?(Self.legacyUnavailable(.starting))
             legacy.onUpdate = { [weak self] snapshot in
-                guard let self, self.enabled, self.generation == token, !self.experimental else { return }
+                guard let self else { return }
+                let accepted = self.enabled && self.generation == token && !self.experimental
+                self.sink.record(.delivery(sequence: snapshot.snapshotSequence,
+                                          generation: snapshot.observationGeneration, accepted: accepted, stage: .coordinator))
+                guard accepted else { return }
                 self.onUpdate?(snapshot)
             }
             legacy.start()
@@ -45,16 +56,16 @@ final class TaskMonitoringCoordinator {
     func suspend() {
         guard enabled else { return }
         if experimental { hooks.suspend() }
-        else { legacy.stop(); onUpdate?(Self.legacyUnavailable(.suspended)) }
+        else { legacy.suspend() }
     }
     func resume() {
         guard enabled else { return }
         if experimental { hooks.resume() }
-        else { start(displayEnabled: true, experimental: false) }
+        else { legacy.resume() }
     }
     func hostUnavailable() {
         if experimental { hooks.hostUnavailable() }
-        else if enabled { legacy.stop(); onUpdate?(Self.legacyUnavailable(.hostUnavailable)) }
+        else if enabled { legacy.hostUnavailable() }
     }
 
     private static func legacyUnavailable(_ reason: LegacyTaskDiagnosticReason) -> TaskStatusSummary {
