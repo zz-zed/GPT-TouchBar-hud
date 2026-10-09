@@ -38,6 +38,9 @@ public struct TaskCompletion: Equatable, Codable, Sendable {
 
 /// Only reducer facts cross this boundary. No conversation text, paths, or mutable state.
 public struct TaskActivitySnapshot: Equatable, Codable, Sendable {
+    /// Process-local identity from the shared engine, retained through every presentation adapter.
+    public var snapshotSequence: UInt64 = 0
+    public var observationGeneration: UInt64 = 0
     public var confirmedRunningCount: Int
     public var pendingVerificationCount: Int
     public var submittedCount: Int

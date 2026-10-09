@@ -12,6 +12,6 @@ source scripts/swift-module-cache.sh
 SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
 swiftc "${HOOK_CORE_SWIFT_FLAGS[@]}" "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" \
     -module-cache-path "$SWIFT_MODULE_CACHE" "${sources[@]}" \
-    Tests/NotchHUDTests.swift Tests/NotchSimulationSupport.swift Tests/HookPresentationIntegrationChecks.swift Tests/AppUpdateIntegrationChecks.swift \
+    Tests/NotchHUDTests.swift Tests/NotchSimulationSupport.swift Tests/HookPresentationIntegrationChecks.swift Tests/TaskPresentationTraceChecks.swift Tests/AppUpdateIntegrationChecks.swift \
     -o .build/notch-tests/NotchHUDTests
 .build/notch-tests/NotchHUDTests

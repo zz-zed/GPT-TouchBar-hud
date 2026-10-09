@@ -25,6 +25,7 @@ final class NotchHUDController {
     func update(_ state: RateLimitDisplayState, taskDisplayEnabled: Bool = true) {
         island?.model.update(state, tasksEnabled: taskDisplayEnabled)
         legacy?.update(state, taskDisplayEnabled: taskDisplayEnabled)
+        TaskPresentationTrace.record(state, surface: .notch, action: isVisible ? .renderRequested : .hidden)
     }
     func collapse(animated: Bool = true) { island?.model.collapse(animated: animated); legacy?.collapse(animated: animated) }
     func environmentChanged() { island?.environmentChanged(); legacy?.environmentChanged() }

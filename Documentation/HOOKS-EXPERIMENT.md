@@ -2,7 +2,13 @@
 
 The native experiment was implemented against v0.1.27 / dd274b28 and integrated into the v0.1.28 release candidate. The existing log mode remains the default. No user Hook configuration, trust record, installed app, or stable helper is changed by building or testing this repository.
 
-## State and display contract
+## Current reliability implementation (2026-10-08)
+
+Ordinary logs and Hooks now use `TaskEngineController` and `TaskActivityEngine`. Hooks are discovery hints, while periodic keyset enumeration and the continuous journal reader provide evidence. Per-read 256 KiB budgets never seek past unseen records. Both modes share an atomic metadata checkpoint and process-wide serial I/O queue; mode switches cannot race checkpoint writes. Restarted active state is pending until a new observation-generation start, never revived by tool/token tails.
+
+The ordinary mode retains its neutral UI. Hook presentation still exposes uncertainty. Both consume the same engine snapshot identity; this branch has no verified same-desktop-host state channel and therefore no global exact-count guarantee. See [implementation and acceptance record](TASK-STATUS-RELIABILITY-IMPLEMENTATION-2026-10-08.md) for current scheduling, persistence, observations and validation. The configuration/installation sections below remain applicable. The original state and runtime sections below are historical and superseded where the new implementation differs.
+
+## Historical state and display contract (v0.1.28)
 
 `TaskStatusSummary.activity` is authoritative when non-nil. Its `activityPresentation` is a `HookTaskDisplayAdapter`; label, badge, details, color and Touch Bar running animation all consume that interpretation. `RateLimitDisplayState.displayedTaskStatus` filters legacy idle only. Hook zero, unknown and submitted stay visible. The coordinator emits an explicit unready state before starting or switching sources and nil only when task display is disabled. A generation check rejects callbacks from the previous mode.
 
@@ -14,7 +20,7 @@ Completion requires a matching `task_complete` plus a subsequent stable EOF chec
 
 Connection health and coverage are independent. The production adapter always retains `initialCoverageUnknown`; no supported global inventory of the desktop host is used. An isolated app-server is used only to verify Hook configuration discovery, never to claim desktop task state. Details show readable gap reasons and source health. Unknown counts are not fabricated from coverage flags.
 
-## Runtime and budgets
+## Historical runtime and budgets (v0.1.28)
 
 `HookEmitter` is a signed Swift executable embedded in `Contents/Helpers`. It retains only the four event kinds, session/turn, protocol/source and the continuation Boolean. It neither forwards nor saves prompt/reply/tool arguments, cwd or transcript paths. Wire data and cache contain lifecycle metadata only; transient bounded log parsing is not persisted.
 
@@ -48,16 +54,16 @@ Disabling immediately stops this tool's receiver/watches and restores log mode. 
 - `bash scripts/test-hooks.sh`: Swift Testing behavior and resource/security tests. On this CLT, explicitly loads the already bundled TestingMacros plugin that swiftbuild omits.
 - `bash scripts/test-hook-integration.sh`: isolated default-off settings and source-selection/generation checks.
 - `bash scripts/test-task-status.sh` and existing regression scripts: compile against the shared static module via `scripts/hook-core-build.sh`.
-- `bash scripts/replay-task-lifecycle.sh <UTC-time> <rollout-path>...`: read-only development replay of full logs and bounded tails; outputs metadata counts only. `HUD_REPLAY_SOURCE_ROOT` selects an existing checkout for source comparison; build outputs remain in the calling worktree. See [lifecycle validation](TASK-LIFECYCLE-VALIDATION.md).
+- `bash scripts/replay-task-lifecycle.sh <UTC-time> <rollout-path>...`: read-only inspection through the production continuous reader; outputs allowlisted lifecycle metadata, and explicitly leaves current execution unconfirmed. `HUD_REPLAY_SOURCE_ROOT` selects an existing checkout for source comparison; build outputs remain in the calling worktree. See [lifecycle validation](TASK-LIFECYCLE-VALIDATION.md).
 - `bash scripts/build-app.sh`: optimized signed app + helper for the current architecture, explicit Info.plist deployment target passed to compilation and linking.
 - `HUD_BUILD_ARCHS='arm64 x86_64' bash scripts/build-app.sh`: universal artifact when the toolchain has both architectures and required compatibility libraries. Failure is surfaced, never converted to a falsely universal bundle.
 - `python3 scripts/test-hook-helper.py`: isolated subprocess fail-open, privacy and wall-time checks against the packaged helper.
 - `python3 scripts/probe-hooks-runtime.py`: development-only isolated host discovery; no model task or Hook execution.
-- `bash scripts/benchmark-hooks.sh`: short synthetic startup/static-log comparison with the unchanged legacy monitor; not an energy/accuracy certification.
+- `bash scripts/benchmark-hooks.sh`: short synthetic startup/static-log comparison between two adapters to the same engine; not an energy/accuracy certification.
 
 The shipped products require no Node.js or Python. Python scripts are development checks only. Existing Intel/arm64 CI runners remain separate and include the new source paths and helper signature/architecture checks.
 
-## Deliberate experimental limits
+## Historical experimental limits (see current reliability record)
 
 - A first log read containing `task_started` just before Hook receipt remains unknown until a fresh explicit start arrives. Tool/token appends cannot recover that uncertainty. This avoids inventing a tolerance before real host timing/blocked-submission behavior is verified. A real-format fixture covers a start 10 ms before receipt. Do not claim common startup latency ≤2 seconds from the later-start synthetic fixture.
 - This implementation supports the observed local legacy JSONL format and local `cli`, `exec`, `vscode` sources. New formats, paginated-only history, remote hosts, unidentified sources, events without attributable turn IDs, missing files and incomplete startup scope remain gaps. Subagent sessions from index/header metadata are excluded.

@@ -86,12 +86,14 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         currentState = state
 
         guard isViewLoaded else {
+            TaskPresentationTrace.record(state, surface: .floatingHUD, action: .notLoaded)
             return
         }
 
         // The controller also owns the responder-chain Touch Bar. Its updates
         // must continue independently of the floating window's visibility.
         if hudView.window?.isVisible != false { hudView.update(with: state) }
+        else { TaskPresentationTrace.record(state, surface: .floatingHUD, action: .hidden) }
         touchBarView.update(with: state)
     }
 
@@ -224,6 +226,7 @@ final class CompactQuotaHUDView: NSView {
     }
 
     func update(with state: RateLimitDisplayState) {
+        TaskPresentationTrace.record(state, surface: .floatingHUD, action: .renderRequested)
         let taskStatus = state.displayedTaskStatus
         toolTip = state.statusText
         taskLabel.toolTip = taskStatus?.detail

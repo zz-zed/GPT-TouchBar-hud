@@ -111,6 +111,7 @@ jobs:
         if: matrix.suite == 'data'
         run: |
           bash scripts/test-task-status.sh
+          bash scripts/test-task-reliability.sh
           bash scripts/test-account-token-usage.sh
           bash scripts/test-verified-quota.sh
           bash scripts/test-quota-alerts.sh

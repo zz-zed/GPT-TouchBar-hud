@@ -97,6 +97,7 @@ final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
 
     func update(with state: RateLimitDisplayState) {
         currentState = state
+        if limitsView == nil { TaskPresentationTrace.record(state, surface: .touchBar, action: .notLoaded) }
         limitsView?.update(with: state)
     }
     func updateMessages(forecastCount: Int?, available: Bool) {

@@ -6,8 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private let store = RateLimitStore()
     private let appUpdater = AppUpdater()
     private let taskMonitor = TaskMonitoringCoordinator()
-    private let resetNewsMonitor = ResetNewsMonitor()
-    private let quotaAlerts = QuotaAlertMonitor()
+    private let resetNewsMonitor: ResetNewsMonitor
+    private let quotaAlerts: QuotaAlertMonitor
     private var connectionDiagnostics: ConnectionDiagnosticsWindowController?
     private var autoLaunchError: String?
     private var latestResetNewsState = ResetNewsViewState()
@@ -87,6 +87,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         }
     )
     private lazy var hudWindow = CompactHUDPanel(contentViewController: hudController)
+
+    init(resetNewsMonitor: ResetNewsMonitor = ResetNewsMonitor(), quotaAlerts: QuotaAlertMonitor = QuotaAlertMonitor()) {
+        self.resetNewsMonitor = resetNewsMonitor
+        self.quotaAlerts = quotaAlerts
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -586,10 +592,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         }
     }
 
-    private func updateStatusTitle(with state: RateLimitDisplayState) {
+    func updateStatusTitle(with state: RateLimitDisplayState) {
         guard let button = statusItem.button else {
+            TaskPresentationTrace.record(state, surface: .menuBar, action: .unavailable)
             return
         }
+        TaskPresentationTrace.record(state, surface: .menuBar, action: .renderRequested)
         let task = state.displayedTaskStatus
         let appearance = TaskStatusAppearance(task)
         if menuTaskAppearance != appearance {

@@ -12,6 +12,5 @@ swiftc -target "$(uname -m)-apple-macosx11.0" -O -parse-as-library -emit-module 
     -module-name HookCore -module-cache-path "$replay_cache" "$replay_source"/HookCore/*.swift \
     -emit-module-path "$replay_build/HookCore.swiftmodule" -o "$replay_build/libHookCore.a"
 swiftc -I "$replay_build" -L "$replay_build" -lHookCore -module-cache-path "$replay_cache" \
-    "$replay_source/Sources/LimitModels.swift" "$replay_source/Sources/TaskStatusMonitor.swift" \
     Tests/TaskLifecycleReplay.swift -o "$replay_build/TaskLifecycleReplay"
 "$replay_build/TaskLifecycleReplay" "$@"
