@@ -12,8 +12,8 @@ enum HostAutoLauncher {
     @discardableResult
     static func installOrUpdate() -> Result<Void, Error> {
         let result = manager.installOrUpdate()
-        if case .failure(let error) = result {
-            NSLog("%@ failed to install auto launcher: %@", AppIdentity.productName, error.localizedDescription)
+        if case .failure = result {
+            DiagnosticRecorder.shared.record(.componentFailure(component: .autoLauncher, result: .failed))
         }
         return result
     }
@@ -41,7 +41,7 @@ enum HostAutoLauncher {
                 try "manual quit\n".write(to: lockURL, atomically: true, encoding: .utf8)
             }
         } catch {
-            NSLog("%@ failed to write manual quit lock: %@", AppIdentity.productName, String(describing: error))
+            DiagnosticRecorder.shared.record(.componentFailure(component: .quitMarker, result: .ioFailure))
         }
     }
 

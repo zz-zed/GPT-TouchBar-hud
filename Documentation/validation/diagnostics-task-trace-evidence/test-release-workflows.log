@@ -1,0 +1,79 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.000s
+
+OK
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.012s
+
+OK
+test_unpack_accepts_exactly_three_root_regular_files (__main__.ArchiveSafetyTests.test_unpack_accepts_exactly_three_root_regular_files) ... ok
+test_unpack_never_overwrites_an_existing_destination (__main__.ArchiveSafetyTests.test_unpack_never_overwrites_an_existing_destination) ... ok
+test_unpack_rejects_oversized_archive_before_extracting (__main__.ArchiveSafetyTests.test_unpack_rejects_oversized_archive_before_extracting) ... ok
+test_unpack_rejects_symlink_and_special_file_modes (__main__.ArchiveSafetyTests.test_unpack_rejects_symlink_and_special_file_modes) ... ok
+test_unpack_rejects_traversal_absolute_nested_duplicate_and_extra_entries (__main__.ArchiveSafetyTests.test_unpack_rejects_traversal_absolute_nested_duplicate_and_extra_entries) ... ok
+test_accepts_manual_ancestor_artifacts_with_distinct_workflow_sha (__main__.DownloadVerificationTests.test_accepts_manual_ancestor_artifacts_with_distinct_workflow_sha) ... ok
+test_accepts_two_bound_architectures_and_verifiable_bytes (__main__.DownloadVerificationTests.test_accepts_two_bound_architectures_and_verifiable_bytes) ... ok
+test_checksum_semantics_are_verified_even_when_its_own_hash_matches (__main__.DownloadVerificationTests.test_checksum_semantics_are_verified_even_when_its_own_hash_matches) ... ok
+test_rejects_checksum_file_mismatch (__main__.DownloadVerificationTests.test_rejects_checksum_file_mismatch) ... ok
+test_rejects_dmg_checksum_mismatch (__main__.DownloadVerificationTests.test_rejects_dmg_checksum_mismatch) ... ok
+test_rejects_manifest_identity_mismatches (__main__.DownloadVerificationTests.test_rejects_manifest_identity_mismatches) ... ok
+test_rejects_missing_architecture_payload (__main__.DownloadVerificationTests.test_rejects_missing_architecture_payload) ... ok
+test_rejects_symlink_payload_even_when_bytes_are_correct (__main__.DownloadVerificationTests.test_rejects_symlink_payload_even_when_bytes_are_correct) ... ok
+test_rejects_tag_version_mismatch (__main__.DownloadVerificationTests.test_rejects_tag_version_mismatch) ... ok
+test_rejects_undeclared_extra_file (__main__.DownloadVerificationTests.test_rejects_undeclared_extra_file) ... ok
+test_draft_rejects_duplicate_unknown_incomplete_or_conflicting_assets (__main__.ReleaseMutationGuardTests.test_draft_rejects_duplicate_unknown_incomplete_or_conflicting_assets) ... ok
+test_draft_tag_conflict_is_not_resumed (__main__.ReleaseMutationGuardTests.test_draft_tag_conflict_is_not_resumed) ... ok
+test_new_release_plan_contains_only_expected_assets (__main__.ReleaseMutationGuardTests.test_new_release_plan_contains_only_expected_assets) ... ok
+test_public_release_is_never_overwritten_even_if_hashes_match (__main__.ReleaseMutationGuardTests.test_public_release_is_never_overwritten_even_if_hashes_match) ... ok
+test_valid_draft_resumes_only_missing_assets (__main__.ReleaseMutationGuardTests.test_valid_draft_resumes_only_missing_assets) ... ok
+test_accepts_sections_and_preserves_body_without_rewriting (__main__.ReleaseNotesTests.test_accepts_sections_and_preserves_body_without_rewriting) ... ok
+test_literal_titles_in_code_blocks_are_not_release_headings (__main__.ReleaseNotesTests.test_literal_titles_in_code_blocks_are_not_release_headings) ... ok
+test_rejects_level_one_titles_in_release_body (__main__.ReleaseNotesTests.test_rejects_level_one_titles_in_release_body) ... ok
+test_annotated_tag_resolves_to_exact_source_commit (__main__.ReleaseOrchestrationTests.test_annotated_tag_resolves_to_exact_source_commit) ... ok
+test_archive_digest_failure_prevents_all_release_mutations (__main__.ReleaseOrchestrationTests.test_archive_digest_failure_prevents_all_release_mutations) ... ok
+test_draft_missing_from_tag_endpoint_resumes_through_release_listing (__main__.ReleaseOrchestrationTests.test_draft_missing_from_tag_endpoint_resumes_through_release_listing) ... ok
+test_duplicate_listed_drafts_fail_before_any_mutation (__main__.ReleaseOrchestrationTests.test_duplicate_listed_drafts_fail_before_any_mutation) ... ok
+test_latest_bad_artifact_never_downloads_from_older_success (__main__.ReleaseOrchestrationTests.test_latest_bad_artifact_never_downloads_from_older_success) ... ok
+test_latest_failed_run_never_downloads_or_falls_back (__main__.ReleaseOrchestrationTests.test_latest_failed_run_never_downloads_or_falls_back) ... ok
+test_matching_partial_draft_uploads_only_missing_assets_without_overwrite (__main__.ReleaseOrchestrationTests.test_matching_partial_draft_uploads_only_missing_assets_without_overwrite) ... ok
+test_missing_tag_cannot_fall_back_to_same_named_branch_or_create_tag (__main__.ReleaseOrchestrationTests.test_missing_tag_cannot_fall_back_to_same_named_branch_or_create_tag) ... ok
+test_moved_tag_fails_before_any_publish_write (__main__.ReleaseOrchestrationTests.test_moved_tag_fails_before_any_publish_write) ... ok
+test_prepare_rejects_duplicate_title_before_download_or_api_access (__main__.ReleaseOrchestrationTests.test_prepare_rejects_duplicate_title_before_download_or_api_access) ... ok
+test_public_release_or_conflicting_draft_is_not_modified (__main__.ReleaseOrchestrationTests.test_public_release_or_conflicting_draft_is_not_modified) ... ok
+test_publish_revalidates_immutable_title_before_any_release_write (__main__.ReleaseOrchestrationTests.test_publish_revalidates_immutable_title_before_any_release_write) ... ok
+test_published_release_found_only_by_listing_is_never_overwritten (__main__.ReleaseOrchestrationTests.test_published_release_found_only_by_listing_is_never_overwritten) ... ok
+test_revalidated_run_failure_prevents_publish (__main__.ReleaseOrchestrationTests.test_revalidated_run_failure_prevents_publish) ... ok
+test_source_checkout_mismatch_fails_before_api_access (__main__.ReleaseOrchestrationTests.test_source_checkout_mismatch_fails_before_api_access) ... ok
+test_successful_prepare_and_publish_uses_tag_notes_and_exactly_missing_uploads (__main__.ReleaseOrchestrationTests.test_successful_prepare_and_publish_uses_tag_notes_and_exactly_missing_uploads) ... ok
+test_tag_disappearing_before_create_does_not_create_release (__main__.ReleaseOrchestrationTests.test_tag_disappearing_before_create_does_not_create_release) ... ok
+test_tag_moved_during_upload_leaves_draft_unpublished (__main__.ReleaseOrchestrationTests.test_tag_moved_during_upload_leaves_draft_unpublished) ... ok
+test_tampered_tag_notes_fail_before_any_publish_write (__main__.ReleaseOrchestrationTests.test_tampered_tag_notes_fail_before_any_publish_write) ... ok
+test_accepts_dual_architecture_trusted_main_push (__main__.RunTrustTests.test_accepts_dual_architecture_trusted_main_push) ... ok
+test_artifact_identity_binds_source_arch_run_and_attempt (__main__.RunTrustTests.test_artifact_identity_binds_source_arch_run_and_attempt) ... ok
+test_bad_latest_artifact_does_not_fallback_to_older_success (__main__.RunTrustTests.test_bad_latest_artifact_does_not_fallback_to_older_success) ... ok
+test_failed_latest_matching_run_does_not_fallback (__main__.RunTrustTests.test_failed_latest_matching_run_does_not_fallback) ... ok
+test_manual_rejects_source_title_mismatch (__main__.RunTrustTests.test_manual_rejects_source_title_mismatch) ... ok
+test_no_matching_run_is_a_hard_failure (__main__.RunTrustTests.test_no_matching_run_is_a_hard_failure) ... ok
+test_push_binds_immutable_head_sha_not_the_display_title (__main__.RunTrustTests.test_push_binds_immutable_head_sha_not_the_display_title) ... ok
+test_rejects_failed_missing_duplicate_or_wrong_attempt_job (__main__.RunTrustTests.test_rejects_failed_missing_duplicate_or_wrong_attempt_job) ... ok
+test_rejects_missing_duplicate_expired_or_misbound_artifact (__main__.RunTrustTests.test_rejects_missing_duplicate_expired_or_misbound_artifact) ... ok
+test_rejects_untrusted_or_incomplete_runs (__main__.RunTrustTests.test_rejects_untrusted_or_incomplete_runs) ... ok
+test_selects_latest_matching_trusted_run (__main__.RunTrustTests.test_selects_latest_matching_trusted_run) ... ok
+test_manual_accepts_explicit_main_ancestor_without_replacing_workflow_sha (__main__.SourceRecoveryTests.test_manual_accepts_explicit_main_ancestor_without_replacing_workflow_sha) ... ok
+test_manual_rejects_nonancestor_nonmain_missing_or_abbreviated_sha (__main__.SourceRecoveryTests.test_manual_rejects_nonancestor_nonmain_missing_or_abbreviated_sha) ... ok
+test_pr_and_fork_like_refs_cannot_choose_release_source (__main__.SourceRecoveryTests.test_pr_and_fork_like_refs_cannot_choose_release_source) ... ok
+test_push_accepts_only_its_own_main_sha (__main__.SourceRecoveryTests.test_push_accepts_only_its_own_main_sha) ... ok
+test_api_redirects_and_permission_failures_do_not_become_not_found (__main__.TransportBoundaryTests.test_api_redirects_and_permission_failures_do_not_become_not_found) ... ok
+test_binary_https_redirect_uses_fresh_unauthenticated_request (__main__.TransportBoundaryTests.test_binary_https_redirect_uses_fresh_unauthenticated_request) ... ok
+test_foreign_repository_path_is_rejected_before_transport (__main__.TransportBoundaryTests.test_foreign_repository_path_is_rejected_before_transport) ... ok
+test_insecure_redirects_are_rejected_without_download (__main__.TransportBoundaryTests.test_insecure_redirects_are_rejected_without_download) ... ok
+test_jobs_are_fetched_from_selected_run_attempt_endpoint (__main__.TransportBoundaryTests.test_jobs_are_fetched_from_selected_run_attempt_endpoint) ... ok
+test_redirect_handler_never_forwards_authenticated_request (__main__.TransportBoundaryTests.test_redirect_handler_never_forwards_authenticated_request) ... ok
+test_release_listing_paginates_raw_json_arrays (__main__.TransportBoundaryTests.test_release_listing_paginates_raw_json_arrays) ... ok
+
+----------------------------------------------------------------------
+Ran 64 tests in 0.243s
+
+OK

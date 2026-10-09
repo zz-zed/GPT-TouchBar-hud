@@ -1,0 +1,11 @@
+PASS: 22 diagnostic environment checks
+Testing noImplicitIO
+Testing whitelistAndCorruption
+Testing retentionAndBudgets
+Testing queueAndFailure
+Testing boundaries
+Testing aggregationAndClock
+Testing shutdownMarker
+DiagnosticRecorderTests: 216 checks passed
+export/DiagnosticExportTests.swift:36: Precondition failed: Pending cross-process setting does not claim success or save preferences
+scripts/test-diagnostic-logging.sh: line 20: 70862 Trace/BPT trap: 5          .build/diagnostic-tests/export

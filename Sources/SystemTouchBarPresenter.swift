@@ -42,9 +42,12 @@ final class SystemTouchBarPresenter: SystemTouchBarPresenting {
     private let presentSelector = NSSelectorFromString("presentSystemModalTouchBar:placement:systemTrayItemIdentifier:")
     private let dismissSelector = NSSelectorFromString("dismissSystemModalTouchBar:")
     private let presentFunction: Present?
+    private let diagnostics: DiagnosticRecording
+    private var hasRequestedPresentation = false
     private let dismissFunction: Dismiss?
 
-    init() {
+    init(diagnostics: DiagnosticRecording = NoopDiagnosticRecorder()) {
+        self.diagnostics = diagnostics
         if let method = Self.compatibleMethod(presentSelector, arguments: ["@", ":", "@", "q", "@"]) {
             presentFunction = unsafeBitCast(method_getImplementation(method), to: Present.self)
         } else {
@@ -55,6 +58,9 @@ final class SystemTouchBarPresenter: SystemTouchBarPresenting {
         } else {
             dismissFunction = nil
         }
+        diagnostics.record(.display(surface: .touchBar, action: .capability,
+                                    result: isAvailable ? .success : .incompatible,
+                                    reason: isAvailable ? nil : .incompatibleAPI))
     }
 
     var isAvailable: Bool { presentFunction != nil && dismissFunction != nil }
@@ -74,14 +80,21 @@ final class SystemTouchBarPresenter: SystemTouchBarPresenting {
     }
 
     func present(_ touchBar: NSTouchBar) {
-        guard isAvailable else { return }
+        guard isAvailable else {
+            diagnostics.record(.display(surface: .touchBar, action: .skipped, result: .incompatible, reason: .incompatibleAPI))
+            return
+        }
         Self.configureSystemButton(for: touchBar)
         // Let macOS own the right-hand controls and cover this bar when expanded.
         // Never request full-width placement or alter global Control Strip prefs.
         presentFunction?(NSTouchBar.self, presentSelector, touchBar, Self.applicationRegionPlacement, nil)
+        if !hasRequestedPresentation { diagnostics.record(.display(surface: .touchBar, action: .request)) }
+        hasRequestedPresentation = true
     }
 
     func dismiss(_ touchBar: NSTouchBar) {
         dismissFunction?(NSTouchBar.self, dismissSelector, touchBar)
+        if hasRequestedPresentation { diagnostics.record(.display(surface: .touchBar, action: .hide)) }
+        hasRequestedPresentation = false
     }
 }

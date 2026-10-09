@@ -3,6 +3,25 @@ import Testing
 @testable import HookCore
 
 struct ControllerTests {
+    @Test @MainActor func acceptedStartPrecedesItsSnapshot() async throws {
+        let f = try Fixture(); let file = try f.log()
+        let controller = HookConnectionController(directory: f.ipc, home: f.home)
+        var latest: TaskActivitySnapshot?
+        var starts = 0
+        var startPrecededSnapshot = false
+        controller.onTaskStartObserved = { starts += 1 }
+        controller.onUpdate = { snapshot in
+            if snapshot.confirmedRunningCount > 0 { startPrecededSnapshot = starts == 1 }
+            latest = snapshot
+        }
+        controller.start(); defer { controller.stop() }
+        try await waitUntil { latest != nil }
+        #expect(HookEmitter.send(HookEvent(kind: .submitted, session: "s1", turn: "t1"), socketURL: f.ipc.appendingPathComponent("events.sock")))
+        try f.append("task_started", to: file, date: Date())
+        try await waitUntil { latest?.confirmedRunningCount == 1 }
+        #expect(starts == 1)
+        #expect(startPrecededSnapshot)
+    }
     @Test @MainActor func endToEndResumeStopContinuationAndRestart() async throws {
         let f = try Fixture(); let file = try f.log()
         let controller = HookConnectionController(directory: f.ipc, home: f.home)

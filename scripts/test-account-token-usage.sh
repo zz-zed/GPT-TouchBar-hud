@@ -11,6 +11,6 @@ source scripts/hook-core-build.sh
 source scripts/swift-module-cache.sh
 SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
 swiftc "${HOOK_CORE_SWIFT_FLAGS[@]}" -module-cache-path "$SWIFT_MODULE_CACHE" \
-    Sources/LimitModels.swift Sources/CodexAppServerClient.swift Sources/AccountTokenUsage.swift \
+    Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/CodexAppServerClient.swift Sources/AccountTokenUsage.swift \
     "$test_source" -o .build/account-usage-tests/AccountTokenUsageTests
 .build/account-usage-tests/AccountTokenUsageTests

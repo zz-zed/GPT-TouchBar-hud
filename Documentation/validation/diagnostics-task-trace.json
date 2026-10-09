@@ -1,0 +1,523 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUTC": "2026-10-08T09:59:03.209546+00:00",
+  "sourceDigest": "dd57809dba9a1a3483560e6dd3d5c2d4fec29887c7451791b124a2c86a041a1c",
+  "plan": "Documentation/DIAGNOSTICS-TASK-TRACE-PLAN-2026-10-08.md",
+  "diagnosticAcceptance": "passed",
+  "countCorrectness": "failed in declared oversized-read and limited-inventory fixtures; production defects preserved",
+  "newCheckCounts": {
+    "protocol": 92,
+    "legacyReadScheduler": 118,
+    "legacyProductionZIP": 718,
+    "hooksProductionZIP": 110,
+    "displayAndGaps": 29,
+    "deliveryFaults": 43
+  },
+  "newCountedChecks": 1110,
+  "hooksCore": "57 tests in 9 suites passed in final test-hooks; TaskTraceTests uses real controller/read/reducer and 33/65 candidates",
+  "fixtureTruth": {
+    "method": "declared independently; exact input byte sizes include newline; no production parser reused as truth",
+    "legacy": [
+      {
+        "countCorrectnessPassed": false,
+        "diagnosticAcceptancePassed": true,
+        "fixtureTruthRunning": 3,
+        "id": "budget-489000-giant",
+        "inputBytesIncludingNewline": 489000,
+        "productionRunning": 2,
+        "taskAlias": "C299568B-8D23-4F4C-8C39-C4A3B14B57B5",
+        "zip": "budget-489000-giant.zip"
+      },
+      {
+        "countCorrectnessPassed": false,
+        "diagnosticAcceptancePassed": true,
+        "fixtureTruthRunning": 3,
+        "id": "budget-601826-giant",
+        "inputBytesIncludingNewline": 601826,
+        "productionRunning": 2,
+        "taskAlias": "3C2D0D0B-2654-481D-8256-006B70FC9101",
+        "zip": "budget-601826-giant.zip"
+      },
+      {
+        "countCorrectnessPassed": true,
+        "diagnosticAcceptancePassed": true,
+        "fixtureTruthRunning": 3,
+        "id": "budget-262143-giant",
+        "inputBytesIncludingNewline": 262143,
+        "productionRunning": 3,
+        "taskAlias": "8D7A6F04-007B-42E7-9EE8-3BD07724182E",
+        "zip": "budget-262143-giant.zip"
+      },
+      {
+        "countCorrectnessPassed": true,
+        "diagnosticAcceptancePassed": true,
+        "fixtureTruthRunning": 3,
+        "id": "budget-262144-giant",
+        "inputBytesIncludingNewline": 262144,
+        "productionRunning": 3,
+        "taskAlias": "B31BEAA8-CB7E-417F-A60C-D3EEC9C3F0C7",
+        "zip": "budget-262144-giant.zip"
+      },
+      {
+        "countCorrectnessPassed": false,
+        "diagnosticAcceptancePassed": true,
+        "fixtureTruthRunning": 3,
+        "id": "budget-262145-giant",
+        "inputBytesIncludingNewline": 262145,
+        "productionRunning": 2,
+        "taskAlias": "568DD790-DC41-43ED-A8C0-C2B006DD0EAC",
+        "zip": "budget-262145-giant.zip"
+      },
+      {
+        "countCorrectnessPassed": false,
+        "diagnosticAcceptancePassed": true,
+        "fixtureTruthRunning": 3,
+        "id": "budget-2097152-giant",
+        "inputBytesIncludingNewline": 2097152,
+        "productionRunning": 2,
+        "taskAlias": "8C089F90-98C1-490D-9E42-4A0BD9BB295C",
+        "zip": "budget-2097152-giant.zip"
+      },
+      {
+        "countCorrectnessPassed": false,
+        "diagnosticAcceptancePassed": true,
+        "fixtureTruthRunning": 3,
+        "id": "budget-2097152-lines",
+        "inputBytesIncludingNewline": 2097152,
+        "productionRunning": 2,
+        "taskAlias": "BB8D705C-41C6-4663-AB41-44598E23056B",
+        "zip": "budget-2097152-lines.zip"
+      },
+      {
+        "countCorrectnessPassed": true,
+        "diagnosticAcceptancePassed": true,
+        "fixtureTruthRunning": 1,
+        "id": "same-total-late-halfline-rotation",
+        "productionRunning": 1,
+        "zip": "members-late-rotation.zip"
+      },
+      {
+        "countCorrectnessPassed": false,
+        "coverage": "limited",
+        "diagnosticAcceptancePassed": true,
+        "fixtureTruthRunning": 33,
+        "id": "discovery-33",
+        "productionRunning": 32,
+        "zip": "discovery-33.zip"
+      },
+      {
+        "countCorrectnessPassed": false,
+        "coverage": "limited",
+        "diagnosticAcceptancePassed": true,
+        "fixtureTruthRunning": 65,
+        "id": "discovery-65",
+        "productionRunning": 32,
+        "zip": "discovery-65.zip"
+      },
+      {
+        "countCorrectnessPassed": true,
+        "diagnosticAcceptancePassed": true,
+        "id": "clear-disable-enable",
+        "zip": "after-enable.zip"
+      }
+    ],
+    "hooks": [
+      {
+        "countCorrectness": false,
+        "diagnosticAcceptance": true,
+        "expectedRunningFromFixture": 3,
+        "inputBytesIncludingNewline": 500736,
+        "observedRunningFromProduction": 2,
+        "scenario": "threeTasksOversizedActivity"
+      },
+      {
+        "countCorrectness": false,
+        "diagnosticAcceptance": true,
+        "expectedRunningFromFixture": 1,
+        "inputBytesIncludingNewline": 489000,
+        "observedRunningFromProduction": 0,
+        "scenario": "readBoundaryGiant"
+      },
+      {
+        "countCorrectness": false,
+        "diagnosticAcceptance": true,
+        "expectedRunningFromFixture": 1,
+        "inputBytesIncludingNewline": 601826,
+        "observedRunningFromProduction": 0,
+        "scenario": "readBoundaryGiant"
+      },
+      {
+        "countCorrectness": true,
+        "diagnosticAcceptance": true,
+        "expectedRunningFromFixture": 1,
+        "inputBytesIncludingNewline": 262143,
+        "observedRunningFromProduction": 1,
+        "scenario": "readBoundaryGiant"
+      },
+      {
+        "countCorrectness": true,
+        "diagnosticAcceptance": true,
+        "expectedRunningFromFixture": 1,
+        "inputBytesIncludingNewline": 262144,
+        "observedRunningFromProduction": 1,
+        "scenario": "readBoundaryGiant"
+      },
+      {
+        "countCorrectness": false,
+        "diagnosticAcceptance": true,
+        "expectedRunningFromFixture": 1,
+        "inputBytesIncludingNewline": 262145,
+        "observedRunningFromProduction": 0,
+        "scenario": "readBoundaryGiant"
+      },
+      {
+        "countCorrectness": false,
+        "diagnosticAcceptance": true,
+        "expectedRunningFromFixture": 1,
+        "inputBytesIncludingNewline": 2097152,
+        "observedRunningFromProduction": 0,
+        "scenario": "readBoundaryGiant"
+      },
+      {
+        "countCorrectness": false,
+        "diagnosticAcceptance": true,
+        "expectedRunningFromFixture": 1,
+        "inputBytesIncludingNewline": 2097152,
+        "observedRunningFromProduction": 0,
+        "scenario": "readBoundaryMultiline"
+      },
+      {
+        "countCorrectness": true,
+        "diagnosticAcceptance": true,
+        "expectedRunningFromFixture": 1,
+        "inputBytesIncludingNewline": 380,
+        "observedRunningFromProduction": 1,
+        "scenario": "sameCountReplacementAndLateActivity"
+      },
+      {
+        "countCorrectness": true,
+        "diagnosticAcceptance": true,
+        "expectedRunningFromFixture": 1,
+        "inputBytesIncludingNewline": 262146,
+        "observedRunningFromProduction": 1,
+        "scenario": "partialBufferClearAndRecordingEpoch"
+      }
+    ]
+  },
+  "displayValidation": {
+    "checks": 29,
+    "diagnosticAcceptance": "passed",
+    "physicalVisibility": "unverified; test windows never presented",
+    "schemaVersion": 1,
+    "scope": "actual timer, main callback, four consumers and frozen ZIP; missing pages/identities/predecessor plus global drops",
+    "zipDirectory": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/.build/diagnostic-task-trace-tests/display-D259BBDE-6FD2-4BA8-A9BB-978D4238063C"
+  },
+  "diagnosticZIPs": [
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/budget-2097152-giant/budget-2097152-giant.zip",
+      "bytes": 116764,
+      "sha256": "e978afb9103e3d547164886c66576de3307e590a608b7b025c4bb73963560ce3",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 115
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/budget-2097152-lines/budget-2097152-lines.zip",
+      "bytes": 223806,
+      "sha256": "7f7b813d346bfe192522e1e047a1e397e178bbfa689dcaab3551235d27a7a282",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 241
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/budget-262143-giant/budget-262143-giant.zip",
+      "bytes": 89191,
+      "sha256": "05fa12ef0f754994e1213903394ac4198d0acc14134b8499bd4badc2db41b470",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 86
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/budget-262144-giant/budget-262144-giant.zip",
+      "bytes": 89191,
+      "sha256": "28f8b628e5e8cbc8b17adb248f86070a3bf9d05cd865aeaa614bb3ec96157a62",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 86
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/budget-262145-giant/budget-262145-giant.zip",
+      "bytes": 116695,
+      "sha256": "e4c8a738d526ad22b11c948e5d4c67f964bf9c2bd78627c27002f3e7c48a34a9",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 115
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/budget-489000-giant/budget-489000-giant.zip",
+      "bytes": 116781,
+      "sha256": "69eaadedc94eddf291cbc0a246d8a4147e627773a221a442299ef855e7f772aa",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 115
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/budget-601826-giant/budget-601826-giant.zip",
+      "bytes": 116732,
+      "sha256": "eacd298ba8ce3a465dd9cddd92ca759884f728187d6792d6909ed153f284f38a",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 115
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/controls/after-clear.zip",
+      "bytes": 21462,
+      "sha256": "b9748da801bc3a7a6f9215482db2ba28bd6b152bf8f6dfec2dad13324220ca7e",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 16
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/controls/after-enable.zip",
+      "bytes": 27891,
+      "sha256": "5e11dd78ef46bf1cadc5f8acaf5c93b4caf715c69440e490d1e938a1e39026a7",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 23
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/controls/before-clear.zip",
+      "bytes": 67712,
+      "sha256": "bb123006d2368092f5f0e9b87f7c90a75e512d871809e77aa3211e4de5699409",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 68
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/discovery-33/discovery-33.zip",
+      "bytes": 371471,
+      "sha256": "5151c3114120c446b5026490d83e65ca68cd52dcbaefd898bbf6d619ccc9bd9a",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 336
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/discovery-65/discovery-65.zip",
+      "bytes": 371672,
+      "sha256": "b630df4cbbadb4c874ecf359351d25b49d9eabf40f82e404febfd144d90f2f16",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 336
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/legacy/members-late-rotation/members-late-rotation.zip",
+      "bytes": 157040,
+      "sha256": "4693a58c23042a9c83bbc4a6840098d450673c15b70dde492acbb0678ea579d2",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 155
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/after-clear.zip",
+      "bytes": 32161,
+      "sha256": "2d90b53963caf2de75441777531eb1f8835220190c6b4b124db9097c2109d2bf",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 24
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/bytes-2097152-giant.zip",
+      "bytes": 97013,
+      "sha256": "40e6b24dcdcd64cf80774401b0e7766e4df048d64bb63c65b99cf0c9415009c6",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 89
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/bytes-2097152-multi.zip",
+      "bytes": 207606,
+      "sha256": "d1fc3d08b9fe15ebfd7a30d5080416d129ab1a80968fae6ecb5feb34d4506a72",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 216
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/bytes-262143-giant.zip",
+      "bytes": 75748,
+      "sha256": "7958bd8c14d88e79068c71e7907a5975c766e98820097c046296b189ec01eb21",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 70
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/bytes-262144-giant.zip",
+      "bytes": 75748,
+      "sha256": "e3cd50491ad7a67d292175ce1256d004d34156e019364a43d7884de723be3283",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 70
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/bytes-262145-giant.zip",
+      "bytes": 96965,
+      "sha256": "7879c3f2b6182751ea6fb27c9fc8c81dc18bcc4cea20b897164ac85ad58ecdbd",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 89
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/bytes-489000-giant.zip",
+      "bytes": 96985,
+      "sha256": "e72796cfaba5bc93884fdabc902d4b06d79f1c290b823eb9967207cfc71287a1",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 89
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/bytes-601826-giant.zip",
+      "bytes": 96996,
+      "sha256": "858614ddfa7c4f87c0639f8da1d9a8635bce622ebfa910c53c535d318f678d01",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 89
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/disabled.zip",
+      "bytes": 32100,
+      "sha256": "fa6e727accb10e5ee0739c01a168ec45e00144c6b4ec8e719dfc0ca1c9e67297",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 24
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/enabled-new-domain.zip",
+      "bytes": 56991,
+      "sha256": "66237728fb4955390d49fd3cdf12346c3407062026932c7a5bb2a370d5331fce",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 50
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/member-replacement.zip",
+      "bytes": 103779,
+      "sha256": "14d9c6ff3bcf44d35097d68e643835eb33358fcbfa0fb4a120164e3e371e1937",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 96
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/pending-halfline.zip",
+      "bytes": 82855,
+      "sha256": "0a4bedb204b4dc814ec207150e790ebda9ab48e75bb6cd6ea970d1e3daf1248e",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 78
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/hooks/three-tasks-489KiB.zip",
+      "bytes": 169627,
+      "sha256": "1cb5ff2cbb1fefd58f3e7b1d9e6bd5566163f7d804b795e7e1d8885b0f21ca4d",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 153
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/display/after-idle.zip",
+      "bytes": 174913,
+      "sha256": "b31b7058d95922c4edc445f1c7afd95a635193f756ef38cb6c6f7aef718e431a",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 165
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/display/before-gap.zip",
+      "bytes": 299860,
+      "sha256": "d17cd840e6b2844971bb0ff4696c0a4b66cdd26d21e191a636e4377c241fe6bc",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 274
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/display/before-idle.zip",
+      "bytes": 174913,
+      "sha256": "e47dd3afcb104ca298cca152f564117bb452aab6917687aa95bc5b7b25f900fa",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 165
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/display/display-controls.zip",
+      "bytes": 276556,
+      "sha256": "0a3528fbad1652d92681d33bb35f496afb39961ad50398cdf8966523e3fb8fd8",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 254
+    },
+    {
+      "file": "Documentation/validation/diagnostics-task-trace-evidence/zips/display/missing-page.zip",
+      "bytes": 296360,
+      "sha256": "e5be3979f152340a3a5c2eea3f5ab02896cb65101af2f3b4f874b0a1b842ae58",
+      "independentZipCRC": "passed",
+      "manifestHashes": "passed",
+      "privacySentinels": "passed",
+      "eventCount": 273
+    }
+  ],
+  "trialApp": {
+    "path": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app",
+    "bundleSHA256": "a6f2e93aef0ccaa12357955a2ba199785dc0355bef908f71f4a038e997b9b34a",
+    "sourceDigest": "dd57809dba9a1a3483560e6dd3d5c2d4fec29887c7451791b124a2c86a041a1c"
+  },
+  "gapValidation": [
+    "actual persisted member-page loss exported as incomplete",
+    "missing turn/file alias checks",
+    "predecessor chain and checkpoint/page integrity",
+    "recording drop metadata",
+    "typed producer/delivery observation buffer drops",
+    "controlled missing delivery callback; not a real 32-entry exhaustion replay",
+    "clear/off/on stale observations",
+    "existing upgrade handoff and generation regression"
+  ],
+  "unverified": [
+    "real installed upgrade/rollback and persistent Codex host",
+    "Intel linker on current source",
+    "macOS 11 runtime",
+    "physical Intel or Apple Silicon Touch Bar visibility",
+    "physical notch and multi-screen/wake",
+    "3x10min CPU and memory comparison",
+    "real full-disk/power-loss faults",
+    "authoritative same-host per-task truth beyond controlled fixtures"
+  ],
+  "independentReview": "Documentation/validation/diagnostics-task-trace-review.md",
+  "taskTracePlanSHA256": "9cb0102f13c8fbe73c5902642a57f91580ebff55acefaadbea28054368c550e0"
+}

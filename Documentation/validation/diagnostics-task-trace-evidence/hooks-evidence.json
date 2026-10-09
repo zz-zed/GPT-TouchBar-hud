@@ -1,0 +1,82 @@
+[
+  {
+    "countCorrectness" : false,
+    "diagnosticAcceptance" : true,
+    "expectedRunningFromFixture" : 3,
+    "inputBytesIncludingNewline" : 500736,
+    "observedRunningFromProduction" : 2,
+    "scenario" : "threeTasksOversizedActivity"
+  },
+  {
+    "countCorrectness" : false,
+    "diagnosticAcceptance" : true,
+    "expectedRunningFromFixture" : 1,
+    "inputBytesIncludingNewline" : 489000,
+    "observedRunningFromProduction" : 0,
+    "scenario" : "readBoundaryGiant"
+  },
+  {
+    "countCorrectness" : false,
+    "diagnosticAcceptance" : true,
+    "expectedRunningFromFixture" : 1,
+    "inputBytesIncludingNewline" : 601826,
+    "observedRunningFromProduction" : 0,
+    "scenario" : "readBoundaryGiant"
+  },
+  {
+    "countCorrectness" : true,
+    "diagnosticAcceptance" : true,
+    "expectedRunningFromFixture" : 1,
+    "inputBytesIncludingNewline" : 262143,
+    "observedRunningFromProduction" : 1,
+    "scenario" : "readBoundaryGiant"
+  },
+  {
+    "countCorrectness" : true,
+    "diagnosticAcceptance" : true,
+    "expectedRunningFromFixture" : 1,
+    "inputBytesIncludingNewline" : 262144,
+    "observedRunningFromProduction" : 1,
+    "scenario" : "readBoundaryGiant"
+  },
+  {
+    "countCorrectness" : false,
+    "diagnosticAcceptance" : true,
+    "expectedRunningFromFixture" : 1,
+    "inputBytesIncludingNewline" : 262145,
+    "observedRunningFromProduction" : 0,
+    "scenario" : "readBoundaryGiant"
+  },
+  {
+    "countCorrectness" : false,
+    "diagnosticAcceptance" : true,
+    "expectedRunningFromFixture" : 1,
+    "inputBytesIncludingNewline" : 2097152,
+    "observedRunningFromProduction" : 0,
+    "scenario" : "readBoundaryGiant"
+  },
+  {
+    "countCorrectness" : false,
+    "diagnosticAcceptance" : true,
+    "expectedRunningFromFixture" : 1,
+    "inputBytesIncludingNewline" : 2097152,
+    "observedRunningFromProduction" : 0,
+    "scenario" : "readBoundaryMultiline"
+  },
+  {
+    "countCorrectness" : true,
+    "diagnosticAcceptance" : true,
+    "expectedRunningFromFixture" : 1,
+    "inputBytesIncludingNewline" : 380,
+    "observedRunningFromProduction" : 1,
+    "scenario" : "sameCountReplacementAndLateActivity"
+  },
+  {
+    "countCorrectness" : true,
+    "diagnosticAcceptance" : true,
+    "expectedRunningFromFixture" : 1,
+    "inputBytesIncludingNewline" : 262146,
+    "observedRunningFromProduction" : 1,
+    "scenario" : "partialBufferClearAndRecordingEpoch"
+  }
+]

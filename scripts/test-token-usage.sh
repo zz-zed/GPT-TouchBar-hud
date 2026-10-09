@@ -7,6 +7,6 @@ source scripts/hook-core-build.sh
 source scripts/swift-module-cache.sh
 SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
 swiftc "${HOOK_CORE_SWIFT_FLAGS[@]}" -O -module-cache-path "$SWIFT_MODULE_CACHE" \
-    Sources/TokenUsageScanner.swift Sources/LimitModels.swift \
+    Sources/TokenUsageScanner.swift Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift \
     Tests/TokenUsageScannerTests.swift -o .build/token-tests/TokenUsageScannerTests
 .build/token-tests/TokenUsageScannerTests

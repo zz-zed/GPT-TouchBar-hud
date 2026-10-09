@@ -1,0 +1,9 @@
+{
+  "sourceArchive": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/backups/diagnostics-m1-upgrade-before-task-trace-20261008.tar.gz",
+  "sha256": "59c6d3232da9cd0930d8ff1f761b57016e956892d0601735edd290f26814a46a",
+  "sourceDigest": "022c86fe262cd9555dd77bb252e474923c66b1c6174b754c6dc7ca5931fecfc7",
+  "oldApp": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-upgrade-2167764e4c88/GPT TouchBar HUD.app",
+  "oldAppBundleSHA256": "540af84189a00b7b7efb80b2508775475afb1f30b6d7c323118e3fe57354fc3a",
+  "testEntrypoints": 23,
+  "diagnosticChecks": 617
+}

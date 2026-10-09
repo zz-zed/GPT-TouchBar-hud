@@ -1,0 +1,20 @@
+error: link command failed with exit code 1 (use -v to see invocation)
+ld: warning: ignoring file '/Library/Developer/CommandLineTools/usr/lib/swift/macosx/libswiftCompatibilityConcurrency.a': fat file missing arch 'x86_64', file has 'arm64,arm64e'
+ld: warning: ignoring file '/Library/Developer/CommandLineTools/usr/lib/swift/macosx/libswiftCompatibility56.a': fat file missing arch 'x86_64', file has 'arm64,arm64e'
+ld: warning: ignoring file '/Library/Developer/CommandLineTools/usr/lib/swift/macosx/libswiftCompatibilityPacks.a': fat file missing arch 'x86_64', file has 'arm64,arm64e'
+ld: warning: ignoring file '/Library/Developer/CommandLineTools/usr/lib/swift/macosx/libswiftCompatibility56.a': fat file missing arch 'x86_64', file has 'arm64,arm64e'
+ld: warning: ignoring file '/Library/Developer/CommandLineTools/usr/lib/swift/macosx/libswiftCompatibilityConcurrency.a': fat file missing arch 'x86_64', file has 'arm64,arm64e'
+ld: warning: ignoring file '/Library/Developer/CommandLineTools/usr/lib/swift/macosx/libswiftCompatibilityPacks.a': fat file missing arch 'x86_64', file has 'arm64,arm64e'
+ld: warning: Could not find or use auto-linked framework 'CoreAudioTypes': framework 'CoreAudioTypes' not found
+ld: warning: Could not parse or use implicit file '/Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/System/Library/Frameworks/SwiftUICore.framework/Versions/A/SwiftUICore.tbd': cannot link directly with 'SwiftUICore' because product being built is not an allowed client of it
+Undefined symbols for architecture x86_64:
+  "__swift_FORCE_LOAD_$_swiftCompatibility56", referenced from:
+      __swift_FORCE_LOAD_$_swiftCompatibility56_$_GPTTouchBarHUD in AccountTokenUsage-1.o
+      __swift_FORCE_LOAD_$_swiftCompatibility56_$_HookCore in libHookCore.a[2](HookConfiguration-1.o)
+      __swift_FORCE_LOAD_$_swiftCompatibility56_$_ResetNewsCore in libResetNewsCore.a[2](ResetForecastDatePresentation-1.o)
+  "__swift_FORCE_LOAD_$_swiftCompatibilityConcurrency", referenced from:
+      __swift_FORCE_LOAD_$_swiftCompatibilityConcurrency_$_GPTTouchBarHUD in AccountTokenUsage-1.o
+      __swift_FORCE_LOAD_$_swiftCompatibilityConcurrency_$_HookCore in libHookCore.a[2](HookConfiguration-1.o)
+      __swift_FORCE_LOAD_$_swiftCompatibilityConcurrency_$_ResetNewsCore in libResetNewsCore.a[2](ResetForecastDatePresentation-1.o)
+ld: symbol(s) not found for architecture x86_64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)

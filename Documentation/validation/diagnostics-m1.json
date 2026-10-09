@@ -1,0 +1,613 @@
+{
+  "schemaVersion": 3,
+  "iteration": "M1 + upgrade continuity U1-U5 + task trace T1-T5",
+  "recordedAtUTC": "2026-10-08T09:59:03.209546+00:00",
+  "implementationStatus": "implemented; same-source isolated validation passed; counting defects and real-device/Intel/performance gaps remain",
+  "source": {
+    "head": "2059fd678fc2eea86ee5ed1a517d1b5d383a59d3",
+    "workingTree": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken",
+    "committed": false,
+    "inheritedUncommittedChanges": [],
+    "sourceDigest": "dd57809dba9a1a3483560e6dd3d5c2d4fec29887c7451791b124a2c86a041a1c",
+    "sourceDigestAlgorithm": "SHA-256 of canonical sorted build-input path-to-content-hash map",
+    "inputManifest": "Documentation/validation/diagnostics-m1-source.json",
+    "originalWorkspaceFilesUnchanged": true,
+    "upgradePlanSHA256": "387016da6a721cf4cd09b094e2d78591178bd412f63ef8a0765b58f333820255",
+    "upgradePlanOriginalSHA256": "68721e4b51946e083fe146ad0f9e16f8dd6d812ce50ca823af12baaa77c637a8",
+    "originalWorkspaceObservedChanges": [],
+    "taskTracePlanSHA256": "9cb0102f13c8fbe73c5902642a57f91580ebff55acefaadbea28054368c550e0"
+  },
+  "host": {
+    "system": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "processArchitecture": "arm64",
+    "swift": "swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+    "sdk": "27.0"
+  },
+  "diagnosticChecks": {
+    "environment": 22,
+    "recorder": 216,
+    "export": 84,
+    "upgradeStorage": 132,
+    "upgradeInstaller": 138,
+    "upgradeRecovery": 25,
+    "countedChecks": 1727,
+    "productionChainIntegration": "passed",
+    "applicationOutputChannelAudit": "passed",
+    "taskTrace": {
+      "protocol": 92,
+      "legacyReadScheduler": 118,
+      "legacyProductionZIP": 718,
+      "hooksProductionZIP": 110,
+      "displayAndGaps": 29,
+      "deliveryFaults": 43
+    },
+    "taskTraceValidation": "Documentation/validation/diagnostics-task-trace.json"
+  },
+  "tests": [
+    {
+      "suite": "test-diagnostic-logging",
+      "command": "bash scripts/test-diagnostic-logging.sh",
+      "exitCode": 0,
+      "durationSeconds": 111.55,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-diagnostic-logging.log",
+      "logSHA256": "b9bd856f9d159ec78415d8ab93ebc3e413adfa508fa7f0277c9499bd6b8956a7"
+    },
+    {
+      "suite": "test-diagnostic-upgrade-storage",
+      "command": "bash scripts/test-diagnostic-upgrade-storage.sh",
+      "exitCode": 0,
+      "durationSeconds": 6.07,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-diagnostic-upgrade-storage.log",
+      "logSHA256": "6004409a599bf27fe045be779a6dad4b52ef99715c85fa08df4c480fb9d2aa97"
+    },
+    {
+      "suite": "test-diagnostic-upgrade-installer",
+      "command": "bash scripts/test-diagnostic-upgrade-installer.sh",
+      "exitCode": 0,
+      "durationSeconds": 11.58,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-diagnostic-upgrade-installer.log",
+      "logSHA256": "0da5df107bfafee013a6f638f404f38e1a68a690c94e3f8ac70c94f481ff7003"
+    },
+    {
+      "suite": "test-diagnostic-upgrade-recovery",
+      "command": "bash scripts/test-diagnostic-upgrade-recovery.sh",
+      "exitCode": 0,
+      "durationSeconds": 6.28,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-diagnostic-upgrade-recovery.log",
+      "logSHA256": "aede890f844a27ac4d7a3d59aac0ea113c0ce3b559c3acdb41fe9d972e964d2b"
+    },
+    {
+      "suite": "test-app-update",
+      "command": "bash scripts/test-app-update.sh",
+      "exitCode": 0,
+      "durationSeconds": 2.53,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-app-update.log",
+      "logSHA256": "7bd18b3467cb83016c22dd547aa26913decc18493d211744d17f55f50ddde62f"
+    },
+    {
+      "suite": "test-app-update-progress",
+      "command": "bash scripts/test-app-update-progress.sh",
+      "exitCode": 0,
+      "durationSeconds": 21.92,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-app-update-progress.log",
+      "logSHA256": "7af76d770307298110734f41775e407d13de01d90ef5915cc0e8aeb904c59987"
+    },
+    {
+      "suite": "test-single-instance",
+      "command": "bash scripts/test-single-instance.sh",
+      "exitCode": 0,
+      "durationSeconds": 2.0,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-single-instance.log",
+      "logSHA256": "06423f5efdec3380487a4a37d73d8f3dc4323b022543adcbfcd17d3d2b784abd"
+    },
+    {
+      "suite": "test-connection-diagnostics",
+      "command": "bash scripts/test-connection-diagnostics.sh",
+      "exitCode": 0,
+      "durationSeconds": 8.89,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-connection-diagnostics.log",
+      "logSHA256": "4d44a05aae668b083a9699b4b3d86f97abe46df4036be655c4493ee55bb73998"
+    },
+    {
+      "suite": "test-task-status",
+      "command": "bash scripts/test-task-status.sh",
+      "exitCode": 0,
+      "durationSeconds": 7.36,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-task-status.log",
+      "logSHA256": "1d166e0b314cee1da56394fef8d9f791da59e4056417cdf50da1170107788cee"
+    },
+    {
+      "suite": "test-hook-integration",
+      "command": "bash scripts/test-hook-integration.sh",
+      "exitCode": 0,
+      "durationSeconds": 6.54,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-hook-integration.log",
+      "logSHA256": "861cea0e3f9a60add144c45aa4d1542857c9535506f028b75e0ba577197b865d"
+    },
+    {
+      "suite": "test-hooks",
+      "command": "bash scripts/test-hooks.sh",
+      "exitCode": 0,
+      "durationSeconds": 14.33,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-hooks.log",
+      "logSHA256": "51297f8af3660d5f0fbdc5f81eeaf41d43d396d62474cbabb3480a0ca44ea4ae"
+    },
+    {
+      "suite": "test-verified-quota",
+      "command": "bash scripts/test-verified-quota.sh",
+      "exitCode": 0,
+      "durationSeconds": 5.59,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-verified-quota.log",
+      "logSHA256": "054926bdb8f58233c78b68f5f309b2404820737a67ad6ca534e4183d593dc64a"
+    },
+    {
+      "suite": "test-touchbar",
+      "command": "bash scripts/test-touchbar.sh",
+      "exitCode": 0,
+      "durationSeconds": 9.0,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-touchbar.log",
+      "logSHA256": "3c4b653a6b8ffbfa482942694f87c7891a711b227679e53d4fb538559196e031"
+    },
+    {
+      "suite": "test-notch-hud",
+      "command": "bash scripts/test-notch-hud.sh",
+      "exitCode": 0,
+      "durationSeconds": 48.74,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-notch-hud.log",
+      "logSHA256": "37bf6399d2338f7f338342e7eff6b2d165832abfb49ea1557396188feb75151c"
+    },
+    {
+      "suite": "test-design-layout",
+      "command": "bash scripts/test-design-layout.sh",
+      "exitCode": 0,
+      "durationSeconds": 35.46,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-design-layout.log",
+      "logSHA256": "3362ca120f68c0dc38bf92f865d4e681aefa5850df0f726794e42c2ec664710f"
+    },
+    {
+      "suite": "test-status-menu",
+      "command": "bash scripts/test-status-menu.sh",
+      "exitCode": 0,
+      "durationSeconds": 11.45,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-status-menu.log",
+      "logSHA256": "9143102c74500d22641f0bd4a1590ad83311d7cbec90fad895fae91d6f79bf13"
+    },
+    {
+      "suite": "test-idle-performance",
+      "command": "bash scripts/test-idle-performance.sh",
+      "exitCode": 0,
+      "durationSeconds": 31.58,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-idle-performance.log",
+      "logSHA256": "1788f8ddf5bb37e5a4c992705d540855e3bfbece36f26c9ae0dafa31e731b2d3"
+    },
+    {
+      "suite": "test-token-usage",
+      "command": "bash scripts/test-token-usage.sh",
+      "exitCode": 0,
+      "durationSeconds": 8.77,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-token-usage.log",
+      "logSHA256": "e90fd5a4c2de26bde0760b4d9fa06afb115bb974c468e250e1fc55933ea9bb7a"
+    },
+    {
+      "suite": "test-account-token-usage",
+      "command": "bash scripts/test-account-token-usage.sh",
+      "exitCode": 0,
+      "durationSeconds": 3.94,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-account-token-usage.log",
+      "logSHA256": "d87a540a292a8787cece46ef9673892d5b3d4b90a13a69db50f104c86bf892b7"
+    },
+    {
+      "suite": "test-host-lifecycle",
+      "command": "bash scripts/test-host-lifecycle.sh",
+      "exitCode": 0,
+      "durationSeconds": 1.3,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-host-lifecycle.log",
+      "logSHA256": "71c69b2a854bdb8bd9677927e924b598d414c556aa88a5fbb8e0aa6a6fc70a24"
+    },
+    {
+      "suite": "test-host-auto-launcher",
+      "command": "bash scripts/test-host-auto-launcher.sh",
+      "exitCode": 0,
+      "durationSeconds": 6.36,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-host-auto-launcher.log",
+      "logSHA256": "64afc83b6477b51934a32795d4b713b9266b9bcd838c2190364039848bb83b06"
+    },
+    {
+      "suite": "test-touchbar-layout",
+      "command": "bash scripts/test-touchbar-layout.sh",
+      "exitCode": 0,
+      "durationSeconds": 5.61,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-touchbar-layout.log",
+      "logSHA256": "d46c1dbfe5b714e7b0bf539f7c41f9272382552b2db22ae6263091e904e7fb28"
+    },
+    {
+      "suite": "test-release-workflows",
+      "command": "bash scripts/test-release-workflows.sh",
+      "exitCode": 0,
+      "durationSeconds": 0.67,
+      "log": "Documentation/validation/diagnostics-task-trace-evidence/test-release-workflows.log",
+      "logSHA256": "343d398939bbb512010dfdf9683c917909c57bc1e75a85f9ead875e21860825a"
+    }
+  ],
+  "independentReview": {
+    "status": "passed after focused fixes and regressions",
+    "record": "Documentation/validation/diagnostics-task-trace-review.md"
+  },
+  "upgradeValidation": {
+    "actualInstallerScriptScenarios": 12,
+    "realOSOperations": "substituted within owned .build fixtures; actual production script functions and diagnostic CLI executed",
+    "multiProcess": "real owned child processes exercised contention, global budget and clear epoch",
+    "coverage": "normal/exit timeout/backup and replace failure/rollback success and failure/no receipt/late receipt/diagnostic failure and deadline/no old handoff; protected explicit and unique/ambiguous no-args continuation; protocol/clock/range/privacy; runtime task start and UI pipeline",
+    "shutdown": "50 ms injected shared deadline beats stalled write and replies at most once; production deadline 3 s",
+    "diskFull": "injected write failures, budget and permissions; real full device not filled",
+    "hostContinuity": "unknown; no private PID/start-time comparison implemented",
+    "realUpgradeOrRollback": "not run"
+  },
+  "trialApp": {
+    "path": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app",
+    "version": "0.1.40",
+    "buildNumber": "43",
+    "architectures": [
+      "arm64"
+    ],
+    "minimumOSMetadata": "11.0",
+    "signed": "ad-hoc, strict verification passed",
+    "notarized": false,
+    "launched": false,
+    "installed": false,
+    "buildProcess": {
+      "exitCode": 0,
+      "appPath": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app",
+      "sourceBefore": "dd57809dba9a1a3483560e6dd3d5c2d4fec29887c7451791b124a2c86a041a1c",
+      "sourceAfter": "dd57809dba9a1a3483560e6dd3d5c2d4fec29887c7451791b124a2c86a041a1c",
+      "sourceUnchangedDuringBuild": true,
+      "durationSeconds": 80.43,
+      "command": "HUD_BUILD_ARCHS=arm64 HUD_APP_DIR=<unique empty path> bash scripts/build-app.sh"
+    },
+    "bundleSHA256": "a6f2e93aef0ccaa12357955a2ba199785dc0355bef908f71f4a038e997b9b34a",
+    "bundleDigestAlgorithm": "SHA-256 of canonical sorted relative-file map (bytes and SHA-256), excludes filesystem metadata",
+    "files": {
+      "Contents/Helpers/HookEmitter": {
+        "bytes": 334128,
+        "sha256": "32dd74e8236cf92ade4f325c4f3a2eaa31c445e049052bdef137069f6ca16d99"
+      },
+      "Contents/Info.plist": {
+        "bytes": 1056,
+        "sha256": "8a2f5b09354853a21f27320b506fe474f895484db18d3df7e5f8bd9e00137ccf"
+      },
+      "Contents/MacOS/GPTTouchBarHUD": {
+        "bytes": 7538784,
+        "sha256": "1cb9fff0ef7404b9aff224f5e05f5b5f3cffc85b7e2caf7a0faef017a3bcf7a1"
+      },
+      "Contents/Resources/AppIcon.icns": {
+        "bytes": 1822741,
+        "sha256": "0a5d1372b809f33738829c961ce5495ebe99d5b83dcc3f3f93c213853dd9d572"
+      },
+      "Contents/Resources/ThirdPartyNotices.txt": {
+        "bytes": 1328,
+        "sha256": "e0c2e9f8cf0ce6452e350c404696b590ae55bf00b8926dfd33d4161d5b8f3dee"
+      },
+      "Contents/Resources/gpt-touchbar-hud-launcher.sh": {
+        "bytes": 1253,
+        "sha256": "16c6d3712bb7a76afdb95a00641981b36975a00aa6b795304e49be707d009a6d"
+      },
+      "Contents/Resources/install-update.sh": {
+        "bytes": 8158,
+        "sha256": "9d1402baa71caa4689d66cb1a9026f084589c42682e8f5a1f425b0ea4ba4d639"
+      },
+      "Contents/_CodeSignature/CodeResources": {
+        "bytes": 3419,
+        "sha256": "4669153105f899a2e6048074b9b342ad105db221cb34e4fea84af4178cae180f"
+      }
+    },
+    "verification": [
+      {
+        "command": [
+          "codesign",
+          "--verify",
+          "--deep",
+          "--strict",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app"
+        ],
+        "exitCode": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "codesign",
+          "--verify",
+          "--all-architectures",
+          "--strict",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+        ],
+        "exitCode": 0,
+        "output": ""
+      },
+      {
+        "command": [
+          "lipo",
+          "-info",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD"
+        ],
+        "exitCode": 0,
+        "output": "Non-fat file: /Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD is architecture: arm64"
+      },
+      {
+        "command": [
+          "xcrun",
+          "vtool",
+          "-show-build",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD"
+        ],
+        "exitCode": 0,
+        "output": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1"
+      },
+      {
+        "command": [
+          "codesign",
+          "-d",
+          "--verbose=4",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD"
+        ],
+        "exitCode": 0,
+        "output": "Executable=/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD\nIdentifier=io.github.zz-zed.GPTTouchBarHUD\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=14936 flags=0x2(adhoc) hashes=460+3 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=49f2722b46b225f2ca64550808c19f900454f581\nCandidateCDHashFull sha256=49f2722b46b225f2ca64550808c19f900454f5811bb1c93d62053f9b4bb97973\nHash choices=sha256\nCMSDigest=49f2722b46b225f2ca64550808c19f900454f5811bb1c93d62053f9b4bb97973\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=3702784\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=49f2722b46b225f2ca64550808c19f900454f581\nSignature=adhoc\nInfo.plist entries=14\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=5\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1"
+      },
+      {
+        "command": [
+          "dwarfdump",
+          "--uuid",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD"
+        ],
+        "exitCode": 0,
+        "output": "UUID: C67B6F7C-53EC-3E07-8E51-BB4A37692FBD (arm64) /Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD"
+      },
+      {
+        "command": [
+          "lipo",
+          "-info",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+        ],
+        "exitCode": 0,
+        "output": "Non-fat file: /Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter is architecture: arm64"
+      },
+      {
+        "command": [
+          "xcrun",
+          "vtool",
+          "-show-build",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+        ],
+        "exitCode": 0,
+        "output": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 11.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1"
+      },
+      {
+        "command": [
+          "codesign",
+          "-d",
+          "--verbose=4",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+        ],
+        "exitCode": 0,
+        "output": "Executable=/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter\nIdentifier=com.gpt-touchbar-hud.hook-emitter\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=858 flags=0x2(adhoc) hashes=21+2 location=embedded\nVersionPlatform=1\nVersionMin=720896\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=c1531d511d357218b2dd123b923af70ca40935a8\nCandidateCDHashFull sha256=c1531d511d357218b2dd123b923af70ca40935a853b28b513f4c93ee339fbc6b\nHash choices=sha256\nCMSDigest=c1531d511d357218b2dd123b923af70ca40935a853b28b513f4c93ee339fbc6b\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=131072\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=c1531d511d357218b2dd123b923af70ca40935a8\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1"
+      },
+      {
+        "command": [
+          "dwarfdump",
+          "--uuid",
+          "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+        ],
+        "exitCode": 0,
+        "output": "UUID: 70FCD7DD-CB28-3B40-9C54-5715B03E67AD (arm64) /Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-task-trace-ce92b3073a14/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
+      }
+    ]
+  },
+  "previousDelivery": {
+    "record": "Documentation/validation/diagnostics-m1-upgrade-delivered/diagnostics-m1.json",
+    "oldAppPreserved": "/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/build/diagnostics-m1-upgrade-2167764e4c88/GPT TouchBar HUD.app",
+    "oldAppUnchanged": true,
+    "bundleSHA256": "540af84189a00b7b7efb80b2508775475afb1f30b6d7c323118e3fe57354fc3a",
+    "sourceArchive": "backups/diagnostics-m1-upgrade-before-task-trace-20261008.tar.gz",
+    "initialDeliveryAlsoPreserved": "Documentation/validation/diagnostics-m1-initial/preservation.json"
+  },
+  "intelBuild": {
+    "status": "not built for task-trace source; prior arm64-only CLT compatibility-library limitation remains",
+    "reason": "Installed CLT Swift 6.4 back-deployment static compatibility libraries contain arm64/arm64e only; no installed alternative Xcode toolchain was found.",
+    "priorFailureEvidence": "Documentation/validation/diagnostics-m1-initial/evidence/universal-build.log",
+    "priorResultNotTransferred": true
+  },
+  "ci": {
+    "configuredArchitectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "workflow": ".github/workflows/build-dmg.yml",
+    "remoteRun": "not dispatched"
+  },
+  "performance": {
+    "isolatedBudgetAndBehavior": "passed",
+    "threeTenMinuteOnOffRounds": "not run",
+    "averageCPUIncrementPercentagePoints": null,
+    "steadyMemoryIncrementMiB": null
+  },
+  "unverified": [
+    "Intel Touch Bar hardware",
+    "Apple Silicon Touch Bar hardware",
+    "Apple Silicon notch and external display real use",
+    "non-Touch-Bar real use",
+    "macOS 11 actual runtime",
+    "affected-user OS fault reproduction",
+    "sleep/wake and session switching real workflow",
+    "normal/fault/HUD-restart/host-restart export sequence",
+    "three rounds of 10-minute idle on/off CPU and memory measurements",
+    "Intel linked trial artifact and native Intel tests",
+    "remote dual-architecture CI",
+    "real source-version upgrade while Codex remains running",
+    "real upgrade failure and rollback launch",
+    "real physical disk-full/power-loss",
+    "real installed upgrade/rollback and persistent Codex host",
+    "Intel linker on current source",
+    "macOS 11 runtime",
+    "physical Intel or Apple Silicon Touch Bar visibility",
+    "physical notch and multi-screen/wake",
+    "3x10min CPU and memory comparison",
+    "real full-disk/power-loss faults",
+    "authoritative same-host per-task truth beyond controlled fixtures"
+  ],
+  "limitations": [
+    "ZIP save uses an owned staging directory and atomic rename; cross-volume destinations are refused with guidance to save on the user-profile volume then move using Finder.",
+    "Regular shutdown marker proves only the shutdown request was persisted; missing marker is not proof of a crash.",
+    "While the application is not running, expired retained files are removed at the next enabled or disabled startup.",
+    "Current baseline excludes the original workspace uncommitted background-work changes.",
+    "Downtime is only an observed boundary interval; missing boundaries or detected clock discontinuity remains unknown.",
+    "No diagnostics-capable source means no source or source-helper event history can be reconstructed.",
+    "Private handoff registry paths are not exported; Finder collection must select only event JSONL files."
+  ],
+  "externalActions": {
+    "originalMainModified": false,
+    "commit": false,
+    "merge": false,
+    "push": false,
+    "tag": false,
+    "release": false,
+    "installation": false,
+    "appLaunch": false,
+    "upload": false,
+    "isolatedTestHarnessesRan": true
+  },
+  "supersededAttempt": {
+    "reason": "Independent review found prepareUpgradeHandoff/clear generation race; terminated initial validation, fixed with deterministic red/green test, reran all suites on final digest",
+    "record": ".build/diagnostic-upgrade-tests/superseded-before-handoff-fix/status.json"
+  },
+  "reviewedScreenshot": {
+    "path": "Documentation/validation/diagnostics-m1-upgrade-evidence/diagnostic-window.png",
+    "kind": "isolated AppKit test with synthetic environment",
+    "result": "text and controls visible; scrolling preview intentionally clipped at viewport"
+  },
+  "taskTraceValidation": "Documentation/validation/diagnostics-task-trace.json",
+  "validationHistory": {
+    "record": "Documentation/validation/diagnostics-task-trace-evidence/validation-history/README.md",
+    "notCountedAsFinalProof": true
+  },
+  "validationInputs": {
+    "Tests/AccountTokenUsageSmoke.swift": "636d56a3c90cf8ea66cfbebbd8e2b362e9fbe9eeef4e2f1f657e2c3222ef0055",
+    "Tests/AccountTokenUsageTests.swift": "1a5f4dad4ffc63d3fde347456f22c4a25326b541465c6eb9bdf2994e173eb6e5",
+    "Tests/AppMigrationTests.swift": "fc692226cf0a338f7bb69b7a9412d8923a34cd8dbcef59634e23f29c9f21ff53",
+    "Tests/AppUpdateInstallerTests.zsh": "caa026008c03a0b8b8867d81b24f8d1aca044f591419a704e14ecbb52f956e06",
+    "Tests/AppUpdateIntegrationChecks.swift": "0d9322bde9bda4ff6857eaf54c1714d094a96e31ebda834d38f005fc4a6f513a",
+    "Tests/AppUpdateNotificationTests.swift": "a2c181359d58ad83870b5a445634ff7b927c589d5a35490d67439173485a6eb0",
+    "Tests/AppUpdateProgressTests.swift": "a39952197cd0fc54fa9d1d55d5ea17be14fc507a17790fbfa73e5cb61e3c5c3d",
+    "Tests/AppUpdateTests.swift": "884aeb156ca23b4f62b3a583bccf192edcf24b0600aa208fad4c8c7467d2a226",
+    "Tests/CIBuildScopeTests.py": "cd622f602a8c3bc2aa3d700808eeaad7907a3a210269b2297194e83a838b28cc",
+    "Tests/ConnectionDiagnosticsTests.swift": "b416834a21df43bc8ac02da14af856bab767c7cc7e74825e6eec19ba71a76598",
+    "Tests/DesignLayoutTests.swift": "e75e63bbd45aec228bf889bc369c53022524dfba2dc717ad6de1ca5cfad8bb24",
+    "Tests/DiagnosticEnvironmentTests.swift": "c126053a1cb32ec572db29588f04f9c983fdcf07b87e6e2a67a0c6e9866c44a3",
+    "Tests/DiagnosticExportTests.swift": "d439f0493eaef19166f87b0a19583c29935f2c8a4744fcffca4487c74f84009c",
+    "Tests/DiagnosticIntegrationTests.swift": "8ab07db8c710e5267cddcd6e18b4658d32f2ae63d6ffdfe39c5ce18692d3e747",
+    "Tests/DiagnosticRecorderTests.swift": "91f4c1bc024e3225874ac996ad8af3f9ac46c7ed49add19d771c8d86657ed3e7",
+    "Tests/DiagnosticTaskTraceDeliveryTests.swift": "da1c12e042e6e9764babbc6c7b008eb35d02743febd5e8a437ed90ef2ac1d588",
+    "Tests/DiagnosticTaskTraceDisplayTests.swift": "b299491b6882397fa336768b54769359a995d3941d2432d6d80f7ba1288618f9",
+    "Tests/DiagnosticTaskTraceHookExportTests.swift": "eb43ba6bac3d92c3062e69b1dd26148651818606e3d720ba48c5297e671b26af",
+    "Tests/DiagnosticTaskTraceLegacyExportTests.swift": "9c57d1bfc9c228102542ce7ce8eebbac6526d29a2063777044c666fdb80d31a1",
+    "Tests/DiagnosticTaskTraceLegacyTests.swift": "b8ade01eb0583cb569363cec5d4e9e127f62aeef15b27008a5abb81250415bb0",
+    "Tests/DiagnosticTaskTracePipelineMain.swift": "2998031e5a8939143887b6bcce82d7a5a84183fbfa59587674e1be431472ed52",
+    "Tests/DiagnosticTaskTracePipelineSupport.swift": "34679ed2f8ec24aadb2a6a192ae22445afbe01d519047de1c1ed1f3f85a9c911",
+    "Tests/DiagnosticTaskTraceProtocolTests.swift": "5c4f0e81f69af032fbf2e82e15435bc3ad0f9d4ca3b148d52f4335b84bc65490",
+    "Tests/DiagnosticUpgradeInstallerTests.swift": "fff31b66356f103383860fc3ab017bd91dd1d700391b81737758ddc60245c4dd",
+    "Tests/DiagnosticUpgradeRecoveryTests.swift": "875da1e227b8b91b4f69d0e1679f15f65bfff4ad1519932f6fcc11f9189a80b1",
+    "Tests/DiagnosticUpgradeStorageTests.swift": "74e5922f017d6a94ffac499e21180b60af7131385f04d829fa22244aeeb875d6",
+    "Tests/Fixtures/ResetNews/feed-mixed.json": "07baa18539a57b3a88d85ee34b7ddd6b493e61e050cfb13c7ef7fee528d306b8",
+    "Tests/Fixtures/ResetNews/timeline-mixed.json": "134dfb2c04e1130ed5d97fb5b21dc2bb531b7b7ef73d1406867bad8638adde85",
+    "Tests/GitHubReleaseFallbackTests.swift": "1e4b5251e43d41df3fb1e96c4ffd980158869bfc805a64a7f747a384c03e4b19",
+    "Tests/HUDMaterialTests.swift": "b8185e68ba0b8b10a08256a41ea2f5256603537c72c096c48fa3807ec0fa55ea",
+    "Tests/HookCoreTests/ConfigurationTests.swift": "1367363f30172aff012afe1e271bee5bf3be916727a9b7553e3992e179a284b9",
+    "Tests/HookCoreTests/ControllerTests.swift": "6ee56238c591782817dc8a28f0b066e6e39b2587a50040f9d44020ae961fd7ec",
+    "Tests/HookCoreTests/DisplayTests.swift": "dcd9cf3362897411408670539b5b713825d8867f5451aefafa66a779a5fc12f5",
+    "Tests/HookCoreTests/Fixtures.swift": "2e5108a9e6da629117e4520e598d9105abfb518c1a5494abbdda30716a165456",
+    "Tests/HookCoreTests/IPCTests.swift": "ca46c21f932c35ad1993ae2ebff712935f09c2fde22bcc92bccff40bac19a566",
+    "Tests/HookCoreTests/LifecycleRegressionTests.swift": "a700da5080482fe30b49dfc30bff7f55345926be909297a842892c97dd2d3015",
+    "Tests/HookCoreTests/ReducerTests.swift": "123cc69749a8843ec3651b61df3a6af36b4914606eccd96dfb2b00114fee43b5",
+    "Tests/HookCoreTests/ResolverTests.swift": "4a597a0e4d2de5c024c653b9216df35404a9b0e4f305d96e5ff308f20eb8a041",
+    "Tests/HookCoreTests/TaskTraceTests.swift": "097fc2f2363120fc29796c207607571640d46b6806478a3fb673f1b0557bdf18",
+    "Tests/HookHostPreflightSmoke.swift": "08802f371cc94373e084b4cb86378e824a218358ec9dc7e6c9b0f122f39bc313",
+    "Tests/HookInstallerTests.swift": "167742c4eab06db3dd1b920a3f7b7bb9e613cbfa31fd4ea2806e2e5360966c14",
+    "Tests/HookMonitoringBenchmark.swift": "98605fdb97771e377554bff71e2ff488b1f1c02427562f8c98fd75b887092ae3",
+    "Tests/HookMonitoringIntegrationTests.swift": "c96630e0e3c546cbc7828d2693a52744bba51755624dcbf6c52a94c557b6f921",
+    "Tests/HookPresentationIntegrationChecks.swift": "ad11929283c81bee3e0273085b4051862e93ab475e253a56789d8826f01ae060",
+    "Tests/HostAutoLauncherTests.swift": "9a34688e52fa0122513728d5bc70ec1145b6c9b7c8386f846247c33adf5feaf4",
+    "Tests/HostLifecycleMonitorTests.swift": "a8e323e80b9e47c3b57c6c48f41c8142da2a412b1765ab90aff874345906879e",
+    "Tests/IdlePerformanceTests.swift": "30a9fa993ee8aebebbd7d4e2b1b53ac883829c8baf24333c36afbc77fa7a9b6f",
+    "Tests/NotchDebugMain.swift": "30316a31e70d8e4c2c283d20e3f770aeec2e4ee5eafaae6463418ccb148f95f8",
+    "Tests/NotchHUDTests.swift": "4a3b18da1ede7e6946445c4198d0bd8d613e97cf88158402e660b3c80463bcdc",
+    "Tests/NotchHarness/NotchHarness.swift": "20c1124451797493ca1f4b57fa0c5b88d49c84de889d401f2d2f0d7a6df91f9d",
+    "Tests/NotchHarness/NotchInteractionChecks.swift": "ff6b7d75688828ee8fc7e401a2c43a29d97ffdcdad54b702fb22574a150abe8c",
+    "Tests/NotchHarness/NotchModelChecks.swift": "ee5baae93a26b3b1ee809469eeb03964e1a50b685127335ca449a5b820b50097",
+    "Tests/NotchHarness/NotchSyntheticScene.swift": "8109d6b04c321e587f57c00b9572bb4ed7973437cc1a15a85395ac3b0f4efb09",
+    "Tests/NotchPeekComparisonMain.swift": "7365e25395054245162448b6571290ad03599d5a7c23bba259c2e79f8012bcee",
+    "Tests/NotchSimulationSupport.swift": "eb3406ba23b15850d47d01a46057a4882b183431849a8bf6816d4263d46ac235",
+    "Tests/PersistentTouchBarTests.swift": "f837006d8b229e6ee52e1f1262bd89d15aa71222f015141f6a940615a34c1f67",
+    "Tests/PublicReleaseVerificationTests.py": "509413e442947cf5d18c782feb7397db2445dbbcdf7dbb58840cdc63fd1913a0",
+    "Tests/QuotaAlertTests.swift": "9ebf83cae32612a77eea96178793c0ee0036531f7c78610aa92cce4cfb6de8b7",
+    "Tests/ReleaseWorkflowTests.py": "f388f8b96b39a8ea8f34a1b705919b1e4a7c8d57b616ab9ab5b9f75e8443a2c2",
+    "Tests/ResetNewsCacheMigrationCheck.swift": "37042d1d81c163b73975b93ff923897d85fcb1c42500178cc058dcfc768309b5",
+    "Tests/ResetNewsCoreTests/ResetForecastDatePresentationTests.swift": "d1ba3ba654176ee1ce9a1ae99478ad6fcaf75724f6fd23b54ad253b2759f36e8",
+    "Tests/ResetNewsCoreTests/ResetForecastPolicyTests.swift": "45081902a6bb9b4d921f2c98f70dbd218829cf8392c4d15570e2228b3b1da8d2",
+    "Tests/ResetNewsCoreTests/ResetForecastSnapshotTests.swift": "26ca42cdb74fc9cfc844029aaae64172d9a7c39a78eff3bc076936a84eab74e5",
+    "Tests/ResetNewsCoreTests/ResetForecastTimingTests.swift": "2ea0713cbdd39824d645535310bfdc5e5a2b3ada33273181f7433af841e6f86f",
+    "Tests/ResetNewsCoreTests/ResetNewsCoreTests.swift": "370dac6a7b5998be3e24d1df2ecff8db6d325772300e66df31173b05c295dbcb",
+    "Tests/ResetNewsCoreTests/ResetNewsMergeSemanticsTests.swift": "dd1eb784d706c3eaae2660a37538571dc001723cf7516fa6494fdb0fab555f19",
+    "Tests/ResetNewsCoreTests/ResetNewsRuleSemanticsTests.swift": "5fb5b8163a096218d8b55e9c1897d2f0ade25573c85c4f09056e34d8d0c179f7",
+    "Tests/ResetNewsDateCardTests.swift": "528d194d6ad51c58caf4872639a2d21b19372cbcdfface0175af04fea2530bf6",
+    "Tests/ResetNewsPopoverTests.swift": "f4bccd7e39f4893e8f7df47020de61ce60a0e67a57c9f52e3aefe78c3a873902",
+    "Tests/ResetNewsPreviewMain.swift": "ee0b5017dec48788542cb2e87de8d55fd3df0909818a913a3ef9e8a61c5f173e",
+    "Tests/ResetNewsRuntimeTests.swift": "76d91cee798e4e3d08ed0f0ab539f46ec1e4073239da35b7b920292fb4cbfc7b",
+    "Tests/SingleInstanceLockProbe.swift": "ddba4c13617b5cb3bdfe470e25b3c4e3a49ff04f0c54a0424779238e717a5f21",
+    "Tests/SingleInstanceLockTests.py": "03cb791ba7760e28eaf98e19fd16293481aefa50ff726e1321a47b14fe877446",
+    "Tests/StatusMenuPreviewMain.swift": "c1499980a6f9f5476e180d4ca5f769ee58119b80d3ea321bdb34d1a4e3a2c59f",
+    "Tests/StatusMenuTests.swift": "137deab30ca4e910e5568a3182fee3d3dec1187ab726cd34371453619ac14080",
+    "Tests/TaskDiagnosticProbeTests.py": "5431798ff53366771f3395c20b41b493abc4c703c620166796ddbd930a1b1fdd",
+    "Tests/TaskLifecycleReplay.swift": "f2e658babf953fd2ce55c87a1ddaffb628bfbdebc78b64b3a56dc2010e10e780",
+    "Tests/TaskStatusTests.swift": "9a3db6b52c5740b7534d34bc52c59b10bacd3fd9ba0b94d11a58db960b27466f",
+    "Tests/TokenUsageBenchmark.swift": "381dcbde62d41300dad7341200d73743d75b4fb73c67a30b5020438de288c47c",
+    "Tests/TokenUsageScannerTests.swift": "2b7ec50989844809ec81a0941ea7fcf7b36dfde09688cd7ff493afd433ab9c0e",
+    "Tests/TouchBarLayoutTests.swift": "1811fbe847714743f6e59d1dc115ab77b5830e0aa32208674a1108c307f27f9b",
+    "Tests/TouchBarTests-Info.plist": "646bcdd947d8ed43cb0a85f87b431442c32f7ee2e720c7a5795e1cbe3b220c09",
+    "Tests/VerifiedQuotaTests.swift": "8c658766029e7be76756dc09b94f2734f49e44226289bd49cd6a105410f70fb7",
+    "Tests/app_update_download_server.py": "03e0b6328da7b4e1ece9e1b77b213715c18863ff37f724c4a779c63f8f1a1731",
+    "scripts/test-account-token-usage.sh": "2fec53a2bdc15db0e7c752bcb0e540e0baad5ad49165bf289456a7def7821707",
+    "scripts/test-app-migration.sh": "3e6cb5959abbaf6912635c30fbd7e38bd605404130304e239400a7b3be867852",
+    "scripts/test-app-update-notifications.sh": "f87b2c4e499478d452ceeb28e050c1528143fa72a7178bf9b555e0233942c081",
+    "scripts/test-app-update-progress.sh": "b9ba63ca0b4f955ac79157cd73df5e5715b9d9dd928f833efe9fd96274a9aaef",
+    "scripts/test-app-update.sh": "a48624a5c7d66914f70f3eb49c51cd357d739e2a2e3f9d698c26ff1c4f4fe269",
+    "scripts/test-connection-diagnostics.sh": "e44d69b80c4428f0c194da19c5e4d1756c37bf8ee7bdbec3688149065f36c4ce",
+    "scripts/test-design-layout.sh": "5c715cde62095a114c28ce26244f3d5adddb4da32f65c59bd09484b8e020df2a",
+    "scripts/test-diagnostic-logging.sh": "1388cfe76e40c4fb46e374aa8264fde15dc01fe2a7f65788bcf5380d03829b75",
+    "scripts/test-diagnostic-task-trace.sh": "7bdda1975d9ae18b549c50a1e34f17241fa9cc27e0154cbf480a1923abb732d8",
+    "scripts/test-diagnostic-upgrade-installer.sh": "0e559de781756c0de2ca30a3ca55bfe7a35ed82ab6d032562f8dc29319232656",
+    "scripts/test-diagnostic-upgrade-recovery.sh": "b51e922f85dcb280ddacb528309ace9b9347b641b1efddd0fc93c602e3ecbd67",
+    "scripts/test-diagnostic-upgrade-storage.sh": "c3886813469c330f742b08619c35377bc37b0ad68eb7ab5f4837a0eacbfe5950",
+    "scripts/test-first-open.sh": "69b7373fc7a0a0e86721a63fd1e00547287295c46bb56aa3f232420b98fba1c4",
+    "scripts/test-github-release-fallback.sh": "18d8824547524a0f742ef93cedb7c9818141a2e71d640016226c5186418dc62c",
+    "scripts/test-hook-installer.sh": "71f3b2ef511e383887bbf0974bbc76184ccf3c3db2f7abc2149693f588e9a598",
+    "scripts/test-hook-integration.sh": "92b00c6907a1aea1f2e9ca7d6acb89e02057735a15ba5cab52b98712f4288f6b",
+    "scripts/test-hooks.sh": "0848472c0119314bd0902962f3ccbc0e702fd9ae6094c1a8a686e0370ce7b3bf",
+    "scripts/test-host-auto-launcher.sh": "fc867a52951d4bdeb96c603c847ee0018e1176296bb85ac34d59de4796b514e6",
+    "scripts/test-host-lifecycle.sh": "2e3cc7e066df3b39533b117aee54606d85902b769eb97289e93e6bab69cd1d31",
+    "scripts/test-hud-material.sh": "89eb874e158fd211202193ef75e81992f9706b211a9bc3aca890159544c764b0",
+    "scripts/test-idle-performance.sh": "e43f928453f56fcdee62d745d5577fcd6ee95b94ba1090303f3cdb57c9408f6c",
+    "scripts/test-notch-hud.sh": "a2cc9621608d4dd2783c0e99abcde02066ac990c384c6036da0776bff108c121",
+    "scripts/test-notch-presentation.sh": "c0e5224fdb6c97cec8af3d92037e4346a8e8c8cb8984f9b849419b7ba0bf8588",
+    "scripts/test-quota-alerts.sh": "ee8ed0ec592fc7492813fcd14c3bfc811c02a1dc665c3f8ba69ae53a54f47cc9",
+    "scripts/test-release-workflows.sh": "2ed1207fa1b92286109aacb05414c8797bd1f6ed2c8ed7fd04c62126310d1354",
+    "scripts/test-reset-news-cache-migration.sh": "b75a433589977f021ed78e9fa15f096851b900f0b33fa4921b9fb63e19b6895a",
+    "scripts/test-reset-news-date-card.sh": "fa2a4ca447d0725c4a2a8f206ec20baacd86c0b085debe704b38e0e32d9da7af",
+    "scripts/test-reset-news-popover.sh": "0713931599ec83c910c07c9173625707887753ec5f17464c7a0af9f5534e8237",
+    "scripts/test-reset-news-runtime.sh": "7afae44b58d20d1b06006325a9c6e3e6038e664c63cd146efdd75fca109048ef",
+    "scripts/test-single-instance.sh": "ca48ecd390eb09c812a27d7ed9b87402b7bee817f4d29d1f96e93f63af298350",
+    "scripts/test-status-menu.sh": "7ed5596cc811004138823fa678849ee584c4c1468182be055b954de1cc2b8725",
+    "scripts/test-task-status.sh": "da31255412df6040f6d18731ece3c3ee4950bfc9763a648d07135344cd6dbf28",
+    "scripts/test-token-usage.sh": "6d99fe8417734bed55eac6dba8d99fde9e58446a68e94510650f2532a533e36a",
+    "scripts/test-touchbar-layout.sh": "7c2d07cf7423271f5cfe2a5fa90e8e49a3eac471786d087f5286819f765c0298",
+    "scripts/test-touchbar.sh": "7b01209a6fe3bc8c9c240ecaad69fa4ba0d9cb0569392cf2f005184449f05ef4",
+    "scripts/test-verified-quota.sh": "1dd73e0db8a5fdc1f37457e6607eafc37a66395c4423db7317c08f03dc60ee3e"
+  }
+}

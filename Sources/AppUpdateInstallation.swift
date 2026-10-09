@@ -24,6 +24,8 @@ final class AppUpdateInstallation {
     private var lastBytePublish: TimeInterval = 0
     private var lastSpeedBytes: Int64 = 0
     private var lastSpeedTime: TimeInterval = 0
+    private let diagnosticSourceIdentity = DiagnosticProcessIdentity.current
+    private var diagnosticTargetIdentity: DiagnosticProcessIdentity?
 
     init(session: URLSession, release: AppRelease, asset: AppRelease.Asset,
          checksum: AppRelease.Asset, channel: AppUpdateProgressChannel) {
@@ -47,7 +49,7 @@ final class AppUpdateInstallation {
                 startCommandPolling()
             }
             else { try launchHelper() }
-        } catch { NSLog("Could not open update progress: %@", error.localizedDescription) }
+        } catch { DiagnosticRecorder.shared.record(.componentFailure(component: .updateProgress, result: .failed)) }
     }
 
     func stop() {
@@ -293,9 +295,12 @@ final class AppUpdateInstallation {
                     throw Self.failure("更新助手缺失。")
                 }
                 try FileManager.default.copyItem(at: helper, to: channel.directory.appendingPathComponent("install-update.sh"))
+                let targetIdentity = DiagnosticProcessIdentity(version: DiagnosticVersion(rawValue: version),
+                    build: (bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String).flatMap(DiagnosticBuild.init(rawValue:)))
                 DispatchQueue.main.async {
                     guard let self, self.attemptID == id, self.progress.isActive else { return }
-                    do { try self.handoff() } catch { self.fail(error.localizedDescription) }
+                    self.diagnosticTargetIdentity = targetIdentity
+                    self.prepareDiagnosticHandoff()
                 }
             } catch {
                 DispatchQueue.main.async {
@@ -303,6 +308,35 @@ final class AppUpdateInstallation {
                     self.fail(error.localizedDescription)
                 }
             }
+        }
+    }
+
+    private func prepareDiagnosticHandoff() {
+        let channel = channel
+        let capturedSourceIdentity = diagnosticSourceIdentity
+        let identity = diagnosticTargetIdentity ?? DiagnosticProcessIdentity(version: nil, build: nil)
+        guard let id = UUID(uuidString: channel.context.sessionID) else {
+            do { try handoff() } catch { fail(error.localizedDescription) }; return
+        }
+        // Diagnostics are optional: a busy recorder cannot hold the existing install handoff.
+        var finished = false // accessed only by the main queue
+        let finish: () -> Void = { [weak self] in
+            guard !finished else { return }; finished = true
+            guard let self, self.progress.isActive, !self.handedOff else { return }
+            do { try self.handoff() } catch { self.fail(error.localizedDescription) }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: finish)
+        DiagnosticRecorder.shared.prepareUpgradeHandoff(updateSessionID: id, targetIdentity: identity) { result in
+            // The optional diagnostic publication runs on the recorder I/O queue.
+            if case .success(let handoff) = result {
+                do {
+                    try DiagnosticInstallerBridge.prepare(handoff: handoff, channel: channel, expectedSourceIdentity: capturedSourceIdentity)
+                    DiagnosticRecorder.shared.record(.upgrade(stage: .handoffPrepared, result: .success))
+                } catch {
+                    DiagnosticRecorder.shared.record(.upgrade(stage: .handoffPrepared, result: .failed))
+                }
+            }
+            DispatchQueue.main.async(execute: finish)
         }
     }
 

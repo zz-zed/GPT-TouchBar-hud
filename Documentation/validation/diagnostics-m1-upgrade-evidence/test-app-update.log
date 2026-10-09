@@ -1,0 +1,3 @@
+PASS: 82 update policy checks
+PASS: 42 isolated installer checks
+PASS: updater shell syntax and invalid-target rejection

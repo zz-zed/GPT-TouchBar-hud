@@ -1,0 +1,20 @@
+PASS: 22 diagnostic environment checks
+Testing noImplicitIO
+Testing whitelistAndCorruption
+Testing retentionAndBudgets
+Testing queueAndFailure
+Testing boundaries
+Testing aggregationAndClock
+Testing shutdownMarker
+DiagnosticRecorderTests: 216 checks passed
+PASS: 84 diagnostic export checks
+PASS: diagnostic integration, unknown versus empty, correlated scan/UI, bounded reads, stale callback and private connection metadata
+DiagnosticTaskTraceProtocolTests: 92 checks passed
+PASS: 118 legacy task trace checks (actual read, SQLite discovery and timer scheduling)
+KNOWN COUNTING DEFECT CAPTURED: fixture truth remains running after oversized activity; legacy read-budget skip clears its counted state
+PASS: 718 legacy production-to-ZIP assertions; counting truth remains independent and known defects remain failures
+PASS: 110 Hooks production-to-ZIP task trace checks
+KNOWN COUNTING DEFECT CAPTURED: oversized activity loses the existing counted task; diagnostic acceptance and count correctness are separate
+PASS: 29 display and frozen task-evidence integrity assertions
+PASS: 43 task trace delivery checks (missing delivery uses controlled callback fault injection)
+PASS: application output channels use typed diagnostic boundary

@@ -1,0 +1,113 @@
+{
+  "cases" : [
+    {
+      "countCorrectnessPassed" : false,
+      "diagnosticAcceptancePassed" : true,
+      "fixtureTruthRunning" : 3,
+      "id" : "budget-489000-giant",
+      "inputBytesIncludingNewline" : 489000,
+      "productionRunning" : 2,
+      "taskAlias" : "C299568B-8D23-4F4C-8C39-C4A3B14B57B5",
+      "zip" : "budget-489000-giant.zip"
+    },
+    {
+      "countCorrectnessPassed" : false,
+      "diagnosticAcceptancePassed" : true,
+      "fixtureTruthRunning" : 3,
+      "id" : "budget-601826-giant",
+      "inputBytesIncludingNewline" : 601826,
+      "productionRunning" : 2,
+      "taskAlias" : "3C2D0D0B-2654-481D-8256-006B70FC9101",
+      "zip" : "budget-601826-giant.zip"
+    },
+    {
+      "countCorrectnessPassed" : true,
+      "diagnosticAcceptancePassed" : true,
+      "fixtureTruthRunning" : 3,
+      "id" : "budget-262143-giant",
+      "inputBytesIncludingNewline" : 262143,
+      "productionRunning" : 3,
+      "taskAlias" : "8D7A6F04-007B-42E7-9EE8-3BD07724182E",
+      "zip" : "budget-262143-giant.zip"
+    },
+    {
+      "countCorrectnessPassed" : true,
+      "diagnosticAcceptancePassed" : true,
+      "fixtureTruthRunning" : 3,
+      "id" : "budget-262144-giant",
+      "inputBytesIncludingNewline" : 262144,
+      "productionRunning" : 3,
+      "taskAlias" : "B31BEAA8-CB7E-417F-A60C-D3EEC9C3F0C7",
+      "zip" : "budget-262144-giant.zip"
+    },
+    {
+      "countCorrectnessPassed" : false,
+      "diagnosticAcceptancePassed" : true,
+      "fixtureTruthRunning" : 3,
+      "id" : "budget-262145-giant",
+      "inputBytesIncludingNewline" : 262145,
+      "productionRunning" : 2,
+      "taskAlias" : "568DD790-DC41-43ED-A8C0-C2B006DD0EAC",
+      "zip" : "budget-262145-giant.zip"
+    },
+    {
+      "countCorrectnessPassed" : false,
+      "diagnosticAcceptancePassed" : true,
+      "fixtureTruthRunning" : 3,
+      "id" : "budget-2097152-giant",
+      "inputBytesIncludingNewline" : 2097152,
+      "productionRunning" : 2,
+      "taskAlias" : "8C089F90-98C1-490D-9E42-4A0BD9BB295C",
+      "zip" : "budget-2097152-giant.zip"
+    },
+    {
+      "countCorrectnessPassed" : false,
+      "diagnosticAcceptancePassed" : true,
+      "fixtureTruthRunning" : 3,
+      "id" : "budget-2097152-lines",
+      "inputBytesIncludingNewline" : 2097152,
+      "productionRunning" : 2,
+      "taskAlias" : "BB8D705C-41C6-4663-AB41-44598E23056B",
+      "zip" : "budget-2097152-lines.zip"
+    },
+    {
+      "countCorrectnessPassed" : true,
+      "diagnosticAcceptancePassed" : true,
+      "fixtureTruthRunning" : 1,
+      "id" : "same-total-late-halfline-rotation",
+      "productionRunning" : 1,
+      "zip" : "members-late-rotation.zip"
+    },
+    {
+      "countCorrectnessPassed" : false,
+      "coverage" : "limited",
+      "diagnosticAcceptancePassed" : true,
+      "fixtureTruthRunning" : 33,
+      "id" : "discovery-33",
+      "productionRunning" : 32,
+      "zip" : "discovery-33.zip"
+    },
+    {
+      "countCorrectnessPassed" : false,
+      "coverage" : "limited",
+      "diagnosticAcceptancePassed" : true,
+      "fixtureTruthRunning" : 65,
+      "id" : "discovery-65",
+      "productionRunning" : 32,
+      "zip" : "discovery-65.zip"
+    },
+    {
+      "countCorrectnessPassed" : true,
+      "diagnosticAcceptancePassed" : true,
+      "id" : "clear-disable-enable",
+      "zip" : "after-enable.zip"
+    }
+  ],
+  "checks" : 718,
+  "countCorrectness" : "knownProductionDefectsPreserved",
+  "diagnosticAcceptance" : "passed",
+  "fixtureTruth" : "declared independently of production parser",
+  "physicalVisibility" : "unverified",
+  "schemaVersion" : 1,
+  "zipDirectory" : "\/Users\/didi\/.codex\/worktrees\/f5be\/TouchBarCodexToken\/.build\/diagnostic-task-trace-tests\/legacy-zip-C512E4E8-3FB5-48C8-A5BB-6174F8DA7ED4"
+}

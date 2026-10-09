@@ -1,0 +1,577 @@
+Building for debugging...
+[Using on-disk description]
+[3 / 25] HookCore
+[12 / 43] HookCore
+[14 / 43] ResetNewsCore
+[17 / 44] ResetNewsCore
+[22 / 46] HookCore
+[25 / 47] HookCore
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: ResetNewsCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[31 / 49] GPTTouchBarHUD-product
+[31 / 49] ResetNewsCore
+[33 / 49] HookEmitter-product
+[35 / 51] HookCore
+[43 / 60] ResetNewsCoreTests-product
+[45 / 60] ResetNewsCoreTests-product
+[46 / 69] GPTTouchBarHUD-product
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: HookCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[50 / 69] ResetNewsCoreTests-product
+[52 / 70] ResetNewsCoreTests-product
+[55 / 72] GPTTouchBarHUD-product
+[57 / 72] GPTTouchBarHUD-product
+[58 / 72] GPTTouchBarHUD-product
+[59 / 72] GPTTouchBarHUD-product
+[59 / 72]
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Sources/ConnectionDiagnosticsWindowController.swift:280:15: warning: 'allowedFileTypes' was deprecated in macOS 12.0: Use -allowedContentTypes instead [#DeprecatedDeclaration]
+278 |         let generation = revision
+279 |         let panel = NSSavePanel()
+280 |         panel.allowedFileTypes = ["zip"]
+    |               `- warning: 'allowedFileTypes' was deprecated in macOS 12.0: Use -allowedContentTypes instead [#DeprecatedDeclaration]
+281 |         panel.nameFieldStringValue = snapshot.suggestedFileName
+282 |         panel.title = "保存已预览的诊断包"
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[61 / 72] HookCoreTests-product
+[64 / 72] HookCoreTests-product
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: HookEmitter-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: HookEmitter-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[68 / 81] HookCoreTests-product
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: ResetNewsCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: ResetNewsCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: ResetNewsCoreTests-product: ld: warning: building for macOS-12.0, but linking with dylib '@rpath/Testing.framework/Versions/A/Testing' which was built for newer version 14.0
+[71 / 82] HookCoreTests-product
+[72 / 82] HookCoreTests-product
+[75 / 82] HookCoreTests-product
+[78 / 84] HookCoreTests-product
+[80 / 86] HookCoreTests-product
+[80 / 86] GPTTouchBarHUD-product
+[80 / 86] HookCoreTests-product
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: HookCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: HookCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: HookCoreTests-product: ld: warning: building for macOS-12.0, but linking with dylib '@rpath/Testing.framework/Versions/A/Testing' which was built for newer version 14.0
+[82 / 86] HookCoreTests-product
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: GPTTouchBarHUD-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/didi/.codex/worktrees/f5be/TouchBarCodexToken/Package.swift: GPTTouchBarHUD-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[86 / 88] GPTTouchBarHUD-product
+Build complete! (11.70秒)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite ResetForecastSnapshotTests started.
+◇ Suite ResetNewsRuleSemanticsTests started.
+◇ Suite ResetForecastTimingTests started.
+◇ Suite ResetForecastPolicyTests started.
+◇ Suite ResetNewsMergeSemanticsTests started.
+◇ Suite ResetNewsRuleTests started.
+◇ Suite ResetNewsReducerTests started.
+◇ Suite ResetNewsDecoderTests started.
+◇ Test currentItemDoesNotChangeJustBecauseLocalClockAdvanced() started.
+◇ Test explicitOriginalTimestampStaysExactWithALabelOnlyWindow() started.
+◇ Test targetOnlyWindowExitsAtItsStatedBoundary() started.
+◇ Test explicitSingleTimeExitsWithoutACompletionPost() started.
+◇ Test undatedCurrentSignalKeepsUnknownTime() started.
+◇ Test readableWindowLabelFallsBackToMorePreciseOriginalTiming() started.
+◇ Test invalidSnapshotDatesAreErrors(_:) started.
+◇ Test recentConfirmedResetDoesNotRemoveAnotherFutureArrangement() started.
+◇ Test sourceCalendarDateExitsAtSourceDayEnd() started.
+◇ Test startOnlyWindowUsesDatedOriginalTextAndNeverInventsAnEnd() started.
+◇ Suite ResetForecastDatePresentationTests started.
+◇ Test sourceEventsCannotOccurAfterSnapshotCalculation() started.
+◇ Test explicitFutureQuotaActionsRemainRecognized(_:) started.
+◇ Test explicitNullIsSuccessfulNoCurrentSignal() started.
+◇ Test undocumentedEffectiveAtDoesNotAffectCurrentEligibility(_:) started.
+◇ Test explicitlyUnspecifiedWindowKeepsUndatedSignal() started.
+◇ Test CodableCacheRoundTripPreservesSignalAndExplicitNull() started.
+◇ Test questionDoesNotEraseFollowingIndependentCommitment() started.
+◇ Test UnknownTargetKindRetainsRangeUntilItsEnd() started.
+◇ Test sourceTimezoneCanQualifyAClockWithoutDuplicatingText() started.
+◇ Test damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test completedQuotaResetKeepsItsOwnActionTime(_:) started.
+◇ Test unknownWindowSchemaNeedsDatedOriginalText() started.
+◇ Test completeRelativeClockIsKeptAndAnchoredToPublicationInItsOwnTimezone() started.
+◇ Test pureDenialIsTerminalEvidenceWithoutBecomingAResetFact() started.
+◇ Test malformedSignalCannotClearCurrentPreview(_:) started.
+◇ Test officialDeadlineExitsAtDeadlineAndRetainsReadableEvidence() started.
+◇ Test classifierPreviewCannotOverrideActionMeaning(_:) started.
+◇ Test snapshotRefreshAndTranslatedCopyKeepSameNotificationKey() started.
+◇ Test explicitClockWithoutTrustworthyTimezoneNeverBecomesExact() started.
+◇ Test absentRequiredKeyIsNotNoSignal(_:) started.
+◇ Test windowAcrossNewYearDoesNotOmitThePriorYear() started.
+◇ Test unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) started.
+◇ Test originalClockWithExplicitSourceZoneHasAnExactExit() started.
+◇ Test planNamesRequireEligibilityContext() started.
+◇ Test rejectsNoncanonicalOfficialPostIdentity(_:) started.
+◇ Test unknownTargetKindStaysConservativeAndCompleteWindowShowsRange() started.
+◇ Test windowCrossingLocalMidnightShowsBothCalendarDays() started.
+◇ Test laterCancellationRetiresEarlierFutureReset() started.
+◇ Test creditEntitlementsNeverEstablishQuotaReset(_:) started.
+◇ Test onlySourceTimezoneActuallyUsedToResolveScheduleChangesItsMaterialKey() started.
+◇ Test historicalTuesdayPromiseStillMigratesTentatively() started.
+◇ Test planConjunctionDoesNotSplitEligibility() started.
+◇ Test DSTGapAndRepeatedClockDoNotIdentifyAnExactResetInstant() started.
+◇ Test dateOnlyInSourceTimezoneRemainsAnUnconvertedDayAndRetainsOverlappingLocalDay() started.
+◇ Test pacificCivilTimezoneTracksDSTWhileExplicitAbbreviationsKeepTheirOffsets() started.
+◇ Test independentFutureResetAfterCompletionIsPreserved() started.
+◇ Test lastTerminalActionRetiresEarlierPromise(_:) started.
+◇ Test independentFutureResetAfterCancellationIsActive() started.
+◇ Test deadlineRetainsBoundariesButDoesNotAssertAnExactResetTime() started.
+◇ Test explicitCompletionWinsOverHistoricalPromise(_:) started.
+◇ Test laterIndependentPromiseAndUnrelatedStatementsStayActive(_:) started.
+◇ Test completedResetAndSeparatelyAnnouncedFutureResetRemainDistinct() started.
+◇ Test structuredForecastFillsOnlyMissingTimingFromExplicitText() started.
+◇ Test sameEndpointCompletedEventWinsOverLongerOldTweet() started.
+◇ Test passedClocksRemainCardsWithoutCreatingFutureReminders() started.
+◇ Test futureOrNegatedCompletionIsNotTerminal(_:) started.
+◇ Test fullCalendarDateNeedsNoPublicationAndRejectsInvalidDay() started.
+◇ Test actualTuesdayPromiseIsDateLevelTentativeAndCannotRollForwardNextWeek() started.
+◇ Test completedAliasesFromSourceAreTerminalEvenWithFuturePreview() started.
+◇ Test localDayKeepsEarlierTodayButNotYesterday() started.
+◇ Test newPresentationProvenanceRoundTripsWithoutChangingExistingMaterialKeys() started.
+◇ Test exactExplicitEffectiveTimeCanDifferFromWindowDeadline() started.
+◇ Test timeZoneChangeAndDSTUseNaturalDayBoundaries() started.
+◇ Test relativeDaysUsePublicationNotDiscoveryOrRefreshAndDoNotInventTimes() started.
+◇ Test case passing 1 argument field → "updated_at" to invalidSnapshotDatesAreErrors(_:) started.
+◇ Test case passing 1 argument field → "last_reset_at" to invalidSnapshotDatesAreErrors(_:) started.
+◇ Test sameVersionCancellationWinsOverMoreDetailedOriginalText() started.
+◇ Test newerShorterPlanOverridesAnOlderDetailedCopy() started.
+◇ Test case passing 1 argument text → "Codex limits will reset tomorrow." to explicitFutureQuotaActionsRemainRecognized(_:) started.
+◇ Test case passing 1 argument text → "Global reset landing tomorrow 10am PST for all paid ChatGPT accounts." to explicitFutureQuotaActionsRemainRecognized(_:) started.
+◇ Test case passing 1 argument text → "Full reset within the hour plus one additional banked reset." to explicitFutureQuotaActionsRemainRecognized(_:) started.
+◇ Test case passing 1 argument text → "Codex reset will be completed tomorrow." to explicitFutureQuotaActionsRemainRecognized(_:) started.
+◇ Test sameVersionStructuredTimeComplementsFullOriginalText() started.
+◇ Test rejectsNegationAndUnrelatedReset(_:) started.
+◇ Test rangeDoesNotBecomeExactCount() started.
+◇ Test case passing 1 argument text → "Codex limits will have reset tomorrow." to explicitFutureQuotaActionsRemainRecognized(_:) started.
+◇ Test fullPostKeepsClockWhenBothEndpointsRepeatTheSameAnnouncement() started.
+◇ Test exactTimestampAndExpiryAreParsedWithoutGuessingTimezone() started.
+◇ Test unknownCreditsAndScopeStayUnknown() started.
+◇ Test completeDeadlineWindowWinsOverEqualTimestampWithoutProvenance() started.
+◇ Test explicitUpcomingResetKeepsUnresolvedTime() started.
+◇ Test case passing 1 argument unknownJSON → ""2026-10-03T11:00:00Z"" to undocumentedEffectiveAtDoesNotAffectCurrentEligibility(_:) started.
+◇ Test announcementAndCreditsRemainDistinctFacts() started.
+◇ Test structuredCompoundBankedResetAddsCreditFact() started.
+◇ Test case passing 1 argument unknownJSON → ""not a date"" to undocumentedEffectiveAtDoesNotAffectCurrentEligibility(_:) started.
+◇ Test negatedFragmentDoesNotEraseIndependentCreditGrant() started.
+◇ Test case passing 1 argument text → "We reset Codex limits yesterday and a new model launches tomorrow." to completedQuotaResetKeepsItsOwnActionTime(_:) started.
+◇ Test case passing 1 argument unknownJSON → "123" to undocumentedEffectiveAtDoesNotAffectCurrentEligibility(_:) started.
+◇ Test case passing 1 argument text → "We reset Codex limits yesterday. A new model launches tomorrow." to completedQuotaResetKeepsItsOwnActionTime(_:) started.
+◇ Test case passing 1 argument text → "We reset Codex limits yesterday and the model will launch tomorrow." to completedQuotaResetKeepsItsOwnActionTime(_:) started.
+◇ Test case passing 1 argument unknownJSON → "{"unexpected":"value"}" to undocumentedEffectiveAtDoesNotAffectCurrentEligibility(_:) started.
+◇ Test case passing 1 argument text → "Full reset applied yesterday plus a new model landing tomorrow." to completedQuotaResetKeepsItsOwnActionTime(_:) started.
+◇ Test futureCreditClauseDoesNotTurnCompletedQuotaResetIntoUpcoming() started.
+◇ Test mixedFactsAndSnapshotsRetainOnlyForecastsWithoutCountingCreditQuantity() started.
+◇ Test case passing 1 argument text → "Codex reset animation coming tomorrow." to classifierPreviewCannotOverrideActionMeaning(_:) started.
+◇ Test completedAnnouncementOverridesOlderPlanButUnknownClassificationIsNotTerminal() started.
+◇ Test case passing 1 argument text → "Codex quota reset button will arrive tomorrow." to classifierPreviewCannotOverrideActionMeaning(_:) started.
+◇ Test case passing 1 argument value → "false" to malformedSignalCannotClearCurrentPreview(_:) started.
+◇ Test case passing 1 argument text → "Codex limits are getting 2 extra resets tomorrow." to classifierPreviewCannotOverrideActionMeaning(_:) started.
+◇ Test exactTimeTodayDoesNotExpireOrCreateUnreadRevisionAtTheClockTime() started.
+◇ Test case passing 1 argument windowJSON → ""bad window"" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test case passing 1 argument text → "Will Codex limits reset tomorrow?" to classifierPreviewCannotOverrideActionMeaning(_:) started.
+◇ Test scopeAndScheduleChangesAreMaterialButHistoricalFactEditsAreNot() started.
+◇ Test bankedKindWithoutGroupStillCreatesFactAndOperatorObservationIsRejected() started.
+◇ Test case passing 1 argument value → "[]" to malformedSignalCannotClearCurrentPreview(_:) started.
+◇ Test case passing 1 argument windowJSON → "{}" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test case passing 1 argument value → ""none"" to malformedSignalCannotClearCurrentPreview(_:) started.
+◇ Test case passing 1 argument field → "updated_at" to absentRequiredKeyIsNotNoSignal(_:) started.
+◇ Test legacyCacheWithoutSnapshotsAndNewStateRoundTripStayCompatible() started.
+◇ Test case passing 1 argument field → "last_reset_at" to absentRequiredKeyIsNotNoSignal(_:) started.
+◇ Test case passing 1 argument text → "Codex reset animation coming tomorrow." to unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) started.
+◇ Test case passing 1 argument windowJSON → "{"future_schema":{"localized_date":"明天"}}" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test case passing 1 argument field → "official_signal" to absentRequiredKeyIsNotNoSignal(_:) started.
+◇ Test case passing 1 argument value → "{}" to malformedSignalCannotClearCurrentPreview(_:) started.
+◇ Test uncertainStructuredCreditsAreExcludedFromForecasts(_:) started.
+◇ Test case passing 1 argument text → "Codex quota reset button will arrive tomorrow." to unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) started.
+◇ Test futurePublicationOlderThanThirtyDaysSurvivesAndOrderingUsesSchedule() started.
+◇ Test operatorObservationDoesNotBecomeOfficialReset() started.
+◇ Test uncertainOrUnknownPublicationNeverCreatesStrongReminder() started.
+◇ Test case passing 1 argument text → "The Codex reset is not happening tomorrow." to unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) started.
+◇ Test case passing 1 argument windowJSON → "{"label":"within an hour"}" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test case passing 1 argument value → "123" to malformedSignalCannotClearCurrentPreview(_:) started.
+◇ Test case passing 1 argument text → "The Codex reset will not happen tomorrow." to unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) started.
+◇ Test case passing 1 argument text → "A Codex reset is unlikely tomorrow." to unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) started.
+◇ Test defaultDoesNotTruncateValidForecastsToFiftyAndLedgerStillBounded() started.
+◇ Test case passing 1 argument windowJSON → "{"label":"within an hour","end_at":null}" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test case passing 1 argument text → "We are considering a Codex reset tomorrow." to unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) started.
+◇ Test case passing 1 argument text → "Will Codex limits reset tomorrow?" to unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) started.
+◇ Test case passing 1 argument text → "Should we reset Codex limits tomorrow?" to unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) started.
+◇ Test case passing 1 argument windowJSON → "{"start_at":"2026-10-03T10:00:00Z"}" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test case passing 1 argument url → "https://x.com/other/status/2105843926221660585" to rejectsNoncanonicalOfficialPostIdentity(_:) started.
+◇ Test partialSourceFailureKeepsAcceptedPlanAndDoesNotReplay() started.
+◇ Test liveFeedSchemaKeepsTweetsEventsDatesAndUnknownFields() started.
+◇ Test case passing 1 argument url → "https://x.com/thsottiaux/status/123" to rejectsNoncanonicalOfficialPostIdentity(_:) started.
+◇ Test firstSuccessfulBatchIsSilentAndBothSourcesAreOneItem() started.
+◇ Test case passing 1 argument url → "https://example.com/thsottiaux/status/2105843926221660585" to rejectsNoncanonicalOfficialPostIdentity(_:) started.
+◇ Test case passing 1 argument windowJSON → "{"end_at":"not-a-date"}" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test terminalStateRemovesCardAndPreventsOlderReplicaFromReturning(_:) started.
+◇ Test case passing 1 argument url → "http://x.com/thsottiaux/status/2105843926221660585" to rejectsNoncanonicalOfficialPostIdentity(_:) started.
+◇ Test case passing 1 argument text → "Codex limits are getting 2 extra resets tomorrow." to creditEntitlementsNeverEstablishQuotaReset(_:) started.
+◇ Test case passing 1 argument url → "https://x.com/thsottiaux/status/2105843926221660585?source=feed" to rejectsNoncanonicalOfficialPostIdentity(_:) started.
+◇ Test case passing 1 argument windowJSON → "{"end_at":123}" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test case passing 1 argument url → "https://user@x.com/thsottiaux/status/2105843926221660585" to rejectsNoncanonicalOfficialPostIdentity(_:) started.
+◇ Test case passing 1 argument text → "Codex quota gets a banked reset tomorrow." to creditEntitlementsNeverEstablishQuotaReset(_:) started.
+◇ Test case passing 1 argument text → "Every Plus account gets a full banked reset tomorrow." to creditEntitlementsNeverEstablishQuotaReset(_:) started.
+◇ Test case passing 1 argument text → "Codex limits get additional reset credits tomorrow." to creditEntitlementsNeverEstablishQuotaReset(_:) started.
+◇ Test case passing 1 argument windowJSON → "{"start_at":"2026-10-03T18:00:00Z","end_at":"2026-10-03T14:00:00Z"}" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test nonemptyMalformedContainersNeverBecomeSuccessfulEmptyFeed() started.
+◇ Test explicitEffectiveTimeWinsOverWindowDeadline() started.
+◇ Test case passing 1 argument windowJSON → "{"start_at":"2026-10-03T14:00:00Z","end_at":"2026-10-03T18:00:00Z","target_at":"2026-10-04T14:00:00Z"}" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test case passing 1 argument windowJSON → "{"label":false}" to damagedKnownWindowFieldsCannotBecomeUndated(_:) started.
+◇ Test independentCompletedAndFutureResetClausesArePreserved() started.
+◇ Test negatedAvailabilityDoesNotCreateCreditGrant() started.
+◇ Test emptySuccessDiffersFromStaleAndIdentityFailure() started.
+◇ Test unrelatedFutureClauseDoesNotTurnCompletedResetIntoForecast() started.
+◇ Test globalScopeDoesNotBroadenAnExplicitPlanAudience() started.
+◇ Test previewWindowIsUpcomingAndPreservesDeadline() started.
+◇ Test structuredCreditsDoNotClaimQuotaReset() started.
+◇ Test structuredCreditDeliveryStatesAreExplicitWithoutActionKeyword(_:) started.
+◇ Test rejectsInvalidCanonicalIdentity(_:) started.
+◇ Test case passing 1 argument text → "Codex limits will reset tomorrow. Codex limits will not reset tomorrow." to lastTerminalActionRetiresEarlierPromise(_:) started.
+◇ Test case passing 1 argument text → "Codex limits will not reset today. Codex limits will reset tomorrow." to laterIndependentPromiseAndUnrelatedStatementsStayActive(_:) started.
+◇ Test case passing 1 argument text → "The reset has been cancelled. Global reset landing tomorrow." to laterIndependentPromiseAndUnrelatedStatementsStayActive(_:) started.
+◇ Test case passing 1 argument text → "Codex limits will reset tomorrow. The reset is not cancelled." to laterIndependentPromiseAndUnrelatedStatementsStayActive(_:) started.
+◇ Test case passing 1 argument text → "Global reset landing tomorrow. We won't reset Codex limits tomorrow." to lastTerminalActionRetiresEarlierPromise(_:) started.
+◇ Test case passing 1 argument confidence → .explicit to explicitCompletionWinsOverHistoricalPromise(_:) started.
+◇ Test denialDoesNotEraseIndependentFutureCommitment() started.
+◇ Test operatorObservationWithoutPostIdentityIsNormalFiltering(_:) started.
+◇ Test case passing 1 argument text → "Codex limits will reset tomorrow. Will the reset be cancelled?" to laterIndependentPromiseAndUnrelatedStatementsStayActive(_:) started.
+◇ Test case passing 1 argument text → "Codex limits will reset tomorrow. We reset Codex limits today." to lastTerminalActionRetiresEarlierPromise(_:) started.
+◇ Test case passing 1 argument text → "Codex limits will reset tomorrow. We cancelled the banked reset credits." to laterIndependentPromiseAndUnrelatedStatementsStayActive(_:) started.
+◇ Test unrecognizedTargetKindDoesNotClaimExactTime(_:) started.
+◇ Test case passing 1 argument confidence → .tentative to explicitCompletionWinsOverHistoricalPromise(_:) started.
+◇ Test highConfidenceCannotTurnExplicitCreditDenialIntoGrant(_:) started.
+◇ Test unknownProvenanceCannotBypassCanonicalIdentityValidation() started.
+◇ Test futureCommitmentIsRecognizedWhenPreviewIsFalseAndDatesAreMissing() started.
+◇ Test confidenceAndAudienceAreMappedWithoutLosingRawHints() started.
+◇ Test previewCannotTurnDenialOrSpeculationIntoForecast(_:) started.
+◇ Test landedCreditAnnouncementAndExplicitCompensationAreNotDropped() started.
+◇ Test case passing 1 argument text → "Codex reset will be completed tomorrow." to futureOrNegatedCompletionIsNotTerminal(_:) started.
+◇ Test case passing 1 argument text → "Codex reset has not yet completed." to futureOrNegatedCompletionIsNotTerminal(_:) started.
+◇ Test case passing 1 argument text → "The reset is not cancelled." to futureOrNegatedCompletionIsNotTerminal(_:) started.
+✔ Test undatedCurrentSignalKeepsUnknownTime() passed after 0.166 seconds.
+✔ Test readableWindowLabelFallsBackToMorePreciseOriginalTiming() passed after 0.166 seconds.
+✔ Test recentConfirmedResetDoesNotRemoveAnotherFutureArrangement() passed after 0.166 seconds.
+✔ Test invalidSnapshotDatesAreErrors(_:) with 2 test cases passed after 0.166 seconds.
+◇ Test exactOffsetUsesTheEventDateIncludingDSTAndDateRollover() started.
+◇ Test oldJSONKeepsTheDateWithoutAssertingExactnessAndNewPrecisionRoundTrips() started.
+◇ Test exactTimeConvertsToLocalTimeAndExplicitOffset() started.
+◇ Test injectedEnglishLocaleKeepsSamePrecisionAndCalendar() started.
+◇ Test summaryUsesTheSameDateProjectionWhileLegacyCreditBranchRemainsCompatible() started.
+◇ Test tuesdayBecomesAChineseDateWithAnHonestDerivationNote() started.
+◇ Test unknownInvalidAndUnanchoredLabelsHaveNoEnglishLeakOrInventedDate() started.
+◇ Test exactMidnightDiffersFromInferredMidnight() started.
+◇ Test crossYearRelativeDateIncludesYearWithoutGuessingAnHour() started.
+◇ Test decoderDistinguishesExactTargetFromWindowBoundaries() started.
+◇ Test ruleEngineMarksOnlyParsedExactTimestampAsExact() started.
+✔ Test currentItemDoesNotChangeJustBecauseLocalClockAdvanced() passed after 0.167 seconds.
+✔ Test sourceEventsCannotOccurAfterSnapshotCalculation() passed after 0.167 seconds.
+✔ Test explicitFutureQuotaActionsRemainRecognized(_:) with 5 test cases passed after 0.167 seconds.
+◇ Test case passing 1 argument text → "Codex limits will not reset tomorrow." to rejectsNegationAndUnrelatedReset(_:) started.
+◇ Test case passing 1 argument text → "We did not reset Codex limits." to rejectsNegationAndUnrelatedReset(_:) started.
+◇ Test case passing 1 argument text → "Codex users may get extra reset credits." to rejectsNegationAndUnrelatedReset(_:) started.
+◇ Test case passing 1 argument text → "Reset your password to continue using Codex." to rejectsNegationAndUnrelatedReset(_:) started.
+◇ Test case passing 1 argument text → "Codex limits are unchanged after we reset the cache." to rejectsNegationAndUnrelatedReset(_:) started.
+◇ Test case passing 1 argument text → "Codex now has improved performance." to rejectsNegationAndUnrelatedReset(_:) started.
+◇ Test case passing 1 argument text → "How do Codex reset credits work?" to rejectsNegationAndUnrelatedReset(_:) started.
+◇ Test case passing 1 argument text → "You can reset your Codex quota using a credit." to rejectsNegationAndUnrelatedReset(_:) started.
+✔ Test explicitNullIsSuccessfulNoCurrentSignal() passed after 0.187 seconds.
+✔ Test targetOnlyWindowExitsAtItsStatedBoundary() passed after 0.187 seconds.
+✔ Test CodableCacheRoundTripPreservesSignalAndExplicitNull() passed after 0.212 seconds.
+✔ Test explicitSingleTimeExitsWithoutACompletionPost() passed after 0.212 seconds.
+✔ Test questionDoesNotEraseFollowingIndependentCommitment() passed after 0.216 seconds.
+✔ Test sourceCalendarDateExitsAtSourceDayEnd() passed after 0.218 seconds.
+✔ Test sourceTimezoneCanQualifyAClockWithoutDuplicatingText() passed after 0.218 seconds.
+✔ Test startOnlyWindowUsesDatedOriginalTextAndNeverInventsAnEnd() passed after 0.219 seconds.
+✔ Test explicitOriginalTimestampStaysExactWithALabelOnlyWindow() passed after 0.219 seconds.
+✔ Test completeRelativeClockIsKeptAndAnchoredToPublicationInItsOwnTimezone() passed after 0.218 seconds.
+✔ Test explicitlyUnspecifiedWindowKeepsUndatedSignal() passed after 0.219 seconds.
+✔ Test completedQuotaResetKeepsItsOwnActionTime(_:) with 4 test cases passed after 0.218 seconds.
+✔ Test unknownWindowSchemaNeedsDatedOriginalText() passed after 0.219 seconds.
+✔ Test UnknownTargetKindRetainsRangeUntilItsEnd() passed after 0.226 seconds.
+✔ Test pureDenialIsTerminalEvidenceWithoutBecomingAResetFact() passed after 0.226 seconds.
+✔ Test malformedSignalCannotClearCurrentPreview(_:) with 5 test cases passed after 0.227 seconds.
+✔ Test classifierPreviewCannotOverrideActionMeaning(_:) with 4 test cases passed after 0.227 seconds.
+✔ Test damagedKnownWindowFieldsCannotBecomeUndated(_:) with 11 test cases passed after 0.229 seconds.
+✔ Test explicitClockWithoutTrustworthyTimezoneNeverBecomesExact() passed after 0.232 seconds.
+✔ Test absentRequiredKeyIsNotNoSignal(_:) with 3 test cases passed after 0.232 seconds.
+✔ Test windowAcrossNewYearDoesNotOmitThePriorYear() passed after 0.232 seconds.
+✔ Test snapshotRefreshAndTranslatedCopyKeepSameNotificationKey() passed after 0.237 seconds.
+✔ Test undocumentedEffectiveAtDoesNotAffectCurrentEligibility(_:) with 4 test cases passed after 0.237 seconds.
+◇ Test case passing 1 argument bankedState → "unknown" to uncertainStructuredCreditsAreExcludedFromForecasts(_:) started.
+◇ Test case passing 1 argument bankedState → "null" to uncertainStructuredCreditsAreExcludedFromForecasts(_:) started.
+✔ Test unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) with 8 test cases passed after 0.243 seconds.
+✔ Test officialDeadlineExitsAtDeadlineAndRetainsReadableEvidence() passed after 0.246 seconds.
+✔ Test planNamesRequireEligibilityContext() passed after 0.248 seconds.
+✔ Test rejectsNoncanonicalOfficialPostIdentity(_:) with 6 test cases passed after 0.248 seconds.
+◇ Test case passing 1 argument status → .cancelled to terminalStateRemovesCardAndPreventsOlderReplicaFromReturning(_:) started.
+◇ Test case passing 1 argument status → .superseded to terminalStateRemovesCardAndPreventsOlderReplicaFromReturning(_:) started.
+◇ Test case passing 1 argument status → .expired to terminalStateRemovesCardAndPreventsOlderReplicaFromReturning(_:) started.
+✔ Test windowCrossingLocalMidnightShowsBothCalendarDays() passed after 0.253 seconds.
+✔ Test unknownTargetKindStaysConservativeAndCompleteWindowShowsRange() passed after 0.253 seconds.
+✔ Test onlySourceTimezoneActuallyUsedToResolveScheduleChangesItsMaterialKey() passed after 0.253 seconds.
+✔ Test creditEntitlementsNeverEstablishQuotaReset(_:) with 4 test cases passed after 0.253 seconds.
+✔ Test laterCancellationRetiresEarlierFutureReset() passed after 0.253 seconds.
+✔ Test planConjunctionDoesNotSplitEligibility() passed after 0.253 seconds.
+✔ Test originalClockWithExplicitSourceZoneHasAnExactExit() passed after 0.258 seconds.
+◇ Test case passing 1 argument bankedState → "announced" to structuredCreditDeliveryStatesAreExplicitWithoutActionKeyword(_:) started.
+◇ Test case passing 1 argument bankedState → "arriving" to structuredCreditDeliveryStatesAreExplicitWithoutActionKeyword(_:) started.
+◇ Test case passing 1 argument bankedState → "available" to structuredCreditDeliveryStatesAreExplicitWithoutActionKeyword(_:) started.
+◇ Test case passing 1 argument url → "https://x.com/other/status/100" to rejectsInvalidCanonicalIdentity(_:) started.
+◇ Test case passing 1 argument url → "https://example.com/thsottiaux/status/100" to rejectsInvalidCanonicalIdentity(_:) started.
+◇ Test case passing 1 argument url → "http://x.com/thsottiaux/status/100" to rejectsInvalidCanonicalIdentity(_:) started.
+◇ Test case passing 1 argument url → "https://x.com/thsottiaux/status/999" to rejectsInvalidCanonicalIdentity(_:) started.
+◇ Test case passing 1 argument url → "https://x.com/thsottiaux/status/100?tracking=1" to rejectsInvalidCanonicalIdentity(_:) started.
+✔ Test deadlineRetainsBoundariesButDoesNotAssertAnExactResetTime() passed after 0.270 seconds.
+✔ Test historicalTuesdayPromiseStillMigratesTentatively() passed after 0.270 seconds.
+✔ Test lastTerminalActionRetiresEarlierPromise(_:) with 3 test cases passed after 0.270 seconds.
+✔ Test pacificCivilTimezoneTracksDSTWhileExplicitAbbreviationsKeepTheirOffsets() passed after 0.270 seconds.
+✔ Test dateOnlyInSourceTimezoneRemainsAnUnconvertedDayAndRetainsOverlappingLocalDay() passed after 0.270 seconds.
+✔ Test laterIndependentPromiseAndUnrelatedStatementsStayActive(_:) with 5 test cases passed after 0.270 seconds.
+◇ Test case passing 1 argument provenance → "observed" to operatorObservationWithoutPostIdentityIsNormalFiltering(_:) started.
+◇ Test case passing 1 argument provenance → "operator-observed" to operatorObservationWithoutPostIdentityIsNormalFiltering(_:) started.
+✔ Test DSTGapAndRepeatedClockDoNotIdentifyAnExactResetInstant() passed after 0.277 seconds.
+◇ Test case passing 1 argument targetKind → "unknown" to unrecognizedTargetKindDoesNotClaimExactTime(_:) started.
+◇ Test case passing 1 argument targetKind → "new-provider-kind" to unrecognizedTargetKindDoesNotClaimExactTime(_:) started.
+◇ Test case passing 1 argument text → "No extra reset credits are available for Codex users." to highConfidenceCannotTurnExplicitCreditDenialIntoGrant(_:) started.
+◇ Test case passing 1 argument text → "No extra reset credits are available for Codex users. A new model is available." to highConfidenceCannotTurnExplicitCreditDenialIntoGrant(_:) started.
+✔ Test independentFutureResetAfterCancellationIsActive() passed after 0.281 seconds.
+◇ Test case passing 1 argument text → "Codex limits will not reset tomorrow." to previewCannotTurnDenialOrSpeculationIntoForecast(_:) started.
+◇ Test case passing 1 argument text → "Codex limits might reset tomorrow." to previewCannotTurnDenialOrSpeculationIntoForecast(_:) started.
+◇ Test case passing 1 argument text → "We hope Codex limits reset tomorrow." to previewCannotTurnDenialOrSpeculationIntoForecast(_:) started.
+✔ Test independentFutureResetAfterCompletionIsPreserved() passed after 0.286 seconds.
+✔ Test completedResetAndSeparatelyAnnouncedFutureResetRemainDistinct() passed after 0.286 seconds.
+✔ Test fullCalendarDateNeedsNoPublicationAndRejectsInvalidDay() passed after 0.286 seconds.
+✔ Test passedClocksRemainCardsWithoutCreatingFutureReminders() passed after 0.286 seconds.
+✔ Test futureOrNegatedCompletionIsNotTerminal(_:) with 3 test cases passed after 0.286 seconds.
+✔ Test localDayKeepsEarlierTodayButNotYesterday() passed after 0.286 seconds.
+✔ Test explicitCompletionWinsOverHistoricalPromise(_:) with 2 test cases passed after 0.286 seconds.
+✔ Test newPresentationProvenanceRoundTripsWithoutChangingExistingMaterialKeys() passed after 0.286 seconds.
+✔ Test sameEndpointCompletedEventWinsOverLongerOldTweet() passed after 0.286 seconds.
+✔ Test exactExplicitEffectiveTimeCanDifferFromWindowDeadline() passed after 0.286 seconds.
+✔ Test timeZoneChangeAndDSTUseNaturalDayBoundaries() passed after 0.286 seconds.
+✔ Test relativeDaysUsePublicationNotDiscoveryOrRefreshAndDoNotInventTimes() passed after 0.286 seconds.
+✔ Test rejectsNegationAndUnrelatedReset(_:) with 8 test cases passed after 0.246 seconds.
+✔ Test sameVersionCancellationWinsOverMoreDetailedOriginalText() passed after 0.253 seconds.
+✔ Test rangeDoesNotBecomeExactCount() passed after 0.246 seconds.
+✔ Test actualTuesdayPromiseIsDateLevelTentativeAndCannotRollForwardNextWeek() passed after 0.295 seconds.
+✔ Test structuredForecastFillsOnlyMissingTimingFromExplicitText() passed after 0.295 seconds.
+✔ Test sameVersionStructuredTimeComplementsFullOriginalText() passed after 0.247 seconds.
+✔ Test unknownCreditsAndScopeStayUnknown() passed after 0.245 seconds.
+✔ Test completedAliasesFromSourceAreTerminalEvenWithFuturePreview() passed after 0.295 seconds.
+✔ Test explicitUpcomingResetKeepsUnresolvedTime() passed after 0.243 seconds.
+✔ Test announcementAndCreditsRemainDistinctFacts() passed after 0.243 seconds.
+✔ Test negatedFragmentDoesNotEraseIndependentCreditGrant() passed after 0.239 seconds.
+✔ Test exactTimestampAndExpiryAreParsedWithoutGuessingTimezone() passed after 0.245 seconds.
+✔ Test structuredCompoundBankedResetAddsCreditFact() passed after 0.242 seconds.
+✔ Test mixedFactsAndSnapshotsRetainOnlyForecastsWithoutCountingCreditQuantity() passed after 0.216 seconds.
+✔ Test futureCreditClauseDoesNotTurnCompletedQuotaResetIntoUpcoming() passed after 0.220 seconds.
+✔ Test completeDeadlineWindowWinsOverEqualTimestampWithoutProvenance() passed after 0.244 seconds.
+✔ Test exactTimeTodayDoesNotExpireOrCreateUnreadRevisionAtTheClockTime() passed after 0.210 seconds.
+✔ Test bankedKindWithoutGroupStillCreatesFactAndOperatorObservationIsRejected() passed after 0.204 seconds.
+✔ Test legacyCacheWithoutSnapshotsAndNewStateRoundTripStayCompatible() passed after 0.190 seconds.
+✔ Test operatorObservationDoesNotBecomeOfficialReset() passed after 0.184 seconds.
+✔ Test scopeAndScheduleChangesAreMaterialButHistoricalFactEditsAreNot() passed after 0.204 seconds.
+✔ Test newerShorterPlanOverridesAnOlderDetailedCopy() passed after 0.254 seconds.
+✔ Test completedAnnouncementOverridesOlderPlanButUnknownClassificationIsNotTerminal() passed after 0.215 seconds.
+✔ Test uncertainOrUnknownPublicationNeverCreatesStrongReminder() passed after 0.184 seconds.
+✔ Test futurePublicationOlderThanThirtyDaysSurvivesAndOrderingUsesSchedule() passed after 0.185 seconds.
+✔ Test uncertainStructuredCreditsAreExcludedFromForecasts(_:) with 2 test cases passed after 0.185 seconds.
+✔ Test firstSuccessfulBatchIsSilentAndBothSourcesAreOneItem() passed after 0.177 seconds.
+✔ Test liveFeedSchemaKeepsTweetsEventsDatesAndUnknownFields() passed after 0.178 seconds.
+✔ Test terminalStateRemovesCardAndPreventsOlderReplicaFromReturning(_:) with 3 test cases passed after 0.176 seconds.
+✔ Test nonemptyMalformedContainersNeverBecomeSuccessfulEmptyFeed() passed after 0.169 seconds.
+✔ Test partialSourceFailureKeepsAcceptedPlanAndDoesNotReplay() passed after 0.178 seconds.
+✔ Test emptySuccessDiffersFromStaleAndIdentityFailure() passed after 0.166 seconds.
+✔ Test negatedAvailabilityDoesNotCreateCreditGrant() passed after 0.166 seconds.
+✔ Test explicitEffectiveTimeWinsOverWindowDeadline() passed after 0.168 seconds.
+✔ Test unrelatedFutureClauseDoesNotTurnCompletedResetIntoForecast() passed after 0.166 seconds.
+✔ Test independentCompletedAndFutureResetClausesArePreserved() passed after 0.166 seconds.
+✔ Test structuredCreditsDoNotClaimQuotaReset() passed after 0.163 seconds.
+✔ Test rejectsInvalidCanonicalIdentity(_:) with 5 test cases passed after 0.163 seconds.
+✔ Test globalScopeDoesNotBroadenAnExplicitPlanAudience() passed after 0.166 seconds.
+✔ Test structuredCreditDeliveryStatesAreExplicitWithoutActionKeyword(_:) with 3 test cases passed after 0.163 seconds.
+✔ Test operatorObservationWithoutPostIdentityIsNormalFiltering(_:) with 2 test cases passed after 0.154 seconds.
+✔ Test previewWindowIsUpcomingAndPreservesDeadline() passed after 0.163 seconds.
+✔ Test unknownProvenanceCannotBypassCanonicalIdentityValidation() passed after 0.146 seconds.
+✔ Test denialDoesNotEraseIndependentFutureCommitment() passed after 0.154 seconds.
+✔ Test highConfidenceCannotTurnExplicitCreditDenialIntoGrant(_:) with 2 test cases passed after 0.148 seconds.
+✔ Test previewCannotTurnDenialOrSpeculationIntoForecast(_:) with 3 test cases passed after 0.142 seconds.
+✔ Test unrecognizedTargetKindDoesNotClaimExactTime(_:) with 2 test cases passed after 0.151 seconds.
+✔ Suite ResetForecastSnapshotTests passed after 0.297 seconds.
+✔ Test confidenceAndAudienceAreMappedWithoutLosingRawHints() passed after 0.142 seconds.
+✔ Test futureCommitmentIsRecognizedWhenPreviewIsFalseAndDatesAreMissing() passed after 0.146 seconds.
+✔ Test oldJSONKeepsTheDateWithoutAssertingExactnessAndNewPrecisionRoundTrips() passed after 0.129 seconds.
+✔ Test exactTimeConvertsToLocalTimeAndExplicitOffset() passed after 0.129 seconds.
+✔ Test injectedEnglishLocaleKeepsSamePrecisionAndCalendar() passed after 0.129 seconds.
+✔ Test fullPostKeepsClockWhenBothEndpointsRepeatTheSameAnnouncement() passed after 0.246 seconds.
+✔ Test exactOffsetUsesTheEventDateIncludingDSTAndDateRollover() passed after 0.129 seconds.
+✔ Test crossYearRelativeDateIncludesYearWithoutGuessingAnHour() passed after 0.129 seconds.
+✔ Test unknownInvalidAndUnanchoredLabelsHaveNoEnglishLeakOrInventedDate() passed after 0.129 seconds.
+✔ Suite ResetNewsRuleSemanticsTests passed after 0.297 seconds.
+✔ Suite ResetForecastTimingTests passed after 0.297 seconds.
+✔ Suite ResetForecastPolicyTests passed after 0.297 seconds.
+✔ Suite ResetNewsRuleTests passed after 0.297 seconds.
+✔ Suite ResetNewsMergeSemanticsTests passed after 0.297 seconds.
+✔ Test summaryUsesTheSameDateProjectionWhileLegacyCreditBranchRemainsCompatible() passed after 0.129 seconds.
+✔ Test tuesdayBecomesAChineseDateWithAnHonestDerivationNote() passed after 0.130 seconds.
+✔ Test exactMidnightDiffersFromInferredMidnight() passed after 0.130 seconds.
+✔ Test landedCreditAnnouncementAndExplicitCompensationAreNotDropped() passed after 0.149 seconds.
+✔ Suite ResetNewsDecoderTests passed after 0.303 seconds.
+✔ Test ruleEngineMarksOnlyParsedExactTimestampAsExact() passed after 0.138 seconds.
+✔ Test decoderDistinguishesExactTargetFromWindowBoundaries() passed after 0.141 seconds.
+✔ Suite ResetForecastDatePresentationTests passed after 0.309 seconds.
+✔ Test defaultDoesNotTruncateValidForecastsToFiftyAndLedgerStillBounded() passed after 0.205 seconds.
+✔ Suite ResetNewsReducerTests passed after 0.320 seconds.
+✔ Test run with 124 tests in 9 suites passed after 0.320 seconds.
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite ResolverTests started.
+◇ Suite TaskTraceTests started.
+◇ Suite ControllerTests started.
+◇ Suite ReducerTests started.
+◇ Suite ScheduleTests started.
+◇ Suite ConfigurationTests started.
+◇ Suite IPCTests started.
+◇ Suite DisplayTests started.
+◇ Suite LifecycleRegressionTests started.
+◇ Test submissionCorrelatesOnlyNewExecutionNotOldHistory() started.
+◇ Test startsUnknownThenReadsOnlyIncrementAndSettlesTerminal() started.
+◇ Test hugeLogsAndRecoveryAreBounded() started.
+◇ Test actualReadRejectionsRotationAndDisabledParity() started.
+◇ Test mismatchedSessionAndSubagentAreExcluded() started.
+◇ Test missingMalformedAndOutsidePathsNeverCount() started.
+◇ Test recoveryMetadataIsBoundedAcrossFilesNotOnlyPerFile() started.
+◇ Test startBeforeHookReceiptRemainsUnknownUntilExplicitStart() started.
+◇ Test rotationAndTruncationExposeGap() started.
+◇ Test queuedTraceReportsActualDiscardWithoutDeliveringBusinessUpdate() started.
+◇ Test actualInventoryQueryReportsLimitWithoutClaimingUnseenIdentities(count:) started.
+◇ Test acceptedStartPrecedesItsSnapshot() started.
+◇ Test actualReadReportsExactByteBoundaryIncludingNewline(inputBytes:) started.
+◇ Test hostLossCannotBeRevivedByOldWorkOrDelayedAppend() started.
+◇ Test diagnosticAcceptanceCapturesKnownCountDefectInActualController() started.
+◇ Test dynamicGateAndEpochDoNotForceBusinessDelivery() started.
+◇ Test endToEndResumeStopContinuationAndRestart() started.
+◇ Test missingLogAfterActivityBecomesUnknownAndStopDropsCallbacks() started.
+◇ Test splitRecordDoesNotInventTerminalAndDoesNotLeakText() started.
+◇ Test cursorInventoryEvictionNamesOnlyAnActuallyHeldTask() started.
+◇ Test pendingHalfLineClearAndMultiLineTailHaveDifferentFacts() started.
+◇ Test capacityRejectsAtomicallyAndFreedSlotCanRetry() started.
+◇ Test fileChangePreemptsLaterRetryWithoutGrowingState() started.
+◇ Test stopRetainsCountBrieflyAndCannotCompleteByTime() started.
+◇ Test lateOldStopAndInterruptCannotEndNewTurn() started.
+◇ Test case passing 1 argument count → 33 to actualInventoryQueryReportsLimitWithoutClaimingUnseenIdentities(count:) started.
+◇ Test case passing 1 argument count → 65 to actualInventoryQueryReportsLimitWithoutClaimingUnseenIdentities(count:) started.
+◇ Test oversizedWireAndTooManyConnectionsExposeGap() started.
+◇ Test absentReceiverFailsOpenAndUnsafeSocketRejected() started.
+◇ Test localReceiverACKAndGenerationAndStaleSocketRecovery() started.
+◇ Test case passing 1 argument inputBytes → 262143 to actualReadReportsExactByteBoundaryIncludingNewline(inputBytes:) started.
+◇ Test case passing 1 argument inputBytes → 262144 to actualReadReportsExactByteBoundaryIncludingNewline(inputBytes:) started.
+◇ Test case passing 1 argument inputBytes → 262145 to actualReadReportsExactByteBoundaryIncludingNewline(inputBytes:) started.
+◇ Test emitterDeadlineWithUnresponsivePeer() started.
+◇ Test allowlistNeverForwardsConversationOrUnsupportedFields() started.
+◇ Test case passing 1 argument inputBytes → 500736 to actualReadReportsExactByteBoundaryIncludingNewline(inputBytes:) started.
+◇ Test occurrenceIdentityStableAcrossReducerRestore() started.
+◇ Test oldUnknownDoesNotMaskNewCompletedTurn() started.
+◇ Test case passing 1 argument inputBytes → 601826 to actualReadReportsExactByteBoundaryIncludingNewline(inputBytes:) started.
+◇ Test mergeBackupReadbackCleanupAndRollback() started.
+◇ Test case passing 1 argument inputBytes → 2097152 to actualReadReportsExactByteBoundaryIncludingNewline(inputBytes:) started.
+◇ Test duplicateEvidenceAndSessionAggregation() started.
+◇ Test transientPermissionDoesNotEraseSourceCompletionOrUncertainty() started.
+◇ Test completionNeedsStableReconciliationAndCanReactivate() started.
+◇ Test symlinksPermissionsAndHardlinksRejected() started.
+◇ Test unsupportedHostPreflightIsBoundedAndWritesNoUserConfig() started.
+◇ Test moreThan128CompletionIDsDoNotReplayOrOverflow() started.
+◇ Test secondaryCompletionUnderPartialCoverageDoesNotReplay() started.
+◇ Test preserveEditedDefinitionsAndRejectStalePlan() started.
+◇ Test uncertaintyNeverShowsPrimaryCompletionOrHidesRunning() started.
+◇ Test blockedUnloggedRoundIsSupersededOnlyByDatedNewStart() started.
+◇ Test weakEvidenceNeverCreatesOrReopensATurn() started.
+◇ Test recoveryAndSilenceCannotProveRunning() started.
+◇ Test submittedIsNotRunningAndBlockedSubmissionAgesToUnknown() started.
+◇ Test lossNeverInventsSuccess(_:) started.
+◇ Test terminalOnlyLateOldTurnCannotReplaceKnownRunningHead() started.
+◇ Test lateToolCannotReplaceHeadOrObstructTerminalSettlement() started.
+◇ Test interruptAndSessionEndAreNotSuccessfulCompletion() started.
+◇ Test stopContinuationNeedsNoInventedCompletion() started.
+◇ Test resolverSettlesTerminalDespiteTrailingToolAndTokens() started.
+◇ Test healthDoesNotMakeCoverageCompleteAndCompletionCannotMaskUncertainty() started.
+◇ Test explicitContinuationReordersSameTurnIdentity() started.
+◇ Test subagentExcludedAndCapacityPublic() started.
+◇ Test staleAndHistoricalEvidenceCannotReviveBeforeTimerTicks() started.
+◇ Test weakEvidenceCannotUndoInvalidation(_:) started.
+✔ Test mismatchedSessionAndSubagentAreExcluded() passed after 0.102 seconds.
+✔ Test missingMalformedAndOutsidePathsNeverCount() passed after 0.102 seconds.
+✔ Test submissionCorrelatesOnlyNewExecutionNotOldHistory() passed after 0.102 seconds.
+✔ Test rotationAndTruncationExposeGap() passed after 0.102 seconds.
+✔ Test startsUnknownThenReadsOnlyIncrementAndSettlesTerminal() passed after 0.133 seconds.
+✔ Test startBeforeHookReceiptRemainsUnknownUntilExplicitStart() passed after 0.137 seconds.
+✔ Test actualReadReportsExactByteBoundaryIncludingNewline(inputBytes:) with 6 test cases passed after 0.137 seconds.
+✔ Test actualReadRejectionsRotationAndDisabledParity() passed after 0.139 seconds.
+◇ Test case passing 1 argument gap → .restart to lossNeverInventsSuccess(_:) started.
+◇ Test case passing 1 argument gap → .sleep to lossNeverInventsSuccess(_:) started.
+◇ Test case passing 1 argument gap → .disconnected to lossNeverInventsSuccess(_:) started.
+◇ Test case passing 1 argument gap → .staleEvidence to lossNeverInventsSuccess(_:) started.
+◇ Test case passing 1 argument gap → .restart to weakEvidenceCannotUndoInvalidation(_:) started.
+◇ Test case passing 1 argument gap → .sleep to weakEvidenceCannotUndoInvalidation(_:) started.
+◇ Test case passing 1 argument gap → .disconnected to weakEvidenceCannotUndoInvalidation(_:) started.
+◇ Test case passing 1 argument gap → .staleEvidence to weakEvidenceCannotUndoInvalidation(_:) started.
+✔ Test splitRecordDoesNotInventTerminalAndDoesNotLeakText() passed after 0.200 seconds.
+✔ Test fileChangePreemptsLaterRetryWithoutGrowingState() passed after 0.200 seconds.
+✔ Test capacityRejectsAtomicallyAndFreedSlotCanRetry() passed after 0.200 seconds.
+✔ Test stopRetainsCountBrieflyAndCannotCompleteByTime() passed after 0.200 seconds.
+✔ Test lateOldStopAndInterruptCannotEndNewTurn() passed after 0.180 seconds.
+✔ Test absentReceiverFailsOpenAndUnsafeSocketRejected() passed after 0.177 seconds.
+✔ Test localReceiverACKAndGenerationAndStaleSocketRecovery() passed after 0.177 seconds.
+✔ Test oversizedWireAndTooManyConnectionsExposeGap() passed after 0.177 seconds.
+✔ Test allowlistNeverForwardsConversationOrUnsupportedFields() passed after 0.150 seconds.
+✔ Test occurrenceIdentityStableAcrossReducerRestore() passed after 0.143 seconds.
+✔ Test oldUnknownDoesNotMaskNewCompletedTurn() passed after 0.143 seconds.
+✔ Test actualInventoryQueryReportsLimitWithoutClaimingUnseenIdentities(count:) with 2 test cases passed after 0.200 seconds.
+✔ Test duplicateEvidenceAndSessionAggregation() passed after 0.126 seconds.
+✔ Test transientPermissionDoesNotEraseSourceCompletionOrUncertainty() passed after 0.126 seconds.
+✔ Test completionNeedsStableReconciliationAndCanReactivate() passed after 0.126 seconds.
+✔ Test symlinksPermissionsAndHardlinksRejected() passed after 0.126 seconds.
+✔ Test pendingHalfLineClearAndMultiLineTailHaveDifferentFacts() passed after 0.200 seconds.
+✔ Test moreThan128CompletionIDsDoNotReplayOrOverflow() passed after 0.126 seconds.
+✔ Test secondaryCompletionUnderPartialCoverageDoesNotReplay() passed after 0.126 seconds.
+✔ Test preserveEditedDefinitionsAndRejectStalePlan() passed after 0.126 seconds.
+✔ Test blockedUnloggedRoundIsSupersededOnlyByDatedNewStart() passed after 0.126 seconds.
+✔ Test uncertaintyNeverShowsPrimaryCompletionOrHidesRunning() passed after 0.126 seconds.
+✔ Test weakEvidenceNeverCreatesOrReopensATurn() passed after 0.126 seconds.
+✔ Test recoveryAndSilenceCannotProveRunning() passed after 0.126 seconds.
+✔ Test submittedIsNotRunningAndBlockedSubmissionAgesToUnknown() passed after 0.126 seconds.
+✔ Test terminalOnlyLateOldTurnCannotReplaceKnownRunningHead() passed after 0.126 seconds.
+✔ Test lateToolCannotReplaceHeadOrObstructTerminalSettlement() passed after 0.126 seconds.
+✔ Test lossNeverInventsSuccess(_:) with 4 test cases passed after 0.126 seconds.
+✔ Test interruptAndSessionEndAreNotSuccessfulCompletion() passed after 0.126 seconds.
+✔ Test stopContinuationNeedsNoInventedCompletion() passed after 0.126 seconds.
+✔ Test cursorInventoryEvictionNamesOnlyAnActuallyHeldTask() passed after 0.201 seconds.
+✔ Test healthDoesNotMakeCoverageCompleteAndCompletionCannotMaskUncertainty() passed after 0.126 seconds.
+✔ Test explicitContinuationReordersSameTurnIdentity() passed after 0.126 seconds.
+✔ Test staleAndHistoricalEvidenceCannotReviveBeforeTimerTicks() passed after 0.126 seconds.
+✔ Test weakEvidenceCannotUndoInvalidation(_:) with 4 test cases passed after 0.126 seconds.
+✔ Suite ScheduleTests passed after 0.201 seconds.
+✔ Suite DisplayTests passed after 0.201 seconds.
+✔ Test subagentExcludedAndCapacityPublic() passed after 0.127 seconds.
+✔ Suite ReducerTests passed after 0.201 seconds.
+✔ Test resolverSettlesTerminalDespiteTrailingToolAndTokens() passed after 0.127 seconds.
+✔ Suite LifecycleRegressionTests passed after 0.202 seconds.
+✔ Test mergeBackupReadbackCleanupAndRollback() passed after 0.131 seconds.
+✔ Test queuedTraceReportsActualDiscardWithoutDeliveringBusinessUpdate() passed after 0.204 seconds.
+✔ Test acceptedStartPrecedesItsSnapshot() passed after 0.226 seconds.
+✔ Test hugeLogsAndRecoveryAreBounded() passed after 0.234 seconds.
+✔ Test emitterDeadlineWithUnresponsivePeer() passed after 0.293 seconds.
+✔ Suite IPCTests passed after 0.344 seconds.
+✔ Test unsupportedHostPreflightIsBoundedAndWritesNoUserConfig() passed after 0.308 seconds.
+✔ Suite ConfigurationTests passed after 0.382 seconds.
+✔ Test recoveryMetadataIsBoundedAcrossFilesNotOnlyPerFile() passed after 0.434 seconds.
+✔ Suite ResolverTests passed after 0.434 seconds.
+✔ Test diagnosticAcceptanceCapturesKnownCountDefectInActualController() passed after 0.441 seconds.
+✔ Test missingLogAfterActivityBecomesUnknownAndStopDropsCallbacks() passed after 0.570 seconds.
+✔ Test dynamicGateAndEpochDoNotForceBusinessDelivery() passed after 0.698 seconds.
+✔ Suite TaskTraceTests passed after 0.699 seconds.
+✔ Test hostLossCannotBeRevivedByOldWorkOrDelayedAppend() passed after 0.755 seconds.
+✔ Test endToEndResumeStopContinuationAndRestart() passed after 0.965 seconds.
+✔ Suite ControllerTests passed after 0.965 seconds.
+✔ Test run with 57 tests in 9 suites passed after 0.965 seconds.
