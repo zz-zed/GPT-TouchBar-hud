@@ -43,6 +43,15 @@ private final class QuotaObserver: RateLimitStoreDelegate {
     func rateLimitStore(_ store: RateLimitStore, didUpdate state: RateLimitDisplayState) { states.append(state) }
 }
 
+private final class RetryObserver: DiagnosticRecording {
+    var delays: [Int] = []
+    func record(_ event: DiagnosticEvent) {
+        if case .connection(_, .retry, _, _, _, _, _, let delay?, _, .store) = event {
+            delays.append(delay)
+        }
+    }
+}
+
 @main enum VerifiedQuotaTests {
     static var checks = 0
     static func check(_ condition: @autoclosure () -> Bool, _ message: String) {
@@ -107,6 +116,12 @@ private final class QuotaObserver: RateLimitStoreDelegate {
         RunLoop.main.run(until: Date().addingTimeInterval(duration))
     }
 
+    static func spinUntil(_ condition: () -> Bool) {
+        let deadline = ProcessInfo.processInfo.systemUptime + 3
+        while !condition() && ProcessInfo.processInfo.systemUptime < deadline { spin(0.002) }
+        check(condition(), "Connection callback must arrive within the bounded wait")
+    }
+
     static func testConnectionRecovery() {
         let failed = FakeQuotaClient()
         failed.startResult = .failure(CodexAppServerError.processUnavailable)
@@ -165,16 +180,20 @@ private final class QuotaObserver: RateLimitStoreDelegate {
         check(stopped.starts == 1, "Stopping monitoring cancels scheduled reconnection")
 
         let crashing = FakeQuotaClient(); crashing.startResult = .failure(CodexAppServerError.processUnavailable)
-        let backoff = RateLimitStore(client: crashing, retryDelays: [0.03, 0.25])
-        backoff.start(); spin(0.12)
+        let retries = RetryObserver()
+        let backoff = RateLimitStore(client: crashing, retryDelays: [0.03, 0.25], diagnostics: retries)
+        backoff.start(); spinUntil { crashing.starts >= 2 }
         check(crashing.starts == 2, "Repeated startup failures back off instead of retrying at the initial frequency")
+        check(retries.delays == [30, 250], "Startup failures advance the scheduled retry delay")
         crashing.startResult = .success(())
-        spin(0.3)
+        spinUntil { crashing.starts >= 3 }
         check(crashing.starts == 3, "Retry delay remains bounded and still permits recovery")
+        let disconnectedAt = ProcessInfo.processInfo.systemUptime
         crashing.onConnectionClosed?(CodexAppServerError.processUnavailable)
-        spin(0.12)
-        check(crashing.starts == 3, "A brief successful handshake does not reset crash-loop backoff")
-        spin(0.25)
+        check(retries.delays == [30, 250, 250], "A brief successful handshake does not reset crash-loop backoff")
+        spinUntil { crashing.starts >= 4 }
+        check(ProcessInfo.processInfo.systemUptime - disconnectedAt >= 0.24,
+              "Reconnect timer honors the retained crash-loop delay")
         check(crashing.starts == 4, "Crash-loop backoff eventually reconnects")
         backoff.stop()
     }

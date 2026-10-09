@@ -28,6 +28,13 @@ enum NotchHUDTests {
         precondition(condition(), name)
         checks += 1
     }
+    static func waitForTransition(_ controller: LegacyNotchHUDController) {
+        let deadline = ProcessInfo.processInfo.systemUptime + 3
+        while controller.isAnimating && ProcessInfo.processInfo.systemUptime < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.002))
+        }
+        check(!controller.isAnimating, "transition timer stops within bounded time")
+    }
     static func descendants(_ view: NSView) -> [NSView] {
         guard !view.isHidden else { return [] }
         return [view] + view.subviews.flatMap(descendants)
@@ -713,7 +720,7 @@ enum NotchHUDTests {
         let local = NSPoint(x: 0.1, y: 0.1)
         let screenPoint = panel.convertPoint(toScreen: controller.view.convert(local, to: nil))
         check(controller.contains(screenPoint) == controller.view.containsInteraction(local), "intermediate routing matches interaction region")
-        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        waitForTransition(controller)
         check(!controller.isAnimating && controller.isExpanded, "transition completes expanded without standing timer")
         controller.collapse()
         RunLoop.current.run(until: Date().addingTimeInterval(0.05))
@@ -723,7 +730,7 @@ enum NotchHUDTests {
         if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             check(panel.frame == reversingFrame && controller.view.expansionProgress == reversingContour, "reversing starts from the current window and contour, without a jump")
         }
-        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        waitForTransition(controller)
         check(controller.view.expansionProgress == 1 && !controller.isAnimating, "reversed contour settles expanded")
         button("刷新").performClick(nil)
         check(refreshed == 2, "refresh in expanded nonactivating panel")

@@ -265,15 +265,18 @@ enum DiagnosticExportTests {
         let content = controller.window!.contentView!
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
         let controls = descendants(content)
-        let review = controls.compactMap { $0 as? NSTextView }.first!
+        let review = controls.compactMap { $0 as? NSTextView }.first {
+            $0.accessibilityIdentifier() == "diagnostic-export-review"
+        }!
         let buttons = controls.compactMap { $0 as? NSButton }
         let previewButton = buttons.first { $0.title == "生成导出预览" }!
         let saveButton = buttons.first { $0.title == "保存 ZIP…" }!
         let popup = controls.compactMap { $0 as? NSPopUpButton }.first { $0.itemTitles == DiagnosticExportRange.allCases.map(\.title) }!
         check(popup.indexOfSelectedItem == 0 && !saveButton.isEnabled, "Range defaults to thirty minutes with no save before preview")
-        previewButton.performClick(nil)
+        _ = NSApp.sendAction(previewButton.action!, to: previewButton.target, from: previewButton)
         waitUntil { saveButton.isEnabled }
-        check(runtimeLookups == 0 && review.string.contains("本地诊断包"), "Generating preview still performs no current check")
+        check(runtimeLookups == 0, "Generating preview still performs no current check")
+        check(review.string.contains("本地诊断包"), "Frozen summary appears in the export review control")
         let membersPopup = controls.compactMap { $0 as? NSPopUpButton }.first { $0 !== popup }!
         check(membersPopup.numberOfItems == 5, "Every frozen text member can be selected for review")
         membersPopup.selectItem(at: 4)
