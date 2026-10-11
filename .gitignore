@@ -5,10 +5,15 @@ backups/
 DerivedData/
 dist/
 Design/
-*.xcuserdata/
+xcuserdata/
 .DS_Store
 .env
 .env.*
+
+# Temporary checkouts and staging used by the release workflows.
+/.release-tools/
+/release-source/
+/release-stage/
 
 # Superseded README artwork kept locally for design reference.
 Marketing/readme-hero-gpt-touchbar-hud.png
