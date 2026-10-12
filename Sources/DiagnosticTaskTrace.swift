@@ -31,10 +31,26 @@ struct DiagnosticTaskTraceIdentity: Codable, Hashable {
 }
 enum DiagnosticTaskTracePhase: String, Codable { case unknown, submitted, running, stopping, completed, interrupted }
 enum DiagnosticTaskReadReason: String, Codable {
+    case ignoredUnscopedUsage, readRecovered
     case unchanged, initialRead, fileReplaced, fileTruncated, fileReset, normalRead, readBudgetSkip
     case firstLineDiscarded, pendingLimitExceeded, readFailure, fileMissing, fileRejected, headerRead, boundedTailRead, malformedLine, invalidEventMetadata
 }
+enum DiagnosticTaskDecodeIssue: String, Codable {
+    case malformedJSON, invalidUTF8, depthLimit, semanticLimit, invalidSemantic, duplicateField
+}
+enum DiagnosticTaskLifecycleType: String, Codable {
+    case task_started, task_complete, turn_aborted, item_completed, token_count
+}
+enum DiagnosticTaskReadFailure: String, Codable {
+    case unsafePath, permission, io, malformed, changed, budget, unavailable, other
+}
 struct DiagnosticTaskReadMetrics: Codable, Equatable {
+    var recordStartOffset: UInt64? = nil
+    var recordEndOffset: UInt64? = nil
+    var journalGeneration: UInt64? = nil
+    var lifecycleType: DiagnosticTaskLifecycleType? = nil
+    var decodeIssue: DiagnosticTaskDecodeIssue? = nil
+    var failureCategory: DiagnosticTaskReadFailure? = nil
     var fileBytes: UInt64? = nil
     var offsetBefore: UInt64? = nil
     var offsetAfter: UInt64? = nil
@@ -50,6 +66,7 @@ struct DiagnosticTaskReadMetrics: Codable, Equatable {
 }
 enum DiagnosticTaskEvidenceKind: String, Codable { case started, complete, aborted, execution, weakActivity, unknown }
 enum DiagnosticTaskTransitionReason: String, Codable {
+    case malformedRecord, continuityRevalidated
     case acceptedStart, acceptedComplete, acceptedAbort, acceptedExecution
     case turnMismatch, missingStartEvidence, olderTimestamp, historicalBaselineRestricted
     case terminalLateActivity, staleExecution, invalidTurnIdentity, invalidTimestamp

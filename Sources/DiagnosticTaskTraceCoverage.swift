@@ -26,6 +26,11 @@ struct DiagnosticTaskTraceCoverage: Encodable {
         let identity: DiagnosticTaskTraceIdentity
         let metrics: DiagnosticTaskReadMetrics
     }
+    struct Lifecycle: Encodable {
+        let context: DiagnosticTaskTraceContext
+        let identity: DiagnosticTaskTraceIdentity
+        let transition: DiagnosticTaskLifecycleTransition
+    }
     struct ObservationGap: Encodable {
         let context: DiagnosticTaskTraceContext
         let droppedCount: UInt64
@@ -43,9 +48,11 @@ struct DiagnosticTaskTraceCoverage: Encodable {
     let summaryOmittedSnapshots: Int
     let summaryOmittedChanges: Int
     let summaryOmittedReads: Int
+    let summaryOmittedLifecycles: Int
     let snapshots: [Snapshot]
     let memberChanges: [Change]
     let reads: [Read]
+    let lifecycles: [Lifecycle]
 
     static func collect(events: Data, globalRecordingGap: Bool) -> Self {
         let decoder = DiagnosticEventEnvelope.decoder()
@@ -55,6 +62,7 @@ struct DiagnosticTaskTraceCoverage: Encodable {
         var order: [UUID] = []
         var knownTasks: Set<String> = []; var knownTurns: Set<String> = []; var knownFiles: Set<String> = []
         var changes: [Change] = []; var reads: [Read] = []; var observationGaps: [ObservationGap] = []
+        var lifecycles: [Lifecycle] = []
         var aliasGap = false
         for record in records {
             guard case .taskTrace(let event) = record.event else { continue }
@@ -82,6 +90,8 @@ struct DiagnosticTaskTraceCoverage: Encodable {
             case .member(let context, let identity, let before, let after, let reason):
                 changes.append(.init(context: context, identity: identity, countedBefore: before, countedAfter: after, reason: reason))
             case .read(let context, let identity, let metrics): reads.append(.init(context: context, identity: identity, metrics: metrics))
+            case .lifecycle(let context, let identity, let transition):
+                lifecycles.append(.init(context: context, identity: identity, transition: transition))
             default: break
             }
         }
@@ -144,13 +154,20 @@ struct DiagnosticTaskTraceCoverage: Encodable {
                 consumption: Array(observations.suffix(16)), omittedConsumption: max(0, observations.count - 16))
         }
         // The raw frozen JSONL retains every acquired record. Only this human-readable index is bounded.
+        // Reserve space for failures before filling with recent normal/ignored reads.
+        var selectedReads = Set(reads.indices.filter {
+            ![DiagnosticTaskReadReason.normalRead, .ignoredUnscopedUsage].contains(reads[$0].metrics.reason)
+        }.suffix(64))
+        for index in reads.indices.reversed() where selectedReads.count < 128 { selectedReads.insert(index) }
         return Self(eventCount: records.filter { if case .taskTrace = $0.event { return true }; return false }.count,
             evidenceComplete: !snapshots.isEmpty && snapshots.allSatisfy(\.evidenceComplete) && !deliveryGap, globalRecordingGap: gap,
             deliveryEvidenceIncomplete: deliveryGap, observationGaps: Array(observationGaps.suffix(64)),
             omittedObservationGaps: max(0, observationGaps.count - 64),
             summaryOmittedSnapshots: max(0, snapshots.count - 64), summaryOmittedChanges: max(0, changes.count - 256),
-            summaryOmittedReads: max(0, reads.count - 128), snapshots: Array(snapshots.suffix(64)),
-            memberChanges: Array(changes.suffix(256)), reads: Array(reads.suffix(128)))
+            summaryOmittedReads: reads.count - selectedReads.count,
+            summaryOmittedLifecycles: max(0, lifecycles.count - 256), snapshots: Array(snapshots.suffix(64)),
+            memberChanges: Array(changes.suffix(256)), reads: selectedReads.sorted().map { reads[$0] },
+            lifecycles: Array(lifecycles.suffix(256)))
     }
 
     var summary: String {
@@ -160,10 +177,12 @@ struct DiagnosticTaskTraceCoverage: Encodable {
         var lines = ["任务追踪：\(evidenceComplete ? "所列检查点完整" : "证据不完整")；实体显示可见性未知；跨进程任务关联未知。",
             "展示快照 \(snapshots.count)；成员变化 \(memberChanges.count)；读取观察 \(reads.count)。",
             "摘要省略快照/成员/读取：\(summaryOmittedSnapshots)/\(summaryOmittedChanges)/\(summaryOmittedReads)；完整采集内容见 events.jsonl。"]
+        lines.append("生命周期观察列出 \(min(lifecycles.count, 24))；摘要省略 \(summaryOmittedLifecycles + max(0, lifecycles.count - 24))。本版本采集会合并连续同类读取失败：首条及每 30 秒记录一次，失败分类变化或恢复后再次失败另行记录。")
+        lines.append("无轮次用量事件按任务和文件代次采样：首条及每 30 秒记录一次；这类事件不改变任务状态。")
         for gap in observationGaps.suffix(8) { lines.append("任务观察缺口：\(gap.reason.rawValue)，丢弃 \(gap.droppedCount) 条，批次 \(gap.context.batch)。") }
         for snapshot in snapshots.suffix(12) {
             let ref = snapshot.reference
-            lines.append("快照 \(ref.snapshotID.uuidString)：运行 \(ref.runningCount)，未知 \(ref.unknownCount)，成员证据 \(snapshot.evidenceComplete ? "完整" : "不完整") [\(snapshot.integrity.reason.rawValue)]；前序缺失 \(snapshot.predecessorMissing)，身份缺失 \(snapshot.identityMissing)。")
+            lines.append("快照 \(ref.snapshotID.uuidString)：运行 \(ref.runningCount)，未知 \(ref.unknownCount)，证据链 \(snapshot.evidenceComplete ? "完整" : "不完整")；快照结构 \(snapshot.integrity.reason.rawValue)；前序缺失 \(snapshot.predecessorMissing)，身份缺失 \(snapshot.identityMissing)。")
             if let removed = snapshot.removedCountedMembers, !removed.isEmpty { lines.append("  退出计数：" + removed.map(\.uuidString).joined(separator: ", ")) }
             if let added = snapshot.addedCountedMembers, !added.isEmpty { lines.append("  加入计数：" + added.map(\.uuidString).joined(separator: ", ")) }
             let delivery = snapshot.consumption.map { "\($0.consumer?.rawValue ?? $0.surface.rawValue):\($0.action.rawValue)/\($0.reason.rawValue)" }
@@ -173,10 +192,20 @@ struct DiagnosticTaskTraceCoverage: Encodable {
         for change in memberChanges.suffix(24) {
             lines.append("批次 \(change.context.batch)：任务 \(change.identity.taskAlias.uuidString)，counted \(change.countedBefore) → \(change.countedAfter)，原因 \(change.reason.rawValue)。")
         }
-        for read in reads.filter({ $0.metrics.reason != .normalRead }).suffix(12) {
+        for lifecycle in lifecycles.suffix(24) {
+            let t = lifecycle.transition
+            lines.append("批次 \(lifecycle.context.batch)：任务 \(lifecycle.identity.taskAlias.uuidString)，状态 \(t.before.rawValue) → \(t.after.rawValue)，原因 \(t.reason.rawValue)，证据 \(t.evidence.rawValue)，接受 \(t.accepted)。")
+        }
+        let failures = reads.filter { ![DiagnosticTaskReadReason.normalRead, .ignoredUnscopedUsage].contains($0.metrics.reason) }
+        let ignored = reads.filter { $0.metrics.reason == .ignoredUnscopedUsage }
+        for read in Array(failures.suffix(12)) + Array(ignored.suffix(4)) {
             func number(_ value: UInt64?) -> String { value.map(String.init) ?? "未知" }
             let m = read.metrics
-            lines.append("任务 \(read.identity.taskAlias.uuidString)：\(m.reason.rawValue)，文件 \(number(m.fileBytes)) B，位置 \(number(m.offsetBefore)) → \(number(m.offsetAfter))，读取 \(number(m.readBytes)) B，跳过 \(number(m.skippedBytes)) B，状态清空 \(m.stateCleared)。")
+            lines.append("批次 \(read.context.batch)：任务 \(read.identity.taskAlias.uuidString)：\(m.reason.rawValue)，文件 \(number(m.fileBytes)) B，位置 \(number(m.offsetBefore)) → \(number(m.offsetAfter))，读取 \(number(m.readBytes)) B，跳过 \(number(m.skippedBytes)) B。")
+            if m.recordStartOffset != nil {
+                lines.append("  记录位置 \(number(m.recordStartOffset)) → \(number(m.recordEndOffset))，文件代次 \(number(m.journalGeneration))，事件 \(m.lifecycleType?.rawValue ?? "未知")，解析错误 \(m.decodeIssue?.rawValue ?? "无")。")
+            }
+            if let failure = m.failureCategory { lines.append("  读取失败分类：\(failure.rawValue)。") }
         }
         return lines.joined(separator: "\n")
     }

@@ -238,6 +238,9 @@ public final class TaskActivityEngine {
         }
         do {
             let batch = try node.reader.read(byteBudget: byteBudget, targetEOF: node.targetEOF, cancelled: cancelled)
+            // A pre-I/O cancellation proves nothing about file availability. Preserve
+            // failure/backlog state and do not report a successful read or recovery.
+            guard batch.fileValidated else { return 0 }
             // Cancellation may occur after complete records were consumed. Always stage those
             // records with the reader offset; the coordinator suppresses cancelled callbacks.
             if batch.resetReason != nil || node.replacementPending {
@@ -271,6 +274,11 @@ public final class TaskActivityEngine {
             }
             node.excluded = false; node.unsupportedSessionSource = false
             for record in batch.records {
+                if record.issue != nil || record.ignoredReason != nil {
+                    observationSink?.record(.decodedRecord(sequence: lastSequence, generation: generation,
+                        alias: alias(identity), fileGeneration: batch.generation, start: record.startOffset,
+                        end: record.endOffset, type: record.lifecycleType, issue: record.issue, ignored: record.ignoredReason))
+                }
                 if record.issue != nil {
                     node.lastDecodeFailed = true
                     node.candidate.hasUnresolvedGap = true
@@ -326,7 +334,8 @@ public final class TaskActivityEngine {
             node.lastReadFailed = true
             invalidate(node, reason: .readFailed)
             node.published.freshness = .unavailable
-            observationSink?.record(.issue(sequence: lastSequence, generation: generation, alias: alias(identity), reason: .readFailed))
+            observationSink?.record(.readFailure(sequence: lastSequence, generation: generation,
+                alias: alias(identity), failure: TaskReadFailure(error)))
             return 0
         }
     }

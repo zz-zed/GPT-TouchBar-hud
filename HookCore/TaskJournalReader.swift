@@ -34,6 +34,8 @@ public enum JournalResetReason: String, Codable, Sendable {
 }
 
 public struct JournalReadBatch: Sendable {
+    /// False only when cancellation returned before opening or validating the file.
+    public let fileValidated: Bool
     public let records: [JournalRecord]
     public let fetchedOffset: UInt64
     public let committedOffset: UInt64
@@ -85,7 +87,7 @@ public final class TaskJournalReader {
         guard byteBudget >= 0 else { throw HookFailure.budget }
         if cancelled() {
             let target = state?.targetEOF ?? targetEOF ?? fetchedOffset
-            return batch(records: [], target: target, reset: nil, cancelled: true, bytes: 0)
+            return batch(records: [], target: target, reset: nil, cancelled: true, bytes: 0, fileValidated: false)
         }
         try validatePath()
         let fd = try HookPaths.openRegular(path)
@@ -162,7 +164,7 @@ public final class TaskJournalReader {
         current.boundaryAnchor = try anchor(fd, end: current.decoder.committedOffset)
         if current.decoder.fetchedOffset == target { current.targetEOF = nil }
         state = current; resume = nil
-        return batch(records: records, target: target, reset: reset, cancelled: stopped, bytes: bytesRead)
+        return batch(records: records, target: target, reset: reset, cancelled: stopped, bytes: bytesRead, fileValidated: true)
     }
 
     /// No I/O: fixed-size anchors were captured with the corresponding decoded state.
@@ -175,8 +177,8 @@ public final class TaskJournalReader {
                                  prefixAnchor: current.prefixAnchor, boundaryAnchor: current.boundaryAnchor,
                                  sessionAnchor: current.sessionAnchor, verifiedSession: current.session)
     }
-    private func batch(records: [JournalRecord], target: UInt64, reset: JournalResetReason?, cancelled: Bool, bytes: Int) -> JournalReadBatch {
-        JournalReadBatch(records: records, fetchedOffset: fetchedOffset, committedOffset: committedOffset,
+    private func batch(records: [JournalRecord], target: UInt64, reset: JournalResetReason?, cancelled: Bool, bytes: Int, fileValidated: Bool) -> JournalReadBatch {
+        JournalReadBatch(fileValidated: fileValidated, records: records, fetchedOffset: fetchedOffset, committedOffset: committedOffset,
                          targetEOF: target, backlogBytes: target > fetchedOffset ? target - fetchedOffset : 0,
                          generation: generation, resetReason: reset, reachedTarget: fetchedOffset >= target,
                          cancelled: cancelled, bytesRead: bytes, session: state?.session)

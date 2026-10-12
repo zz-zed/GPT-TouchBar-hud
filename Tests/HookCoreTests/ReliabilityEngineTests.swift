@@ -11,6 +11,62 @@ private final class ObservationRecorder: TaskObservationSink {
 }
 
 struct ReliabilityEngineTests {
+    @Test func cancellationCannotClearAnUnresolvedReadFailure() throws {
+        // Cover cancellation at each poll/read boundary without coupling to a
+        // particular number of cancellation checks in discovery or the scheduler.
+        for threshold in 1...20 {
+            let f = try Fixture(), log = try f.log(), monitor = engine(f)
+            monitor.begin(now: f.now.addingTimeInterval(-1), generation: 1)
+            try f.append("task_started", to: log)
+            #expect(settle(monitor, now: f.now).runningIDs.count == 1)
+            try FileManager.default.removeItem(at: log)
+            #expect(monitor.poll(now: f.now, generation: 1).readFailureCount == 1)
+            var calls = 0
+            let cancelled = monitor.poll(now: f.now, generation: 1, cancelled: {
+                calls += 1; return calls >= threshold
+            })
+            #expect(cancelled.readFailureCount == 1)
+            #expect(cancelled.runningIDs.isEmpty)
+        }
+    }
+
+    @Test(arguments: [TaskSourceMode.legacy, .hooks])
+    func usageWithoutTurnPreservesLifecycleAndDoesNotRefreshEvidence(mode: TaskSourceMode) throws {
+        let f = try Fixture(), log = try f.log(), sink = ObservationRecorder()
+        let monitor = TaskActivityEngine(home: f.home, sink: sink, sourceMode: mode)
+        monitor.begin(now: f.now.addingTimeInterval(-1), generation: 1)
+        let usage = Data("{\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":null,\"rate_limits\":null}}\n".utf8)
+        let identity = TaskIdentity(session: "s1")
+        try f.appendData(usage, to: log)
+        #expect(settle(monitor, now: f.now).runningIDs.isEmpty)
+        try f.append("task_started", to: log)
+        let started = settle(monitor, now: f.now)
+        #expect(started.runningIDs == [identity])
+        try f.appendData(usage, to: log)
+        let unchanged = settle(monitor, now: f.now.addingTimeInterval(1))
+        #expect(unchanged.runningIDs == [identity])
+        #expect(unchanged.records[identity]?.evidenceAt == started.records[identity]?.evidenceAt)
+        #expect(unchanged.records[identity]?.hasUnresolvedGap == false)
+        #expect(!unchanged.activity.coverage.gaps.contains(.malformedLog))
+        try f.append("item_completed", to: log, date: f.now.addingTimeInterval(2))
+        let refreshed = settle(monitor, now: f.now.addingTimeInterval(2))
+        #expect(refreshed.runningIDs == [identity])
+        #expect(abs((refreshed.records[identity]?.evidenceAt ?? .distantPast).timeIntervalSince(f.now.addingTimeInterval(2))) < 0.002)
+        try f.append("task_complete", to: log, date: f.now.addingTimeInterval(3))
+        #expect(settle(monitor, now: f.now.addingTimeInterval(3)).records[identity]?.phase == .completed)
+        try f.appendData(usage, to: log)
+        #expect(settle(monitor, now: f.now.addingTimeInterval(4)).records[identity]?.phase == .completed)
+        #expect(sink.events.contains {
+            if case .decodedRecord(_, _, _, _, let start, let end, .token_count, nil, .tokenCountWithoutTurn) = $0 { return end > start }
+            return false
+        })
+        try f.append("task_started", turn: "next", to: log, date: f.now.addingTimeInterval(5))
+        #expect(settle(monitor, now: f.now.addingTimeInterval(5)).runningIDs == [identity])
+        try f.appendData(usage, to: log)
+        // ISO-8601 log timestamps round to milliseconds; stay beyond that boundary.
+        #expect(settle(monitor, now: f.now.addingTimeInterval(6 + HookBudget.staleSeconds)).runningIDs.isEmpty)
+    }
+
     @Test func publishedPendingTransitionsKeepTheirActualCause() throws {
         let f = try Fixture(), log = try f.log(), sink = ObservationRecorder()
         let monitor = engine(f, sink: sink)
@@ -21,6 +77,10 @@ struct ReliabilityEngineTests {
         #expect(settle(monitor, now: f.now.addingTimeInterval(1)).runningIDs.isEmpty)
         #expect(sink.events.contains {
             if case .transition(_, _, _, _, .active, .unknown, .malformedRecord) = $0 { return true }
+            return false
+        })
+        #expect(sink.events.contains {
+            if case .decodedRecord(_, _, _, _, let start, let end, _, .malformedJSON, nil) = $0 { return end > start }
             return false
         })
 

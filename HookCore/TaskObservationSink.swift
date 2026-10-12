@@ -33,6 +33,10 @@ public struct TaskObservedMember: Sendable {
     public let counted: Bool
 }
 public enum TaskObservation: Sendable {
+    case decodedRecord(sequence: UInt64, generation: UInt64, alias: UInt64, fileGeneration: UInt64,
+                       start: UInt64, end: UInt64, type: JournalLifecycleType?,
+                       issue: JournalDecodeIssue?, ignored: JournalIgnoredReason?)
+    case readFailure(sequence: UInt64, generation: UInt64, alias: UInt64, failure: TaskReadFailure)
     case checkpoint(sequence: UInt64, generation: UInt64, mode: TaskSourceMode, members: [TaskObservedMember], running: Int, pending: Int, complete: Bool)
 
     case members(sequence: UInt64, generation: UInt64, mode: TaskSourceMode, aliases: [UInt64], pageIndex: Int, pageCount: Int, memberCount: Int)
@@ -47,6 +51,23 @@ public enum TaskObservation: Sendable {
     case issue(sequence: UInt64, generation: UInt64, alias: UInt64?, reason: TaskObservationReason)
     case delivery(sequence: UInt64, generation: UInt64, accepted: Bool, stage: TaskObservationDeliveryStage = .runtime)
     case presentation(sequence: UInt64, generation: UInt64, running: Int, pending: Int, completionVisible: Bool, sourceMode: TaskSourceMode)
+}
+
+/// Coarse, allowlisted error categories. Raw errors and filesystem paths never cross the sink.
+public enum TaskReadFailure: String, Sendable {
+    case unsafePath, permission, io, malformed, changed, budget, unavailable, other
+    init(_ error: Error) {
+        switch error as? HookFailure {
+        case .unsafePath: self = .unsafePath
+        case .permission: self = .permission
+        case .io: self = .io
+        case .malformed: self = .malformed
+        case .changed: self = .changed
+        case .budget: self = .budget
+        case .unavailable: self = .unavailable
+        default: self = .other
+        }
+    }
 }
 
 /// Called from the engine worker and display queue. Implementations must be thread safe,

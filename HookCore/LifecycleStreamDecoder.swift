@@ -4,6 +4,12 @@ public enum JournalDecodeIssue: String, Codable, Sendable {
     case malformedJSON, invalidUTF8, depthLimit, semanticLimit, invalidSemantic, duplicateField
 }
 
+/// Only fixed vocabulary may leave the parser for diagnostics; never retain payload text.
+public enum JournalLifecycleType: String, Codable, Sendable {
+    case task_started, task_complete, turn_aborted, item_completed, token_count
+}
+public enum JournalIgnoredReason: String, Codable, Sendable { case tokenCountWithoutTurn }
+
 public struct JournalEvent: Equatable, Codable, Sendable {
     public let type: String
     public let turnID: String
@@ -30,6 +36,8 @@ public struct JournalRecord: Equatable, Sendable {
     public let event: JournalEvent?
     public let session: JournalSession?
     public let issue: JournalDecodeIssue?
+    public var lifecycleType: JournalLifecycleType? = nil
+    public var ignoredReason: JournalIgnoredReason? = nil
 }
 
 /// Incremental JSON grammar/UTF-8 validation, independent of read block boundaries.
@@ -54,7 +62,8 @@ public struct LifecycleStreamDecoder {
             if byte == 10 {
                 let result = parser.finish()
                 records.append(JournalRecord(startOffset: recordStart, endOffset: fetchedOffset,
-                                             event: result.0, session: result.1, issue: result.2))
+                                             event: result.0, session: result.1, issue: result.2,
+                                             lifecycleType: parser.lifecycleType, ignoredReason: parser.ignoredReason))
                 committedOffset = fetchedOffset; recordStart = fetchedOffset; parser = RecordParser()
             } else { parser.feed(byte) }
         }
@@ -81,6 +90,11 @@ private struct RecordParser {
     private var issue: JournalDecodeIssue?
     private var semanticIssue: JournalDecodeIssue?
     private var fields: [Slot: String] = [:]
+    var lifecycleType: JournalLifecycleType? {
+        guard fields[.recordType] == "event_msg", let value = fields[.eventType] else { return nil }
+        return JournalLifecycleType(rawValue: value)
+    }
+    private(set) var ignoredReason: JournalIgnoredReason?
     private var subagent = false
     // Token: 0 none, 1 string, 2 number, 3 literal.
     private var token = 0
@@ -162,6 +176,13 @@ private struct RecordParser {
             return (nil, JournalSession(id: id, source: fields[.source], isSubagent: subagent), nil)
         }
         guard let eventType = fields[.eventType], TaskLifecyclePolicy.kind(for: eventType) != nil else { return (nil, nil, nil) }
+        // Codex emits session-level usage observations without a turn_id. These are
+        // valid records, but cannot refresh, start, finish or invalidate any turn.
+        // Grammar and semantic validation above still reject malformed records.
+        if eventType == "token_count", fields[.turnID] == nil {
+            ignoredReason = .tokenCountWithoutTurn
+            return (nil, nil, nil)
+        }
         guard let turn = fields[.turnID], HookEvent.validID(turn), let timestamp = fields[.timestamp],
               let date = Self.date(timestamp) else { return (nil, nil, .invalidSemantic) }
         return (JournalEvent(type: eventType, turnID: turn, timestamp: date), nil, nil)
