@@ -1,0 +1,132 @@
+{
+  "tag": "v0.1.42",
+  "version": "0.1.42",
+  "build": "45",
+  "sourceCommit": "9acf390746ae378881a1de80928d712250960fb9",
+  "releaseURL": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.42",
+  "publishedAt": "2026-10-12T04:24:58Z",
+  "verifiedAtUTC": "2026-10-12T04:27:31.513158+00:00",
+  "latestVerified": true,
+  "releaseNotesMatch": true,
+  "mainCI": {
+    "id": 38201132759,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38201132759",
+    "conclusion": "success",
+    "attempt": 2,
+    "jobs": [
+      {
+        "name": "Validate source revision",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build DMG (x86_64)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Regression (x86_64, interface)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build DMG (arm64)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Regression (x86_64, data)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Regression (arm64, interface)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Regression (arm64, data)",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "assets": [
+    {
+      "name": "build-manifest.json",
+      "bytes": 4010,
+      "sha256": "02c945f33a0a61341c7f00ac0bf9752a116681801bf3d2dd6a6d9a8b34ff0ffa"
+    },
+    {
+      "name": "GPT-TouchBar-HUD-0.1.42-arm64.dmg",
+      "bytes": 4740972,
+      "sha256": "96f9a9978120f9ff1993a4719e04ffad0328e1e3d2229b1b3eacc68b2a39cc20"
+    },
+    {
+      "name": "GPT-TouchBar-HUD-0.1.42-x86_64.dmg",
+      "bytes": 4939578,
+      "sha256": "0569929a0b708bb49c33c78ed6257f6f10e084f195a54989002e11cdaf9f019f"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 201,
+      "sha256": "19d2ef907fcec3115053c9ab26bd13a6692445706b11305da5f55cb9dc65e640"
+    }
+  ],
+  "dmgChecks": [
+    {
+      "architecture": "arm64",
+      "cdhash": "9b9355d20b94b8a03a8a93e70a562b626a926cc8",
+      "readOnlyMount": true,
+      "minimumSystem": "11.0"
+    },
+    {
+      "architecture": "x86_64",
+      "cdhash": "58cb8aeddb2aff5c834eee0344cbac803e8e3e19",
+      "readOnlyMount": true,
+      "minimumSystem": "11.0"
+    }
+  ],
+  "installedAppModifiedDuringVerification": false,
+  "releaseWorkflow": {
+    "id": 38203646669,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38203646669",
+    "attempt": 1,
+    "conclusion": "success"
+  },
+  "buildArtifacts": {
+    "arm64": {
+      "id": 11726310574,
+      "name": "release-9acf390746ae378881a1de80928d712250960fb9-arm64-38201132759-2",
+      "digest": "sha256:0afd197e1a85892d009562f9b4c49278235193bc4617cc30e0f8b72faac4251c",
+      "size_in_bytes": 4718752
+    },
+    "x86_64": {
+      "id": 11725458568,
+      "name": "release-9acf390746ae378881a1de80928d712250960fb9-x86_64-38201132759-2",
+      "digest": "sha256:70fa6d106601db203302ec90181fc8393845330360bdbf16497fd40e6b2ff305",
+      "size_in_bytes": 4920766
+    }
+  },
+  "initialBuildAttempt": {
+    "attempt": 1,
+    "usedForPublication": false,
+    "workflowConclusion": "success",
+    "unconfirmedJob": "Build DMG (arm64)",
+    "observedJobStatus": "in_progress",
+    "observedJobConclusion": null,
+    "recovery": "Reran all jobs for the same source commit; published only attempt 2 artifacts"
+  },
+  "installedAppCheck": {
+    "version": "0.1.41",
+    "build": "44",
+    "executableSHA256": "fdb5671ce9b44083da0387816354cdc97d0776cae9d72bc5701becc4e681b00c",
+    "executableUnchanged": true
+  },
+  "unverifiedRuntimeScenarios": [
+    "Physical macOS 11",
+    "Physical Touch Bar and notch display",
+    "Long-term user environment",
+    "Installed-app upgrade and restart"
+  ]
+}
