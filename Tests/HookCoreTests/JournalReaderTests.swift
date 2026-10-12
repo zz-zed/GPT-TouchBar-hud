@@ -4,6 +4,22 @@ import Testing
 @testable import HookCore
 
 struct JournalReaderTests {
+    @Test(arguments: [1, 7, 256, 8192])
+    func unscopedUsageIsIgnoredWithoutHidingInvalidLifecycle(budget: Int) throws {
+        let fixture = try Fixture(), path = try fixture.log()
+        let usage = #"{"timestamp":"2026-10-08T08:00:00Z","type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":null}}"# + "\n"
+        let missingStart = #"{"timestamp":"2026-10-08T08:00:00Z","type":"event_msg","payload":{"type":"task_started"}}"# + "\n"
+        let nullTurn = #"{"timestamp":"2026-10-08T08:00:00Z","type":"event_msg","payload":{"type":"token_count","turn_id":null}}"# + "\n"
+        let duplicate = #"{"type":"event_msg","payload":{"type":"token_count","type":"token_count"}}"# + "\n"
+        let invalid = #"{"type":"event_msg","payload":{"type":"token_count"},}"# + "\n"
+        try fixture.appendData(Data((usage + missingStart + nullTurn + duplicate + invalid).utf8) + event("task_started"), to: path)
+        let records = try drain(TaskJournalReader(home: fixture.home, path: path, expectedSessionID: "s1"), budget: budget)
+        #expect(records.compactMap(\.ignoredReason) == [.tokenCountWithoutTurn])
+        #expect(records.first(where: { $0.ignoredReason != nil })?.lifecycleType == .token_count)
+        #expect(records.compactMap(\.issue) == [.invalidSemantic, .invalidSemantic, .duplicateField, .malformedJSON])
+        #expect(records.compactMap(\.event).map(\.type) == ["task_started"])
+    }
+
     private func event(_ type: String, turn: String = "t1", bodyBytes: Int = 0) -> Data {
         let body = String(repeating: "x", count: bodyBytes)
         return Data("{\"payload\":{\"body\":\"\(body)\",\"turn_id\":\"\(turn)\",\"type\":\"\(type)\"},\"timestamp\":\"2026-10-08T08:00:00.000Z\",\"type\":\"event_msg\"}\n".utf8)
@@ -153,10 +169,12 @@ struct JournalReaderTests {
         let fixture = try Fixture(); let path = try fixture.log()
         try fixture.appendData(event("task_started", bodyBytes: 200_000), to: path)
         let reader = TaskJournalReader(home: fixture.home, path: path, expectedSessionID: "s1")
-        #expect(try reader.read(cancelled: { true }).bytesRead == 0)
+        let beforeIO = try reader.read(cancelled: { true })
+        #expect(beforeIO.bytesRead == 0 && !beforeIO.fileValidated)
         var checks = 0
         let batch = try reader.read(byteBudget: 256 * 1024, cancelled: { checks += 1; return checks > 2 })
         #expect(batch.cancelled)
+        #expect(batch.fileValidated)
         #expect(batch.bytesRead == TaskJournalReader.chunkBytes)
         #expect(batch.fetchedOffset > batch.committedOffset)
         #expect(try drain(reader).compactMap(\.event).map(\.type) == ["task_started"])

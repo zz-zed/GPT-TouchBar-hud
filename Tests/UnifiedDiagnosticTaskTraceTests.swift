@@ -129,6 +129,7 @@ private final class ReliabilityFixture {
     }
     static func main() throws {
         _ = NSApplication.shared
+        try diagnosticFailureDetails()
         for mode in [false, true] {
             let f = try ReliabilityFixture(count: 33)
             let diagnosticRoot = f.home.appendingPathComponent("diagnostics")
@@ -216,5 +217,78 @@ private final class ReliabilityFixture {
             print("PASS: unified diagnostic runtime mode \(mode ? "hooks" : "legacy")")
         }
         print("PASS: \(checks) unified diagnostic integration assertions")
+    }
+
+    static func diagnosticFailureDetails() throws {
+        let f = try ReliabilityFixture(count: 1), task = f.mainTasks.first!
+        let path = f.paths[task]!, root = f.home.appendingPathComponent("diagnostics")
+        let recorder = DiagnosticRecorder(directory: root)
+        recorder.start()
+        var diagnosticTime: TimeInterval = 0
+        let trace = DiagnosticTaskEngineTrace(recorder: recorder, monotonicNow: { diagnosticTime })
+        let engine = TaskActivityEngine(home: f.home, sink: trace)
+        let now = Date()
+        engine.begin(now: now.addingTimeInterval(-1), generation: 1)
+        try f.event("task_started", task: task, date: now)
+        check(engine.poll(now: now, generation: 1).runningIDs == [task], "Fixture starts through production engine")
+        try f.append(Data(#"{"type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":null}}"#.utf8) + Data([10]), task: task)
+        check(engine.poll(now: now.addingTimeInterval(1), generation: 1).runningIDs == [task], "Real unscoped usage does not clear running task")
+        let usage = #"{"type":"event_msg","payload":{"type":"token_count"}}"# + "\n"
+        try f.append(Data(String(repeating: usage, count: 500).utf8), task: task)
+        check(engine.poll(now: now.addingTimeInterval(1), generation: 1).runningIDs == [task], "Usage burst leaves confirmed state intact")
+        diagnosticTime = 31
+        try f.append(Data(usage.utf8), task: task)
+        _ = engine.poll(now: now.addingTimeInterval(1), generation: 1)
+        let badStart = try f.size(task)
+        try f.append(Data(#"{"type":"event_msg","payload":{"type":"task_started"}}"#.utf8) + Data([10]), task: task)
+        let badEnd = try f.size(task)
+        check(engine.poll(now: now.addingTimeInterval(2), generation: 1).runningIDs.isEmpty, "Missing start identity still invalidates evidence")
+        let original = try Data(contentsOf: path)
+        let moved = path.appendingPathExtension("held")
+        try FileManager.default.moveItem(at: path, to: moved)
+        for _ in 0..<40 { _ = engine.poll(now: now.addingTimeInterval(3), generation: 1) }
+        diagnosticTime = 62
+        _ = engine.poll(now: now.addingTimeInterval(3), generation: 1)
+        try original.write(to: path)
+        _ = engine.poll(now: now.addingTimeInterval(4), generation: 1)
+        try FileManager.default.removeItem(at: path)
+        _ = engine.poll(now: now.addingTimeInterval(5), generation: 1)
+        try original.write(to: path)
+        _ = engine.poll(now: now.addingTimeInterval(6), generation: 1)
+        for _ in 0..<140 {
+            try f.append(Data(#"{"type":"response_item","payload":{"body":"private-regression-marker"}}"#.utf8) + Data([10]), task: task)
+            _ = engine.poll(now: now.addingTimeInterval(6), generation: 1)
+        }
+        var flushed = false; recorder.flush { flushed = true }; wait { flushed }
+        let lines = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "jsonl" }.flatMap { try Data(contentsOf: $0).split(separator: 10).map { Data($0) } }
+        let envelopes = try lines.map { try DiagnosticEventEnvelope.decoder().decode(DiagnosticEventEnvelope.self, from: $0) }
+            .sorted { $0.sequence < $1.sequence }
+        let reads = envelopes.compactMap { envelope -> (DiagnosticTaskTraceIdentity, DiagnosticTaskReadMetrics)? in
+            if case .taskTrace(.read(_, let id, let m)) = envelope.event { return (id, m) }; return nil
+        }
+        let malformed = reads.first { $0.1.decodeIssue == .invalidSemantic }
+        check(malformed?.1.recordStartOffset == badStart && malformed?.1.recordEndOffset == badEnd, "Exact malformed record boundaries survive persistence")
+        check(malformed?.1.lifecycleType == .task_started && malformed?.1.journalGeneration == 1, "Allowlisted event and journal generation survive persistence")
+        check(reads.contains { $0.1.reason == .ignoredUnscopedUsage && $0.1.lifecycleType == .token_count && $0.1.decodeIssue == nil }, "Ignored usage is distinct from parse failure")
+        check(reads.filter { $0.1.reason == .ignoredUnscopedUsage && $0.1.journalGeneration == 1 }.count == 2, "Ignored usage burst is sampled with a periodic refresh")
+        check(reads.contains { $0.1.reason == .ignoredUnscopedUsage && ($0.1.journalGeneration ?? 0) > 1 }, "New file generation gets its own usage sample")
+        check(reads.filter { $0.1.failureCategory == .unsafePath }.count == 3, "Repeated failures are bounded, periodically sampled, and recorded again after recovery")
+        check(reads.contains { $0.1.reason == .readRecovered }, "Successful recovery is recorded even with no new lifecycle event")
+        check(envelopes.contains {
+            if case .taskTrace(.lifecycle(_, let id, let t)) = $0.event {
+                return id.taskAlias == malformed?.0.taskAlias && t.before == .running && t.after == .unknown && t.reason == .malformedRecord
+            }; return false
+        }, "Malformed record links to actual running-to-unknown transition")
+        let data = envelopes.reduce(into: Data()) { value, envelope in
+            value.append(try! DiagnosticEventEnvelope.encoder().encode(envelope)); value.append(10)
+        }
+        let coverage = DiagnosticTaskTraceCoverage.collect(events: data, globalRecordingGap: false)
+        check(coverage.summary.contains("malformedRecord") && coverage.summary.contains("invalidSemantic") && coverage.summary.contains("unsafePath"), "Human-readable summary retains exact failure causes")
+        check(coverage.summaryOmittedReads > 0 && coverage.reads.count == 128, "Failure details survive more than 128 later ordinary reads within a bounded summary")
+        let text = String(decoding: data, as: UTF8.self)
+        check(!text.contains(f.home.path) && !text.contains(task.session) && !text.contains("turn-live") && !text.contains("private-regression-marker"), "New diagnostic details contain no raw identity, path or body")
+        let old = try JSONDecoder().decode(DiagnosticTaskReadMetrics.self, from: Data(#"{"stateCleared":false,"reason":"readFailure"}"#.utf8))
+        check(old.decodeIssue == nil && old.failureCategory == nil, "Existing v0.1.41 read records remain decodable")
     }
 }
