@@ -56,6 +56,53 @@ class CIBuildScopeTests(unittest.TestCase):
         self.assertIn("--no-renames", run.call_args.args[0])
         self.assertTrue(scope.needs_build(paths))
 
+    def test_real_main_history_direct_push_and_successive_merge_methods(self):
+        for method in ("merge", "squash", "rebase"):
+            with self.subTest(method=method), tempfile.TemporaryDirectory(prefix="hud-ci-main-history-") as temporary:
+                root = Path(temporary)
+                def git(*args):
+                    return subprocess.check_output(["git", "-c", "user.name=Fixture", "-c",
+                        "user.email=fixture@example.invalid", *args], cwd=root, stderr=subprocess.STDOUT).decode().strip()
+                def commit(path, text):
+                    target = root / path
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(text)
+                    git("add", path)
+                    git("commit", "--quiet", "-m", "fixture")
+                    return git("rev-parse", "HEAD")
+                def changes(before, after):
+                    original_run = subprocess.run
+                    with mock.patch.object(scope.subprocess, "run", side_effect=lambda *a, **k: original_run(*a, cwd=root, **k)):
+                        return scope.changed_paths(before, after)
+                git("init", "--quiet", "-b", "main")
+                base = commit("README.md", "fixture\n")
+                # One direct push can contain several commits; diff spans the
+                # whole pushed range, while source identity is its final SHA.
+                commit("Sources/A.swift", "let a = 1\n")
+                direct = commit("Sources/B.swift", "let b = 1\n")
+                self.assertEqual(set(changes(base, direct)), {"Sources/A.swift", "Sources/B.swift"})
+                self.assertEqual(profile_for("push", changes(base, direct)), "main-full")
+                for number in (1, 2):
+                    before = git("rev-parse", "main")
+                    git("switch", "--quiet", "-c", f"pr-{number}")
+                    commit("Sources/A.swift", f"let a = {number + 1}\n")
+                    if method == "rebase":
+                        git("rebase", "main")
+                    git("switch", "--quiet", "main")
+                    if method == "squash":
+                        git("merge", "--quiet", "--squash", f"pr-{number}")
+                        git("commit", "--quiet", "-m", "squash fixture")
+                    else:
+                        git("merge", "--quiet", "--ff-only" if method == "rebase" else "--no-ff",
+                            f"pr-{number}", "-m", "merge fixture")
+                    after = git("rev-parse", "main")
+                    self.assertNotEqual(before, after)
+                    self.assertEqual(profile_for("push", changes(before, after)), "main-full")
+                    git("merge-base", "--is-ancestor", before, "main")
+                before_docs = git("rev-parse", "HEAD")
+                docs = commit("Documentation/release.md", "fixture\n")
+                self.assertEqual(profile_for("push", changes(before_docs, docs)), "docs")
+
     def test_five_profiles_and_mixed_changes(self):
         cases = [
             ("pull_request", ["README.md"], "docs"),

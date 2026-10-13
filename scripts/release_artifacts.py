@@ -69,6 +69,18 @@ def validate_source(event, ref, requested_sha, workflow_sha, is_main_ancestor):
     return target
 
 
+def validate_release_source(event, ref, tag, commit, event_sha, deleted=False):
+    """Tag-triggered reruns keep their original commit; manual retries use main."""
+    sha(commit)
+    if event == "workflow_dispatch":
+        require(ref == "refs/heads/main", "Release retry workflow must run from main")
+        return commit
+    require(event == "push" and ref == f"refs/tags/{tag}", "Untrusted release event or ref")
+    require(not deleted, "Deleted tags cannot trigger publication")
+    require(commit == sha(event_sha), "Release tag moved since the triggering push; retry explicitly from main")
+    return commit
+
+
 def trusted_match(run, repository, workflow_id, source_sha):
     if (run.get("repository", {}).get("full_name", "").lower() != repository.lower()
             or run.get("head_repository", {}).get("full_name", "").lower() != repository.lower()
@@ -467,7 +479,9 @@ def publish_release(api, directory, tag, source_sha, version, build):
     require(not release_plan(latest, expected, tag), "Draft assets incomplete; leaving draft unpublished")
     require(latest.get("body") == notes, "Draft metadata changed during upload")
     verify_remote_tag(api, tag, source_sha)
-    return api.request("PATCH", f"{api.prefix}/releases/{release_id}", {"draft": False, "make_latest": "true"})
+    # Let GitHub rank stable semantic versions, including delayed retries of an
+    # older draft, instead of unconditionally promoting whichever upload finishes last.
+    return api.request("PATCH", f"{api.prefix}/releases/{release_id}", {"draft": False, "make_latest": "legacy"})
 
 
 def main():
@@ -503,9 +517,10 @@ def main():
         return
     if args.command == "resolve-tag":
         validate_tag(args.tag, args.tag.removeprefix("v"))
-        require(os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
-                or os.environ.get("GITHUB_REF") == "refs/heads/main", "Release retry workflow must run from main")
         commit = local_tag_commit(args.tag)
+        validate_release_source(os.environ.get("GITHUB_EVENT_NAME"), os.environ.get("GITHUB_REF"),
+                                args.tag, commit, os.environ.get("GITHUB_SHA"),
+                                deleted=os.environ.get("TAG_PUSH_DELETED") == "true")
         git("merge-base", "--is-ancestor", commit, "origin/main")
         info = plistlib.loads(git("show", f"{commit}:Resources/Info.plist").encode())
         version, build = info["CFBundleShortVersionString"], info["CFBundleVersion"]

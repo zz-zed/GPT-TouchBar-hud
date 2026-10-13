@@ -32,6 +32,7 @@ jobs:
       build: ${{ steps.tag.outputs.build }}
       tag: ${{ steps.tag.outputs.tag }}
       tools_sha: ${{ steps.tag.outputs.tools_sha }}
+      stage_artifact: ${{ steps.stage.outputs.name }}
     steps:
       - name: Check out trusted main verification code
         uses: actions/checkout@v7
@@ -44,6 +45,7 @@ jobs:
         id: tag
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          TAG_PUSH_DELETED: ${{ github.event.deleted }}
         run: python3 scripts/release_artifacts.py resolve-tag --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
 
       - name: Check out immutable tag source for version and notes only
@@ -63,10 +65,14 @@ jobs:
             --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA" \
             --source release-source --output release-stage
 
+      - name: Bind verified files to the verification attempt
+        id: stage
+        run: echo "name=verified-release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
       - name: Transfer verified files to the narrowly privileged publish job
         uses: actions/upload-artifact@v7
         with:
-          name: verified-release-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ steps.stage.outputs.name }}
           path: release-stage
           if-no-files-found: error
           retention-days: 1
@@ -85,10 +91,11 @@ jobs:
           ref: ${{ needs.verify.outputs.tools_sha }}
           persist-credentials: false
 
-      - name: Download this attempt's verified files
+      # A failed-publish-only rerun retains the successful verify job's outputs.
+      - name: Download the verification job's files
         uses: actions/download-artifact@v8
         with:
-          name: verified-release-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ needs.verify.outputs.stage_artifact }}
           path: release-stage
 
       - name: Reverify provenance and publish without clobbering public releases

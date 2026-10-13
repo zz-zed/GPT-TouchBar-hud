@@ -52,6 +52,8 @@ PR 只自动覆盖目标分支为 main 的情况。打开、更新源码、重�
 
 标签阶段不编译、不等待尚未完成的构建、不选择 PR 产物、不退回其他 SHA 或旧的成功运行。同时推送 main 与标签可能使发布先运行并拒绝；完整构建完成后，从 main 手动重试该标签即可。普通文档提交没有候选包，要发布该精确 SHA 时先执行完整恢复构建。main 后续继续前进，不影响仍是其祖先的目标提交发布。
 
+标签 push 及其重新运行必须保持该事件的原始提交 SHA。标签在排队期间被移动，旧运行会拒绝；删除标签的事件不能发布。手动重试必须选择 main，解析指定标签的当前提交，并继续要求它是 main 的祖先。不要移动已公开版本的标签。
+
 发布端独立查询 Actions API，要求以下七个任务唯一、完成并成功，且属于同一 run/attempt：
 
 - Validate source revision
@@ -75,6 +77,10 @@ GitHub Actions 使用自带 `GITHUB_TOKEN` 推送提交/标签不会触发后续
 
 发布网络或上传失败而候选仍有效时，只重试发布。构建失败、产物过期或丢失时，从 Build macOS DMG 的手动入口选择 main，提供原始完整 40 位 SHA，重建两个架构，再重试原标签。目标必须为 origin/main 的祖先；重新运行全部任务，不能混合不同 run/attempt 的任务和安装包。
 
+发布工作流的验证任务成功、publish 失败时，可以“只重新运行失败任务”：publish 下载验证任务实际输出的暂存包名称，即使当前 attempt 已递增。若验证暂存包超过一天已过期，重新运行发布工作流全部任务或从 main 手动重试；候选包仍有效时无需重建 macOS。候选构建工作流仍要求全部七个任务及两架构包属于同一 attempt，不能靠“只重跑失败构建任务”取得发布资格。
+
+上传收到服务器确认前后发生网络中断，重试都先核对草稿已有文件的摘要，只补齐缺失文件。最终发布请求成功但响应丢失时，再次运行会拒绝修改公开版本；先用公开验包工具判断是否已经完成。若草稿已部分上传，随后又重新构建了候选包，新包与草稿摘要不一致时继续拒绝，不能覆盖已有文件。公开版本的 Latest 标记采用 GitHub `make_latest: legacy`，由创建日期与更高语义版本判定，避免迟到重试强制置顶旧版本；历史版本验包使用 `--allow-not-latest`。
+
 分类异常可使用 `CI_FORCE_FULL_PR=true`；模块共享异常使用 `HUD_SHARED_UI_TESTS=0`。Gate 或发布检查异常时回退对应提交并保留未发布状态，不固定返回成功。
 
 第二阶段先统计 main 候选包的发布利用率，再评估按需候选构建。届时同步区分检查运行和候选运行，并调整选择器；不能只删除 main 打包步骤而保留现有“同 SHA 最新匹配运行”的规则。可复用工作流只在出现真实编排重复时再抽取。
@@ -82,3 +88,5 @@ GitHub Actions 使用自带 `GITHUB_TOKEN` 推送提交/标签不会触发后续
 第一轮证据见 [原验收记录](CI-RELEASE-OPTIMIZATION-2026-10-13.md)；本轮变更与验证边界见 [修订验收记录](CI-RELEASE-REVISION-2026-10-13.md)。
 
 参考：[CodexBar 原生汇总](https://github.com/steipete/CodexBar/blob/main/.github/workflows/ci.yml)、[GitHub 事件与分支过滤](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)、[GITHUB_TOKEN 触发规则](https://docs.github.com/en/actions/concepts/security/github_token)、[attempt 专属任务 API](https://docs.github.com/en/rest/actions/workflow-jobs#list-jobs-for-a-workflow-run-attempt)。
+
+重试规则参考：[GitHub 重新运行的原始 SHA/ref](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)、[发布 API 的 Latest 策略](https://docs.github.com/en/rest/releases/releases#update-a-release)。
