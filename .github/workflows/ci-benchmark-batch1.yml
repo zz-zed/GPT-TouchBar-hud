@@ -1,0 +1,64 @@
+name: Batch 1 paired CI benchmark
+
+on:
+  push:
+    branches: [codex/ci-benchmark-batch1]
+    paths: [.github/workflows/ci-benchmark-batch1.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  paired:
+    name: Paired benchmark (${{ matrix.arch }}, sample ${{ matrix.sample }})
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x86_64]
+        sample: [1, 2, 3]
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select matching production toolchain
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          test "$(uname -m)" = '${{ matrix.arch }}'
+          xcrun swiftc --version
+          xcrun --sdk macosx --show-sdk-version
+      - name: Compare fresh project builds and exact test coverage
+        env:
+          SAMPLE: ${{ matrix.sample }}
+        run: |
+          # Reverse the middle pair to reduce order bias. Only the harness is
+          # adjusted; both measured source snapshots stay pinned below.
+          if [[ "$SAMPLE" == 2 ]]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/benchmark-ci-efficiency.py')
+          text = path.read_text()
+          assert 'if sample % 2 else' in text
+          path.write_text(text.replace('if sample % 2 else', 'if not sample % 2 else'))
+          PY
+          fi
+          python3 scripts/benchmark-ci-efficiency.py \
+            --baseline 947641ce962b390155c65147340bde74de7a679a \
+            --candidate fe56fec67d5c55b131fb281516242745fb832daa \
+            --samples 1 --output benchmark
+      - name: Preserve every sample, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: paired-${{ matrix.arch }}-${{ matrix.sample }}
+          path: benchmark
+          if-no-files-found: error
+          retention-days: 30
