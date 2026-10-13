@@ -87,6 +87,7 @@ def run(args):
         process = subprocess.Popen(command, env=environment, start_new_session=True,
                                    stdout=subprocess.PIPE if capture else None,
                                    stderr=subprocess.PIPE if capture else None)
+        record["processID"] = process.pid
         if received_signal is not None:
             forward(received_signal, None)
         if capture:
