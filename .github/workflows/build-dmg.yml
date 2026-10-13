@@ -330,7 +330,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI_NEEDS_JSON: ${{ toJSON(needs) }}
           CI_PROFILE: ${{ needs.source.outputs.profile }}
+          CI_RUN_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
         run: |
           python3 scripts/ci_gate.py --repository "$GITHUB_REPOSITORY" \
             --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" \
-            --profile "$CI_PROFILE" --event "$GITHUB_EVENT_NAME" --head-sha "$GITHUB_SHA"
+            --profile "$CI_PROFILE" --event "$GITHUB_EVENT_NAME" \
+            --head-sha "$CI_RUN_HEAD_SHA" --source-sha "$CI_SOURCE_SHA"

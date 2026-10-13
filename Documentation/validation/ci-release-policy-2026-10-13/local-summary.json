@@ -1,7 +1,7 @@
 {
   "offline": {
     "result": "passed",
-    "test_methods": 97,
+    "test_methods": 98,
     "log": "offline.log"
   },
   "installer_original": {
@@ -21,7 +21,7 @@
     "log": "recovery.log"
   },
   "app_build_and_first_open": {
-    "result": "running",
+    "result": "passed",
     "log": "app-build-first-open.log"
   },
   "actionlint": {

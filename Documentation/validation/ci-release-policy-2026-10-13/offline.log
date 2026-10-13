@@ -1,31 +1,31 @@
 ........
 ----------------------------------------------------------------------
-Ran 8 tests in 4.258s
+Ran 8 tests in 2.727s
 
 OK
 ..
 ----------------------------------------------------------------------
-Ran 2 tests in 0.008s
+Ran 2 tests in 0.010s
 
 OK
 ...
 ----------------------------------------------------------------------
-Ran 3 tests in 0.002s
+Ran 3 tests in 0.004s
 
 OK
 ..........
 ----------------------------------------------------------------------
-Ran 10 tests in 0.007s
+Ran 10 tests in 0.017s
 
 OK
-......
+.......
 ----------------------------------------------------------------------
-Ran 6 tests in 0.001s
+Ran 7 tests in 0.003s
 
 OK
 ....
 ----------------------------------------------------------------------
-Ran 4 tests in 0.011s
+Ran 4 tests in 1.462s
 
 OK
 test_unpack_accepts_exactly_three_root_regular_files (__main__.ArchiveSafetyTests.test_unpack_accepts_exactly_three_root_regular_files) ... ok
@@ -94,6 +94,6 @@ test_redirect_handler_never_forwards_authenticated_request (__main__.TransportBo
 test_release_listing_paginates_raw_json_arrays (__main__.TransportBoundaryTests.test_release_listing_paginates_raw_json_arrays) ... ok
 
 ----------------------------------------------------------------------
-Ran 64 tests in 0.311s
+Ran 64 tests in 3.387s
 
 OK

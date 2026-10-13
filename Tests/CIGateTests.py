@@ -22,6 +22,7 @@ def fixtures(profile, event):
              "status": "completed", "conclusion": "success"} for name in required_jobs(profile)]
     needs = {key: {"result": "skipped" if profile == "docs" and key != "source" else "success"}
              for key in ("source", "regression", "build")}
+    needs["source"]["outputs"] = {"sha": SHA}
     return run, jobs, needs
 
 
@@ -97,6 +98,14 @@ class CIGateTests(unittest.TestCase):
     def test_unavailable_job_collection_fails(self):
         with self.assertRaises(PolicyError):
             self.validate(mutate=lambda run, jobs, needs: jobs.append(None))
+
+    def test_pr_head_identity_and_merge_preview_source_are_bound_separately(self):
+        run, jobs, needs = fixtures("pr-full", "pull_request")
+        merge_sha = "b" * 40
+        needs["source"]["outputs"]["sha"] = merge_sha
+        validate_gate(run, jobs, "pr-full", 200, 2, "pull_request", SHA, needs, REPO, merge_sha)
+        with self.assertRaises(PolicyError):
+            validate_gate(run, jobs, "pr-full", 200, 2, "pull_request", SHA, needs, REPO, SHA)
 
 
 if __name__ == "__main__":
