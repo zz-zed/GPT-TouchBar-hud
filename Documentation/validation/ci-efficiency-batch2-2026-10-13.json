@@ -1,0 +1,1133 @@
+{
+  "schemaVersion": 1,
+  "candidate": "d3ebf51cb4bbf710f9a126527e613504bb2c20d3",
+  "assertionReference": "fe56fec67d5c55b131fb281516242745fb832daa",
+  "fullCIRun": 38344302064,
+  "pairedRun": 38344379701,
+  "normalCIMergeSource": "be327fd182185dbe7a2e94e74094090578ab227b",
+  "normalCITreeMatchesCandidate": true,
+  "architectures": {
+    "arm64": {
+      "samples": [
+        {
+          "sample": 1,
+          "compiler": "Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: arm64-apple-macosx15.0",
+          "fixtureBodySHA256": {
+            "Tests/IdlePerformanceTests.swift": "30a9fa993ee8aebebbd7d4e2b1b53ac883829c8baf24333c36afbc77fa7a9b6f",
+            "Tests/DesignLayoutTests.swift": "c888964a85985b408c0f0b6cf9a44abe0fcd41a08f87481a113ea03f17ee21a6"
+          },
+          "modeOrder": [
+            "legacy",
+            "shared"
+          ],
+          "fixtureOrder": [
+            "test-idle-performance",
+            "test-design-layout"
+          ],
+          "rows": [
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-idle-performance",
+              "seconds": 152.309,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "legacy-1-test-idle-performance.log"
+            },
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-design-layout",
+              "seconds": 69.583,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "legacy-1-test-design-layout.log"
+            },
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-idle-performance",
+              "seconds": 134.9,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "shared-1-test-idle-performance.log"
+            },
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-design-layout",
+              "seconds": 7.709,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "shared-1-test-design-layout.log"
+            }
+          ],
+          "modes": {
+            "legacy": {
+              "pairWallSeconds": 221.892,
+              "coreDependencyBuildSeconds": 72.541866,
+              "sharedModuleBuildSeconds": 0,
+              "fixtureCompileLinkSeconds": 139.534956,
+              "executionSeconds": 6.496796,
+              "otherOverheadSeconds": 3.318382,
+              "moduleBuildCount": 0,
+              "moduleReuseCount": 0,
+              "compiledAppSourceFileInstances": 156,
+              "executions": [
+                {
+                  "label": "idle-performance",
+                  "processID": 7836,
+                  "seconds": 2.042563,
+                  "exitCode": 0
+                },
+                {
+                  "label": "design-layout",
+                  "processID": 9258,
+                  "seconds": 4.454233,
+                  "exitCode": 0
+                }
+              ]
+            },
+            "shared": {
+              "pairWallSeconds": 142.609,
+              "coreDependencyBuildSeconds": 61.444908,
+              "sharedModuleBuildSeconds": 67.501981,
+              "fixtureCompileLinkSeconds": 4.407804,
+              "executionSeconds": 5.492367,
+              "otherOverheadSeconds": 3.76194,
+              "moduleBuildCount": 1,
+              "moduleReuseCount": 1,
+              "compiledAppSourceFileInstances": 78,
+              "executions": [
+                {
+                  "label": "idle-performance",
+                  "processID": 12243,
+                  "seconds": 1.968414,
+                  "exitCode": 0
+                },
+                {
+                  "label": "design-layout",
+                  "processID": 12363,
+                  "seconds": 3.523953,
+                  "exitCode": 0
+                }
+              ]
+            }
+          },
+          "savedPercent": 35.73
+        },
+        {
+          "sample": 2,
+          "compiler": "Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: arm64-apple-macosx15.0",
+          "fixtureBodySHA256": {
+            "Tests/IdlePerformanceTests.swift": "30a9fa993ee8aebebbd7d4e2b1b53ac883829c8baf24333c36afbc77fa7a9b6f",
+            "Tests/DesignLayoutTests.swift": "c888964a85985b408c0f0b6cf9a44abe0fcd41a08f87481a113ea03f17ee21a6"
+          },
+          "modeOrder": [
+            "shared",
+            "legacy"
+          ],
+          "fixtureOrder": [
+            "test-design-layout",
+            "test-idle-performance"
+          ],
+          "rows": [
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-design-layout",
+              "seconds": 94.382,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "shared-1-test-design-layout.log"
+            },
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-idle-performance",
+              "seconds": 3.472,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "shared-1-test-idle-performance.log"
+            },
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-design-layout",
+              "seconds": 84.379,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "legacy-1-test-design-layout.log"
+            },
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-idle-performance",
+              "seconds": 46.149,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "legacy-1-test-idle-performance.log"
+            }
+          ],
+          "modes": {
+            "legacy": {
+              "pairWallSeconds": 130.52800000000002,
+              "coreDependencyBuildSeconds": 37.09164,
+              "sharedModuleBuildSeconds": 0,
+              "fixtureCompileLinkSeconds": 87.485128,
+              "executionSeconds": 4.440908,
+              "otherOverheadSeconds": 1.510324,
+              "moduleBuildCount": 0,
+              "moduleReuseCount": 0,
+              "compiledAppSourceFileInstances": 156,
+              "executions": [
+                {
+                  "label": "idle-performance",
+                  "processID": 5491,
+                  "seconds": 1.613395,
+                  "exitCode": 0
+                },
+                {
+                  "label": "design-layout",
+                  "processID": 4321,
+                  "seconds": 2.827513,
+                  "exitCode": 0
+                }
+              ]
+            },
+            "shared": {
+              "pairWallSeconds": 97.854,
+              "coreDependencyBuildSeconds": 43.555930000000004,
+              "sharedModuleBuildSeconds": 44.466956,
+              "fixtureCompileLinkSeconds": 2.918648,
+              "executionSeconds": 4.6532350000000005,
+              "otherOverheadSeconds": 2.259231,
+              "moduleBuildCount": 1,
+              "moduleReuseCount": 1,
+              "compiledAppSourceFileInstances": 78,
+              "executions": [
+                {
+                  "label": "idle-performance",
+                  "processID": 2943,
+                  "seconds": 1.387622,
+                  "exitCode": 0
+                },
+                {
+                  "label": "design-layout",
+                  "processID": 2849,
+                  "seconds": 3.265613,
+                  "exitCode": 0
+                }
+              ]
+            }
+          },
+          "savedPercent": 25.03
+        },
+        {
+          "sample": 3,
+          "compiler": "Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: arm64-apple-macosx15.0",
+          "fixtureBodySHA256": {
+            "Tests/IdlePerformanceTests.swift": "30a9fa993ee8aebebbd7d4e2b1b53ac883829c8baf24333c36afbc77fa7a9b6f",
+            "Tests/DesignLayoutTests.swift": "c888964a85985b408c0f0b6cf9a44abe0fcd41a08f87481a113ea03f17ee21a6"
+          },
+          "modeOrder": [
+            "legacy",
+            "shared"
+          ],
+          "fixtureOrder": [
+            "test-idle-performance",
+            "test-design-layout"
+          ],
+          "rows": [
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-idle-performance",
+              "seconds": 126.394,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "legacy-1-test-idle-performance.log"
+            },
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-design-layout",
+              "seconds": 55.558,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "legacy-1-test-design-layout.log"
+            },
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-idle-performance",
+              "seconds": 123.178,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "shared-1-test-idle-performance.log"
+            },
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-design-layout",
+              "seconds": 6.066,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "shared-1-test-design-layout.log"
+            }
+          ],
+          "modes": {
+            "legacy": {
+              "pairWallSeconds": 181.952,
+              "coreDependencyBuildSeconds": 58.282478999999995,
+              "sharedModuleBuildSeconds": 0,
+              "fixtureCompileLinkSeconds": 115.610636,
+              "executionSeconds": 5.276967,
+              "otherOverheadSeconds": 2.781918,
+              "moduleBuildCount": 0,
+              "moduleReuseCount": 0,
+              "compiledAppSourceFileInstances": 156,
+              "executions": [
+                {
+                  "label": "design-layout",
+                  "processID": 3512,
+                  "seconds": 3.576012,
+                  "exitCode": 0
+                },
+                {
+                  "label": "idle-performance",
+                  "processID": 2754,
+                  "seconds": 1.700955,
+                  "exitCode": 0
+                }
+              ]
+            },
+            "shared": {
+              "pairWallSeconds": 129.244,
+              "coreDependencyBuildSeconds": 61.261685,
+              "sharedModuleBuildSeconds": 57.0188,
+              "fixtureCompileLinkSeconds": 3.293648,
+              "executionSeconds": 4.923019,
+              "otherOverheadSeconds": 2.746848,
+              "moduleBuildCount": 1,
+              "moduleReuseCount": 1,
+              "compiledAppSourceFileInstances": 78,
+              "executions": [
+                {
+                  "label": "idle-performance",
+                  "processID": 5884,
+                  "seconds": 1.477749,
+                  "exitCode": 0
+                },
+                {
+                  "label": "design-layout",
+                  "processID": 5988,
+                  "seconds": 3.44527,
+                  "exitCode": 0
+                }
+              ]
+            }
+          },
+          "savedPercent": 28.97
+        }
+      ],
+      "medians": {
+        "legacy": 181.952,
+        "shared": 129.244
+      },
+      "savedPercent": 28.97,
+      "medianPairedSavedPercent": 28.97
+    },
+    "x86_64": {
+      "samples": [
+        {
+          "sample": 1,
+          "compiler": "Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: x86_64-apple-macosx15.0",
+          "fixtureBodySHA256": {
+            "Tests/IdlePerformanceTests.swift": "30a9fa993ee8aebebbd7d4e2b1b53ac883829c8baf24333c36afbc77fa7a9b6f",
+            "Tests/DesignLayoutTests.swift": "c888964a85985b408c0f0b6cf9a44abe0fcd41a08f87481a113ea03f17ee21a6"
+          },
+          "modeOrder": [
+            "legacy",
+            "shared"
+          ],
+          "fixtureOrder": [
+            "test-idle-performance",
+            "test-design-layout"
+          ],
+          "rows": [
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-idle-performance",
+              "seconds": 225.029,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "legacy-1-test-idle-performance.log"
+            },
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-design-layout",
+              "seconds": 108.242,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "legacy-1-test-design-layout.log"
+            },
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-idle-performance",
+              "seconds": 214.799,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "shared-1-test-idle-performance.log"
+            },
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-design-layout",
+              "seconds": 11.184,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "shared-1-test-design-layout.log"
+            }
+          ],
+          "modes": {
+            "legacy": {
+              "pairWallSeconds": 333.271,
+              "coreDependencyBuildSeconds": 93.174488,
+              "sharedModuleBuildSeconds": 0,
+              "fixtureCompileLinkSeconds": 229.471006,
+              "executionSeconds": 7.422135,
+              "otherOverheadSeconds": 3.203371,
+              "moduleBuildCount": 0,
+              "moduleReuseCount": 0,
+              "compiledAppSourceFileInstances": 156,
+              "executions": [
+                {
+                  "label": "idle-performance",
+                  "processID": 4640,
+                  "seconds": 1.999518,
+                  "exitCode": 0
+                },
+                {
+                  "label": "design-layout",
+                  "processID": 6435,
+                  "seconds": 5.422617,
+                  "exitCode": 0
+                }
+              ]
+            },
+            "shared": {
+              "pairWallSeconds": 225.983,
+              "coreDependencyBuildSeconds": 97.24856299999999,
+              "sharedModuleBuildSeconds": 110.224092,
+              "fixtureCompileLinkSeconds": 7.550517,
+              "executionSeconds": 6.1022099999999995,
+              "otherOverheadSeconds": 4.857618,
+              "moduleBuildCount": 1,
+              "moduleReuseCount": 1,
+              "compiledAppSourceFileInstances": 78,
+              "executions": [
+                {
+                  "label": "design-layout",
+                  "processID": 11094,
+                  "seconds": 3.949593,
+                  "exitCode": 0
+                },
+                {
+                  "label": "idle-performance",
+                  "processID": 10789,
+                  "seconds": 2.152617,
+                  "exitCode": 0
+                }
+              ]
+            }
+          },
+          "savedPercent": 32.19
+        },
+        {
+          "sample": 2,
+          "compiler": "Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: x86_64-apple-macosx15.0",
+          "fixtureBodySHA256": {
+            "Tests/IdlePerformanceTests.swift": "30a9fa993ee8aebebbd7d4e2b1b53ac883829c8baf24333c36afbc77fa7a9b6f",
+            "Tests/DesignLayoutTests.swift": "c888964a85985b408c0f0b6cf9a44abe0fcd41a08f87481a113ea03f17ee21a6"
+          },
+          "modeOrder": [
+            "shared",
+            "legacy"
+          ],
+          "fixtureOrder": [
+            "test-design-layout",
+            "test-idle-performance"
+          ],
+          "rows": [
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-design-layout",
+              "seconds": 343.947,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "shared-1-test-design-layout.log"
+            },
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-idle-performance",
+              "seconds": 8.502,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "shared-1-test-idle-performance.log"
+            },
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-design-layout",
+              "seconds": 214.648,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "legacy-1-test-design-layout.log"
+            },
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-idle-performance",
+              "seconds": 85.648,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "legacy-1-test-idle-performance.log"
+            }
+          ],
+          "modes": {
+            "legacy": {
+              "pairWallSeconds": 300.296,
+              "coreDependencyBuildSeconds": 115.71036000000001,
+              "sharedModuleBuildSeconds": 0,
+              "fixtureCompileLinkSeconds": 176.293344,
+              "executionSeconds": 5.4366449999999995,
+              "otherOverheadSeconds": 2.855651,
+              "moduleBuildCount": 0,
+              "moduleReuseCount": 0,
+              "compiledAppSourceFileInstances": 156,
+              "executions": [
+                {
+                  "label": "design-layout",
+                  "processID": 12722,
+                  "seconds": 3.606365,
+                  "exitCode": 0
+                },
+                {
+                  "label": "idle-performance",
+                  "processID": 15006,
+                  "seconds": 1.83028,
+                  "exitCode": 0
+                }
+              ]
+            },
+            "shared": {
+              "pairWallSeconds": 352.449,
+              "coreDependencyBuildSeconds": 187.638915,
+              "sharedModuleBuildSeconds": 142.459192,
+              "fixtureCompileLinkSeconds": 7.588399,
+              "executionSeconds": 7.067604,
+              "otherOverheadSeconds": 7.69489,
+              "moduleBuildCount": 1,
+              "moduleReuseCount": 1,
+              "compiledAppSourceFileInstances": 78,
+              "executions": [
+                {
+                  "label": "design-layout",
+                  "processID": 7473,
+                  "seconds": 4.668712,
+                  "exitCode": 0
+                },
+                {
+                  "label": "idle-performance",
+                  "processID": 7720,
+                  "seconds": 2.398892,
+                  "exitCode": 0
+                }
+              ]
+            }
+          },
+          "savedPercent": -17.37
+        },
+        {
+          "sample": 3,
+          "compiler": "Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: x86_64-apple-macosx15.0",
+          "fixtureBodySHA256": {
+            "Tests/IdlePerformanceTests.swift": "30a9fa993ee8aebebbd7d4e2b1b53ac883829c8baf24333c36afbc77fa7a9b6f",
+            "Tests/DesignLayoutTests.swift": "c888964a85985b408c0f0b6cf9a44abe0fcd41a08f87481a113ea03f17ee21a6"
+          },
+          "modeOrder": [
+            "legacy",
+            "shared"
+          ],
+          "fixtureOrder": [
+            "test-idle-performance",
+            "test-design-layout"
+          ],
+          "rows": [
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-idle-performance",
+              "seconds": 246.101,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "legacy-1-test-idle-performance.log"
+            },
+            {
+              "sample": 1,
+              "mode": "legacy",
+              "script": "test-design-layout",
+              "seconds": 108.908,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "legacy-1-test-design-layout.log"
+            },
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-idle-performance",
+              "seconds": 186.491,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 57 idle performance and connection checks"
+              ],
+              "log": "shared-1-test-idle-performance.log"
+            },
+            {
+              "sample": 1,
+              "mode": "shared",
+              "script": "test-design-layout",
+              "seconds": 8.133,
+              "exitCode": 0,
+              "checks": [
+                "PASS: 281 design integration checks"
+              ],
+              "log": "shared-1-test-design-layout.log"
+            }
+          ],
+          "modes": {
+            "legacy": {
+              "pairWallSeconds": 355.009,
+              "coreDependencyBuildSeconds": 113.67360500000001,
+              "sharedModuleBuildSeconds": 0,
+              "fixtureCompileLinkSeconds": 231.39084300000002,
+              "executionSeconds": 6.419357,
+              "otherOverheadSeconds": 3.525195,
+              "moduleBuildCount": 0,
+              "moduleReuseCount": 0,
+              "compiledAppSourceFileInstances": 156,
+              "executions": [
+                {
+                  "label": "design-layout",
+                  "processID": 8070,
+                  "seconds": 3.736381,
+                  "exitCode": 0
+                },
+                {
+                  "label": "idle-performance",
+                  "processID": 5633,
+                  "seconds": 2.682976,
+                  "exitCode": 0
+                }
+              ]
+            },
+            "shared": {
+              "pairWallSeconds": 194.62400000000002,
+              "coreDependencyBuildSeconds": 84.784007,
+              "sharedModuleBuildSeconds": 94.944863,
+              "fixtureCompileLinkSeconds": 5.025512,
+              "executionSeconds": 6.061310000000001,
+              "otherOverheadSeconds": 3.808308,
+              "moduleBuildCount": 1,
+              "moduleReuseCount": 1,
+              "compiledAppSourceFileInstances": 78,
+              "executions": [
+                {
+                  "label": "idle-performance",
+                  "processID": 11909,
+                  "seconds": 2.38423,
+                  "exitCode": 0
+                },
+                {
+                  "label": "design-layout",
+                  "processID": 12027,
+                  "seconds": 3.67708,
+                  "exitCode": 0
+                }
+              ]
+            }
+          },
+          "savedPercent": 45.18
+        }
+      ],
+      "medians": {
+        "legacy": 333.271,
+        "shared": 225.983
+      },
+      "savedPercent": 32.19,
+      "medianPairedSavedPercent": 32.19
+    }
+  },
+  "applicationSourceFiles": [
+    "Sources/AccountTokenUsage.swift",
+    "Sources/AppDelegate.swift",
+    "Sources/AppIdentity.swift",
+    "Sources/AppUpdateDownload.swift",
+    "Sources/AppUpdateInstallation.swift",
+    "Sources/AppUpdateMenuPresentation.swift",
+    "Sources/AppUpdateModels.swift",
+    "Sources/AppUpdateNotificationController.swift",
+    "Sources/AppUpdateProgressChannel.swift",
+    "Sources/AppUpdateProgressHelper.swift",
+    "Sources/AppUpdateProgressWindowController.swift",
+    "Sources/AppUpdateReleaseNotes.swift",
+    "Sources/AppUpdateScheduler.swift",
+    "Sources/AppUpdater.swift",
+    "Sources/CodexAppServerClient.swift",
+    "Sources/CompactHUDPanel.swift",
+    "Sources/CompactHUDViewController.swift",
+    "Sources/ConnectionDiagnostics.swift",
+    "Sources/ConnectionDiagnosticsWindowController.swift",
+    "Sources/DesignTokens.swift",
+    "Sources/DiagnosticEnvironment.swift",
+    "Sources/DiagnosticEvent.swift",
+    "Sources/DiagnosticExport.swift",
+    "Sources/DiagnosticHookTaskTrace.swift",
+    "Sources/DiagnosticInstallerBridge.swift",
+    "Sources/DiagnosticProcessStore.swift",
+    "Sources/DiagnosticRecorder.swift",
+    "Sources/DiagnosticStore.swift",
+    "Sources/DiagnosticTaskEngineTrace.swift",
+    "Sources/DiagnosticTaskPresentation.swift",
+    "Sources/DiagnosticTaskTrace.swift",
+    "Sources/DiagnosticTaskTraceCoverage.swift",
+    "Sources/DiagnosticUpgradeRecovery.swift",
+    "Sources/GitHubReleaseFetcher.swift",
+    "Sources/HUDAppearance.swift",
+    "Sources/HUDPresentation.swift",
+    "Sources/HookExperimentPreferencesController.swift",
+    "Sources/HostAutoLaunchPreferences.swift",
+    "Sources/HostAutoLauncher.swift",
+    "Sources/HostLifecycleMonitor.swift",
+    "Sources/LimitModels.swift",
+    "Sources/LocalTokenUsageReader.swift",
+    "Sources/NotchContentAdapter.swift",
+    "Sources/NotchDetailPages.swift",
+    "Sources/NotchHUDController.swift",
+    "Sources/NotchHostingView.swift",
+    "Sources/NotchInteractionController.swift",
+    "Sources/NotchLayout.swift",
+    "Sources/NotchLegacyHUDController.swift",
+    "Sources/NotchMotion.swift",
+    "Sources/NotchPresentationModel.swift",
+    "Sources/NotchRootView.swift",
+    "Sources/NotchStyleTokens.swift",
+    "Sources/NotchSurfaceShape.swift",
+    "Sources/PersistentTouchBarController.swift",
+    "Sources/PreferencesWindowController.swift",
+    "Sources/QuotaAlerts.swift",
+    "Sources/RateLimitStore.swift",
+    "Sources/ResetForecastIndicator.swift",
+    "Sources/ResetNewsFeedClient.swift",
+    "Sources/ResetNewsListView.swift",
+    "Sources/ResetNewsMonitor.swift",
+    "Sources/ResetNewsNotificationController.swift",
+    "Sources/ResetNewsPopoverController.swift",
+    "Sources/ResetNewsRepository.swift",
+    "Sources/ResetNewsViewState.swift",
+    "Sources/SegmentedBatteryBar.swift",
+    "Sources/SingleInstanceLock.swift",
+    "Sources/StatusSummaryView.swift",
+    "Sources/SystemTouchBarPresenter.swift",
+    "Sources/TaskCompletionFeedbackController.swift",
+    "Sources/TaskMonitoringCoordinator.swift",
+    "Sources/TaskStatusAppearance.swift",
+    "Sources/TaskStatusMonitor.swift",
+    "Sources/TokenUsageScanner.swift",
+    "Sources/TouchBarHardware.swift",
+    "Sources/TouchBarRateLimitsView.swift",
+    "Sources/VerifiedQuotaReader.swift"
+  ],
+  "applicationSourceFilesSHA256": "50d58bf82295b4d95ad30e30b344c869efb9c07b2aa57610adb2e5bb5b080af4",
+  "localPair": {
+    "candidate": "d3ebf51cb4bbf710f9a126527e613504bb2c20d3",
+    "assertionReference": "fe56fec67d5c55b131fb281516242745fb832daa",
+    "fixtureBodySHA256": {
+      "Tests/IdlePerformanceTests.swift": "30a9fa993ee8aebebbd7d4e2b1b53ac883829c8baf24333c36afbc77fa7a9b6f",
+      "Tests/DesignLayoutTests.swift": "c888964a85985b408c0f0b6cf9a44abe0fcd41a08f87481a113ea03f17ee21a6"
+    },
+    "samples": 1,
+    "projectCaches": "fresh per mode",
+    "systemCaches": "not cleared",
+    "compiler": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+    "rows": [
+      {
+        "sample": 1,
+        "mode": "legacy",
+        "script": "test-idle-performance",
+        "seconds": 127.54,
+        "exitCode": 0,
+        "checks": [
+          "PASS: 57 idle performance and connection checks"
+        ],
+        "log": "legacy-1-test-idle-performance.log"
+      },
+      {
+        "sample": 1,
+        "mode": "legacy",
+        "script": "test-design-layout",
+        "seconds": 33.885,
+        "exitCode": 0,
+        "checks": [
+          "PASS: 281 design integration checks"
+        ],
+        "log": "legacy-1-test-design-layout.log"
+      },
+      {
+        "sample": 1,
+        "mode": "shared",
+        "script": "test-idle-performance",
+        "seconds": 130.265,
+        "exitCode": 0,
+        "checks": [
+          "PASS: 57 idle performance and connection checks"
+        ],
+        "log": "shared-1-test-idle-performance.log"
+      },
+      {
+        "sample": 1,
+        "mode": "shared",
+        "script": "test-design-layout",
+        "seconds": 6.138,
+        "exitCode": 0,
+        "checks": [
+          "PASS: 281 design integration checks"
+        ],
+        "log": "shared-1-test-design-layout.log"
+      }
+    ],
+    "coverageEquivalent": true,
+    "independentProcesses": true,
+    "sharedBuildOncePerPair": true,
+    "summary": {
+      "pairSeconds": {
+        "legacy": [
+          161.425
+        ],
+        "shared": [
+          136.403
+        ]
+      },
+      "medians": {
+        "legacy": 161.425,
+        "shared": 136.403
+      },
+      "savedPercent": 15.5
+    }
+  },
+  "buildFailureCheck": {
+    "exitCode": 1,
+    "completionMarkerPublished": false,
+    "newBuildDirectories": 1
+  },
+  "method": {
+    "projectCaches": "fresh per mode",
+    "systemCaches": "not purged",
+    "modes": "identical candidate source; legacy uses HUD_SHARED_UI_TESTS=0, shared uses 1",
+    "pairCost": "core dependencies + initial shared build + both fixture compile/link/executions",
+    "isolation": "two distinct executable processes; UI execution stays serial",
+    "baselineProductionAndTestBodyChecks": "candidate production matches fe56fec; fixture bodies match after removing only conditional import"
+  },
+  "fullCI": {
+    "batch1": {
+      "jobs": [
+        {
+          "name": "Validate source revision",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:08:18Z",
+          "completedAt": "2026-10-13T03:08:25Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38340260411/job/115109424189",
+          "seconds": 7.0
+        },
+        {
+          "name": "Build DMG (arm64)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:15:58Z",
+          "completedAt": "2026-10-13T03:18:47Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38340260411/job/115109467423",
+          "seconds": 169.0
+        },
+        {
+          "name": "Build DMG (x86_64)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:08:29Z",
+          "completedAt": "2026-10-13T03:16:27Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38340260411/job/115109467438",
+          "seconds": 478.0
+        },
+        {
+          "name": "Regression (x86_64, data)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:08:31Z",
+          "completedAt": "2026-10-13T03:21:07Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38340260411/job/115109467457",
+          "seconds": 756.0
+        },
+        {
+          "name": "Regression (arm64, data)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:08:32Z",
+          "completedAt": "2026-10-13T03:16:22Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38340260411/job/115109467459",
+          "seconds": 470.0
+        },
+        {
+          "name": "Regression (x86_64, interface)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:08:29Z",
+          "completedAt": "2026-10-13T03:20:33Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38340260411/job/115109467460",
+          "seconds": 724.0
+        },
+        {
+          "name": "Regression (arm64, interface)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:08:35Z",
+          "completedAt": "2026-10-13T03:15:53Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38340260411/job/115109467465",
+          "seconds": 438.0
+        }
+      ],
+      "wallSeconds": 773.0,
+      "runnerSeconds": 3042.0
+    },
+    "batch2": {
+      "jobs": [
+        {
+          "name": "Validate source revision",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:59:41Z",
+          "completedAt": "2026-10-13T03:59:47Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38344302064/job/115122033935",
+          "seconds": 6.0
+        },
+        {
+          "name": "Regression (arm64, data)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:59:53Z",
+          "completedAt": "2026-10-13T04:08:03Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38344302064/job/115122065695",
+          "seconds": 490.0
+        },
+        {
+          "name": "Build DMG (x86_64)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:59:54Z",
+          "completedAt": "2026-10-13T04:05:27Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38344302064/job/115122065707",
+          "seconds": 333.0
+        },
+        {
+          "name": "Build DMG (arm64)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:59:52Z",
+          "completedAt": "2026-10-13T04:02:17Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38344302064/job/115122065712",
+          "seconds": 145.0
+        },
+        {
+          "name": "Regression (x86_64, interface)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T03:59:50Z",
+          "completedAt": "2026-10-13T04:09:54Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38344302064/job/115122065732",
+          "seconds": 604.0
+        },
+        {
+          "name": "Regression (x86_64, data)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T04:00:39Z",
+          "completedAt": "2026-10-13T04:15:12Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38344302064/job/115122065769",
+          "seconds": 873.0
+        },
+        {
+          "name": "Regression (arm64, interface)",
+          "conclusion": "success",
+          "startedAt": "2026-10-13T04:02:22Z",
+          "completedAt": "2026-10-13T04:07:05Z",
+          "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38344302064/job/115122065775",
+          "seconds": 283.0
+        }
+      ],
+      "wallSeconds": 934.0,
+      "runnerSeconds": 2734.0
+    }
+  },
+  "interfaceTimings": {
+    "arm64": {
+      "environment": {
+        "schemaVersion": 1,
+        "architecture": "arm64",
+        "sourceCommit": "be327fd182185dbe7a2e94e74094090578ab227b",
+        "trackedChanges": false,
+        "compiler": "Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: arm64-apple-macosx15.0",
+        "sdk": "/Applications/Xcode_26.3.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "sdkVersion": "26.2"
+      },
+      "rows": [
+        {
+          "phase": "suite",
+          "label": "test-idle-performance",
+          "seconds": 46.835156,
+          "exitCode": 0,
+          "processID": 4639
+        },
+        {
+          "phase": "dependency-build",
+          "label": "ui-test-shared-build.sh:swiftc",
+          "seconds": 43.477411,
+          "exitCode": 0,
+          "processID": 4712,
+          "sourceCount": 78,
+          "module": "HUDTestSupport"
+        },
+        {
+          "phase": "suite",
+          "label": "test-design-layout",
+          "seconds": 4.708115,
+          "exitCode": 0,
+          "processID": 9547
+        },
+        {
+          "phase": "execute",
+          "label": "design-layout",
+          "seconds": 2.789345,
+          "exitCode": 0,
+          "processID": 9804
+        },
+        {
+          "phase": "execute",
+          "label": "idle-performance",
+          "seconds": 1.484267,
+          "exitCode": 0,
+          "processID": 5599
+        },
+        {
+          "phase": "dependency-reuse",
+          "label": "HUDTestSupport",
+          "seconds": 0.002913,
+          "exitCode": 0,
+          "processID": 9615
+        }
+      ]
+    },
+    "x86_64": {
+      "environment": {
+        "schemaVersion": 1,
+        "architecture": "x86_64",
+        "sourceCommit": "be327fd182185dbe7a2e94e74094090578ab227b",
+        "trackedChanges": false,
+        "compiler": "Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: x86_64-apple-macosx15.0",
+        "sdk": "/Applications/Xcode_26.3.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "sdkVersion": "26.2"
+      },
+      "rows": [
+        {
+          "phase": "suite",
+          "label": "test-idle-performance",
+          "seconds": 88.675124,
+          "exitCode": 0,
+          "processID": 4535
+        },
+        {
+          "phase": "dependency-build",
+          "label": "ui-test-shared-build.sh:swiftc",
+          "seconds": 82.772826,
+          "exitCode": 0,
+          "processID": 4609,
+          "sourceCount": 78,
+          "module": "HUDTestSupport"
+        },
+        {
+          "phase": "suite",
+          "label": "test-design-layout",
+          "seconds": 10.505927,
+          "exitCode": 0,
+          "processID": 13654
+        },
+        {
+          "phase": "execute",
+          "label": "design-layout",
+          "seconds": 3.638145,
+          "exitCode": 0,
+          "processID": 13939
+        },
+        {
+          "phase": "execute",
+          "label": "idle-performance",
+          "seconds": 2.048601,
+          "exitCode": 0,
+          "processID": 6193
+        },
+        {
+          "phase": "dependency-reuse",
+          "label": "HUDTestSupport",
+          "seconds": 0.006874,
+          "exitCode": 0,
+          "processID": 13725
+        }
+      ]
+    }
+  }
+}
