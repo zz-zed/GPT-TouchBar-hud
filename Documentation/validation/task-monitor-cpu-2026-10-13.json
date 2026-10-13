@@ -216,7 +216,7 @@
     "Missing history stays unknown; restored active tasks still require current-generation start or validated continuity under existing lifecycle policy"
   ],
   "artifacts": {
-    "app_path": "/Users/didi/.codex/worktrees/task-monitor-cpu/TouchBarCodexToken/build/task-monitor-cpu/trial-arm64/GPT TouchBar HUD.app",
+    "app_path": "build/task-monitor-cpu/trial-arm64/GPT TouchBar HUD.app",
     "version": "0.1.43",
     "build": "46",
     "minimum_macos": "11.0",
@@ -227,7 +227,7 @@
       "baseline": "dc0afe43dbe431ea26c8cf2eca314ff0d6320d0c911d4c08cdde69e57852a59c",
       "candidate": "0efca2e1c199b66759da7cc7cb220664f8f12fc8e5af2fb118fe56758c157059"
     },
-    "zip_path": "/Users/didi/.codex/worktrees/task-monitor-cpu/TouchBarCodexToken/build/task-monitor-cpu/GPT-TouchBar-HUD-cpu-fix-arm64.zip",
+    "zip_path": "build/task-monitor-cpu/GPT-TouchBar-HUD-cpu-fix-arm64.zip",
     "zip_sha256": "bf8435b566480c73578e205cd46b7e9285832acc52c3f5dd4f2c9a7a7fdfa844"
   }
 }

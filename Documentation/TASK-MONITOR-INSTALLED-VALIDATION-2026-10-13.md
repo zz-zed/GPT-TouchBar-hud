@@ -1,6 +1,6 @@
 # 安装后 CPU 与任务状态验证
 
-2026-10-13，分支 `fix/task-monitor-cpu`。已备份并替换 `/Applications/GPT TouchBar HUD.app`，当前运行包包含 CPU 优化和任务恢复修复。版本保留 v0.1.43 / Build 46，属于本地试用，未发布、推送或合并。原主工作区的既有改动保留。
+2026-10-13，分支 `fix/task-monitor-cpu`。已备份并替换 `/Applications/GPT TouchBar HUD.app`，验证时运行包包含 CPU 优化和任务恢复修复。版本保留 v0.1.43 / Build 46，属于本地试用，未正式发布。原主工作区的既有改动保留。
 
 ## 现场结果
 

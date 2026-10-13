@@ -3,7 +3,7 @@
   "branch": "fix/task-monitor-cpu",
   "baselineRevision": "947641c",
   "installedApp": "/Applications/GPT TouchBar HUD.app",
-  "backupDirectory": "/Users/didi/.codex/worktrees/task-monitor-cpu/TouchBarCodexToken/backups/installed-app-before-cpu-fix-20261013-160151.noindex",
+  "backupDirectory": "backups/installed-app-before-cpu-fix-20261013-160151.noindex",
   "version": "0.1.43",
   "build": "46",
   "localTrialNotRelease": true,
