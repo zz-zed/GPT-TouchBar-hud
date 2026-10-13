@@ -83,14 +83,18 @@ def main():
                         process = subprocess.run(["python3", "scripts/ci_timing.py", "run", "--phase", "suite",
                                                   "--label", script, "--", "bash", "scripts/" + script + ".sh"],
                                                  cwd=tree, env=environment, stdout=output, stderr=subprocess.STDOUT)
-                    checks = sorted(line for line in log.read_text().splitlines() if line.startswith("PASS:"))
+                    # A compiler version probe can emit stderr without a trailing
+                    # newline; accept the complete PASS summary after that prefix.
+                    checks = sorted(re.findall(r"PASS: [^\r\n]+", log.read_text()))
                     row = {"sample": sample, "mode": mode, "script": script, "seconds": round(time.monotonic()-started, 3),
                            "exitCode": process.returncode, "checks": checks, "log": log.name}
                     report["rows"].append(row)
                     destination.write_text(json.dumps(report, indent=2) + "\n")
                     print(json.dumps(row), flush=True)
-                    if process.returncode or not checks:
+                    if process.returncode:
                         raise RuntimeError("Failed fixture; no speedup accepted: " + str(log))
+                    if not checks:
+                        raise RuntimeError("Missing fixture summary; no speedup accepted: " + str(log))
                     if script in expected and expected[script] != checks:
                         raise RuntimeError("Fixture output changed: " + script)
                     expected[script] = checks

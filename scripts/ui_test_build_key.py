@@ -27,7 +27,7 @@ def main():
     parser.add_argument("--sources", nargs="+", required=True)
     args = parser.parse_args(arguments[:boundary])
     flags = arguments[boundary + 1:]
-    output = lambda *cmd: subprocess.check_output(cmd, text=True).strip()
+    output = lambda *cmd: subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT).strip()
     configuration = {
         "architecture": platform.machine(), "compiler": args.compiler,
         "compilerVersion": output(args.compiler, "--version"),
