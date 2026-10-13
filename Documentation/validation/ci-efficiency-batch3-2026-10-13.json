@@ -1,0 +1,2727 @@
+{
+  "status": "incomplete collection; user requested wrap-up",
+  "finalSource": "ab0cfafedd1ba5eded50f2bf0b00f373b56511ef",
+  "retainRegrouping": false,
+  "reason": "functional acceptance unresolved and three valid pairs per architecture unavailable",
+  "initialFailure": {
+    "run": 38349583354,
+    "candidate": "760d664a9cb99f73339e567a98090b8f499b46ad",
+    "failedJob": "Grouping (x86_64, data, sample 2)",
+    "failure": "DiagnosticUpgradeInstallerTests: success: script events survive without a new HUD",
+    "localTemporarySnapshotReproduced": true,
+    "fullCIRun38349546011": "all seven jobs passed",
+    "status": "Unresolved existing 0.25-second diagnostic subprocess deadline; initial attempt excluded from timing comparisons, failure retained",
+    "locationCheck": {
+      "workspaceExitCode": 133,
+      "sameBinaryTemporaryCwdExitCode": -5,
+      "source": "760d664a9cb99f73339e567a98090b8f499b46ad"
+    },
+    "watchdogProbe": {
+      "exitCode": 137,
+      "stage": "oldProcessExitObserved",
+      "otherSixSuccessStagesExitCode": 0,
+      "sourceAndTestConditionsChanged": false,
+      "probeScope": "scratch install script logs wait status only; original restored"
+    }
+  },
+  "benchmarkStatus": {
+    "conclusion": "",
+    "jobs": [
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115146670935,
+        "name": "Grouping (arm64, data, sample 3)",
+        "startedAt": "2026-10-13T05:53:21Z",
+        "status": "in_progress",
+        "steps": [
+          {
+            "completedAt": "2026-10-13T05:53:23Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-13T05:53:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:53:26Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 2,
+            "startedAt": "2026-10-13T05:53:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:53:34Z",
+            "conclusion": "success",
+            "name": "Select production toolchain",
+            "number": 3,
+            "startedAt": "2026-10-13T05:53:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Compare full original and regrouped job workloads",
+            "number": 4,
+            "startedAt": "2026-10-13T05:53:34Z",
+            "status": "in_progress"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Retain every sample, including failures",
+            "number": 5,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Post Run actions/checkout@v7",
+            "number": 10,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          }
+        ],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146670935"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115146671116,
+        "name": "Grouping (arm64, interface, sample 1)",
+        "startedAt": "2026-10-13T05:54:40Z",
+        "status": "in_progress",
+        "steps": [
+          {
+            "completedAt": "2026-10-13T05:54:41Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-13T05:54:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:54:45Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 2,
+            "startedAt": "2026-10-13T05:54:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:54:51Z",
+            "conclusion": "success",
+            "name": "Select production toolchain",
+            "number": 3,
+            "startedAt": "2026-10-13T05:54:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Compare full original and regrouped job workloads",
+            "number": 4,
+            "startedAt": "2026-10-13T05:54:51Z",
+            "status": "in_progress"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Retain every sample, including failures",
+            "number": 5,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Post Run actions/checkout@v7",
+            "number": 10,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          }
+        ],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671116"
+      },
+      {
+        "completedAt": "2026-10-13T05:53:12Z",
+        "conclusion": "success",
+        "databaseId": 115146671162,
+        "name": "Grouping (x86_64, interface, sample 2)",
+        "startedAt": "2026-10-13T05:35:03Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-13T05:35:05Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-13T05:35:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:35:09Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 2,
+            "startedAt": "2026-10-13T05:35:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:35:19Z",
+            "conclusion": "success",
+            "name": "Select production toolchain",
+            "number": 3,
+            "startedAt": "2026-10-13T05:35:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:53:07Z",
+            "conclusion": "success",
+            "name": "Compare full original and regrouped job workloads",
+            "number": 4,
+            "startedAt": "2026-10-13T05:35:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:53:08Z",
+            "conclusion": "success",
+            "name": "Retain every sample, including failures",
+            "number": 5,
+            "startedAt": "2026-10-13T05:53:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:53:09Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7",
+            "number": 10,
+            "startedAt": "2026-10-13T05:53:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:53:10Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-13T05:53:09Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671162"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115146671165,
+        "name": "Grouping (arm64, interface, sample 2)",
+        "startedAt": "2026-10-13T05:55:28Z",
+        "status": "in_progress",
+        "steps": [
+          {
+            "completedAt": "2026-10-13T05:55:30Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-13T05:55:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:55:33Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 2,
+            "startedAt": "2026-10-13T05:55:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:55:39Z",
+            "conclusion": "success",
+            "name": "Select production toolchain",
+            "number": 3,
+            "startedAt": "2026-10-13T05:55:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Compare full original and regrouped job workloads",
+            "number": 4,
+            "startedAt": "2026-10-13T05:55:39Z",
+            "status": "in_progress"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Retain every sample, including failures",
+            "number": 5,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Post Run actions/checkout@v7",
+            "number": 10,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          }
+        ],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671165"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115146671188,
+        "name": "Grouping (x86_64, interface, sample 3)",
+        "startedAt": "2026-10-13T05:35:04Z",
+        "status": "in_progress",
+        "steps": [
+          {
+            "completedAt": "2026-10-13T05:35:06Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-13T05:35:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:35:12Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 2,
+            "startedAt": "2026-10-13T05:35:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:35:28Z",
+            "conclusion": "success",
+            "name": "Select production toolchain",
+            "number": 3,
+            "startedAt": "2026-10-13T05:35:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Compare full original and regrouped job workloads",
+            "number": 4,
+            "startedAt": "2026-10-13T05:35:28Z",
+            "status": "in_progress"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Retain every sample, including failures",
+            "number": 5,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Post Run actions/checkout@v7",
+            "number": 10,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          }
+        ],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671188"
+      },
+      {
+        "completedAt": "2026-10-13T05:54:32Z",
+        "conclusion": "success",
+        "databaseId": 115146671189,
+        "name": "Grouping (x86_64, interface, sample 1)",
+        "startedAt": "2026-10-13T05:35:03Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-13T05:35:09Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-13T05:35:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:35:23Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 2,
+            "startedAt": "2026-10-13T05:35:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:35:38Z",
+            "conclusion": "success",
+            "name": "Select production toolchain",
+            "number": 3,
+            "startedAt": "2026-10-13T05:35:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:54:28Z",
+            "conclusion": "success",
+            "name": "Compare full original and regrouped job workloads",
+            "number": 4,
+            "startedAt": "2026-10-13T05:35:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:54:29Z",
+            "conclusion": "success",
+            "name": "Retain every sample, including failures",
+            "number": 5,
+            "startedAt": "2026-10-13T05:54:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:54:30Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7",
+            "number": 10,
+            "startedAt": "2026-10-13T05:54:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:54:30Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-13T05:54:30Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671189"
+      },
+      {
+        "completedAt": "2026-10-13T05:55:22Z",
+        "conclusion": "failure",
+        "databaseId": 115146671200,
+        "name": "Grouping (x86_64, data, sample 1)",
+        "startedAt": "2026-10-13T05:35:03Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-13T05:35:06Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-13T05:35:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:35:14Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 2,
+            "startedAt": "2026-10-13T05:35:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:35:33Z",
+            "conclusion": "success",
+            "name": "Select production toolchain",
+            "number": 3,
+            "startedAt": "2026-10-13T05:35:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:54:58Z",
+            "conclusion": "failure",
+            "name": "Compare full original and regrouped job workloads",
+            "number": 4,
+            "startedAt": "2026-10-13T05:35:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:55:00Z",
+            "conclusion": "success",
+            "name": "Retain every sample, including failures",
+            "number": 5,
+            "startedAt": "2026-10-13T05:54:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:55:00Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7",
+            "number": 10,
+            "startedAt": "2026-10-13T05:55:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:55:01Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-13T05:55:00Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671200"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115146671227,
+        "name": "Grouping (arm64, interface, sample 3)",
+        "startedAt": "2026-10-13T05:35:00Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671227"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115146671239,
+        "name": "Grouping (arm64, data, sample 1)",
+        "startedAt": "2026-10-13T05:35:00Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671239"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115146671244,
+        "name": "Grouping (x86_64, data, sample 3)",
+        "startedAt": "2026-10-13T05:35:04Z",
+        "status": "in_progress",
+        "steps": [
+          {
+            "completedAt": "2026-10-13T05:35:07Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-13T05:35:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:35:14Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 2,
+            "startedAt": "2026-10-13T05:35:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:35:34Z",
+            "conclusion": "success",
+            "name": "Select production toolchain",
+            "number": 3,
+            "startedAt": "2026-10-13T05:35:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Compare full original and regrouped job workloads",
+            "number": 4,
+            "startedAt": "2026-10-13T05:35:34Z",
+            "status": "in_progress"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Retain every sample, including failures",
+            "number": 5,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Post Run actions/checkout@v7",
+            "number": 10,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          }
+        ],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671244"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115146671325,
+        "name": "Grouping (arm64, data, sample 2)",
+        "startedAt": "2026-10-13T05:35:00Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671325"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115146671574,
+        "name": "Grouping (x86_64, data, sample 2)",
+        "startedAt": "2026-10-13T05:35:00Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38352129791/job/115146671574"
+      }
+    ],
+    "status": "queued"
+  },
+  "restoredFullCIStatus": {
+    "conclusion": "",
+    "jobs": [
+      {
+        "completedAt": "2026-10-13T05:52:44Z",
+        "conclusion": "success",
+        "databaseId": 115151475617,
+        "name": "Validate source revision",
+        "startedAt": "2026-10-13T05:52:37Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-13T05:52:39Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-13T05:52:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:52:41Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 2,
+            "startedAt": "2026-10-13T05:52:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:52:41Z",
+            "conclusion": "success",
+            "name": "Resolve immutable source (manual recovery only from main)",
+            "number": 3,
+            "startedAt": "2026-10-13T05:52:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:52:41Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7",
+            "number": 6,
+            "startedAt": "2026-10-13T05:52:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-13T05:52:42Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 7,
+            "startedAt": "2026-10-13T05:52:42Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38353651561/job/115151475617"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115151515731,
+        "name": "Build DMG (arm64)",
+        "startedAt": "2026-10-13T05:52:44Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38353651561/job/115151515731"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115151515789,
+        "name": "Regression (arm64, interface)",
+        "startedAt": "2026-10-13T05:52:44Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38353651561/job/115151515789"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115151515824,
+        "name": "Regression (x86_64, interface)",
+        "startedAt": "2026-10-13T05:52:44Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38353651561/job/115151515824"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115151515829,
+        "name": "Regression (arm64, data)",
+        "startedAt": "2026-10-13T05:52:44Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38353651561/job/115151515829"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115151515865,
+        "name": "Regression (x86_64, data)",
+        "startedAt": "2026-10-13T05:52:44Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38353651561/job/115151515865"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 115151516298,
+        "name": "Build DMG (x86_64)",
+        "startedAt": "2026-10-13T05:52:44Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38353651561/job/115151516298"
+      }
+    ],
+    "status": "queued"
+  },
+  "completedComparisons": {
+    "grouping-x86_64-interface-2": {
+      "baseline": "7f7cf691f4431b49bcf2ea2af2b48afd2c918a20",
+      "candidate": "760d664a9cb99f73339e567a98090b8f499b46ad",
+      "architecture": "x86_64",
+      "suite": "interface",
+      "layouts": {
+        "original": {
+          "data": [
+            "test-task-status",
+            "test-hook-integration",
+            "test-token-usage",
+            "test-task-reliability",
+            "test-account-token-usage",
+            "test-verified-quota",
+            "test-quota-alerts",
+            "test-host-auto-launcher",
+            "test-connection-diagnostics",
+            "test-diagnostic-logging",
+            "test-diagnostic-upgrade-storage",
+            "test-diagnostic-upgrade-installer",
+            "test-diagnostic-upgrade-recovery",
+            "test-host-lifecycle",
+            "test-single-instance",
+            "test-app-update",
+            "test-app-update-progress",
+            "test-github-release-fallback",
+            "test-app-update-notifications",
+            "test-reset-news-runtime",
+            "test-hooks"
+          ],
+          "interface": [
+            "test-hud-material",
+            "test-idle-performance",
+            "test-status-menu",
+            "test-notch-hud",
+            "test-notch-presentation",
+            "test-touchbar",
+            "test-touchbar-layout",
+            "test-design-layout"
+          ]
+        },
+        "regrouped": {
+          "data": [
+            "test-task-status",
+            "test-hook-integration",
+            "test-token-usage",
+            "test-task-reliability",
+            "test-account-token-usage",
+            "test-verified-quota",
+            "test-quota-alerts",
+            "test-host-auto-launcher",
+            "test-connection-diagnostics",
+            "test-diagnostic-upgrade-storage",
+            "test-diagnostic-upgrade-installer",
+            "test-diagnostic-upgrade-recovery",
+            "test-host-lifecycle",
+            "test-single-instance",
+            "test-app-update",
+            "test-app-update-progress",
+            "test-github-release-fallback",
+            "test-app-update-notifications",
+            "test-reset-news-runtime",
+            "test-hooks"
+          ],
+          "interface": [
+            "test-hud-material",
+            "test-idle-performance",
+            "test-status-menu",
+            "test-notch-hud",
+            "test-notch-presentation",
+            "test-touchbar",
+            "test-touchbar-layout",
+            "test-design-layout",
+            "test-diagnostic-logging"
+          ]
+        }
+      },
+      "projectCaches": "fresh per mode and suite",
+      "systemCaches": "not cleared",
+      "sourceArchiveSHA256": "e3869b7721df641ab030077aa90260cc14c75a2c55b2e5194825ed53f6e6ca06",
+      "compiler": "swift-driver version: 1.127.15 Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: x86_64-apple-macosx15.0",
+      "sdk": "26.2",
+      "modes": {
+        "regrouped": {
+          "rows": [
+            {
+              "script": "test-hud-material",
+              "seconds": 130.228912,
+              "exitCode": 0,
+              "log": "regrouped-test-hud-material.log",
+              "coverage": {
+                "checks": [
+                  "HUD material tests passed: 45 checks; native glass supported: false"
+                ]
+              }
+            },
+            {
+              "script": "test-idle-performance",
+              "seconds": 88.390158,
+              "exitCode": 0,
+              "log": "regrouped-test-idle-performance.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 57 idle performance and connection checks"
+                ]
+              }
+            },
+            {
+              "script": "test-status-menu",
+              "seconds": 35.726185,
+              "exitCode": 0,
+              "log": "regrouped-test-status-menu.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 33 status menu checks"
+                ]
+              }
+            },
+            {
+              "script": "test-notch-hud",
+              "seconds": 98.527808,
+              "exitCode": 0,
+              "log": "regrouped-test-notch-hud.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 194676 notch fusion and V2 checks"
+                ]
+              }
+            },
+            {
+              "script": "test-notch-presentation",
+              "seconds": 95.944037,
+              "exitCode": 0,
+              "log": "regrouped-test-notch-presentation.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 437 native island checks; <variable> presented frames",
+                  "PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration."
+                ]
+              }
+            },
+            {
+              "script": "test-touchbar",
+              "seconds": 25.754527,
+              "exitCode": 0,
+              "log": "regrouped-test-touchbar.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 52 Touch Bar lifecycle, preference, data and focus checks"
+                ]
+              }
+            },
+            {
+              "script": "test-touchbar-layout",
+              "seconds": 17.945957,
+              "exitCode": 0,
+              "log": "regrouped-test-touchbar-layout.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 459 Touch Bar layout checks"
+                ]
+              }
+            },
+            {
+              "script": "test-design-layout",
+              "seconds": 6.945461,
+              "exitCode": 0,
+              "log": "regrouped-test-design-layout.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 281 design integration checks"
+                ]
+              }
+            },
+            {
+              "script": "test-diagnostic-logging",
+              "seconds": 91.584504,
+              "exitCode": 0,
+              "log": "regrouped-test-diagnostic-logging.log",
+              "coverage": {
+                "checks": [
+                  "DiagnosticRecorderTests: 216 checks passed",
+                  "DiagnosticTaskTraceProtocolTests: 92 checks passed",
+                  "PASS: 22 diagnostic environment checks",
+                  "PASS: 71 unified diagnostic integration assertions",
+                  "PASS: 94 diagnostic export checks",
+                  "PASS: application output channels use typed diagnostic boundary",
+                  "PASS: unified diagnostic runtime mode hooks",
+                  "PASS: unified diagnostic runtime mode legacy"
+                ]
+              }
+            }
+          ],
+          "complete": true,
+          "graphSeconds": 2e-06,
+          "seconds": 591.057824,
+          "testsPassed": true,
+          "independentSuiteProcesses": true
+        },
+        "original": {
+          "rows": [
+            {
+              "script": "test-hud-material",
+              "seconds": 112.439243,
+              "exitCode": 0,
+              "log": "original-test-hud-material.log",
+              "coverage": {
+                "checks": [
+                  "HUD material tests passed: 45 checks; native glass supported: false"
+                ]
+              }
+            },
+            {
+              "script": "test-idle-performance",
+              "seconds": 83.122651,
+              "exitCode": 0,
+              "log": "original-test-idle-performance.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 57 idle performance and connection checks"
+                ]
+              }
+            },
+            {
+              "script": "test-status-menu",
+              "seconds": 35.518815,
+              "exitCode": 0,
+              "log": "original-test-status-menu.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 33 status menu checks"
+                ]
+              }
+            },
+            {
+              "script": "test-notch-hud",
+              "seconds": 95.525051,
+              "exitCode": 0,
+              "log": "original-test-notch-hud.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 194676 notch fusion and V2 checks"
+                ]
+              }
+            },
+            {
+              "script": "test-notch-presentation",
+              "seconds": 95.916295,
+              "exitCode": 0,
+              "log": "original-test-notch-presentation.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 437 native island checks; <variable> presented frames",
+                  "PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration."
+                ]
+              }
+            },
+            {
+              "script": "test-touchbar",
+              "seconds": 25.757023,
+              "exitCode": 0,
+              "log": "original-test-touchbar.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 52 Touch Bar lifecycle, preference, data and focus checks"
+                ]
+              }
+            },
+            {
+              "script": "test-touchbar-layout",
+              "seconds": 18.148507,
+              "exitCode": 0,
+              "log": "original-test-touchbar-layout.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 459 Touch Bar layout checks"
+                ]
+              }
+            },
+            {
+              "script": "test-design-layout",
+              "seconds": 7.058994,
+              "exitCode": 0,
+              "log": "original-test-design-layout.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 281 design integration checks"
+                ]
+              }
+            }
+          ],
+          "complete": true,
+          "graphSeconds": 1e-06,
+          "seconds": 473.495778,
+          "testsPassed": true,
+          "independentSuiteProcesses": true
+        }
+      },
+      "failures": [],
+      "coverageMismatches": [],
+      "complete": true,
+      "testsPassed": true,
+      "sameSuiteCoverageEquivalent": true
+    },
+    "grouping-x86_64-data-1": {
+      "baseline": "7f7cf691f4431b49bcf2ea2af2b48afd2c918a20",
+      "candidate": "760d664a9cb99f73339e567a98090b8f499b46ad",
+      "architecture": "x86_64",
+      "suite": "data",
+      "layouts": {
+        "original": {
+          "data": [
+            "test-task-status",
+            "test-hook-integration",
+            "test-token-usage",
+            "test-task-reliability",
+            "test-account-token-usage",
+            "test-verified-quota",
+            "test-quota-alerts",
+            "test-host-auto-launcher",
+            "test-connection-diagnostics",
+            "test-diagnostic-logging",
+            "test-diagnostic-upgrade-storage",
+            "test-diagnostic-upgrade-installer",
+            "test-diagnostic-upgrade-recovery",
+            "test-host-lifecycle",
+            "test-single-instance",
+            "test-app-update",
+            "test-app-update-progress",
+            "test-github-release-fallback",
+            "test-app-update-notifications",
+            "test-reset-news-runtime",
+            "test-hooks"
+          ],
+          "interface": [
+            "test-hud-material",
+            "test-idle-performance",
+            "test-status-menu",
+            "test-notch-hud",
+            "test-notch-presentation",
+            "test-touchbar",
+            "test-touchbar-layout",
+            "test-design-layout"
+          ]
+        },
+        "regrouped": {
+          "data": [
+            "test-task-status",
+            "test-hook-integration",
+            "test-token-usage",
+            "test-task-reliability",
+            "test-account-token-usage",
+            "test-verified-quota",
+            "test-quota-alerts",
+            "test-host-auto-launcher",
+            "test-connection-diagnostics",
+            "test-diagnostic-upgrade-storage",
+            "test-diagnostic-upgrade-installer",
+            "test-diagnostic-upgrade-recovery",
+            "test-host-lifecycle",
+            "test-single-instance",
+            "test-app-update",
+            "test-app-update-progress",
+            "test-github-release-fallback",
+            "test-app-update-notifications",
+            "test-reset-news-runtime",
+            "test-hooks"
+          ],
+          "interface": [
+            "test-hud-material",
+            "test-idle-performance",
+            "test-status-menu",
+            "test-notch-hud",
+            "test-notch-presentation",
+            "test-touchbar",
+            "test-touchbar-layout",
+            "test-design-layout",
+            "test-diagnostic-logging"
+          ]
+        }
+      },
+      "projectCaches": "fresh per mode and suite",
+      "systemCaches": "not cleared",
+      "sourceArchiveSHA256": "e3869b7721df641ab030077aa90260cc14c75a2c55b2e5194825ed53f6e6ca06",
+      "compiler": "swift-driver version: 1.127.15 Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: x86_64-apple-macosx15.0",
+      "sdk": "26.2",
+      "modes": {
+        "original": {
+          "rows": [
+            {
+              "script": "test-task-status",
+              "seconds": 70.92335,
+              "exitCode": 0,
+              "log": "original-test-task-status.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 44 task status checks"
+                ]
+              }
+            },
+            {
+              "script": "test-hook-integration",
+              "seconds": 18.479753,
+              "exitCode": 0,
+              "log": "original-test-hook-integration.log",
+              "coverage": {
+                "checks": [
+                  "PASS: default-off settings, no installation on open, explicit unready/disabled states, generation-isolated mode switching"
+                ]
+              }
+            },
+            {
+              "script": "test-token-usage",
+              "seconds": 24.044383,
+              "exitCode": 0,
+              "log": "original-test-token-usage.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 18 token accounting and incremental-I/O checks"
+                ]
+              }
+            },
+            {
+              "script": "test-task-reliability",
+              "seconds": 98.020512,
+              "exitCode": 0,
+              "log": "original-test-task-reliability.log",
+              "coverage": {
+                "checks": [
+                  "PASS hooks / 3 main tasks: a Hook hint alone cannot establish execution",
+                  "PASS hooks / 3 main tasks: aggregate matches the independent identity manifest",
+                  "PASS hooks / 3 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS hooks / 3 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS hooks / 3 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS hooks / 3 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS hooks / 3 main tasks: huge output retains every independently active identity",
+                  "PASS hooks / 3 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS hooks / 3 main tasks: live-start observations came from the production engine",
+                  "PASS hooks / 3 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS hooks / 3 main tasks: production engine observes the actual socket hint",
+                  "PASS hooks / 3 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS hooks / 3 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS hooks / 3 main tasks: real main-queue delivery is observable",
+                  "PASS hooks / 3 main tasks: real private Hook socket acknowledges the submit hint",
+                  "PASS hooks / 3 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS hooks / 3 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS hooks / 3 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS hooks / 3 main tasks: same-count member replacement is delivered by identity",
+                  "PASS hooks / 3 main tasks: selected display adapter consumes the same count",
+                  "PASS hooks / 3 main tasks: selected engine persisted the large file's committed record boundary",
+                  "PASS hooks / 3 main tasks: session metadata alone cannot establish current execution",
+                  "PASS hooks / 3 main tasks: stop invalidates pending and later callbacks",
+                  "PASS hooks / 3 main tasks: stopped runtime performs no new log I/O",
+                  "PASS hooks / 3 main tasks: stopping inactive adapters preserves the selected engine checkpoint inventory",
+                  "PASS hooks / 3 main tasks: subagent never adds to primary task count",
+                  "PASS hooks / 3 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS hooks / 65 main tasks: a Hook hint alone cannot establish execution",
+                  "PASS hooks / 65 main tasks: aggregate matches the independent identity manifest",
+                  "PASS hooks / 65 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS hooks / 65 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS hooks / 65 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS hooks / 65 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS hooks / 65 main tasks: huge output retains every independently active identity",
+                  "PASS hooks / 65 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS hooks / 65 main tasks: live-start observations came from the production engine",
+                  "PASS hooks / 65 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS hooks / 65 main tasks: production engine observes the actual socket hint",
+                  "PASS hooks / 65 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS hooks / 65 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS hooks / 65 main tasks: real main-queue delivery is observable",
+                  "PASS hooks / 65 main tasks: real private Hook socket acknowledges the submit hint",
+                  "PASS hooks / 65 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS hooks / 65 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS hooks / 65 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS hooks / 65 main tasks: same-count member replacement is delivered by identity",
+                  "PASS hooks / 65 main tasks: selected display adapter consumes the same count",
+                  "PASS hooks / 65 main tasks: session metadata alone cannot establish current execution",
+                  "PASS hooks / 65 main tasks: stop invalidates pending and later callbacks",
+                  "PASS hooks / 65 main tasks: stopped runtime performs no new log I/O",
+                  "PASS hooks / 65 main tasks: subagent never adds to primary task count",
+                  "PASS hooks / 65 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS hooks: explicit new-observation start confirms exactly one task",
+                  "PASS hooks: historical start plus current tool activity cannot revive pending task",
+                  "PASS hooks: hooks accepts only its new-generation explicit start",
+                  "PASS hooks: hooks reuses committed offsets after switching modes",
+                  "PASS hooks: legacy accepts only its new-generation explicit start",
+                  "PASS hooks: legacy reuses committed offsets after switching modes",
+                  "PASS hooks: mode switch conservatively rechecks previous running claims",
+                  "PASS hooks: mode switch conservatively rechecks previous running claims",
+                  "PASS hooks: mode switch to hooks loads the shared checkpoint",
+                  "PASS hooks: mode switch to legacy loads the shared checkpoint",
+                  "PASS hooks: new runtime recovers checkpoint and continuous inventory",
+                  "PASS hooks: persisted and pre-restart starts recover pending, not current execution",
+                  "PASS hooks: production recovery actually resumes the large file at its saved offset",
+                  "PASS hooks: recovered runtime reads weak activity from the checkpoint",
+                  "PASS hooks: restart does not replay old completion feedback",
+                  "PASS hooks: restored unresolved tasks remain explicitly pending",
+                  "PASS hooks: valid checkpoint recovery reads only appended records, not old large output",
+                  "PASS legacy / 1 main tasks: aggregate matches the independent identity manifest",
+                  "PASS legacy / 1 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS legacy / 1 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS legacy / 1 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS legacy / 1 main tasks: huge output retains every independently active identity",
+                  "PASS legacy / 1 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS legacy / 1 main tasks: live-start observations came from the production engine",
+                  "PASS legacy / 1 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS legacy / 1 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS legacy / 1 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS legacy / 1 main tasks: real main-queue delivery is observable",
+                  "PASS legacy / 1 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS legacy / 1 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS legacy / 1 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS legacy / 1 main tasks: selected display adapter consumes the same count",
+                  "PASS legacy / 1 main tasks: session metadata alone cannot establish current execution",
+                  "PASS legacy / 1 main tasks: stop invalidates pending and later callbacks",
+                  "PASS legacy / 1 main tasks: stopped runtime performs no new log I/O",
+                  "PASS legacy / 1 main tasks: subagent never adds to primary task count",
+                  "PASS legacy / 1 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS legacy / 3 main tasks: aggregate matches the independent identity manifest",
+                  "PASS legacy / 3 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS legacy / 3 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS legacy / 3 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS legacy / 3 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS legacy / 3 main tasks: huge output retains every independently active identity",
+                  "PASS legacy / 3 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS legacy / 3 main tasks: live-start observations came from the production engine",
+                  "PASS legacy / 3 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS legacy / 3 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS legacy / 3 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS legacy / 3 main tasks: real main-queue delivery is observable",
+                  "PASS legacy / 3 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS legacy / 3 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS legacy / 3 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS legacy / 3 main tasks: same-count member replacement is delivered by identity",
+                  "PASS legacy / 3 main tasks: selected display adapter consumes the same count",
+                  "PASS legacy / 3 main tasks: selected engine persisted the large file's committed record boundary",
+                  "PASS legacy / 3 main tasks: session metadata alone cannot establish current execution",
+                  "PASS legacy / 3 main tasks: stop invalidates pending and later callbacks",
+                  "PASS legacy / 3 main tasks: stopped runtime performs no new log I/O",
+                  "PASS legacy / 3 main tasks: stopping inactive adapters preserves the selected engine checkpoint inventory",
+                  "PASS legacy / 3 main tasks: subagent never adds to primary task count",
+                  "PASS legacy / 3 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS legacy / 33 main tasks: aggregate matches the independent identity manifest",
+                  "PASS legacy / 33 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS legacy / 33 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS legacy / 33 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS legacy / 33 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS legacy / 33 main tasks: huge output retains every independently active identity",
+                  "PASS legacy / 33 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS legacy / 33 main tasks: live-start observations came from the production engine",
+                  "PASS legacy / 33 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS legacy / 33 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS legacy / 33 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS legacy / 33 main tasks: real main-queue delivery is observable",
+                  "PASS legacy / 33 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS legacy / 33 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS legacy / 33 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS legacy / 33 main tasks: same-count member replacement is delivered by identity",
+                  "PASS legacy / 33 main tasks: selected display adapter consumes the same count",
+                  "PASS legacy / 33 main tasks: session metadata alone cannot establish current execution",
+                  "PASS legacy / 33 main tasks: stop invalidates pending and later callbacks",
+                  "PASS legacy / 33 main tasks: stopped runtime performs no new log I/O",
+                  "PASS legacy / 33 main tasks: subagent never adds to primary task count",
+                  "PASS legacy / 33 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS legacy / 65 main tasks: aggregate matches the independent identity manifest",
+                  "PASS legacy / 65 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS legacy / 65 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS legacy / 65 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS legacy / 65 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS legacy / 65 main tasks: huge output retains every independently active identity",
+                  "PASS legacy / 65 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS legacy / 65 main tasks: live-start observations came from the production engine",
+                  "PASS legacy / 65 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS legacy / 65 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS legacy / 65 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS legacy / 65 main tasks: real main-queue delivery is observable",
+                  "PASS legacy / 65 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS legacy / 65 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS legacy / 65 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS legacy / 65 main tasks: same-count member replacement is delivered by identity",
+                  "PASS legacy / 65 main tasks: selected display adapter consumes the same count",
+                  "PASS legacy / 65 main tasks: session metadata alone cannot establish current execution",
+                  "PASS legacy / 65 main tasks: stop invalidates pending and later callbacks",
+                  "PASS legacy / 65 main tasks: stopped runtime performs no new log I/O",
+                  "PASS legacy / 65 main tasks: subagent never adds to primary task count",
+                  "PASS legacy / 65 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS legacy / 8 main tasks: aggregate matches the independent identity manifest",
+                  "PASS legacy / 8 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS legacy / 8 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS legacy / 8 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS legacy / 8 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS legacy / 8 main tasks: huge output retains every independently active identity",
+                  "PASS legacy / 8 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS legacy / 8 main tasks: live-start observations came from the production engine",
+                  "PASS legacy / 8 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS legacy / 8 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS legacy / 8 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS legacy / 8 main tasks: real main-queue delivery is observable",
+                  "PASS legacy / 8 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS legacy / 8 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS legacy / 8 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS legacy / 8 main tasks: same-count member replacement is delivered by identity",
+                  "PASS legacy / 8 main tasks: selected display adapter consumes the same count",
+                  "PASS legacy / 8 main tasks: session metadata alone cannot establish current execution",
+                  "PASS legacy / 8 main tasks: stop invalidates pending and later callbacks",
+                  "PASS legacy / 8 main tasks: stopped runtime performs no new log I/O",
+                  "PASS legacy / 8 main tasks: subagent never adds to primary task count",
+                  "PASS legacy / 8 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS legacy: explicit new-observation start confirms exactly one task",
+                  "PASS legacy: historical start plus current tool activity cannot revive pending task",
+                  "PASS legacy: hooks accepts only its new-generation explicit start",
+                  "PASS legacy: hooks reuses committed offsets after switching modes",
+                  "PASS legacy: legacy accepts only its new-generation explicit start",
+                  "PASS legacy: legacy reuses committed offsets after switching modes",
+                  "PASS legacy: mode switch conservatively rechecks previous running claims",
+                  "PASS legacy: mode switch conservatively rechecks previous running claims",
+                  "PASS legacy: mode switch to hooks loads the shared checkpoint",
+                  "PASS legacy: mode switch to legacy loads the shared checkpoint",
+                  "PASS legacy: new runtime recovers checkpoint and continuous inventory",
+                  "PASS legacy: persisted and pre-restart starts recover pending, not current execution",
+                  "PASS legacy: production recovery actually resumes the large file at its saved offset",
+                  "PASS legacy: recovered runtime reads weak activity from the checkpoint",
+                  "PASS legacy: restart does not replay old completion feedback",
+                  "PASS legacy: restored unresolved tasks remain explicitly pending",
+                  "PASS legacy: valid checkpoint recovery reads only appended records, not old large output",
+                  "RESULT checks=196 failures=0"
+                ]
+              }
+            },
+            {
+              "script": "test-account-token-usage",
+              "seconds": 8.559932,
+              "exitCode": 0,
+              "log": "original-test-account-token-usage.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 72 account token usage checks"
+                ]
+              }
+            },
+            {
+              "script": "test-verified-quota",
+              "seconds": 11.166632,
+              "exitCode": 0,
+              "log": "original-test-verified-quota.log",
+              "coverage": {
+                "checks": [
+                  "Verified quota checks passed: 57"
+                ]
+              }
+            },
+            {
+              "script": "test-quota-alerts",
+              "seconds": 38.70292,
+              "exitCode": 0,
+              "log": "original-test-quota-alerts.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 64 quota alert checks; fake notifications and isolated preferences only"
+                ]
+              }
+            },
+            {
+              "script": "test-host-auto-launcher",
+              "seconds": 11.790171,
+              "exitCode": 0,
+              "log": "original-test-host-auto-launcher.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 56 host auto-launcher checks"
+                ]
+              }
+            },
+            {
+              "script": "test-connection-diagnostics",
+              "seconds": 23.033932,
+              "exitCode": 0,
+              "log": "original-test-connection-diagnostics.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 61 connection diagnostics checks"
+                ]
+              }
+            },
+            {
+              "script": "test-diagnostic-logging",
+              "seconds": 104.316381,
+              "exitCode": 0,
+              "log": "original-test-diagnostic-logging.log",
+              "coverage": {
+                "checks": [
+                  "DiagnosticRecorderTests: 216 checks passed",
+                  "DiagnosticTaskTraceProtocolTests: 92 checks passed",
+                  "PASS: 22 diagnostic environment checks",
+                  "PASS: 71 unified diagnostic integration assertions",
+                  "PASS: 94 diagnostic export checks",
+                  "PASS: application output channels use typed diagnostic boundary",
+                  "PASS: unified diagnostic runtime mode hooks",
+                  "PASS: unified diagnostic runtime mode legacy"
+                ]
+              }
+            },
+            {
+              "script": "test-diagnostic-upgrade-storage",
+              "seconds": 10.256473,
+              "exitCode": 0,
+              "log": "original-test-diagnostic-upgrade-storage.log",
+              "coverage": {
+                "checks": [
+                  "DiagnosticUpgradeStorageTests: 134 checks passed"
+                ]
+              }
+            },
+            {
+              "script": "test-diagnostic-upgrade-installer",
+              "seconds": 10.84951,
+              "exitCode": 132,
+              "log": "original-test-diagnostic-upgrade-installer.log",
+              "coverageError": "No test success evidence: test-diagnostic-upgrade-installer",
+              "coverage": null
+            },
+            {
+              "script": "test-diagnostic-upgrade-recovery",
+              "seconds": 12.493485,
+              "exitCode": 132,
+              "log": "original-test-diagnostic-upgrade-recovery.log",
+              "coverageError": "No test success evidence: test-diagnostic-upgrade-recovery",
+              "coverage": null
+            },
+            {
+              "script": "test-host-lifecycle",
+              "seconds": 2.013844,
+              "exitCode": 0,
+              "log": "original-test-host-lifecycle.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 25 host lifecycle checks"
+                ]
+              }
+            },
+            {
+              "script": "test-single-instance",
+              "seconds": 6.387613,
+              "exitCode": 0,
+              "log": "original-test-single-instance.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 92 single-instance checks (/private<SOURCE>/.build/single-instance-tests/x86_64/SingleInstanceLockProbe)"
+                ]
+              }
+            },
+            {
+              "script": "test-app-update",
+              "seconds": 6.512709,
+              "exitCode": 0,
+              "log": "original-test-app-update.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 42 isolated installer checks",
+                  "PASS: 82 update policy checks",
+                  "PASS: updater shell syntax and invalid-target rejection"
+                ]
+              }
+            },
+            {
+              "script": "test-app-update-progress",
+              "seconds": 69.377133,
+              "exitCode": 0,
+              "log": "original-test-app-update-progress.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 216 update progress checks (loopback downloads, private helper, native window)"
+                ]
+              }
+            },
+            {
+              "script": "test-github-release-fallback",
+              "seconds": 5.770908,
+              "exitCode": 0,
+              "log": "original-test-github-release-fallback.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 152 GitHub fallback fault-injection checks"
+                ]
+              }
+            },
+            {
+              "script": "test-app-update-notifications",
+              "seconds": 3.815348,
+              "exitCode": 0,
+              "log": "original-test-app-update-notifications.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 61 app update notification checks; isolated preferences and fake delivery only"
+                ]
+              }
+            },
+            {
+              "script": "test-reset-news-runtime",
+              "seconds": 50.730654,
+              "exitCode": 0,
+              "log": "original-test-reset-news-runtime.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 453 reset news runtime checks; network and notification delivery were injected"
+                ]
+              }
+            },
+            {
+              "script": "test-hooks",
+              "seconds": 57.297184,
+              "exitCode": 0,
+              "log": "original-test-hooks.log",
+              "coverage": {
+                "testCount": 230,
+                "passedTestNames": [
+                  "CodableCacheRoundTripPreservesSignalAndExplicitNull()",
+                  "DSTGapAndRepeatedClockDoNotIdentifyAnExactResetInstant()",
+                  "UnknownTargetKindRetainsRangeUntilItsEnd()",
+                  "absentReceiverFailsOpenAndUnsafeSocketRejected()",
+                  "absentRequiredKeyIsNotNoSignal(_:) with 3 test cases",
+                  "acceptedStartPrecedesItsSnapshot()",
+                  "actualInventoryQueryReportsLimitWithoutClaimingUnseenIdentities(count:) with 2 test cases",
+                  "actualReadRejectionsRotationAndDisabledParity()",
+                  "actualReadReportsExactByteBoundaryIncludingNewline(inputBytes:) with 6 test cases",
+                  "actualTuesdayPromiseIsDateLevelTentativeAndCannotRollForwardNextWeek()",
+                  "allowlistNeverForwardsConversationOrUnsupportedFields()",
+                  "announcementAndCreditsRemainDistinctFacts()",
+                  "bankedKindWithoutGroupStillCreatesFactAndOperatorObservationIsRejected()",
+                  "blockedUnloggedRoundIsSupersededOnlyByDatedNewStart()",
+                  "cancellationCannotClearAnUnresolvedReadFailure()",
+                  "cancellationStopsBeforeIOAndDuringBoundedBatches()",
+                  "capacityRejectsAtomicallyAndFreedSlotCanRetry()",
+                  "checkpointCapacityIsCheckedBeforeEncodingAndPreservesPreviousFile()",
+                  "checkpointReplaysOnlyIncompleteRecordAndCapturedEOFDoesNotChaseAppend()",
+                  "classifierPreviewCannotOverrideActionMeaning(_:) with 4 test cases",
+                  "completeDeadlineWindowWinsOverEqualTimestampWithoutProvenance()",
+                  "completeIdentityInventory(count:) with 5 test cases",
+                  "completeRelativeClockIsKeptAndAnchoredToPublicationInItsOwnTimezone()",
+                  "completedAliasesFromSourceAreTerminalEvenWithFuturePreview()",
+                  "completedAnnouncementOverridesOlderPlanButUnknownClassificationIsNotTerminal()",
+                  "completedQuotaResetKeepsItsOwnActionTime(_:) with 4 test cases",
+                  "completedResetAndSeparatelyAnnouncedFutureResetRemainDistinct()",
+                  "completionNeedsStableReconciliationAndCanReactivate()",
+                  "confidenceAndAudienceAreMappedWithoutLosingRawHints()",
+                  "continuationRevokesOnlyItsOwnCompletionFeedback()",
+                  "conversionFollowsTheViewersTimezoneAndRetainsDeadlineWordingInEnglish()",
+                  "correctingRawCursorIDInPlaceRestartsTraversal()",
+                  "corruptionRebuildAndInterruptedAtomicSave()",
+                  "creditEntitlementsNeverEstablishQuotaReset(_:) with 4 test cases",
+                  "crossYearRelativeDateIncludesYearWithoutGuessingAnHour()",
+                  "currentItemDoesNotChangeJustBecauseLocalClockAdvanced()",
+                  "currentMalformedGapHealsAfterCleanEvidence()",
+                  "cursorInventoryEvictionNamesOnlyAnActuallyHeldTask()",
+                  "damagedKnownWindowFieldsCannotBecomeUndated(_:) with 11 test cases",
+                  "dateOnlyInSourceTimezoneRemainsAnUnconvertedDayAndRetainsOverlappingLocalDay()",
+                  "dayEndUsesCalendarArithmeticAndTheDeclaredZone(_:_:) with 6 test cases",
+                  "deadlineRetainsBoundariesButDoesNotAssertAnExactResetTime()",
+                  "decoderDistinguishesExactTargetFromWindowBoundaries()",
+                  "defaultDoesNotTruncateValidForecastsToFiftyAndLedgerStillBounded()",
+                  "deletedPageBoundaryRestartsWithoutFalseComplete()",
+                  "denialDoesNotEraseIndependentFutureCommitment()",
+                  "duplicateEvidenceAndSessionAggregation()",
+                  "emitterDeadlineWithUnresponsivePeer()",
+                  "emptySuccessDiffersFromStaleAndIdentityFailure()",
+                  "endOfDayIsADeadlineAnchoredToPublication(_:) with 6 test cases",
+                  "endToEndResumeStopContinuationAndRestart()",
+                  "exactExplicitEffectiveTimeCanDifferFromWindowDeadline()",
+                  "exactMidnightDiffersFromInferredMidnight()",
+                  "exactOffsetUsesTheEventDateIncludingDSTAndDateRollover()",
+                  "exactSizedMultilineIncrementsDoNotSkipRecords(bytes:) with 6 test cases",
+                  "exactTimeConvertsToLocalTimeAndExplicitOffset()",
+                  "exactTimeTodayDoesNotExpireOrCreateUnreadRevisionAtTheClockTime()",
+                  "exactTimestampAndExpiryAreParsedWithoutGuessingTimezone()",
+                  "explicitClockWithoutTrustworthyTimezoneNeverBecomesExact()",
+                  "explicitCompletionWinsOverHistoricalPromise(_:) with 2 test cases",
+                  "explicitContinuationReordersSameTurnIdentity()",
+                  "explicitDayIsNotLostDuringExtraction(_:) with 4 test cases",
+                  "explicitEffectiveTimeWinsOverWindowDeadline()",
+                  "explicitFutureQuotaActionsRemainRecognized(_:) with 5 test cases",
+                  "explicitNullIsSuccessfulNoCurrentSignal()",
+                  "explicitOriginalTimestampStaysExactWithALabelOnlyWindow()",
+                  "explicitSingleTimeExitsWithoutACompletionPost()",
+                  "explicitUpcomingResetKeepsUnresolvedTime()",
+                  "explicitlyUnspecifiedWindowKeepsUndatedSignal()",
+                  "fileChangePreemptsLaterRetryWithoutGrowingState()",
+                  "firstSuccessfulBatchIsSilentAndBothSourcesAreOneItem()",
+                  "fixedTargetBatchPublishesFinalStateAtomically()",
+                  "fullCalendarDateNeedsNoPublicationAndRejectsInvalidDay()",
+                  "fullPostKeepsClockWhenBothEndpointsRepeatTheSameAnnouncement()",
+                  "futureCommitmentIsRecognizedWhenPreviewIsFalseAndDatesAreMissing()",
+                  "futureCreditClauseDoesNotTurnCompletedQuotaResetIntoUpcoming()",
+                  "futureOrNegatedCompletionIsNotTerminal(_:) with 3 test cases",
+                  "futurePublicationOlderThanThirtyDaysSurvivesAndOrderingUsesSchedule()",
+                  "globalScopeDoesNotBroadenAnExplicitPlanAudience()",
+                  "healthDoesNotMakeCoverageCompleteAndCompletionCannotMaskUncertainty()",
+                  "highConfidenceCannotTurnExplicitCreditDenialIntoGrant(_:) with 2 test cases",
+                  "historicalTuesdayPromiseStillMigratesTentatively()",
+                  "hostLossCannotBeRevivedByOldWorkOrDelayedAppend()",
+                  "hugeLogsAndRecoveryAreBounded()",
+                  "hugeMetadataAndKeysRemainBoundedAndClassifySubagent()",
+                  "ignoredBodyInvalidUTF8CannotSmuggleLifecycle()",
+                  "immediateStartHostLossAndRapidRestartUseLatestGeneration()",
+                  "immediateStartSuspendAndResumeRemainOperational()",
+                  "inconsistentCheckpointCannotPoisonFutureOffsets()",
+                  "independentCompletedAndFutureResetClausesArePreserved()",
+                  "independentFutureResetAfterCancellationIsActive()",
+                  "independentFutureResetAfterCompletionIsPreserved()",
+                  "injectedEnglishLocaleKeepsSamePrecisionAndCalendar()",
+                  "interruptAndSessionEndAreNotSuccessfulCompletion()",
+                  "invalidSnapshotDatesAreErrors(_:) with 2 test cases",
+                  "inventoryCapacityProtectsPinnedAndAdmitsNewUsingSettledSlot()",
+                  "landedCreditAnnouncementAndExplicitCompensationAreNotDropped()",
+                  "largeOutputPreservesConfirmedIdentity(bytes:) with 6 test cases",
+                  "largeSingleRecordsPreserveLifecycle(bytes:) with 6 test cases",
+                  "lastTerminalActionRetiresEarlierPromise(_:) with 3 test cases",
+                  "lateOldStopAndInterruptCannotEndNewTurn()",
+                  "lateToolCannotReplaceHeadOrObstructTerminalSettlement()",
+                  "laterCancellationRetiresEarlierFutureReset()",
+                  "laterIndependentPromiseAndUnrelatedStatementsStayActive(_:) with 5 test cases",
+                  "legacyCacheWithoutSnapshotsAndNewStateRoundTripStayCompatible()",
+                  "liveFeedSchemaKeepsTweetsEventsDatesAndUnknownFields()",
+                  "liveSignalShapeSurvivesCacheAndExpiresWithoutClaimingCompletion()",
+                  "localDayKeepsEarlierTodayButNotYesterday()",
+                  "localReceiverACKAndGenerationAndStaleSocketRecovery()",
+                  "lossNeverInventsSuccess(_:) with 4 test cases",
+                  "malformedAndDepthLimitedRecordsRecoverAtNextNewline()",
+                  "malformedLifecycleStaysPendingUntilTrustedLifecycle(invalid:) with 2 test cases",
+                  "malformedRowBetweenGoodRowsDoesNotPoisonDiscoveryAndHeals()",
+                  "malformedSignalCannotClearCurrentPreview(_:) with 5 test cases",
+                  "mergeBackupReadbackCleanupAndRollback()",
+                  "mismatchedSessionAndSubagentAreExcluded()",
+                  "missingFileBecomesPendingAndVerifiedReturnRestoresContinuity()",
+                  "missingLogAfterActivityBecomesUnknownAndStopDropsCallbacks()",
+                  "missingMalformedAndOutsidePathsNeverCount()",
+                  "missingOrAmbiguousTimezoneCannotProduceALocalDeadline(_:) with 4 test cases",
+                  "mixedFactsAndSnapshotsRetainOnlyForecastsWithoutCountingCreditQuantity()",
+                  "moreThan128CompletionIDsDoNotReplayOrOverflow()",
+                  "mutableIndexOrderingCannotHidePage33()",
+                  "negatedAvailabilityDoesNotCreateCreditGrant()",
+                  "negatedFragmentDoesNotEraseIndependentCreditGrant()",
+                  "newPresentationProvenanceRoundTripsWithoutChangingExistingMaterialKeys()",
+                  "newerShorterPlanOverridesAnOlderDetailedCopy()",
+                  "nonemptyMalformedContainersNeverBecomeSuccessfulEmptyFeed()",
+                  "nullOversizedAndInvalidUTF8RowsAreIsolatedAndKnownTaskRetained()",
+                  "occurrenceIdentityStableAcrossReducerRestore()",
+                  "officialDeadlineExitsAtDeadlineAndRetainsReadableEvidence()",
+                  "oldJSONKeepsTheDateWithoutAssertingExactnessAndNewPrecisionRoundTrips()",
+                  "oldUnknownDoesNotMaskNewCompletedTurn()",
+                  "onlySourceTimezoneActuallyUsedToResolveScheduleChangesItsMaterialKey()",
+                  "operatorObservationDoesNotBecomeOfficialReset()",
+                  "operatorObservationWithoutPostIdentityIsNormalFiltering(_:) with 2 test cases",
+                  "originalClockWithExplicitSourceZoneHasAnExactExit()",
+                  "oversizedWireAndTooManyConnectionsExposeGap()",
+                  "pacificCivilTimezoneTracksDSTWhileExplicitAbbreviationsKeepTheirOffsets()",
+                  "partialFinalRecordWaitsForNewlineWithoutCommittingIt()",
+                  "partialReplacementHeaderCheckpointPreservesKnownInventory()",
+                  "partialSourceFailureKeepsAcceptedPlanAndDoesNotReplay()",
+                  "passedClocksRemainCardsWithoutCreatingFutureReminders()",
+                  "pathSymlinkAndSessionMismatchAreRejected()",
+                  "pendingHalfLineClearAndMultiLineTailHaveDifferentFacts()",
+                  "planConjunctionDoesNotSplitEligibility()",
+                  "planNamesRequireEligibilityContext()",
+                  "preserveEditedDefinitionsAndRejectStalePlan()",
+                  "previewCannotTurnDenialOrSpeculationIntoForecast(_:) with 3 test cases",
+                  "previewWindowIsUpcomingAndPreservesDeadline()",
+                  "processAliasesRemainStableAcrossModeAndEngineRecreation()",
+                  "productionObservationsJoinReadTransitionAndSnapshot()",
+                  "publishedPendingTransitionsKeepTheirActualCause()",
+                  "pureDenialIsTerminalEvidenceWithoutBecomingAResetFact()",
+                  "questionDoesNotEraseFollowingIndependentCommitment()",
+                  "rangeDoesNotBecomeExactCount()",
+                  "readableWindowLabelFallsBackToMorePreciseOriginalTiming()",
+                  "recentConfirmedResetDoesNotRemoveAnotherFutureArrangement()",
+                  "recoveryAndSilenceCannotProveRunning()",
+                  "recoveryMetadataIsBoundedAcrossFilesNotOnlyPerFile()",
+                  "rejectsInvalidCanonicalIdentity(_:) with 5 test cases",
+                  "rejectsNegationAndUnrelatedReset(_:) with 8 test cases",
+                  "rejectsNoncanonicalOfficialPostIdentity(_:) with 6 test cases",
+                  "relativeDaysUsePublicationNotDiscoveryOrRefreshAndDoNotInventTimes()",
+                  "resolverSettlesTerminalDespiteTrailingToolAndTokens()",
+                  "restartRestoresPendingAndRequiresNewLiveStart()",
+                  "retiredAndDuplicateStartsCannotReplaceCurrentTurn()",
+                  "rotationAndTruncationExposeGap()",
+                  "rotationTruncationAndRewriteInvalidateGeneration()",
+                  "ruleEngineMarksOnlyParsedExactTimestampAsExact()",
+                  "sameEndpointCompletedEventWinsOverLongerOldTweet()",
+                  "sameLengthRewriteAndCorruptOffsetCheckpointAreSafe()",
+                  "sameVersionCancellationWinsOverMoreDetailedOriginalText()",
+                  "sameVersionStructuredTimeComplementsFullOriginalText()",
+                  "scopeAndScheduleChangesAreMaterialButHistoricalFactEditsAreNot()",
+                  "secondaryCompletionUnderPartialCoverageDoesNotReplay()",
+                  "semanticLimitsAndDuplicateKeysAreExplicitIssues()",
+                  "sessionSourceMustBeAdmittedIndependentlyOfIndex(source:) with 7 test cases",
+                  "silentTaskAndBudgetNeverActAsTerminal()",
+                  "snapshotRefreshAndTranslatedCopyKeepSameNotificationKey()",
+                  "sourceCalendarDateExitsAtSourceDayEnd()",
+                  "sourceEventsCannotOccurAfterSnapshotCalculation()",
+                  "sourceTimezoneCanQualifyAClockWithoutDuplicatingText()",
+                  "sourceZoneQualifiesOnlyAnUnzonedDeadline()",
+                  "splitRecordDoesNotInventTerminalAndDoesNotLeakText()",
+                  "staleAndHistoricalEvidenceCannotReviveBeforeTimerTicks()",
+                  "startBeforeHookReceiptRemainsUnknownUntilExplicitStart()",
+                  "startOnlyWindowUsesDatedOriginalTextAndNeverInventsAnEnd()",
+                  "startsUnknownThenReadsOnlyIncrementAndSettlesTerminal()",
+                  "stopContinuationNeedsNoInventedCompletion()",
+                  "stopRetainsCountBrieflyAndCannotCompleteByTime()",
+                  "structuredCompoundBankedResetAddsCreditFact()",
+                  "structuredCreditDeliveryStatesAreExplicitWithoutActionKeyword(_:) with 3 test cases",
+                  "structuredCreditsDoNotClaimQuotaReset()",
+                  "structuredForecastFillsOnlyMissingTimingFromExplicitText()",
+                  "subagentExcludedAndCapacityPublic()",
+                  "submissionCorrelatesOnlyNewExecutionNotOldHistory()",
+                  "submittedIsNotRunningAndBlockedSubmissionAgesToUnknown()",
+                  "summaryUsesTheSameDateProjectionWhileLegacyCreditBranchRemainsCompatible()",
+                  "symlinksPermissionsAndHardlinksRejected()",
+                  "targetOnlyWindowExitsAtItsStatedBoundary()",
+                  "terminalDedupAndRetiredTurnOrderingSurviveRestart()",
+                  "terminalOnlyLateOldTurnCannotReplaceKnownRunningHead()",
+                  "terminalStateRemovesCardAndPreventsOlderReplicaFromReturning(_:) with 3 test cases",
+                  "timeZoneChangeAndDSTUseNaturalDayBoundaries()",
+                  "transientPermissionDoesNotEraseSourceCompletionOrUncertainty()",
+                  "tuesdayBecomesAChineseDateWithAnHonestDerivationNote()",
+                  "uncertainOrUnknownPublicationNeverCreatesStrongReminder()",
+                  "uncertainStructuredCreditsAreExcludedFromForecasts(_:) with 2 test cases",
+                  "uncertaintyNeverShowsPrimaryCompletionOrHidesRunning()",
+                  "unchangedPollDoesNotRewriteCheckpoint()",
+                  "undatedCurrentSignalKeepsUnknownTime()",
+                  "undocumentedEffectiveAtDoesNotAffectCurrentEligibility(_:) with 4 test cases",
+                  "unknownCreditsAndScopeStayUnknown()",
+                  "unknownInvalidAndUnanchoredLabelsHaveNoEnglishLeakOrInventedDate()",
+                  "unknownProvenanceCannotBypassCanonicalIdentityValidation()",
+                  "unknownTargetKindStaysConservativeAndCompleteWindowShowsRange()",
+                  "unknownWindowSchemaNeedsDatedOriginalText()",
+                  "unrecognizedTargetKindDoesNotClaimExactTime(_:) with 2 test cases",
+                  "unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) with 8 test cases",
+                  "unrelatedFutureClauseDoesNotTurnCompletedResetIntoForecast()",
+                  "unscopedUsageIsIgnoredWithoutHidingInvalidLifecycle(budget:) with 4 test cases",
+                  "unsupportedHostPreflightIsBoundedAndWritesNoUserConfig()",
+                  "usageWithoutTurnPreservesLifecycleAndDoesNotRefreshEvidence(mode:) with 2 test cases",
+                  "utf8EscapesFieldOrderAndFalseBodyEventsAreChunkInvariant(budget:) with 6 test cases",
+                  "weakEvidenceCannotUndoInvalidation(_:) with 4 test cases",
+                  "weakEvidenceNeverCreatesOrReopensATurn()",
+                  "wholeMalformedPageAndMalformedUpperBoundaryStillAdvance()",
+                  "windowAcrossNewYearDoesNotOmitThePriorYear()",
+                  "windowCrossingLocalMidnightShowsBothCalendarDays()"
+                ]
+              }
+            }
+          ],
+          "complete": true,
+          "graphSeconds": 13.419347,
+          "seconds": 657.995411,
+          "testsPassed": false,
+          "independentSuiteProcesses": true
+        },
+        "regrouped": {
+          "rows": [
+            {
+              "script": "test-task-status",
+              "seconds": 64.249279,
+              "exitCode": 0,
+              "log": "regrouped-test-task-status.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 44 task status checks"
+                ]
+              }
+            },
+            {
+              "script": "test-hook-integration",
+              "seconds": 11.920914,
+              "exitCode": 0,
+              "log": "regrouped-test-hook-integration.log",
+              "coverage": {
+                "checks": [
+                  "PASS: default-off settings, no installation on open, explicit unready/disabled states, generation-isolated mode switching"
+                ]
+              }
+            },
+            {
+              "script": "test-token-usage",
+              "seconds": 23.154296,
+              "exitCode": 0,
+              "log": "regrouped-test-token-usage.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 18 token accounting and incremental-I/O checks"
+                ]
+              }
+            },
+            {
+              "script": "test-task-reliability",
+              "seconds": 98.055897,
+              "exitCode": 0,
+              "log": "regrouped-test-task-reliability.log",
+              "coverage": {
+                "checks": [
+                  "PASS hooks / 3 main tasks: a Hook hint alone cannot establish execution",
+                  "PASS hooks / 3 main tasks: aggregate matches the independent identity manifest",
+                  "PASS hooks / 3 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS hooks / 3 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS hooks / 3 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS hooks / 3 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS hooks / 3 main tasks: huge output retains every independently active identity",
+                  "PASS hooks / 3 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS hooks / 3 main tasks: live-start observations came from the production engine",
+                  "PASS hooks / 3 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS hooks / 3 main tasks: production engine observes the actual socket hint",
+                  "PASS hooks / 3 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS hooks / 3 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS hooks / 3 main tasks: real main-queue delivery is observable",
+                  "PASS hooks / 3 main tasks: real private Hook socket acknowledges the submit hint",
+                  "PASS hooks / 3 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS hooks / 3 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS hooks / 3 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS hooks / 3 main tasks: same-count member replacement is delivered by identity",
+                  "PASS hooks / 3 main tasks: selected display adapter consumes the same count",
+                  "PASS hooks / 3 main tasks: selected engine persisted the large file's committed record boundary",
+                  "PASS hooks / 3 main tasks: session metadata alone cannot establish current execution",
+                  "PASS hooks / 3 main tasks: stop invalidates pending and later callbacks",
+                  "PASS hooks / 3 main tasks: stopped runtime performs no new log I/O",
+                  "PASS hooks / 3 main tasks: stopping inactive adapters preserves the selected engine checkpoint inventory",
+                  "PASS hooks / 3 main tasks: subagent never adds to primary task count",
+                  "PASS hooks / 3 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS hooks / 65 main tasks: a Hook hint alone cannot establish execution",
+                  "PASS hooks / 65 main tasks: aggregate matches the independent identity manifest",
+                  "PASS hooks / 65 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS hooks / 65 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS hooks / 65 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS hooks / 65 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS hooks / 65 main tasks: huge output retains every independently active identity",
+                  "PASS hooks / 65 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS hooks / 65 main tasks: live-start observations came from the production engine",
+                  "PASS hooks / 65 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS hooks / 65 main tasks: production engine observes the actual socket hint",
+                  "PASS hooks / 65 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS hooks / 65 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS hooks / 65 main tasks: real main-queue delivery is observable",
+                  "PASS hooks / 65 main tasks: real private Hook socket acknowledges the submit hint",
+                  "PASS hooks / 65 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS hooks / 65 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS hooks / 65 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS hooks / 65 main tasks: same-count member replacement is delivered by identity",
+                  "PASS hooks / 65 main tasks: selected display adapter consumes the same count",
+                  "PASS hooks / 65 main tasks: session metadata alone cannot establish current execution",
+                  "PASS hooks / 65 main tasks: stop invalidates pending and later callbacks",
+                  "PASS hooks / 65 main tasks: stopped runtime performs no new log I/O",
+                  "PASS hooks / 65 main tasks: subagent never adds to primary task count",
+                  "PASS hooks / 65 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS hooks: explicit new-observation start confirms exactly one task",
+                  "PASS hooks: historical start plus current tool activity cannot revive pending task",
+                  "PASS hooks: hooks accepts only its new-generation explicit start",
+                  "PASS hooks: hooks reuses committed offsets after switching modes",
+                  "PASS hooks: legacy accepts only its new-generation explicit start",
+                  "PASS hooks: legacy reuses committed offsets after switching modes",
+                  "PASS hooks: mode switch conservatively rechecks previous running claims",
+                  "PASS hooks: mode switch conservatively rechecks previous running claims",
+                  "PASS hooks: mode switch to hooks loads the shared checkpoint",
+                  "PASS hooks: mode switch to legacy loads the shared checkpoint",
+                  "PASS hooks: new runtime recovers checkpoint and continuous inventory",
+                  "PASS hooks: persisted and pre-restart starts recover pending, not current execution",
+                  "PASS hooks: production recovery actually resumes the large file at its saved offset",
+                  "PASS hooks: recovered runtime reads weak activity from the checkpoint",
+                  "PASS hooks: restart does not replay old completion feedback",
+                  "PASS hooks: restored unresolved tasks remain explicitly pending",
+                  "PASS hooks: valid checkpoint recovery reads only appended records, not old large output",
+                  "PASS legacy / 1 main tasks: aggregate matches the independent identity manifest",
+                  "PASS legacy / 1 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS legacy / 1 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS legacy / 1 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS legacy / 1 main tasks: huge output retains every independently active identity",
+                  "PASS legacy / 1 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS legacy / 1 main tasks: live-start observations came from the production engine",
+                  "PASS legacy / 1 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS legacy / 1 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS legacy / 1 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS legacy / 1 main tasks: real main-queue delivery is observable",
+                  "PASS legacy / 1 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS legacy / 1 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS legacy / 1 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS legacy / 1 main tasks: selected display adapter consumes the same count",
+                  "PASS legacy / 1 main tasks: session metadata alone cannot establish current execution",
+                  "PASS legacy / 1 main tasks: stop invalidates pending and later callbacks",
+                  "PASS legacy / 1 main tasks: stopped runtime performs no new log I/O",
+                  "PASS legacy / 1 main tasks: subagent never adds to primary task count",
+                  "PASS legacy / 1 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS legacy / 3 main tasks: aggregate matches the independent identity manifest",
+                  "PASS legacy / 3 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS legacy / 3 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS legacy / 3 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS legacy / 3 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS legacy / 3 main tasks: huge output retains every independently active identity",
+                  "PASS legacy / 3 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS legacy / 3 main tasks: live-start observations came from the production engine",
+                  "PASS legacy / 3 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS legacy / 3 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS legacy / 3 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS legacy / 3 main tasks: real main-queue delivery is observable",
+                  "PASS legacy / 3 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS legacy / 3 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS legacy / 3 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS legacy / 3 main tasks: same-count member replacement is delivered by identity",
+                  "PASS legacy / 3 main tasks: selected display adapter consumes the same count",
+                  "PASS legacy / 3 main tasks: selected engine persisted the large file's committed record boundary",
+                  "PASS legacy / 3 main tasks: session metadata alone cannot establish current execution",
+                  "PASS legacy / 3 main tasks: stop invalidates pending and later callbacks",
+                  "PASS legacy / 3 main tasks: stopped runtime performs no new log I/O",
+                  "PASS legacy / 3 main tasks: stopping inactive adapters preserves the selected engine checkpoint inventory",
+                  "PASS legacy / 3 main tasks: subagent never adds to primary task count",
+                  "PASS legacy / 3 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS legacy / 33 main tasks: aggregate matches the independent identity manifest",
+                  "PASS legacy / 33 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS legacy / 33 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS legacy / 33 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS legacy / 33 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS legacy / 33 main tasks: huge output retains every independently active identity",
+                  "PASS legacy / 33 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS legacy / 33 main tasks: live-start observations came from the production engine",
+                  "PASS legacy / 33 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS legacy / 33 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS legacy / 33 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS legacy / 33 main tasks: real main-queue delivery is observable",
+                  "PASS legacy / 33 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS legacy / 33 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS legacy / 33 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS legacy / 33 main tasks: same-count member replacement is delivered by identity",
+                  "PASS legacy / 33 main tasks: selected display adapter consumes the same count",
+                  "PASS legacy / 33 main tasks: session metadata alone cannot establish current execution",
+                  "PASS legacy / 33 main tasks: stop invalidates pending and later callbacks",
+                  "PASS legacy / 33 main tasks: stopped runtime performs no new log I/O",
+                  "PASS legacy / 33 main tasks: subagent never adds to primary task count",
+                  "PASS legacy / 33 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS legacy / 65 main tasks: aggregate matches the independent identity manifest",
+                  "PASS legacy / 65 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS legacy / 65 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS legacy / 65 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS legacy / 65 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS legacy / 65 main tasks: huge output retains every independently active identity",
+                  "PASS legacy / 65 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS legacy / 65 main tasks: live-start observations came from the production engine",
+                  "PASS legacy / 65 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS legacy / 65 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS legacy / 65 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS legacy / 65 main tasks: real main-queue delivery is observable",
+                  "PASS legacy / 65 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS legacy / 65 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS legacy / 65 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS legacy / 65 main tasks: same-count member replacement is delivered by identity",
+                  "PASS legacy / 65 main tasks: selected display adapter consumes the same count",
+                  "PASS legacy / 65 main tasks: session metadata alone cannot establish current execution",
+                  "PASS legacy / 65 main tasks: stop invalidates pending and later callbacks",
+                  "PASS legacy / 65 main tasks: stopped runtime performs no new log I/O",
+                  "PASS legacy / 65 main tasks: subagent never adds to primary task count",
+                  "PASS legacy / 65 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS legacy / 8 main tasks: aggregate matches the independent identity manifest",
+                  "PASS legacy / 8 main tasks: coordinator acceptance is distinguishable from runtime delivery",
+                  "PASS legacy / 8 main tasks: coordinator preserves engine snapshot and generation",
+                  "PASS legacy / 8 main tasks: equal aggregate with changed membership receives a new snapshot",
+                  "PASS legacy / 8 main tasks: explicit terminal removes exactly its own identity",
+                  "PASS legacy / 8 main tasks: huge output retains every independently active identity",
+                  "PASS legacy / 8 main tasks: independently listed identity set matches all explicit live starts",
+                  "PASS legacy / 8 main tasks: live-start observations came from the production engine",
+                  "PASS legacy / 8 main tasks: paginated production inventory reaches complete baseline",
+                  "PASS legacy / 8 main tasks: production exclusion has a fixed subagent reason",
+                  "PASS legacy / 8 main tasks: production reader continuously commits exact 601826-byte increment",
+                  "PASS legacy / 8 main tasks: real main-queue delivery is observable",
+                  "PASS legacy / 8 main tasks: real reader consumes late terminal-tail activity",
+                  "PASS legacy / 8 main tasks: real reader observations prove budget backlog rather than skipping",
+                  "PASS legacy / 8 main tasks: runtime truth remains explicitly unavailable",
+                  "PASS legacy / 8 main tasks: same-count member replacement is delivered by identity",
+                  "PASS legacy / 8 main tasks: selected display adapter consumes the same count",
+                  "PASS legacy / 8 main tasks: session metadata alone cannot establish current execution",
+                  "PASS legacy / 8 main tasks: stop invalidates pending and later callbacks",
+                  "PASS legacy / 8 main tasks: stopped runtime performs no new log I/O",
+                  "PASS legacy / 8 main tasks: subagent never adds to primary task count",
+                  "PASS legacy / 8 main tasks: terminal-tail activity cannot revive the completed turn",
+                  "PASS legacy: explicit new-observation start confirms exactly one task",
+                  "PASS legacy: historical start plus current tool activity cannot revive pending task",
+                  "PASS legacy: hooks accepts only its new-generation explicit start",
+                  "PASS legacy: hooks reuses committed offsets after switching modes",
+                  "PASS legacy: legacy accepts only its new-generation explicit start",
+                  "PASS legacy: legacy reuses committed offsets after switching modes",
+                  "PASS legacy: mode switch conservatively rechecks previous running claims",
+                  "PASS legacy: mode switch conservatively rechecks previous running claims",
+                  "PASS legacy: mode switch to hooks loads the shared checkpoint",
+                  "PASS legacy: mode switch to legacy loads the shared checkpoint",
+                  "PASS legacy: new runtime recovers checkpoint and continuous inventory",
+                  "PASS legacy: persisted and pre-restart starts recover pending, not current execution",
+                  "PASS legacy: production recovery actually resumes the large file at its saved offset",
+                  "PASS legacy: recovered runtime reads weak activity from the checkpoint",
+                  "PASS legacy: restart does not replay old completion feedback",
+                  "PASS legacy: restored unresolved tasks remain explicitly pending",
+                  "PASS legacy: valid checkpoint recovery reads only appended records, not old large output",
+                  "RESULT checks=196 failures=0"
+                ]
+              }
+            },
+            {
+              "script": "test-account-token-usage",
+              "seconds": 8.494159,
+              "exitCode": 0,
+              "log": "regrouped-test-account-token-usage.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 72 account token usage checks"
+                ]
+              }
+            },
+            {
+              "script": "test-verified-quota",
+              "seconds": 11.039145,
+              "exitCode": 0,
+              "log": "regrouped-test-verified-quota.log",
+              "coverage": {
+                "checks": [
+                  "Verified quota checks passed: 57"
+                ]
+              }
+            },
+            {
+              "script": "test-quota-alerts",
+              "seconds": 38.047527,
+              "exitCode": 0,
+              "log": "regrouped-test-quota-alerts.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 64 quota alert checks; fake notifications and isolated preferences only"
+                ]
+              }
+            },
+            {
+              "script": "test-host-auto-launcher",
+              "seconds": 11.924253,
+              "exitCode": 0,
+              "log": "regrouped-test-host-auto-launcher.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 56 host auto-launcher checks"
+                ]
+              }
+            },
+            {
+              "script": "test-connection-diagnostics",
+              "seconds": 18.438595,
+              "exitCode": 0,
+              "log": "regrouped-test-connection-diagnostics.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 61 connection diagnostics checks"
+                ]
+              }
+            },
+            {
+              "script": "test-diagnostic-upgrade-storage",
+              "seconds": 10.102658,
+              "exitCode": 0,
+              "log": "regrouped-test-diagnostic-upgrade-storage.log",
+              "coverage": {
+                "checks": [
+                  "DiagnosticUpgradeStorageTests: 134 checks passed"
+                ]
+              }
+            },
+            {
+              "script": "test-diagnostic-upgrade-installer",
+              "seconds": 10.965063,
+              "exitCode": 132,
+              "log": "regrouped-test-diagnostic-upgrade-installer.log",
+              "coverageError": "No test success evidence: test-diagnostic-upgrade-installer",
+              "coverage": null
+            },
+            {
+              "script": "test-diagnostic-upgrade-recovery",
+              "seconds": 12.211756,
+              "exitCode": 132,
+              "log": "regrouped-test-diagnostic-upgrade-recovery.log",
+              "coverageError": "No test success evidence: test-diagnostic-upgrade-recovery",
+              "coverage": null
+            },
+            {
+              "script": "test-host-lifecycle",
+              "seconds": 1.875163,
+              "exitCode": 0,
+              "log": "regrouped-test-host-lifecycle.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 25 host lifecycle checks"
+                ]
+              }
+            },
+            {
+              "script": "test-single-instance",
+              "seconds": 5.794213,
+              "exitCode": 0,
+              "log": "regrouped-test-single-instance.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 92 single-instance checks (/private<SOURCE>/.build/single-instance-tests/x86_64/SingleInstanceLockProbe)"
+                ]
+              }
+            },
+            {
+              "script": "test-app-update",
+              "seconds": 6.217154,
+              "exitCode": 0,
+              "log": "regrouped-test-app-update.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 42 isolated installer checks",
+                  "PASS: 82 update policy checks",
+                  "PASS: updater shell syntax and invalid-target rejection"
+                ]
+              }
+            },
+            {
+              "script": "test-app-update-progress",
+              "seconds": 68.903185,
+              "exitCode": 0,
+              "log": "regrouped-test-app-update-progress.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 216 update progress checks (loopback downloads, private helper, native window)"
+                ]
+              }
+            },
+            {
+              "script": "test-github-release-fallback",
+              "seconds": 2.922468,
+              "exitCode": 0,
+              "log": "regrouped-test-github-release-fallback.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 152 GitHub fallback fault-injection checks"
+                ]
+              }
+            },
+            {
+              "script": "test-app-update-notifications",
+              "seconds": 4.005773,
+              "exitCode": 0,
+              "log": "regrouped-test-app-update-notifications.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 61 app update notification checks; isolated preferences and fake delivery only"
+                ]
+              }
+            },
+            {
+              "script": "test-reset-news-runtime",
+              "seconds": 50.23168,
+              "exitCode": 0,
+              "log": "regrouped-test-reset-news-runtime.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 453 reset news runtime checks; network and notification delivery were injected"
+                ]
+              }
+            },
+            {
+              "script": "test-hooks",
+              "seconds": 44.913342,
+              "exitCode": 0,
+              "log": "regrouped-test-hooks.log",
+              "coverage": {
+                "testCount": 230,
+                "passedTestNames": [
+                  "CodableCacheRoundTripPreservesSignalAndExplicitNull()",
+                  "DSTGapAndRepeatedClockDoNotIdentifyAnExactResetInstant()",
+                  "UnknownTargetKindRetainsRangeUntilItsEnd()",
+                  "absentReceiverFailsOpenAndUnsafeSocketRejected()",
+                  "absentRequiredKeyIsNotNoSignal(_:) with 3 test cases",
+                  "acceptedStartPrecedesItsSnapshot()",
+                  "actualInventoryQueryReportsLimitWithoutClaimingUnseenIdentities(count:) with 2 test cases",
+                  "actualReadRejectionsRotationAndDisabledParity()",
+                  "actualReadReportsExactByteBoundaryIncludingNewline(inputBytes:) with 6 test cases",
+                  "actualTuesdayPromiseIsDateLevelTentativeAndCannotRollForwardNextWeek()",
+                  "allowlistNeverForwardsConversationOrUnsupportedFields()",
+                  "announcementAndCreditsRemainDistinctFacts()",
+                  "bankedKindWithoutGroupStillCreatesFactAndOperatorObservationIsRejected()",
+                  "blockedUnloggedRoundIsSupersededOnlyByDatedNewStart()",
+                  "cancellationCannotClearAnUnresolvedReadFailure()",
+                  "cancellationStopsBeforeIOAndDuringBoundedBatches()",
+                  "capacityRejectsAtomicallyAndFreedSlotCanRetry()",
+                  "checkpointCapacityIsCheckedBeforeEncodingAndPreservesPreviousFile()",
+                  "checkpointReplaysOnlyIncompleteRecordAndCapturedEOFDoesNotChaseAppend()",
+                  "classifierPreviewCannotOverrideActionMeaning(_:) with 4 test cases",
+                  "completeDeadlineWindowWinsOverEqualTimestampWithoutProvenance()",
+                  "completeIdentityInventory(count:) with 5 test cases",
+                  "completeRelativeClockIsKeptAndAnchoredToPublicationInItsOwnTimezone()",
+                  "completedAliasesFromSourceAreTerminalEvenWithFuturePreview()",
+                  "completedAnnouncementOverridesOlderPlanButUnknownClassificationIsNotTerminal()",
+                  "completedQuotaResetKeepsItsOwnActionTime(_:) with 4 test cases",
+                  "completedResetAndSeparatelyAnnouncedFutureResetRemainDistinct()",
+                  "completionNeedsStableReconciliationAndCanReactivate()",
+                  "confidenceAndAudienceAreMappedWithoutLosingRawHints()",
+                  "continuationRevokesOnlyItsOwnCompletionFeedback()",
+                  "conversionFollowsTheViewersTimezoneAndRetainsDeadlineWordingInEnglish()",
+                  "correctingRawCursorIDInPlaceRestartsTraversal()",
+                  "corruptionRebuildAndInterruptedAtomicSave()",
+                  "creditEntitlementsNeverEstablishQuotaReset(_:) with 4 test cases",
+                  "crossYearRelativeDateIncludesYearWithoutGuessingAnHour()",
+                  "currentItemDoesNotChangeJustBecauseLocalClockAdvanced()",
+                  "currentMalformedGapHealsAfterCleanEvidence()",
+                  "cursorInventoryEvictionNamesOnlyAnActuallyHeldTask()",
+                  "damagedKnownWindowFieldsCannotBecomeUndated(_:) with 11 test cases",
+                  "dateOnlyInSourceTimezoneRemainsAnUnconvertedDayAndRetainsOverlappingLocalDay()",
+                  "dayEndUsesCalendarArithmeticAndTheDeclaredZone(_:_:) with 6 test cases",
+                  "deadlineRetainsBoundariesButDoesNotAssertAnExactResetTime()",
+                  "decoderDistinguishesExactTargetFromWindowBoundaries()",
+                  "defaultDoesNotTruncateValidForecastsToFiftyAndLedgerStillBounded()",
+                  "deletedPageBoundaryRestartsWithoutFalseComplete()",
+                  "denialDoesNotEraseIndependentFutureCommitment()",
+                  "duplicateEvidenceAndSessionAggregation()",
+                  "emitterDeadlineWithUnresponsivePeer()",
+                  "emptySuccessDiffersFromStaleAndIdentityFailure()",
+                  "endOfDayIsADeadlineAnchoredToPublication(_:) with 6 test cases",
+                  "endToEndResumeStopContinuationAndRestart()",
+                  "exactExplicitEffectiveTimeCanDifferFromWindowDeadline()",
+                  "exactMidnightDiffersFromInferredMidnight()",
+                  "exactOffsetUsesTheEventDateIncludingDSTAndDateRollover()",
+                  "exactSizedMultilineIncrementsDoNotSkipRecords(bytes:) with 6 test cases",
+                  "exactTimeConvertsToLocalTimeAndExplicitOffset()",
+                  "exactTimeTodayDoesNotExpireOrCreateUnreadRevisionAtTheClockTime()",
+                  "exactTimestampAndExpiryAreParsedWithoutGuessingTimezone()",
+                  "explicitClockWithoutTrustworthyTimezoneNeverBecomesExact()",
+                  "explicitCompletionWinsOverHistoricalPromise(_:) with 2 test cases",
+                  "explicitContinuationReordersSameTurnIdentity()",
+                  "explicitDayIsNotLostDuringExtraction(_:) with 4 test cases",
+                  "explicitEffectiveTimeWinsOverWindowDeadline()",
+                  "explicitFutureQuotaActionsRemainRecognized(_:) with 5 test cases",
+                  "explicitNullIsSuccessfulNoCurrentSignal()",
+                  "explicitOriginalTimestampStaysExactWithALabelOnlyWindow()",
+                  "explicitSingleTimeExitsWithoutACompletionPost()",
+                  "explicitUpcomingResetKeepsUnresolvedTime()",
+                  "explicitlyUnspecifiedWindowKeepsUndatedSignal()",
+                  "fileChangePreemptsLaterRetryWithoutGrowingState()",
+                  "firstSuccessfulBatchIsSilentAndBothSourcesAreOneItem()",
+                  "fixedTargetBatchPublishesFinalStateAtomically()",
+                  "fullCalendarDateNeedsNoPublicationAndRejectsInvalidDay()",
+                  "fullPostKeepsClockWhenBothEndpointsRepeatTheSameAnnouncement()",
+                  "futureCommitmentIsRecognizedWhenPreviewIsFalseAndDatesAreMissing()",
+                  "futureCreditClauseDoesNotTurnCompletedQuotaResetIntoUpcoming()",
+                  "futureOrNegatedCompletionIsNotTerminal(_:) with 3 test cases",
+                  "futurePublicationOlderThanThirtyDaysSurvivesAndOrderingUsesSchedule()",
+                  "globalScopeDoesNotBroadenAnExplicitPlanAudience()",
+                  "healthDoesNotMakeCoverageCompleteAndCompletionCannotMaskUncertainty()",
+                  "highConfidenceCannotTurnExplicitCreditDenialIntoGrant(_:) with 2 test cases",
+                  "historicalTuesdayPromiseStillMigratesTentatively()",
+                  "hostLossCannotBeRevivedByOldWorkOrDelayedAppend()",
+                  "hugeLogsAndRecoveryAreBounded()",
+                  "hugeMetadataAndKeysRemainBoundedAndClassifySubagent()",
+                  "ignoredBodyInvalidUTF8CannotSmuggleLifecycle()",
+                  "immediateStartHostLossAndRapidRestartUseLatestGeneration()",
+                  "immediateStartSuspendAndResumeRemainOperational()",
+                  "inconsistentCheckpointCannotPoisonFutureOffsets()",
+                  "independentCompletedAndFutureResetClausesArePreserved()",
+                  "independentFutureResetAfterCancellationIsActive()",
+                  "independentFutureResetAfterCompletionIsPreserved()",
+                  "injectedEnglishLocaleKeepsSamePrecisionAndCalendar()",
+                  "interruptAndSessionEndAreNotSuccessfulCompletion()",
+                  "invalidSnapshotDatesAreErrors(_:) with 2 test cases",
+                  "inventoryCapacityProtectsPinnedAndAdmitsNewUsingSettledSlot()",
+                  "landedCreditAnnouncementAndExplicitCompensationAreNotDropped()",
+                  "largeOutputPreservesConfirmedIdentity(bytes:) with 6 test cases",
+                  "largeSingleRecordsPreserveLifecycle(bytes:) with 6 test cases",
+                  "lastTerminalActionRetiresEarlierPromise(_:) with 3 test cases",
+                  "lateOldStopAndInterruptCannotEndNewTurn()",
+                  "lateToolCannotReplaceHeadOrObstructTerminalSettlement()",
+                  "laterCancellationRetiresEarlierFutureReset()",
+                  "laterIndependentPromiseAndUnrelatedStatementsStayActive(_:) with 5 test cases",
+                  "legacyCacheWithoutSnapshotsAndNewStateRoundTripStayCompatible()",
+                  "liveFeedSchemaKeepsTweetsEventsDatesAndUnknownFields()",
+                  "liveSignalShapeSurvivesCacheAndExpiresWithoutClaimingCompletion()",
+                  "localDayKeepsEarlierTodayButNotYesterday()",
+                  "localReceiverACKAndGenerationAndStaleSocketRecovery()",
+                  "lossNeverInventsSuccess(_:) with 4 test cases",
+                  "malformedAndDepthLimitedRecordsRecoverAtNextNewline()",
+                  "malformedLifecycleStaysPendingUntilTrustedLifecycle(invalid:) with 2 test cases",
+                  "malformedRowBetweenGoodRowsDoesNotPoisonDiscoveryAndHeals()",
+                  "malformedSignalCannotClearCurrentPreview(_:) with 5 test cases",
+                  "mergeBackupReadbackCleanupAndRollback()",
+                  "mismatchedSessionAndSubagentAreExcluded()",
+                  "missingFileBecomesPendingAndVerifiedReturnRestoresContinuity()",
+                  "missingLogAfterActivityBecomesUnknownAndStopDropsCallbacks()",
+                  "missingMalformedAndOutsidePathsNeverCount()",
+                  "missingOrAmbiguousTimezoneCannotProduceALocalDeadline(_:) with 4 test cases",
+                  "mixedFactsAndSnapshotsRetainOnlyForecastsWithoutCountingCreditQuantity()",
+                  "moreThan128CompletionIDsDoNotReplayOrOverflow()",
+                  "mutableIndexOrderingCannotHidePage33()",
+                  "negatedAvailabilityDoesNotCreateCreditGrant()",
+                  "negatedFragmentDoesNotEraseIndependentCreditGrant()",
+                  "newPresentationProvenanceRoundTripsWithoutChangingExistingMaterialKeys()",
+                  "newerShorterPlanOverridesAnOlderDetailedCopy()",
+                  "nonemptyMalformedContainersNeverBecomeSuccessfulEmptyFeed()",
+                  "nullOversizedAndInvalidUTF8RowsAreIsolatedAndKnownTaskRetained()",
+                  "occurrenceIdentityStableAcrossReducerRestore()",
+                  "officialDeadlineExitsAtDeadlineAndRetainsReadableEvidence()",
+                  "oldJSONKeepsTheDateWithoutAssertingExactnessAndNewPrecisionRoundTrips()",
+                  "oldUnknownDoesNotMaskNewCompletedTurn()",
+                  "onlySourceTimezoneActuallyUsedToResolveScheduleChangesItsMaterialKey()",
+                  "operatorObservationDoesNotBecomeOfficialReset()",
+                  "operatorObservationWithoutPostIdentityIsNormalFiltering(_:) with 2 test cases",
+                  "originalClockWithExplicitSourceZoneHasAnExactExit()",
+                  "oversizedWireAndTooManyConnectionsExposeGap()",
+                  "pacificCivilTimezoneTracksDSTWhileExplicitAbbreviationsKeepTheirOffsets()",
+                  "partialFinalRecordWaitsForNewlineWithoutCommittingIt()",
+                  "partialReplacementHeaderCheckpointPreservesKnownInventory()",
+                  "partialSourceFailureKeepsAcceptedPlanAndDoesNotReplay()",
+                  "passedClocksRemainCardsWithoutCreatingFutureReminders()",
+                  "pathSymlinkAndSessionMismatchAreRejected()",
+                  "pendingHalfLineClearAndMultiLineTailHaveDifferentFacts()",
+                  "planConjunctionDoesNotSplitEligibility()",
+                  "planNamesRequireEligibilityContext()",
+                  "preserveEditedDefinitionsAndRejectStalePlan()",
+                  "previewCannotTurnDenialOrSpeculationIntoForecast(_:) with 3 test cases",
+                  "previewWindowIsUpcomingAndPreservesDeadline()",
+                  "processAliasesRemainStableAcrossModeAndEngineRecreation()",
+                  "productionObservationsJoinReadTransitionAndSnapshot()",
+                  "publishedPendingTransitionsKeepTheirActualCause()",
+                  "pureDenialIsTerminalEvidenceWithoutBecomingAResetFact()",
+                  "questionDoesNotEraseFollowingIndependentCommitment()",
+                  "rangeDoesNotBecomeExactCount()",
+                  "readableWindowLabelFallsBackToMorePreciseOriginalTiming()",
+                  "recentConfirmedResetDoesNotRemoveAnotherFutureArrangement()",
+                  "recoveryAndSilenceCannotProveRunning()",
+                  "recoveryMetadataIsBoundedAcrossFilesNotOnlyPerFile()",
+                  "rejectsInvalidCanonicalIdentity(_:) with 5 test cases",
+                  "rejectsNegationAndUnrelatedReset(_:) with 8 test cases",
+                  "rejectsNoncanonicalOfficialPostIdentity(_:) with 6 test cases",
+                  "relativeDaysUsePublicationNotDiscoveryOrRefreshAndDoNotInventTimes()",
+                  "resolverSettlesTerminalDespiteTrailingToolAndTokens()",
+                  "restartRestoresPendingAndRequiresNewLiveStart()",
+                  "retiredAndDuplicateStartsCannotReplaceCurrentTurn()",
+                  "rotationAndTruncationExposeGap()",
+                  "rotationTruncationAndRewriteInvalidateGeneration()",
+                  "ruleEngineMarksOnlyParsedExactTimestampAsExact()",
+                  "sameEndpointCompletedEventWinsOverLongerOldTweet()",
+                  "sameLengthRewriteAndCorruptOffsetCheckpointAreSafe()",
+                  "sameVersionCancellationWinsOverMoreDetailedOriginalText()",
+                  "sameVersionStructuredTimeComplementsFullOriginalText()",
+                  "scopeAndScheduleChangesAreMaterialButHistoricalFactEditsAreNot()",
+                  "secondaryCompletionUnderPartialCoverageDoesNotReplay()",
+                  "semanticLimitsAndDuplicateKeysAreExplicitIssues()",
+                  "sessionSourceMustBeAdmittedIndependentlyOfIndex(source:) with 7 test cases",
+                  "silentTaskAndBudgetNeverActAsTerminal()",
+                  "snapshotRefreshAndTranslatedCopyKeepSameNotificationKey()",
+                  "sourceCalendarDateExitsAtSourceDayEnd()",
+                  "sourceEventsCannotOccurAfterSnapshotCalculation()",
+                  "sourceTimezoneCanQualifyAClockWithoutDuplicatingText()",
+                  "sourceZoneQualifiesOnlyAnUnzonedDeadline()",
+                  "splitRecordDoesNotInventTerminalAndDoesNotLeakText()",
+                  "staleAndHistoricalEvidenceCannotReviveBeforeTimerTicks()",
+                  "startBeforeHookReceiptRemainsUnknownUntilExplicitStart()",
+                  "startOnlyWindowUsesDatedOriginalTextAndNeverInventsAnEnd()",
+                  "startsUnknownThenReadsOnlyIncrementAndSettlesTerminal()",
+                  "stopContinuationNeedsNoInventedCompletion()",
+                  "stopRetainsCountBrieflyAndCannotCompleteByTime()",
+                  "structuredCompoundBankedResetAddsCreditFact()",
+                  "structuredCreditDeliveryStatesAreExplicitWithoutActionKeyword(_:) with 3 test cases",
+                  "structuredCreditsDoNotClaimQuotaReset()",
+                  "structuredForecastFillsOnlyMissingTimingFromExplicitText()",
+                  "subagentExcludedAndCapacityPublic()",
+                  "submissionCorrelatesOnlyNewExecutionNotOldHistory()",
+                  "submittedIsNotRunningAndBlockedSubmissionAgesToUnknown()",
+                  "summaryUsesTheSameDateProjectionWhileLegacyCreditBranchRemainsCompatible()",
+                  "symlinksPermissionsAndHardlinksRejected()",
+                  "targetOnlyWindowExitsAtItsStatedBoundary()",
+                  "terminalDedupAndRetiredTurnOrderingSurviveRestart()",
+                  "terminalOnlyLateOldTurnCannotReplaceKnownRunningHead()",
+                  "terminalStateRemovesCardAndPreventsOlderReplicaFromReturning(_:) with 3 test cases",
+                  "timeZoneChangeAndDSTUseNaturalDayBoundaries()",
+                  "transientPermissionDoesNotEraseSourceCompletionOrUncertainty()",
+                  "tuesdayBecomesAChineseDateWithAnHonestDerivationNote()",
+                  "uncertainOrUnknownPublicationNeverCreatesStrongReminder()",
+                  "uncertainStructuredCreditsAreExcludedFromForecasts(_:) with 2 test cases",
+                  "uncertaintyNeverShowsPrimaryCompletionOrHidesRunning()",
+                  "unchangedPollDoesNotRewriteCheckpoint()",
+                  "undatedCurrentSignalKeepsUnknownTime()",
+                  "undocumentedEffectiveAtDoesNotAffectCurrentEligibility(_:) with 4 test cases",
+                  "unknownCreditsAndScopeStayUnknown()",
+                  "unknownInvalidAndUnanchoredLabelsHaveNoEnglishLeakOrInventedDate()",
+                  "unknownProvenanceCannotBypassCanonicalIdentityValidation()",
+                  "unknownTargetKindStaysConservativeAndCompleteWindowShowsRange()",
+                  "unknownWindowSchemaNeedsDatedOriginalText()",
+                  "unrecognizedTargetKindDoesNotClaimExactTime(_:) with 2 test cases",
+                  "unrelatedDeniedAndQuestionedActionsAreNotForecasts(_:) with 8 test cases",
+                  "unrelatedFutureClauseDoesNotTurnCompletedResetIntoForecast()",
+                  "unscopedUsageIsIgnoredWithoutHidingInvalidLifecycle(budget:) with 4 test cases",
+                  "unsupportedHostPreflightIsBoundedAndWritesNoUserConfig()",
+                  "usageWithoutTurnPreservesLifecycleAndDoesNotRefreshEvidence(mode:) with 2 test cases",
+                  "utf8EscapesFieldOrderAndFalseBodyEventsAreChunkInvariant(budget:) with 6 test cases",
+                  "weakEvidenceCannotUndoInvalidation(_:) with 4 test cases",
+                  "weakEvidenceNeverCreatesOrReopensATurn()",
+                  "wholeMalformedPageAndMalformedUpperBoundaryStillAdvance()",
+                  "windowAcrossNewYearDoesNotOmitThePriorYear()",
+                  "windowCrossingLocalMidnightShowsBothCalendarDays()"
+                ]
+              }
+            }
+          ],
+          "complete": true,
+          "graphSeconds": 2.59382,
+          "seconds": 506.118374,
+          "testsPassed": false,
+          "independentSuiteProcesses": true
+        }
+      },
+      "failures": [
+        {
+          "mode": "original",
+          "script": "test-diagnostic-upgrade-installer",
+          "exitCode": 132
+        },
+        {
+          "mode": "original",
+          "script": "test-diagnostic-upgrade-recovery",
+          "exitCode": 132
+        },
+        {
+          "mode": "regrouped",
+          "script": "test-diagnostic-upgrade-installer",
+          "exitCode": 132
+        },
+        {
+          "mode": "regrouped",
+          "script": "test-diagnostic-upgrade-recovery",
+          "exitCode": 132
+        }
+      ],
+      "coverageMismatches": [],
+      "complete": true,
+      "testsPassed": false,
+      "sameSuiteCoverageEquivalent": false
+    },
+    "grouping-x86_64-interface-1": {
+      "baseline": "7f7cf691f4431b49bcf2ea2af2b48afd2c918a20",
+      "candidate": "760d664a9cb99f73339e567a98090b8f499b46ad",
+      "architecture": "x86_64",
+      "suite": "interface",
+      "layouts": {
+        "original": {
+          "data": [
+            "test-task-status",
+            "test-hook-integration",
+            "test-token-usage",
+            "test-task-reliability",
+            "test-account-token-usage",
+            "test-verified-quota",
+            "test-quota-alerts",
+            "test-host-auto-launcher",
+            "test-connection-diagnostics",
+            "test-diagnostic-logging",
+            "test-diagnostic-upgrade-storage",
+            "test-diagnostic-upgrade-installer",
+            "test-diagnostic-upgrade-recovery",
+            "test-host-lifecycle",
+            "test-single-instance",
+            "test-app-update",
+            "test-app-update-progress",
+            "test-github-release-fallback",
+            "test-app-update-notifications",
+            "test-reset-news-runtime",
+            "test-hooks"
+          ],
+          "interface": [
+            "test-hud-material",
+            "test-idle-performance",
+            "test-status-menu",
+            "test-notch-hud",
+            "test-notch-presentation",
+            "test-touchbar",
+            "test-touchbar-layout",
+            "test-design-layout"
+          ]
+        },
+        "regrouped": {
+          "data": [
+            "test-task-status",
+            "test-hook-integration",
+            "test-token-usage",
+            "test-task-reliability",
+            "test-account-token-usage",
+            "test-verified-quota",
+            "test-quota-alerts",
+            "test-host-auto-launcher",
+            "test-connection-diagnostics",
+            "test-diagnostic-upgrade-storage",
+            "test-diagnostic-upgrade-installer",
+            "test-diagnostic-upgrade-recovery",
+            "test-host-lifecycle",
+            "test-single-instance",
+            "test-app-update",
+            "test-app-update-progress",
+            "test-github-release-fallback",
+            "test-app-update-notifications",
+            "test-reset-news-runtime",
+            "test-hooks"
+          ],
+          "interface": [
+            "test-hud-material",
+            "test-idle-performance",
+            "test-status-menu",
+            "test-notch-hud",
+            "test-notch-presentation",
+            "test-touchbar",
+            "test-touchbar-layout",
+            "test-design-layout",
+            "test-diagnostic-logging"
+          ]
+        }
+      },
+      "projectCaches": "fresh per mode and suite",
+      "systemCaches": "not cleared",
+      "sourceArchiveSHA256": "e3869b7721df641ab030077aa90260cc14c75a2c55b2e5194825ed53f6e6ca06",
+      "compiler": "swift-driver version: 1.127.15 Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: x86_64-apple-macosx15.0",
+      "sdk": "26.2",
+      "modes": {
+        "original": {
+          "rows": [
+            {
+              "script": "test-hud-material",
+              "seconds": 150.060295,
+              "exitCode": 0,
+              "log": "original-test-hud-material.log",
+              "coverage": {
+                "checks": [
+                  "HUD material tests passed: 45 checks; native glass supported: false"
+                ]
+              }
+            },
+            {
+              "script": "test-idle-performance",
+              "seconds": 95.035735,
+              "exitCode": 0,
+              "log": "original-test-idle-performance.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 57 idle performance and connection checks"
+                ]
+              }
+            },
+            {
+              "script": "test-status-menu",
+              "seconds": 38.040168,
+              "exitCode": 0,
+              "log": "original-test-status-menu.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 33 status menu checks"
+                ]
+              }
+            },
+            {
+              "script": "test-notch-hud",
+              "seconds": 107.14669,
+              "exitCode": 0,
+              "log": "original-test-notch-hud.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 194676 notch fusion and V2 checks"
+                ]
+              }
+            },
+            {
+              "script": "test-notch-presentation",
+              "seconds": 98.308347,
+              "exitCode": 0,
+              "log": "original-test-notch-presentation.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 437 native island checks; <variable> presented frames",
+                  "PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration."
+                ]
+              }
+            },
+            {
+              "script": "test-touchbar",
+              "seconds": 26.157464,
+              "exitCode": 0,
+              "log": "original-test-touchbar.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 52 Touch Bar lifecycle, preference, data and focus checks"
+                ]
+              }
+            },
+            {
+              "script": "test-touchbar-layout",
+              "seconds": 18.361204,
+              "exitCode": 0,
+              "log": "original-test-touchbar-layout.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 459 Touch Bar layout checks"
+                ]
+              }
+            },
+            {
+              "script": "test-design-layout",
+              "seconds": 7.037828,
+              "exitCode": 0,
+              "log": "original-test-design-layout.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 281 design integration checks"
+                ]
+              }
+            }
+          ],
+          "complete": true,
+          "graphSeconds": 1e-06,
+          "seconds": 540.16136,
+          "testsPassed": true,
+          "independentSuiteProcesses": true
+        },
+        "regrouped": {
+          "rows": [
+            {
+              "script": "test-hud-material",
+              "seconds": 112.768195,
+              "exitCode": 0,
+              "log": "regrouped-test-hud-material.log",
+              "coverage": {
+                "checks": [
+                  "HUD material tests passed: 45 checks; native glass supported: false"
+                ]
+              }
+            },
+            {
+              "script": "test-idle-performance",
+              "seconds": 84.196903,
+              "exitCode": 0,
+              "log": "regrouped-test-idle-performance.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 57 idle performance and connection checks"
+                ]
+              }
+            },
+            {
+              "script": "test-status-menu",
+              "seconds": 35.659433,
+              "exitCode": 0,
+              "log": "regrouped-test-status-menu.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 33 status menu checks"
+                ]
+              }
+            },
+            {
+              "script": "test-notch-hud",
+              "seconds": 99.192917,
+              "exitCode": 0,
+              "log": "regrouped-test-notch-hud.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 194676 notch fusion and V2 checks"
+                ]
+              }
+            },
+            {
+              "script": "test-notch-presentation",
+              "seconds": 97.931398,
+              "exitCode": 0,
+              "log": "regrouped-test-notch-presentation.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 437 native island checks; <variable> presented frames",
+                  "PASS: real WindowServer events reached a separate native receiver process for outside click, stationary-pointer click after animated shrink, camera, rounded corner and decoration."
+                ]
+              }
+            },
+            {
+              "script": "test-touchbar",
+              "seconds": 27.842989,
+              "exitCode": 0,
+              "log": "regrouped-test-touchbar.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 52 Touch Bar lifecycle, preference, data and focus checks"
+                ]
+              }
+            },
+            {
+              "script": "test-touchbar-layout",
+              "seconds": 21.032796,
+              "exitCode": 0,
+              "log": "regrouped-test-touchbar-layout.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 459 Touch Bar layout checks"
+                ]
+              }
+            },
+            {
+              "script": "test-design-layout",
+              "seconds": 7.220816,
+              "exitCode": 0,
+              "log": "regrouped-test-design-layout.log",
+              "coverage": {
+                "checks": [
+                  "PASS: 281 design integration checks"
+                ]
+              }
+            },
+            {
+              "script": "test-diagnostic-logging",
+              "seconds": 102.950172,
+              "exitCode": 0,
+              "log": "regrouped-test-diagnostic-logging.log",
+              "coverage": {
+                "checks": [
+                  "DiagnosticRecorderTests: 216 checks passed",
+                  "DiagnosticTaskTraceProtocolTests: 92 checks passed",
+                  "PASS: 22 diagnostic environment checks",
+                  "PASS: 71 unified diagnostic integration assertions",
+                  "PASS: 94 diagnostic export checks",
+                  "PASS: application output channels use typed diagnostic boundary",
+                  "PASS: unified diagnostic runtime mode hooks",
+                  "PASS: unified diagnostic runtime mode legacy"
+                ]
+              }
+            }
+          ],
+          "complete": true,
+          "graphSeconds": 2e-06,
+          "seconds": 588.80733,
+          "testsPassed": true,
+          "independentSuiteProcesses": true
+        }
+      },
+      "failures": [],
+      "coverageMismatches": [],
+      "complete": true,
+      "testsPassed": true,
+      "sameSuiteCoverageEquivalent": true
+    }
+  }
+}
