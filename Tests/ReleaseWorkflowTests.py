@@ -56,13 +56,16 @@ def run_fixture(run_id=200, attempt=1, event="push", source_sha=SOURCE_SHA):
         "repository": {"full_name": REPOSITORY},
         "head_repository": {"full_name": REPOSITORY},
         "created_at": timestamp(NOW - timedelta(hours=2) + timedelta(seconds=run_id)),
+        "run_started_at": timestamp(NOW - timedelta(hours=2) + timedelta(seconds=run_id)),
         "updated_at": timestamp(NOW - timedelta(hours=1) + timedelta(seconds=run_id)),
     }
 
 
 def jobs_fixture(run):
     return [{"name": name, "status": "completed",
-             "conclusion": "success", "run_id": run["id"], "run_attempt": run["run_attempt"]}
+             "conclusion": "success", "run_id": run["id"], "run_attempt": run["run_attempt"],
+             "started_at": timestamp(release.timestamp(run["run_started_at"]) + timedelta(seconds=1)),
+             "completed_at": timestamp(release.timestamp(run["run_started_at"]) + timedelta(minutes=20))}
             for name in release.required_jobs("main-full")]
 
 
@@ -181,6 +184,34 @@ class ReleaseRetryBindingTests(unittest.TestCase):
 
 
 class RunTrustTests(OfflineCase):
+    def test_partial_rerun_cloned_successes_with_new_attempt_ids_are_rejected(self):
+        run = run_fixture(attempt=2)
+        original = jobs_fixture(run)
+        run["run_started_at"] = timestamp(NOW - timedelta(minutes=10))
+        fresh = jobs_fixture(run)
+        for index, old in enumerate(original):
+            with self.subTest(name=old["name"]):
+                jobs = copy.deepcopy(fresh)
+                # Mirrors the live attempt endpoint: identity says attempt 2,
+                # yet execution timestamps belong to the earlier attempt.
+                jobs[index].update(started_at=old["started_at"], completed_at=old["completed_at"])
+                with self.assertRaisesRegex(release.ReleaseError, "reused from an earlier attempt"):
+                    release.validate_run(run, jobs, artifacts_fixture(run), REPOSITORY, WORKFLOW_ID, SOURCE_SHA, now=NOW)
+        self.assertEqual(release.validate_run(run, fresh, artifacts_fixture(run),
+                         REPOSITORY, WORKFLOW_ID, SOURCE_SHA, now=NOW)["run_attempt"], 2)
+
+    def test_missing_or_invalid_attempt_execution_times_are_rejected(self):
+        for field, value in (("run_started_at", None), ("started_at", None),
+                             ("completed_at", None), ("completed_at", "2000-01-01T00:00:00Z")):
+            run = run_fixture()
+            jobs = jobs_fixture(run)
+            if field == "run_started_at":
+                run[field] = value
+            else:
+                jobs[0][field] = value
+            with self.subTest(field=field, value=value), self.assertRaises(release.ReleaseError):
+                release.validate_run(run, jobs, artifacts_fixture(run), REPOSITORY, WORKFLOW_ID, SOURCE_SHA, now=NOW)
+
     def test_all_seven_core_jobs_are_required_even_without_new_gate(self):
         run = run_fixture(attempt=2)
         original = jobs_fixture(run)

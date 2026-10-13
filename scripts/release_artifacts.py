@@ -115,6 +115,15 @@ def validate_run(run, jobs, artifacts, repository, workflow_id, source_sha, now=
         validate_jobs(jobs, required_jobs("main-full"), run_id, attempt)
     except PolicyError as error:
         raise ReleaseError(f"{error}; rebuild the same full source SHA on main") from error
+    # GitHub clones successful jobs into a partial rerun's attempt with new IDs
+    # and run_attempt, but keeps their original execution timestamps. Identity
+    # alone therefore cannot prove that all seven jobs ran in this attempt.
+    attempt_start = timestamp(run.get("run_started_at"))
+    for name in required_jobs("main-full"):
+        job = next(job for job in jobs if job.get("name") == name)
+        started, completed = timestamp(job.get("started_at")), timestamp(job.get("completed_at"))
+        require(attempt_start <= started <= completed,
+                f"Required job was reused from an earlier attempt or has invalid execution times: {name}; rerun all build jobs")
     now = now or dt.datetime.now(dt.timezone.utc)
     selected = {}
     for arch in ARCHES:
