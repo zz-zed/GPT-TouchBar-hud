@@ -86,11 +86,22 @@ jobs:
             runner: macos-15-intel
             suite: interface
     runs-on: ${{ matrix.runner }}
+    env:
+      CI_TIMING_DIR: ${{ github.workspace }}/build/ci-timings/${{ matrix.arch }}-${{ matrix.suite }}
+      CI_TIMING_SCRIPT: ${{ needs.source.outputs.sha == github.workflow_sha && 'scripts/ci_timing.py' || '.ci-tools/scripts/ci_timing.py' }}
     steps:
       - name: Check out immutable source
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+
+      - name: Check out timing tools for historical-source recovery
+        if: needs.source.outputs.sha != github.workflow_sha
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-tools
           persist-credentials: false
 
       - name: Select Xcode with Liquid Glass SDK
@@ -107,54 +118,79 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           test "$(uname -m)" = "$EXPECTED_ARCH"
 
+      - name: Initialize timing metadata
+        run: python3 "$CI_TIMING_SCRIPT" init
+
+      - name: Verify core-only and production build graphs
+        if: matrix.suite == 'data'
+        run: |
+          if [[ -f Tests/CoreTestBuildGraphTests.py ]]; then
+            python3 Tests/CoreTestBuildGraphTests.py
+          else
+            echo "Historical source predates the core-only build profile"
+          fi
+
       - name: Test task status, account, quota, and host behavior
         if: matrix.suite == 'data'
         run: |
-          bash scripts/test-task-status.sh
-          bash scripts/test-hook-integration.sh
-          bash scripts/test-token-usage.sh
-          bash scripts/test-task-reliability.sh
-          bash scripts/test-account-token-usage.sh
-          bash scripts/test-verified-quota.sh
-          bash scripts/test-quota-alerts.sh
-          bash scripts/test-host-auto-launcher.sh
-          bash scripts/test-connection-diagnostics.sh
-          bash scripts/test-diagnostic-logging.sh
-          bash scripts/test-diagnostic-upgrade-storage.sh
-          bash scripts/test-diagnostic-upgrade-installer.sh
-          bash scripts/test-diagnostic-upgrade-recovery.sh
-          bash scripts/test-host-lifecycle.sh
-          bash scripts/test-single-instance.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-task-status -- bash scripts/test-task-status.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-hook-integration -- bash scripts/test-hook-integration.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-token-usage -- bash scripts/test-token-usage.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-task-reliability -- bash scripts/test-task-reliability.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-account-token-usage -- bash scripts/test-account-token-usage.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-verified-quota -- bash scripts/test-verified-quota.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-quota-alerts -- bash scripts/test-quota-alerts.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-host-auto-launcher -- bash scripts/test-host-auto-launcher.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-connection-diagnostics -- bash scripts/test-connection-diagnostics.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-logging -- bash scripts/test-diagnostic-logging.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-upgrade-storage -- bash scripts/test-diagnostic-upgrade-storage.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-upgrade-installer -- bash scripts/test-diagnostic-upgrade-installer.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-upgrade-recovery -- bash scripts/test-diagnostic-upgrade-recovery.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-host-lifecycle -- bash scripts/test-host-lifecycle.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-single-instance -- bash scripts/test-single-instance.sh
 
       - name: Test update policy and installer guards
         if: matrix.suite == 'data'
         run: |
-          bash scripts/test-app-update.sh
-          bash scripts/test-app-update-progress.sh
-          bash scripts/test-github-release-fallback.sh
-          bash scripts/test-app-update-notifications.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-app-update -- bash scripts/test-app-update.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-app-update-progress -- bash scripts/test-app-update-progress.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-github-release-fallback -- bash scripts/test-github-release-fallback.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-app-update-notifications -- bash scripts/test-app-update-notifications.sh
 
       - name: Test reset forecast runtime and cache migration
         if: matrix.suite == 'data'
         env:
           RESET_NEWS_CORE_DIR: ${{ runner.temp }}/reset-news-core-runtime-${{ matrix.arch }}
-        run: bash scripts/test-reset-news-runtime.sh
+        run: python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-reset-news-runtime -- bash scripts/test-reset-news-runtime.sh
 
       - name: Verify HookCore and ResetNewsCore unit tests
         if: matrix.suite == 'data'
-        run: bash scripts/test-hooks.sh
+        run: python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-hooks -- bash scripts/test-hooks.sh
 
       - name: Test rendering, menu, and native presentation
         if: matrix.suite == 'interface'
         run: |
-          bash scripts/test-hud-material.sh
-          bash scripts/test-idle-performance.sh
-          bash scripts/test-status-menu.sh
-          bash scripts/test-notch-hud.sh
-          bash scripts/test-notch-presentation.sh
-          bash scripts/test-touchbar.sh
-          bash scripts/test-touchbar-layout.sh
-          bash scripts/test-design-layout.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-hud-material -- bash scripts/test-hud-material.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-idle-performance -- bash scripts/test-idle-performance.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-status-menu -- bash scripts/test-status-menu.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-notch-hud -- bash scripts/test-notch-hud.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-notch-presentation -- bash scripts/test-notch-presentation.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-touchbar -- bash scripts/test-touchbar.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-touchbar-layout -- bash scripts/test-touchbar-layout.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-design-layout -- bash scripts/test-design-layout.sh
+
+      - name: Summarize timings (including failed tests)
+        if: always()
+        run: python3 "$CI_TIMING_SCRIPT" report
+
+      - name: Upload timing evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-timings-${{ matrix.arch }}-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.CI_TIMING_DIR }}
+          if-no-files-found: error
+          retention-days: 30
 
   build:
     name: Build DMG (${{ matrix.arch }})

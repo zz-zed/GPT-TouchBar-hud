@@ -30,6 +30,8 @@ reset_news_core_build() {
             -module-cache-path "$module_cache" ResetNewsCore/*.swift \
             -emit-module-path "$module" -o "$library"
         printf '%s\n' "$expected_configuration" > "$configuration"
+    else
+        ci_time dependency-reuse ResetNewsCore true
     fi
 }
 
