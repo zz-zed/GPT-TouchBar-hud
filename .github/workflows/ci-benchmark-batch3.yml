@@ -36,6 +36,7 @@ jobs:
           test "$(uname -m)" = '${{ matrix.arch }}'
           xcrun swiftc --version
           xcrun --sdk macosx --show-sdk-version
+      # Complete both layouts even when a fixture fails; failures remain fatal to acceptance.
       - name: Compare full original and regrouped job workloads
         env:
           SAMPLE: ${{ matrix.sample }}
