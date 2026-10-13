@@ -22,14 +22,14 @@ public struct TaskEngineRecord: Codable, Equatable, Sendable {
     public var isPending: Bool { [.unknown, .submitted, .stopping].contains(phase) }
 }
 
-struct TaskCheckpointEntry: Codable {
+struct TaskCheckpointEntry: Codable, Equatable {
     var inventory: TaskInventoryEntry
     var journal: JournalCheckpoint?
     var published: TaskEngineRecord
     var candidate: TaskEngineRecord
     var targetEOF: UInt64?
 }
-struct TaskEngineCheckpoint: Codable {
+struct TaskEngineCheckpoint: Codable, Equatable {
     var schema = 1
     var savedAt: Date
     var entries: [TaskCheckpointEntry]

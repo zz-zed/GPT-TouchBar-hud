@@ -47,6 +47,11 @@ public final class TaskActivityEngine {
         var historicalThrough: UInt64 = 0
         var replacementPending = false
         var checkpointOffset: UInt64 = 0
+        var readFailures = 0
+        var nextRetry = Date.distantPast
+        func requestRead() {
+            needsRead = true; nextRetry = .distantPast; readFailures = 0
+        }
         init(entry: TaskInventoryEntry, home: URL, saved: TaskCheckpointEntry? = nil) {
             self.entry = entry
             reader = TaskJournalReader(home: home, path: entry.path, expectedSessionID: entry.identity.session, resume: saved?.journal)
@@ -74,7 +79,7 @@ public final class TaskActivityEngine {
     private var priorityIndex = 0
     private var urgentIndex = 0
     private var schedulingSlot = 0
-    private var lastCheckpointData: Data?
+    private var lastCheckpoint: TaskEngineCheckpoint?
     private var completionIDs: [String: Date] = [:]
     private var recentCompletions: [TaskCompletion] = []
     private let aliasScope = TaskObservationSequence.next()
@@ -100,6 +105,7 @@ public final class TaskActivityEngine {
         }
         TaskObservationAliases.protect(scope: aliasScope, home: home, identities: Set(nodes.keys))
         demote(reason: .resumed)
+        for node in nodes.values { node.requestRead() }
         inventory.requestFullReconciliation()
     }
     public func stop(now: Date) {
@@ -125,7 +131,7 @@ public final class TaskActivityEngine {
         guard enabled, !paused, generation == self.generation, event.isValid else { return }
         let identity = TaskIdentity(source: event.source, session: event.session)
         inventory.hint(identity)
-        nodes[identity]?.needsRead = true
+        nodes[identity]?.requestRead()
         // Hooks have no comparable host ordering and cannot establish execution or success.
         observationSink?.record(.issue(sequence: lastSequence, generation: generation, alias: alias(identity), reason: .hintOnly))
     }
@@ -162,6 +168,10 @@ public final class TaskActivityEngine {
                 continue
             }
             if let existing = nodes[entry.identity] {
+                if existing.entry != entry {
+                    existing.requestRead()
+                    checkpointDirty = true
+                }
                 if existing.entry.path != entry.path {
                     existing.reader = TaskJournalReader(home: home, path: entry.path, expectedSessionID: entry.identity.session)
                     existing.targetEOF = nil; existing.replacementPending = true; existing.candidate = TaskEngineRecord(identity: entry.identity)
@@ -169,7 +179,7 @@ public final class TaskActivityEngine {
                     existing.published.firstPosition = nil; existing.published.lastPosition = nil; existing.published.fileGeneration = 0
                 }
                 existing.entry = entry
-            } else { nodes[entry.identity] = Node(entry: entry, home: home) }
+            } else { nodes[entry.identity] = Node(entry: entry, home: home); checkpointDirty = true }
         }
         TaskObservationAliases.protect(scope: aliasScope, home: home, identities: Set(nodes.keys))
         observationSink?.record(.inventory(sequence: lastSequence, generation: generation, coverage: found.coverage, discovered: found.entries.count, retained: nodes.count))
@@ -178,12 +188,12 @@ public final class TaskActivityEngine {
         // Rotate through the whole retained inventory. A workload limit is never an inventory cap.
         let ordered = nodes.keys.sorted { $0.session < $1.session }
         let priority = ordered.filter { identity in
-            guard let node = nodes[identity], !node.excluded else { return false }
+            guard let node = nodes[identity], !node.excluded, now >= node.nextRetry else { return false }
             return node.published.isRunning || node.targetEOF != nil || node.needsRead
                 || node.entry.updatedAt >= Int64(max(observationStarted.timeIntervalSince1970, now.addingTimeInterval(-120).timeIntervalSince1970))
         }
         let urgent = ordered.filter { identity in
-            guard let node = nodes[identity], !node.excluded else { return false }
+            guard let node = nodes[identity], !node.excluded, now >= node.nextRetry else { return false }
             return node.published.isRunning || (node.published.isPending && node.published.lastKnownPhase == .active)
         }
         var processed: Set<TaskIdentity> = []
@@ -205,6 +215,7 @@ public final class TaskActivityEngine {
                 schedulingSlot += 1
                 visited += 1
                 guard processed.insert(identity).inserted, let node = nodes[identity] else { continue }
+                guard now >= node.nextRetry else { continue }
                 if node.entry.isSubagent || !node.entry.isSupported {
                     node.excluded = true
                     observationSink?.record(.excluded(sequence: lastSequence, generation: generation, alias: alias(node.entry.identity), mode: sourceMode,
@@ -253,6 +264,7 @@ public final class TaskActivityEngine {
                 node.lastDecodeFailed = false
             }
             node.lastReadFailed = false
+            node.readFailures = 0; node.nextRetry = .distantPast
             node.needsRead = false
             node.lastFetched = batch.fetchedOffset
             node.backlogBytes = batch.backlogBytes
@@ -332,8 +344,14 @@ public final class TaskActivityEngine {
             return batch.bytesRead
         } catch {
             node.lastReadFailed = true
-            invalidate(node, reason: .readFailed)
-            node.published.freshness = .unavailable
+            // Failure is not an unread byte backlog. Keep the task unknown and
+            // retry it separately; new index metadata or a Hook bypasses this delay.
+            node.needsRead = false
+            node.readFailures = min(node.readFailures + 1, 6)
+            let delay = node.published.lastKnownPhase == .active || node.candidate.lastKnownPhase == .active
+                ? 1.0 : min(30.0, pow(2.0, Double(node.readFailures - 1)))
+            node.nextRetry = now.addingTimeInterval(delay)
+            invalidate(node, reason: .readFailed, freshness: .unavailable)
             observationSink?.record(.readFailure(sequence: lastSequence, generation: generation,
                 alias: alias(identity), failure: TaskReadFailure(error)))
             return 0
@@ -413,25 +431,28 @@ public final class TaskActivityEngine {
             node.candidate.confirmedGeneration = nil; node.candidate.freshness = .pendingReconciliation
         }
     }
-    private func invalidate(_ node: Node, reason: TaskObservationReason) {
-        checkpointDirty = true
+    private func invalidate(_ node: Node, reason: TaskObservationReason, freshness: TaskEvidenceFreshness = .pendingReconciliation) {
+        let previous = node.published
         let before = node.published.phase
         if node.published.phase == .active || node.published.isPending {
             node.published.lastKnownPhase = node.published.phase == .unknown ? node.published.lastKnownPhase : node.published.phase
             node.published.phase = .unknown
         }
-        node.published.confirmedGeneration = nil; node.published.freshness = .pendingReconciliation
+        node.published.confirmedGeneration = nil; node.published.freshness = freshness
+        if previous != node.published { checkpointDirty = true }
         observationSink?.record(.transition(sequence: lastSequence, generation: generation, alias: alias(node.entry.identity), mode: sourceMode,
             before: before, after: node.published.phase, reason: reason))
     }
     private func demote(reason: TaskObservationReason) {
         for node in nodes.values {
+            let previousCandidate = node.candidate
             invalidate(node, reason: reason)
             if node.candidate.phase == .active || node.candidate.isPending {
                 if node.candidate.phase != .unknown { node.candidate.lastKnownPhase = node.candidate.phase }
                 node.candidate.phase = .unknown
             }
             node.candidate.confirmedGeneration = nil; node.candidate.freshness = .pendingReconciliation
+            if previousCandidate != node.candidate { checkpointDirty = true }
         }
     }
     private func alias(_ identity: TaskIdentity) -> UInt64 {
@@ -488,12 +509,11 @@ public final class TaskActivityEngine {
             }
             saved.sort { $0.inventory.identity.session < $1.inventory.identity.session }
             let comparable = TaskEngineCheckpoint(savedAt: .distantPast, entries: saved, completionIDs: completionIDs)
-            try TaskCheckpointStore.validateEncodingBudget(comparable)
-            let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-            let encoded = try encoder.encode(comparable)
-            if encoded != lastCheckpointData {
+            // Compare typed metadata before encoding. Set iteration order must not
+            // cause duplicate writes, and changed checkpoints are encoded only once.
+            if comparable != lastCheckpoint {
                 try store.save(TaskEngineCheckpoint(savedAt: now, entries: saved, completionIDs: completionIDs))
-                lastCheckpointData = encoded
+                lastCheckpoint = comparable
             }
             checkpointFailed = false; checkpointDirty = false
         } catch {
@@ -523,7 +543,9 @@ public final class TaskActivityEngine {
             sourceHealth: [HookSourceHealth(state: health, lastReceipt: lastSuccessfulCheck)], updatedAt: now)
         activity.recentCompletions = recentCompletions.sorted { $0.occurredAt > $1.occurredAt }
         activity.snapshotSequence = lastSequence; activity.observationGeneration = generation
-        let hasBacklog = backlog > 0 || lastCoverage == .partial || included.contains(where: { $0.needsRead })
+        let hasBacklog = lastCoverage == .partial || included.contains(where: {
+            !$0.lastReadFailed && ($0.needsRead || $0.backlogBytes > 0)
+        })
         let freshness: TaskEvidenceFreshness = paused || !enabled ? .pendingReconciliation : (hasBacklog ? .catchingUp : (failures > 0 ? .unavailable : .current))
         observationSink?.record(.snapshot(sequence: lastSequence, generation: generation, mode: sourceMode, running: running, pending: pending,
             freshness: freshness, coverage: lastCoverage, backlogBytes: backlog))
