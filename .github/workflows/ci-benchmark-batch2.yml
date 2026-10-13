@@ -1,0 +1,56 @@
+name: Batch 2 paired UI compilation benchmark
+
+on:
+  push:
+    branches: [codex/ci-benchmark-batch2]
+    paths: [.github/workflows/ci-benchmark-batch2.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  paired:
+    name: UI compilation (${{ matrix.arch }}, sample ${{ matrix.sample }})
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x86_64]
+        sample: [1, 2, 3]
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select production toolchain
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          test "$(uname -m)" = '${{ matrix.arch }}'
+          xcrun swiftc --version
+          xcrun --sdk macosx --show-sdk-version
+      - name: Compare total cold-pair cost and verify reuse and isolation
+        env:
+          SAMPLE: ${{ matrix.sample }}
+        run: |
+          flags=()
+          if [[ "$SAMPLE" == 2 ]]; then
+            flags=(--first-mode shared --reverse-fixtures)
+          fi
+          python3 scripts/benchmark-ui-test-reuse.py \
+            --candidate fe97ae0454e220f289db1e58a4672219d51c86c4 \
+            --samples 1 "${flags[@]}" --output benchmark
+      - name: Retain every sample, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-paired-${{ matrix.arch }}-${{ matrix.sample }}
+          path: benchmark
+          if-no-files-found: error
+          retention-days: 30
