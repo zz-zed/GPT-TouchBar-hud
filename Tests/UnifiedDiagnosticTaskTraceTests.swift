@@ -226,7 +226,7 @@ private final class ReliabilityFixture {
         recorder.start()
         var diagnosticTime: TimeInterval = 0
         let trace = DiagnosticTaskEngineTrace(recorder: recorder, monotonicNow: { diagnosticTime })
-        let engine = TaskActivityEngine(home: f.home, sink: trace)
+        let engine = TaskActivityEngine(home: f.home, sink: trace, budget: TaskEngineBudget(secondsPerPoll: 5))
         let now = Date()
         engine.begin(now: now.addingTimeInterval(-1), generation: 1)
         try f.event("task_started", task: task, date: now)
@@ -248,16 +248,16 @@ private final class ReliabilityFixture {
         try FileManager.default.moveItem(at: path, to: moved)
         for _ in 0..<40 { _ = engine.poll(now: now.addingTimeInterval(3), generation: 1) }
         diagnosticTime = 62
-        _ = engine.poll(now: now.addingTimeInterval(3), generation: 1)
-        try original.write(to: path)
         _ = engine.poll(now: now.addingTimeInterval(4), generation: 1)
-        try FileManager.default.removeItem(at: path)
-        _ = engine.poll(now: now.addingTimeInterval(5), generation: 1)
         try original.write(to: path)
+        _ = engine.poll(now: now.addingTimeInterval(5), generation: 1)
+        try FileManager.default.removeItem(at: path)
         _ = engine.poll(now: now.addingTimeInterval(6), generation: 1)
+        try original.write(to: path)
+        _ = engine.poll(now: now.addingTimeInterval(7), generation: 1)
         for _ in 0..<140 {
             try f.append(Data(#"{"type":"response_item","payload":{"body":"private-regression-marker"}}"#.utf8) + Data([10]), task: task)
-            _ = engine.poll(now: now.addingTimeInterval(6), generation: 1)
+            _ = engine.poll(now: now.addingTimeInterval(7), generation: 1)
         }
         var flushed = false; recorder.flush { flushed = true }; wait { flushed }
         let lines = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)

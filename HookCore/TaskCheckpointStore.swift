@@ -1,6 +1,14 @@
 import Foundation
 import Darwin
 
+public struct TaskStartEvidence: Codable, Equatable, Sendable {
+    public let turnID: String
+    public let timestamp: Date
+    public let position: UInt64
+    public let fileGeneration: UInt64
+}
+public enum TaskExecutionBasis: String, Codable, Sendable { case liveStart, journalRecovered }
+
 public struct TaskEngineRecord: Codable, Equatable, Sendable {
     public let identity: TaskIdentity
     public var turnID: String?
@@ -17,6 +25,8 @@ public struct TaskEngineRecord: Codable, Equatable, Sendable {
     public var confirmedGeneration: UInt64?
     public var fileGeneration: UInt64 = 0
     public var freshness: TaskEvidenceFreshness = .pendingReconciliation
+    public var startEvidence: TaskStartEvidence?
+    public var executionBasis: TaskExecutionBasis?
     public init(identity: TaskIdentity) { self.identity = identity }
     public var isRunning: Bool { phase == .active }
     public var isPending: Bool { [.unknown, .submitted, .stopping].contains(phase) }
@@ -34,6 +44,7 @@ struct TaskEngineCheckpoint: Codable, Equatable {
     var savedAt: Date
     var entries: [TaskCheckpointEntry]
     var completionIDs: [String: Date]
+    var recoveryNotBefore: Date? = nil
 }
 
 /// Internal identity metadata only; this is deliberately not a diagnostic export format.
@@ -47,6 +58,7 @@ public final class TaskCheckpointStore {
         let data = try HookPaths.read(url, maximum: Self.maximumBytes, privateOnly: true)
         let value = try JSONDecoder().decode(TaskEngineCheckpoint.self, from: data)
         guard value.schema == 1, value.entries.count <= Self.maximumEntries, value.completionIDs.count <= 4096 else { throw HookFailure.malformed }
+        guard value.recoveryNotBefore.map({ $0.timeIntervalSince1970.isFinite }) ?? true else { throw HookFailure.malformed }
         var identities: Set<TaskIdentity> = []
         for entry in value.entries {
             guard HookEvent.validID(entry.inventory.identity.session), entry.inventory.identity.source == "codexLocal",
@@ -74,6 +86,12 @@ public final class TaskCheckpointStore {
               record.startsAtEvidenceTime.count <= 64, record.startsAtEvidenceTime.allSatisfy(HookEvent.validID),
               record.retiredTurnIDs.count <= 512, record.retiredTurnIDs.allSatisfy(HookEvent.validID),
               record.evidenceAt.map({ $0.timeIntervalSince1970.isFinite }) ?? true else { return false }
+        if let start = record.startEvidence {
+            guard start.turnID == record.turnID, start.position == record.firstPosition,
+                  start.fileGeneration == record.fileGeneration, start.position > 0,
+                  start.timestamp.timeIntervalSince1970.isFinite,
+                  start.position <= (journal?.committedOffset ?? 0) else { return false }
+        }
         return true
     }
     /// Conservative upper bound before JSONEncoder allocates its output. Every source
@@ -128,6 +146,7 @@ public final class TaskCheckpointStore {
             guard value.startsAtEvidenceTime.count <= 64, value.retiredTurnIDs.count <= 512 else { throw HookFailure.budget }
             try fixed(1024); try identity(value.identity)
             if let turn = value.turnID { try string(turn) }
+            if let start = value.startEvidence { try fixed(256); try string(start.turnID) }
             for turn in value.startsAtEvidenceTime { try fixed(1); try string(turn) }
             for turn in value.retiredTurnIDs { try fixed(1); try string(turn) }
         }

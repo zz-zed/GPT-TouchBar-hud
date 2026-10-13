@@ -57,9 +57,26 @@ public final class TaskActivityEngine {
             reader = TaskJournalReader(home: home, path: entry.path, expectedSessionID: entry.identity.session, resume: saved?.journal)
             published = saved?.published ?? TaskEngineRecord(identity: entry.identity)
             candidate = saved?.candidate ?? published
+            if [.completed, .interrupted].contains(candidate.lastKnownPhase), let turn = candidate.turnID {
+                if candidate.retiredTurnIDs.contains(turn) || candidate.retiredTurnIDs.count < 512 {
+                    candidate.retiredTurnIDs.insert(turn)
+                } else { candidate.orderingCapacityLimited = true }
+            }
             lastDecodeFailed = candidate.hasUnresolvedGap
             targetEOF = saved?.targetEOF
             checkpointOffset = saved?.journal?.committedOffset ?? 0
+            // Old checkpoints did not record verified start evidence. Rebuild only
+            // their unfinished turns; lastKnownPhase alone cannot authorize recovery.
+            if candidate.startEvidence == nil, candidate.lastKnownPhase == .active {
+                reader = TaskJournalReader(home: home, path: entry.path, expectedSessionID: entry.identity.session)
+                let retired = candidate.retiredTurnIDs
+                let limited = candidate.orderingCapacityLimited
+                candidate = TaskEngineRecord(identity: entry.identity)
+                candidate.lastKnownPhase = .active
+                candidate.retiredTurnIDs = retired
+                candidate.orderingCapacityLimited = limited
+                targetEOF = nil; checkpointOffset = 0
+            }
         }
     }
     public let home: URL
@@ -71,6 +88,7 @@ public final class TaskActivityEngine {
     private var nodes: [TaskIdentity: Node] = [:]
     private var generation: UInt64 = 0
     private var observationStarted = Date.distantFuture
+    private var recoveryNotBefore: Date?
     private var enabled = false
     private var paused = false
     private var pauseGap: CoverageGap = .disconnected
@@ -122,9 +140,15 @@ public final class TaskActivityEngine {
         case .sleep, .hostUnavailable:
             paused = true; pauseGap = reason == .sleep ? .sleep : .disconnected
             observationStarted = .distantFuture
+            if reason == .hostUnavailable { recoveryNotBefore = now; checkpointDirty = true }
             demote(reason: reason == .sleep ? .suspended : .hostUnavailable)
             recentCompletions.removeAll(); persist(now: now)
-        default: begin(now: now, generation: generation)
+        case .hostRestart:
+            recoveryNotBefore = now; checkpointDirty = true
+            begin(now: now, generation: generation)
+        default:
+            if paused && pauseGap == .disconnected { recoveryNotBefore = now; checkpointDirty = true }
+            begin(now: now, generation: generation)
         }
     }
     public func receiveHint(_ event: HookEvent, now: Date, generation: UInt64) {
@@ -174,9 +198,10 @@ public final class TaskActivityEngine {
                 }
                 if existing.entry.path != entry.path {
                     existing.reader = TaskJournalReader(home: home, path: entry.path, expectedSessionID: entry.identity.session)
-                    existing.targetEOF = nil; existing.replacementPending = true; existing.candidate = TaskEngineRecord(identity: entry.identity)
+                    existing.targetEOF = nil; existing.replacementPending = true
                     invalidate(existing, reason: .fileReset)
                     existing.published.firstPosition = nil; existing.published.lastPosition = nil; existing.published.fileGeneration = 0
+                    existing.published.startEvidence = nil; existing.published.executionBasis = nil
                 }
                 existing.entry = entry
             } else { nodes[entry.identity] = Node(entry: entry, home: home); checkpointDirty = true }
@@ -256,11 +281,16 @@ public final class TaskActivityEngine {
             // records with the reader offset; the coordinator suppresses cancelled callbacks.
             if batch.resetReason != nil || node.replacementPending {
                 node.replacementPending = false
+                let retired = node.candidate.retiredTurnIDs
+                let limited = node.candidate.orderingCapacityLimited
                 node.candidate = TaskEngineRecord(identity: identity)
+                node.candidate.retiredTurnIDs = retired
+                node.candidate.orderingCapacityLimited = limited
                 node.historicalThrough = batch.targetEOF
                 invalidate(node, reason: .fileReset)
                 node.candidate.lastKnownPhase = node.published.lastKnownPhase
                 node.published.firstPosition = nil; node.published.lastPosition = nil; node.published.fileGeneration = batch.generation
+                node.published.startEvidence = nil; node.published.executionBasis = nil
                 node.lastDecodeFailed = false
             }
             node.lastReadFailed = false
@@ -306,6 +336,13 @@ public final class TaskActivityEngine {
             }
             node.candidate.fileGeneration = batch.generation
             if batch.reachedTarget && !batch.cancelled && !cancelled() {
+                // A half-written record cannot authorize recovery. Already decoded
+                // terminal records can still close a turn without waiting for that LF.
+                if batch.committedOffset >= batch.targetEOF && canRecover(node.candidate, now: now) {
+                    node.candidate.phase = .active
+                    node.candidate.confirmedGeneration = generation
+                    node.candidate.executionBasis = .journalRecovered
+                }
                 var pendingReason: TaskObservationReason? = node.candidate.hasUnresolvedGap ? .malformedRecord
                     : (node.candidate.orderingCapacityLimited ? .capacity : nil)
                 if node.candidate.phase == .active, let evidence = node.candidate.evidenceAt,
@@ -320,7 +357,8 @@ public final class TaskActivityEngine {
                 if previous.phase != node.published.phase || previous.turnID != node.published.turnID {
                     let reason: TaskObservationReason
                     switch node.published.phase {
-                    case .active: reason = wasReadUnavailable ? .continuityRevalidated : .liveStart
+                    case .active: reason = node.published.executionBasis == .journalRecovered ? .journalRecovered
+                        : (wasReadUnavailable ? .continuityRevalidated : .liveStart)
                     case .completed: reason = .matchingTerminal
                     case .interrupted: reason = .matchingInterrupt
                     default: reason = pendingReason ?? .historicalStart
@@ -368,6 +406,9 @@ public final class TaskActivityEngine {
             observationSink?.record(.issue(sequence: lastSequence, generation: generation, alias: alias(identity), reason: .lateOrDuplicate)); return
         }
         if kind == .started {
+            guard record.turnID != event.turnID || ![TaskPhase.completed, .interrupted].contains(record.lastKnownPhase) else {
+                observationSink?.record(.issue(sequence: lastSequence, generation: generation, alias: alias(identity), reason: .terminalReplay)); return
+            }
             guard !record.retiredTurnIDs.contains(event.turnID) else {
                 observationSink?.record(.issue(sequence: lastSequence, generation: generation, alias: alias(identity), reason: .turnMismatch)); return
             }
@@ -390,11 +431,14 @@ public final class TaskActivityEngine {
             }
             record.startsAtEvidenceTime.insert(event.turnID)
             record.turnID = event.turnID; record.firstPosition = position
+            record.startEvidence = TaskStartEvidence(turnID: event.turnID, timestamp: event.timestamp,
+                position: position, fileGeneration: fileGeneration)
             record.hasUnresolvedGap = false
             record.lastKnownPhase = .active
             let live = event.timestamp >= observationStarted && position > node.historicalThrough
             record.phase = live ? .active : .unknown
             record.confirmedGeneration = live ? generation : nil
+            record.executionBasis = live ? .liveStart : nil
             record.terminalAt = nil
         } else {
             guard record.turnID == nil || record.turnID == event.turnID else {
@@ -402,10 +446,14 @@ public final class TaskActivityEngine {
             }
             switch kind {
             case .execution:
-                guard record.phase == .active, record.confirmedGeneration == generation, record.turnID == event.turnID else {
+                guard record.turnID == event.turnID,
+                      (record.phase == .active && record.confirmedGeneration == generation)
+                        || (record.phase == .unknown && record.lastKnownPhase == .active
+                            && record.startEvidence != nil && !record.hasUnresolvedGap && !record.orderingCapacityLimited) else {
                     observationSink?.record(.issue(sequence: lastSequence, generation: generation, alias: alias(identity), reason: .weakEventIgnored)); return
                 }
-                // Weak events refresh an already confirmed turn; they never establish one.
+                // Activity may refresh a fully verified unfinished turn during
+                // reconciliation; it cannot create a turn or reopen a terminal one.
             case .complete, .aborted:
                 if record.phase == .completed || record.phase == .interrupted {
                     observationSink?.record(.issue(sequence: lastSequence, generation: generation, alias: alias(identity), reason: .lateOrDuplicate)); return
@@ -414,12 +462,27 @@ public final class TaskActivityEngine {
                 record.hasUnresolvedGap = false
                 record.phase = kind == .complete ? .completed : .interrupted
                 record.lastKnownPhase = record.phase; record.terminalAt = event.timestamp
+                if record.retiredTurnIDs.contains(event.turnID) || record.retiredTurnIDs.count < 512 {
+                    record.retiredTurnIDs.insert(event.turnID)
+                } else { record.orderingCapacityLimited = true }
             case .started: break
             }
         }
         if kind != .started && record.evidenceAt != event.timestamp { record.startsAtEvidenceTime.removeAll() }
         record.lastPosition = position; record.evidenceAt = event.timestamp; record.fileGeneration = fileGeneration
         node.candidate = record
+    }
+
+    private func canRecover(_ record: TaskEngineRecord, now: Date) -> Bool {
+        guard record.phase == .unknown, record.lastKnownPhase == .active,
+              !record.hasUnresolvedGap, !record.orderingCapacityLimited,
+              let start = record.startEvidence, start.turnID == record.turnID,
+              start.position == record.firstPosition, start.fileGeneration == record.fileGeneration,
+              !record.retiredTurnIDs.contains(start.turnID),
+              recoveryNotBefore.map({ start.timestamp >= $0 }) ?? true,
+              let evidence = record.evidenceAt, evidence <= now.addingTimeInterval(5),
+              now.timeIntervalSince(evidence) < HookBudget.staleSeconds else { return false }
+        return true
     }
 
     private func expireSilentEvidence(now: Date) {
@@ -474,6 +537,9 @@ public final class TaskActivityEngine {
                 nodes[saved.inventory.identity] = Node(entry: saved.inventory, home: home, saved: saved)
             }
             completionIDs = value.completionIDs
+            if let savedFloor = value.recoveryNotBefore {
+                recoveryNotBefore = max(recoveryNotBefore ?? .distantPast, savedFloor)
+            }
         } catch {
             // Missing/corrupt/unsupported snapshots all rebuild from independently verified journals.
             observationSink?.record(.issue(sequence: lastSequence, generation: generation, alias: nil, reason: .checkpointInvalid))
@@ -495,10 +561,12 @@ public final class TaskActivityEngine {
                     if known.phase != .unknown { known.lastKnownPhase = known.phase }
                     known.phase = .unknown; known.confirmedGeneration = nil
                     known.firstPosition = nil; known.lastPosition = nil; known.fileGeneration = 0
+                    known.startEvidence = nil; known.executionBasis = nil
                     known.freshness = .pendingReconciliation
                     var rebuilding = TaskEngineRecord(identity: node.entry.identity)
                     rebuilding.lastKnownPhase = known.lastKnownPhase
                     rebuilding.hasUnresolvedGap = known.hasUnresolvedGap || node.candidate.hasUnresolvedGap
+                    rebuilding.retiredTurnIDs = node.candidate.retiredTurnIDs
                     saved.append(TaskCheckpointEntry(inventory: node.entry, journal: nil, published: known,
                         candidate: rebuilding, targetEOF: nil))
                 }
@@ -508,11 +576,13 @@ public final class TaskActivityEngine {
                 completionIDs = Dictionary(uniqueKeysWithValues: ordered.prefix(4096).map { ($0.key, $0.value) })
             }
             saved.sort { $0.inventory.identity.session < $1.inventory.identity.session }
-            let comparable = TaskEngineCheckpoint(savedAt: .distantPast, entries: saved, completionIDs: completionIDs)
+            let comparable = TaskEngineCheckpoint(savedAt: .distantPast, entries: saved, completionIDs: completionIDs,
+                recoveryNotBefore: recoveryNotBefore)
             // Compare typed metadata before encoding. Set iteration order must not
             // cause duplicate writes, and changed checkpoints are encoded only once.
             if comparable != lastCheckpoint {
-                try store.save(TaskEngineCheckpoint(savedAt: now, entries: saved, completionIDs: completionIDs))
+                try store.save(TaskEngineCheckpoint(savedAt: now, entries: saved, completionIDs: completionIDs,
+                    recoveryNotBefore: recoveryNotBefore))
                 lastCheckpoint = comparable
             }
             checkpointFailed = false; checkpointDirty = false

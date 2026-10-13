@@ -12,7 +12,7 @@ private final class RetryObservations: TaskObservationSink {
 struct TaskEngineRetryTests {
     private func settle(_ engine: TaskActivityEngine, now: Date, generation: UInt64 = 1) -> TaskEngineSnapshot {
         var result = engine.poll(now: now, generation: generation)
-        for _ in 0..<50 where result.hasBacklog { result = engine.poll(now: now, generation: generation) }
+        for _ in 0..<50 where result.hasBacklog || !result.inventoryComplete { result = engine.poll(now: now, generation: generation) }
         return result
     }
 
@@ -108,7 +108,7 @@ struct TaskEngineRetryTests {
         #expect(settle(engine, now: f.now.addingTimeInterval(7)).records[TaskIdentity(session: "s1")]?.phase == .completed)
     }
 
-    @Test func wakeBypassesRetryButRequiresNewStartInTheNewGeneration() throws {
+    @Test func wakeBypassesRetryAndRechecksTheUnfinishedTurn() throws {
         let f = try Fixture(), log = try f.log()
         let engine = TaskActivityEngine(home: f.home)
         engine.begin(now: f.now.addingTimeInterval(-1), generation: 1)
@@ -123,9 +123,9 @@ struct TaskEngineRetryTests {
         engine.reconcile(now: now, generation: 3, reason: .wake)
         let restored = settle(engine, now: now, generation: 3)
         #expect(restored.readFailureCount == 0)
-        #expect(restored.runningIDs.isEmpty)
+        #expect(restored.runningIDs == [TaskIdentity(session: "s1")])
         try f.append("item_completed", to: log, date: now)
-        #expect(settle(engine, now: now, generation: 3).runningIDs.isEmpty)
+        #expect(settle(engine, now: now, generation: 3).runningIDs == [TaskIdentity(session: "s1")])
         try f.append("task_started", turn: "new", to: log, date: now)
         #expect(settle(engine, now: now, generation: 3).runningIDs == [TaskIdentity(session: "s1")])
     }

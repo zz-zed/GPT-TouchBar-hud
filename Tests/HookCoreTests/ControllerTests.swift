@@ -52,27 +52,24 @@ struct ControllerTests {
         try await waitUntil { latest?.recentlyCompletedCount == 1 }
         let completion = latest?.recentCompletions.first
         #expect(latest?.showsCompletion == false)
-        try f.append("task_started", to: file, date: Date())
+        try f.append("task_started", turn: "next", to: file, date: Date())
         try await waitUntil { latest?.confirmedRunningCount == 1 }
         #expect(latest?.recentlyCompletedCount == 0)
         controller.suspend()
         try await waitUntil { latest?.sourceHealth.first?.state == .suspended }
         #expect(latest?.confirmedRunningCount == 0)
         controller.resume()
-        // Health now describes the shared continuous log source, not receipt of an
-        // optional Hook. A restored active record is still pending verification.
+        // The shared source rechecks the full unfinished turn before recovery.
         try await waitUntil { latest?.sourceHealth.first?.state == .connected }
-        #expect(latest?.confirmedRunningCount == 0)
-        try f.append("task_complete", to: file, date: Date())
+        #expect(latest?.confirmedRunningCount == 1)
+        try f.append("task_complete", turn: "next", to: file, date: Date())
         try await waitUntil { latestEngine?.records[TaskIdentity(session: "s1")]?.phase == .completed }
-        #expect(latest?.recentlyCompletedCount == 0)
-        #expect(latest?.recentCompletions.isEmpty == true, "Recovery may confirm terminal history but must not replay completion feedback")
+        #expect(latest?.recentlyCompletedCount == 1)
         #expect(completion != nil, "The earlier live-generation completion was observed")
-        let terminal = latest?.recentCompletions
         // Allow the deliberately coalesced metadata cache write to finish before a restart.
         try await Task.sleep(nanoseconds: 180_000_000)
         controller.stop(); controller.start()
-        try await waitUntil { latest?.recentCompletions == terminal && latest?.sourceHealth.first?.state == .connected }
+        try await waitUntil { latest?.recentCompletions.isEmpty == true && latest?.sourceHealth.first?.state == .connected }
         #expect(latest?.confirmedRunningCount == 0)
         #expect((reads?.bytesRead ?? .max) < HookBudget.recoveryBytes)
     }

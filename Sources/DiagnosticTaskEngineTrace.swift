@@ -172,6 +172,8 @@ final class DiagnosticTaskEngineTrace: TaskObservationSink {
         case .staleEvidence: return .staleEvidence; case .hostUnavailable: return .hostUnavailable
         case .malformedRecord: return .malformedRecord
         case .continuityRevalidated: return .continuityRevalidated
+        case .journalRecovered: return .journalRecovered
+        case .terminalReplay: return .terminalLateActivity
         case .suspended: return .sleep; case .capacity: return .capacityRemoved
         default: return .unknown }
     }

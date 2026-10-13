@@ -1,0 +1,280 @@
+{
+  "date": "2026-10-13",
+  "branch": "fix/task-monitor-cpu",
+  "baselineRevision": "947641c",
+  "installedApp": "/Applications/GPT TouchBar HUD.app",
+  "backupDirectory": "/Users/didi/.codex/worktrees/task-monitor-cpu/TouchBarCodexToken/backups/installed-app-before-cpu-fix-20261013-160151.noindex",
+  "version": "0.1.43",
+  "build": "46",
+  "localTrialNotRelease": true,
+  "sourceIdentity": "78c3e211f4c2b33b2b0285fb0238ed92624b1779b5fa0ce2649723c4ff20d006",
+  "installedFilesSHA256": {
+    "Contents/Helpers/HookEmitter": "342d740e6b486cf4e07758a3b04d8e0d0c0d7cb085a8985cf55b95b462d2be92",
+    "Contents/Info.plist": "f50badebeed7ef30b55a1238d72fa187e0d4cd6b136710fcf915cb0bce65f6e6",
+    "Contents/MacOS/GPTTouchBarHUD": "ffb4a17bf7d70827e993d7087a9f1dbc298b0eb061b3a9ea3169f082412f0a75",
+    "Contents/Resources/AppIcon.icns": "0a5d1372b809f33738829c961ce5495ebe99d5b83dcc3f3f93c213853dd9d572",
+    "Contents/Resources/ThirdPartyNotices.txt": "e0c2e9f8cf0ce6452e350c404696b590ae55bf00b8926dfd33d4161d5b8f3dee",
+    "Contents/Resources/gpt-touchbar-hud-launcher.sh": "16c6d3712bb7a76afdb95a00641981b36975a00aa6b795304e49be707d009a6d",
+    "Contents/Resources/install-update.sh": "9d1402baa71caa4689d66cb1a9026f084589c42682e8f5a1f425b0ea4ba4d639",
+    "Contents/_CodeSignature/CodeResources": "108121641a9cdfb9a29242dc3216994776d165feb6e50f60d813d6a4ec5c087f"
+  },
+  "loadedExecutableVerified": true,
+  "currentPID": 44217,
+  "launcherRestored": true,
+  "CPU": {
+    "method": "All-thread process cumulative CPU time delta / monotonic wall time; 100% is one core. Full native app with task monitoring, quota service, UI and diagnostics enabled. Same machine, sequential live windows; no frozen live input.",
+    "before": {
+      "pid": 28642,
+      "wall_seconds": 30.09933470899705,
+      "cpu_percent_one_core": 29.070409976153133,
+      "samples": [
+        {
+          "seconds": 5.017519542016089,
+          "cpu_percent_one_core": 55.405862931282456,
+          "rss_bytes": 41975808
+        },
+        {
+          "seconds": 5.016104458016343,
+          "cpu_percent_one_core": 25.318452010520286,
+          "rss_bytes": 26181632
+        },
+        {
+          "seconds": 5.019946583954152,
+          "cpu_percent_one_core": 23.3070209101404,
+          "rss_bytes": 26116096
+        },
+        {
+          "seconds": 5.01526366599137,
+          "cpu_percent_one_core": 23.328783448293507,
+          "rss_bytes": 25083904
+        },
+        {
+          "seconds": 5.016807042004075,
+          "cpu_percent_one_core": 23.321606555804273,
+          "rss_bytes": 24920064
+        },
+        {
+          "seconds": 5.01369341701502,
+          "cpu_percent_one_core": 23.734997356660966,
+          "rss_bytes": 31113216
+        }
+      ]
+    },
+    "after": {
+      "pid": 41623,
+      "loadedBinaryVerified": true,
+      "wallSeconds": 60.776363166980445,
+      "cpuSeconds": 2.249999999999999,
+      "meanCPUPercent": 3.702097135720709,
+      "samples": [
+        {
+          "window": 1,
+          "wallSeconds": 5.0342977499822155,
+          "cpuPercentOneCore": 2.9795615485899747,
+          "rssBytes": 18333696
+        },
+        {
+          "window": 2,
+          "wallSeconds": 5.024005917017348,
+          "cpuPercentOneCore": 5.971330546881677,
+          "rssBytes": 23756800
+        },
+        {
+          "window": 3,
+          "wallSeconds": 5.128044667013455,
+          "cpuPercentOneCore": 3.315103729371511,
+          "rssBytes": 24510464
+        },
+        {
+          "window": 4,
+          "wallSeconds": 5.113322790944949,
+          "cpuPercentOneCore": 6.062593985831886,
+          "rssBytes": 30703616
+        },
+        {
+          "window": 5,
+          "wallSeconds": 5.055262209032662,
+          "cpuPercentOneCore": 2.967205137885484,
+          "rssBytes": 20561920
+        },
+        {
+          "window": 6,
+          "wallSeconds": 5.02251920796698,
+          "cpuPercentOneCore": 2.9865490561402277,
+          "rssBytes": 19021824
+        },
+        {
+          "window": 7,
+          "wallSeconds": 5.018238875025418,
+          "cpuPercentOneCore": 2.789823352107595,
+          "rssBytes": 19365888
+        },
+        {
+          "window": 8,
+          "wallSeconds": 5.0145684169838205,
+          "cpuPercentOneCore": 4.786054951152829,
+          "rssBytes": 39682048
+        },
+        {
+          "window": 9,
+          "wallSeconds": 5.014063208014704,
+          "cpuPercentOneCore": 3.789341939213988,
+          "rssBytes": 24281088
+        },
+        {
+          "window": 10,
+          "wallSeconds": 5.203506916994229,
+          "cpuPercentOneCore": 2.8826712905889025,
+          "rssBytes": 14565376
+        },
+        {
+          "window": 11,
+          "wallSeconds": 5.106689665990416,
+          "cpuPercentOneCore": 3.3289667302904205,
+          "rssBytes": 27672576
+        },
+        {
+          "window": 12,
+          "wallSeconds": 5.041843542014249,
+          "cpuPercentOneCore": 2.578421938655859,
+          "rssBytes": 26394624
+        }
+      ],
+      "taskMonitoringEnabled": true,
+      "diagnosticsEnabled": true,
+      "windowIncludesLiveLifecycleProbe": true
+    },
+    "relativeReductionPercent": 87.2650673356255
+  },
+  "supersededFirstRelaunch": {
+    "diskAppReplacedButLaunchServicesLoadedMovedOriginal": true,
+    "loadedImageUUID": "22CA792C-4DD6-353B-8F1E-46A2EBA43F66",
+    "diskCandidateUUID": "96AC10CE-BA7E-39C2-BCF8-8B20AFDDF2B1",
+    "meanCPUPercent": 28.879851678488137,
+    "excludedFromCandidateResults": true,
+    "resolvedBy": "Unregister moved bundle, register installed bundle, verify lsof txt mapping; later normal open -a also verified"
+  },
+  "liveProbes": [
+    {
+      "cliExitCode": 0,
+      "observations": [
+        {
+          "phase": "active",
+          "observedAt": 1791880689.15255,
+          "elapsedSeconds": 7.8662899999762885,
+          "runningCount": 3,
+          "producerToPublishedSeconds": 4.44854998588562
+        },
+        {
+          "phase": "completed",
+          "observedAt": 1791880721.805182,
+          "elapsedSeconds": 40.518493750016205,
+          "runningCount": 2,
+          "producerToPublishedSeconds": 0.8401820659637451
+        }
+      ],
+      "finished": true,
+      "startedObserved": true
+    },
+    {
+      "cliExitCode": 0,
+      "indexAvailableAt": 1791880821.721645,
+      "observations": [
+        {
+          "phase": "unknown",
+          "observedAt": 1791880822.055475,
+          "elapsedSeconds": 3.8607699999702163,
+          "runningCount": 2
+        },
+        {
+          "phase": "active",
+          "observedAt": 1791880823.2896042,
+          "elapsedSeconds": 5.094883624988142,
+          "runningCount": 3,
+          "producerToPublishedSeconds": 1.6616041660308838,
+          "indexAvailableToPublishedSeconds": 1.5679590702056885
+        },
+        {
+          "phase": "completed",
+          "observedAt": 1791880852.870732,
+          "elapsedSeconds": 34.67565399996238,
+          "runningCount": 2,
+          "producerToPublishedSeconds": 1.058732032775879
+        }
+      ],
+      "finished": true,
+      "startedObserved": true
+    }
+  ],
+  "normalRestart": {
+    "normalLaunchServicesOpen": true,
+    "newPID": 44217,
+    "loadedInstalledExecutable": true,
+    "exactRunningTurnsRecovered": true,
+    "runningCount": 2,
+    "launchToCacheRecoverySeconds": 0.2584106250433251,
+    "sourceFileWritesByProbe": false,
+    "launchToCacheRecoverySecondsIsNotFreshProcessEvidence": true,
+    "firstMenuBarTwoTaskRenderMonotonicMilliseconds": 3546,
+    "launchEventMonotonicMilliseconds": 99,
+    "launchEventToMenuBarRecoverySeconds": 3.447,
+    "newRecordingSessionValidated": true
+  },
+  "independentCurrentMembers": {
+    "observedAt": "2026-10-13T16:45:10.510559+08:00",
+    "recentIndexRowsExamined": 4,
+    "validLogsScanned": 4,
+    "expectedCount": 2,
+    "actualCount": 2,
+    "exactThreadAndTurnSetMatch": true,
+    "runningMemberHashPrefixes": [
+      "b3b3ed5af349",
+      "867631252dc0"
+    ],
+    "checkpointEntries": 298
+  },
+  "displayValidation": {
+    "settingsPreviewObservedCounts": [
+      2,
+      3,
+      2
+    ],
+    "actualMenuBarRenderCounts": [
+      2,
+      3,
+      2
+    ],
+    "snapshotConsumptionMismatches": 0
+  },
+  "validation": {
+    "unitTests": "114 tests in 15 suites passed",
+    "taskReliability": "194 checks, 0 failures",
+    "taskStatus": "44 checks passed",
+    "unifiedDiagnosticIntegration": "71 assertions passed in legacy and hooks modes",
+    "recoveryCycles": "20 consecutive restart cycles per mode, including offline completion and terminal replay",
+    "signature": "Ad-hoc codesign --verify --deep --strict passed",
+    "gitDiffCheck": "passed"
+  },
+  "limitations": [
+    "Local arm64 runtime, short CPU windows; no long-term energy, Intel or macOS 11 runtime acceptance.",
+    "Running remains inference from verified local lifecycle logs with a 30-minute evidence window, not direct host execution truth.",
+    "Start-to-published delays were 4.44855 and 1.66160 seconds; completion delays 0.84018 and 1.05873 seconds. The first probe did not separately measure SQLite availability or file flush delay; no universal two-second guarantee.",
+    "The 0.258-second post-open cache match may reuse prelaunch data and is not used as fresh-process recovery proof; actual menuBar recovery is 3.447 seconds after the new process launch event.",
+    "Current hardware UI check covers settings preview and actual display-consumption records; sleep/wake and physical Touch Bar behavior were covered by regression logic, not a new hardware acceptance run."
+  ],
+  "sourceFilesSHA256": {
+    "HookCore/TaskActivityEngine.swift": "635f47bdc1aa5e1a948eb7dc722a92590718729ef7c33b4a1cc199cd2f999680",
+    "HookCore/TaskCheckpointStore.swift": "a4a62f9c7455da6496e9762585d9c5cddbf336ced7c8536f8f7f4b282479435e",
+    "HookCore/TaskObservationSink.swift": "d32fee2613f352dcf7c6e6ab7d20736996ef613ef62e0ba499f7635900b76837",
+    "Sources/DiagnosticTaskEngineTrace.swift": "51c7a94a4499128a0caf02d116d6dd609eee7ad0ade8771227d7c6a73f762d25",
+    "Sources/DiagnosticTaskTrace.swift": "f5a478e60c11435945a61d17ef6f9b41beee0cff4affed9efff9e4dc342d8a0b",
+    "Tests/HookCoreTests/ControllerTests.swift": "0f90088592aa4cb95ed26ff50f409a42187e34976588f52f04cbdba5ae66e982",
+    "Tests/HookCoreTests/InventoryIsolationTests.swift": "38a8a2a04dbb18117e9377580ca3e14664e4b91409e4c3db1d8c52f3e13cbce3",
+    "Tests/HookCoreTests/ReliabilityEngineTests.swift": "86e787fedc16aea3ba4cfe6955bea195171c3a451946035ede00ccc3de16530b",
+    "Tests/HookCoreTests/TaskEngineRetryTests.swift": "86146e22fa6eb8e041560ba72955ab1a7b3bca79675eff323e5d5ac0c3c9db65",
+    "Tests/TaskReliabilityIntegrationTests.swift": "50774365942bd4df79d39774ccad3bdf5ba3008a63ee3c7d6d5a433b980fbe1b",
+    "Tests/TaskStatusTests.swift": "6fa98943872d9c890364bb252f138674cc46e84e2856fb8aa8818fd4e02e1d01",
+    "Tests/UnifiedDiagnosticTaskTraceTests.swift": "9f5ff8ab484898486abd7cab11efa2020738e7e5ecda5cf066f6ede412cb3ae5",
+    "Tests/HookCoreTests/TaskRecoveryTests.swift": "3c705d20744a71ab7bbbc7bc450b292ffb561cb3d4ffceab4a190f8c2722937a"
+  }
+}
