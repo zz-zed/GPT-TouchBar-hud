@@ -11,15 +11,21 @@ enum ResetForecastTiming {
         var inferredFromPublication: Bool = false
         var assumedTimeZone: Bool = false
         var unresolvedClock: Bool = false
+        var isEndOfDay: Bool = false
     }
 
     private static let dayPattern = #"(?:later\s+today|tomorrow|tonight|today|next\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|\d{4}-\d{2}-\d{2}|明天|今晚|今天)"#
     private static let clockPattern = #"(?:\d{1,2}:\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm))"#
     private static let zonePattern = #"(?:UTC(?:[+-]\d{1,2}(?::?\d{2})?)?|GMT(?:[+-]\d{1,2}(?::?\d{2})?)?|PST|PDT|PT|ET|EST|EDT|CST|CDT|CET|CEST|(?:[A-Za-z_]+(?:/[A-Za-z0-9_+-]+)+)|(?-i:[A-Z]{2,5}))"#
+    // Keep a day qualifier with EOD; otherwise "EOD tomorrow" would silently become today.
+    private static let endOfDayPattern = "(?:(\(dayPattern))\\s+)?(?:EOD|end\\s+of\\s+(?:the\\s+)?day)(?:\\s+(\(dayPattern)))?(?:\\s+(\(zonePattern)))?(?:\\s+time)?"
 
     /// Keeps the clock and its timezone with a relative date rather than truncating it to "tomorrow".
     static func timingText(in text: String) -> String? {
-        ResetNewsText.capture("(?<![A-Za-z0-9])(\(dayPattern)(?:\\s+(?:at\\s+)?\(clockPattern)(?:\\s*\(zonePattern))?)?)(?![A-Za-z0-9])", in: text)
+        if let deadline = ResetNewsText.capture("(?<![A-Za-z0-9])(\(endOfDayPattern))(?![A-Za-z0-9])", in: text) {
+            return deadline
+        }
+        return ResetNewsText.capture("(?<![A-Za-z0-9])(\(dayPattern)(?:\\s+(?:at\\s+)?\(clockPattern)(?:\\s*\(zonePattern))?)?)(?![A-Za-z0-9])", in: text)
     }
 
     /// A declared source zone is material only when it actually supplies the zone used to resolve
@@ -30,6 +36,9 @@ enum ResetForecastTiming {
               let text = fact.timingText?.trimmingCharacters(in: .whitespacesAndNewlines),
               let label = fact.sourceTimeZone ?? fact.officialWindow?.timeZone,
               let zone = timeZone(label) else { return nil }
+        if let endOfDay = endOfDayDetails(text) {
+            return endOfDay.zone == nil ? zone.identifier : nil
+        }
         let pattern = "^(\(dayPattern))(?:\\s+(?:at\\s+)?(\(clockPattern))(?:\\s*(\(zonePattern)))?)?$"
         guard ResetNewsText.matches(pattern, in: text),
               ResetNewsText.capture(pattern, in: text, group: 3) == nil else { return nil }
@@ -52,6 +61,18 @@ enum ResetForecastTiming {
             return Resolved(date: date, precision: precision, sourceZone: fact.sourceTimeZone ?? window?.timeZone)
         }
         guard let text = fact.timingText?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        if let endOfDay = endOfDayDetails(text) {
+            // Never anchor an unspecified/ambiguous source zone to the viewer's local day.
+            guard let label = endOfDay.zone ?? fact.sourceTimeZone ?? window?.timeZone,
+                  let zone = timeZone(label) else { return nil }
+            var sourceCalendar = Calendar(identifier: .gregorian)
+            sourceCalendar.timeZone = zone
+            guard let day = calendarDay(endOfDay.day, publishedAt: publishedAt, calendar: sourceCalendar),
+                  let end = sourceCalendar.dateInterval(of: .day, for: day)?.end else { return nil }
+            return Resolved(date: end, precision: .deadline, sourceZone: label,
+                            inferredFromPublication: !ResetNewsText.matches(#"^\d{4}-\d{2}-\d{2}$"#, in: endOfDay.day),
+                            isEndOfDay: true)
+        }
         let pattern = "^(\(dayPattern))(?:\\s+(?:at\\s+)?(\(clockPattern))(?:\\s*(\(zonePattern)))?)?$"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
@@ -77,6 +98,16 @@ enum ResetForecastTiming {
         return Resolved(date: sourceDay, precision: nil, dayCalendar: zone == nil ? nil : sourceCalendar,
                         dayEnd: dayEnd, sourceZone: declaredZone, inferredFromPublication: inferred,
                         assumedTimeZone: zone == nil && inferred, unresolvedClock: clockText != nil)
+    }
+
+    private static func endOfDayDetails(_ text: String) -> (day: String, zone: String?)? {
+        let pattern = "^\(endOfDayPattern)$"
+        guard ResetNewsText.matches(pattern, in: text) else { return nil }
+        let precedingDay = ResetNewsText.capture(pattern, in: text, group: 1)
+        let followingDay = ResetNewsText.capture(pattern, in: text, group: 2)
+        guard precedingDay == nil || followingDay == nil else { return nil }
+        return ((precedingDay ?? followingDay ?? "today").lowercased(),
+                ResetNewsText.capture(pattern, in: text, group: 3))
     }
 
     static func timeZone(_ label: String) -> TimeZone? {
