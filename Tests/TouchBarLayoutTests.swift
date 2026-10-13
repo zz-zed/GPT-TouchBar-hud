@@ -152,7 +152,8 @@ enum TouchBarLayoutTests {
         verifyForecastTitle("3", "English forecast entry")
         check(messageButton.toolTip == "Reset forecasts (3 upcoming)",
               "English forecast tooltip describes items upcoming")
-        check(messageButton.contentTintColor == DesignTokens.accent, "Unread forecasts receive the shared accent tint")
+        check(messageButton.contentTintColor == DesignTokens.accent && messageButton.layer?.backgroundColor == nil,
+              "Positive forecasts emphasize the count without filling the entire button")
         check(view.bounds.contains(messageButton.frame), "Message action remains inside the Touch Bar content")
         messageButton.performClick(nil)
         check(openedMessages == 1, "Touch Bar message tap invokes the local detail callback")

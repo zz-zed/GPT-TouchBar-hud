@@ -19,7 +19,7 @@ final class TouchBarRateLimitsView: NSView {
     static var contentWidth: CGFloat { DisplayLanguage.current == .english ? 460 : 600 }
     private let chatGPTIconView = NSImageView()
     private let taskBadge = NSTextField(labelWithString: "")
-    private let messagesButton = NSButton(title: "", target: nil, action: nil)
+    private let messagesButton = TouchBarForecastButton(title: "", target: nil, action: nil)
     var onOpenMessages: (() -> Void)?
     private var currentState = RateLimitDisplayState.initial
     private var messageForecastCount: Int?
@@ -246,9 +246,9 @@ final class TouchBarRateLimitsView: NSView {
         guard messageForecastCount != count || messagesButton.isHidden != !available else { return }
         messageForecastCount = count
         messagesButton.isHidden = !available
-        messagesButton.contentTintColor = (messageForecastCount ?? 0) > 0
-            ? DesignTokens.accent
-            : NSColor.white.withAlphaComponent(0.84)
+        let hasForecasts = (count ?? 0) > 0
+        messagesButton.hasForecasts = hasForecasts
+        messagesButton.contentTintColor = hasForecasts ? DesignTokens.accent : NSColor(white: 0.55, alpha: 1)
         let accessibilityLabel = ResetForecastIndicator.accessibilityLabel(forecastCount)
         messagesButton.toolTip = accessibilityLabel
         messagesButton.setAccessibilityLabel(accessibilityLabel)
@@ -323,6 +323,71 @@ final class TouchBarRateLimitsView: NSView {
             ?? NSImage(size: NSSize(width: 30, height: 30))
         image.size = NSSize(width: 30, height: 30)
         return image
+    }
+}
+
+// Keep the native button's hit testing, action and accessibility, but separate
+// the quiet label from the count so emphasis occupies only an 18-point badge.
+private final class TouchBarForecastButton: NSButton {
+    var hasForecasts = false {
+        didSet { if hasForecasts != oldValue { needsDisplay = true } }
+    }
+    private let labelFont = NSFont.systemFont(ofSize: 10, weight: .medium)
+    private let countFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+
+    private var parts: (label: String, count: String) {
+        guard let space = title.lastIndex(of: " ") else { return ("", title) }
+        return (String(title[..<space]), String(title[title.index(after: space)...]))
+    }
+
+    private var labelWidth: CGFloat {
+        ceil((parts.label as NSString).size(withAttributes: [.font: labelFont]).width)
+    }
+    private var countWidth: CGFloat {
+        max(18, ceil((parts.count as NSString).size(withAttributes: [.font: countFont]).width) + 8)
+    }
+    override var fittingSize: NSSize {
+        NSSize(width: 3 + 18 + (parts.label.isEmpty ? 5 : 5 + labelWidth + 6) + countWidth + 3, height: 24)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if cell?.isHighlighted == true {
+            NSColor.white.withAlphaComponent(0.1).setFill()
+            NSBezierPath(roundedRect: bounds, xRadius: 5, yRadius: 5).fill()
+        }
+        let foreground = hasForecasts ? DesignTokens.accent : NSColor(white: 0.55, alpha: 1)
+        let iconRect = NSRect(x: 3, y: (bounds.height - 18) / 2, width: 18, height: 18)
+        // Tint within an isolated layer so source-atop never touches the text.
+        if let context = NSGraphicsContext.current?.cgContext {
+            NSGraphicsContext.saveGraphicsState()
+            context.beginTransparencyLayer(auxiliaryInfo: nil)
+            image?.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: 1,
+                        respectFlipped: true, hints: nil)
+            foreground.setFill()
+            iconRect.fill(using: .sourceAtop)
+            context.endTransparencyLayer()
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        let text = parts
+        var x: CGFloat = 26
+        if !text.label.isEmpty {
+            drawText(text.label, font: labelFont, color: NSColor(white: 0.7, alpha: 1),
+                     in: NSRect(x: x, y: 0, width: labelWidth, height: bounds.height))
+            x += labelWidth + 6
+        }
+        let badge = NSRect(x: x, y: (bounds.height - 18) / 2, width: countWidth, height: 18)
+        if hasForecasts {
+            NSColor(calibratedRed: 0.07, green: 0.13, blue: 0.12, alpha: 1).setFill()
+            NSBezierPath(roundedRect: badge, xRadius: 5, yRadius: 5).fill()
+        }
+        drawText(text.count, font: countFont, color: foreground, in: badge)
+    }
+
+    private func drawText(_ text: String, font: NSFont, color: NSColor, in rect: NSRect) {
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
+        let size = (text as NSString).size(withAttributes: attributes)
+        (text as NSString).draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2),
+                               withAttributes: attributes)
     }
 }
 
