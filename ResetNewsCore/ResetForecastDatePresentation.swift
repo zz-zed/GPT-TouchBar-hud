@@ -45,7 +45,13 @@ public struct ResetForecastDatePresentation: Equatable, Sendable {
             let clock = formatter.string(from: date)
             let offset = Self.offsetText(date, calendar: calendar)
             timeText = chinese ? "预计在 \(clock) 前（本地 \(offset)）" : "Expected by \(clock) (local \(offset))"
-            basisText = chinese ? "公告给出完成截止时间" : "The announcement gives a completion deadline"
+            if timing.isEndOfDay {
+                let zone = timing.sourceZone ?? ""
+                basisText = chinese ? "EOD 按 \(zone) 当天结束换算，非确定重置时刻"
+                    : "EOD interpreted as the end of the day in \(zone), not an exact reset time"
+            } else {
+                basisText = chinese ? "公告给出完成截止时间" : "The announcement gives a completion deadline"
+            }
         } else if let window = fact.officialWindow, let start = window.startAt, let end = window.endAt,
                   start.timeIntervalSince1970.isFinite, end.timeIntervalSince1970.isFinite, start <= end {
             formatter.calendar = calendar; formatter.timeZone = calendar.timeZone

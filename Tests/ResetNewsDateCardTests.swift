@@ -116,6 +116,7 @@ enum ResetNewsDateCardTests {
         }
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         let dateOnly = fixture("date-only", fact: .init(kind: .upcomingReset, timingText: "Tuesday", confidence: .tentative))
+        let endOfDay = fixture("end-of-day", fact: .init(kind: .upcomingReset, timingText: "EOD PST time"))
         let exact = fixture("exact", fact: .init(kind: .upcomingReset, scope: "Pro",
             effectiveAt: ISO8601DateFormatter().date(from: "2026-09-25T15:30:00+08:00")!, effectiveAtPrecision: .exact))
         let longDate = fixture("long-date", fact: .init(kind: .upcomingReset, scope: "Pro / Plus / Team",
@@ -164,6 +165,7 @@ enum ResetNewsDateCardTests {
             try listSnapshot(item: dateOnly, appearance: appearance, dark: dark, name: "notch-width-date-only-\(mode)")
             try cardSnapshot(item: longDate, appearance: appearance, dark: dark, name: "long-date-340-\(mode)")
             try listSnapshot(item: deadline, appearance: appearance, dark: dark, name: "deadline-340-\(mode)")
+            try cardSnapshot(item: endOfDay, appearance: appearance, dark: dark, name: "end-of-day-340-\(mode)")
             try listSnapshot(item: pending, appearance: appearance, dark: dark, name: "time-pending-340-\(mode)")
             try popoverSnapshot(state: noCurrent, appearance: appearance, name: "no-current-\(mode)")
             try popoverSnapshot(state: cached, appearance: appearance, name: "cached-no-current-\(mode)")
