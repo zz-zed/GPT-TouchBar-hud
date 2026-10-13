@@ -9,4 +9,4 @@ swiftc "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" \
   Sources/ResetNewsFeedClient.swift Sources/ResetNewsRepository.swift Sources/ResetNewsMonitor.swift \
   Sources/ResetNewsNotificationController.swift Sources/ResetNewsViewState.swift \
   Tests/ResetNewsRuntimeTests.swift -o "$TEST_BUILD/ResetNewsRuntimeTests"
-"$TEST_BUILD/ResetNewsRuntimeTests"
+ci_time execute reset-news-runtime "$TEST_BUILD/ResetNewsRuntimeTests"

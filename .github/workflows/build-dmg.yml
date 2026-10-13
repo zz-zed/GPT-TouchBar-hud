@@ -142,7 +142,6 @@ jobs:
           python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-quota-alerts -- bash scripts/test-quota-alerts.sh
           python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-host-auto-launcher -- bash scripts/test-host-auto-launcher.sh
           python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-connection-diagnostics -- bash scripts/test-connection-diagnostics.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-logging -- bash scripts/test-diagnostic-logging.sh
           python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-upgrade-storage -- bash scripts/test-diagnostic-upgrade-storage.sh
           python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-upgrade-installer -- bash scripts/test-diagnostic-upgrade-installer.sh
           python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-upgrade-recovery -- bash scripts/test-diagnostic-upgrade-recovery.sh
@@ -178,6 +177,10 @@ jobs:
           python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-touchbar -- bash scripts/test-touchbar.sh
           python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-touchbar-layout -- bash scripts/test-touchbar-layout.sh
           python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-design-layout -- bash scripts/test-design-layout.sh
+
+      - name: Test diagnostic recording, export, and production consumers
+        if: matrix.suite == 'interface'
+        run: python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-logging -- bash scripts/test-diagnostic-logging.sh
 
       - name: Summarize timings (including failed tests)
         if: always()

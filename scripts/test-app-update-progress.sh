@@ -10,4 +10,4 @@ swiftc -module-cache-path "$SWIFT_MODULE_CACHE" \
     Sources/DiagnosticInstallerBridge.swift Sources/AppUpdateProgressChannel.swift Sources/AppUpdateProgressWindowController.swift \
     Sources/AppUpdateProgressHelper.swift Sources/AppUpdateInstallation.swift \
     Tests/AppUpdateProgressTests.swift -o "$TEST_BUILD/AppUpdateProgressTests"
-python3 Tests/app_update_download_server.py "$TEST_BUILD/AppUpdateProgressTests"
+ci_time execute app-update-progress-server python3 Tests/app_update_download_server.py "$TEST_BUILD/AppUpdateProgressTests"

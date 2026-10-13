@@ -6,6 +6,7 @@ build/test durations are explicitly tool-reported, not independently timed.
 """
 
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -19,6 +20,43 @@ import sys
 import threading
 import time
 import uuid
+
+
+def save_record(directory, record):
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        temporary = directory / (record["id"] + ".tmp")
+        temporary.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+        temporary.replace(directory / (record["id"] + ".json"))
+    except OSError as error:
+        # Observability must not replace the measured operation's outcome.
+        print(f"Could not save timing for {record['label']}: {error}", file=sys.stderr)
+
+
+@contextmanager
+def observed_span(phase, label):
+    """Observe an existing Python operation without changing its process/waits.
+
+    processID identifies the observing Python process, not a subprocess it waits
+    for. Callers may set exitCode on the yielded record for non-raising failures.
+    """
+    if not os.environ.get("CI_TIMING_DIR"):
+        yield {}
+        return
+    record = {"schemaVersion": 1, "id": uuid.uuid4().hex,
+              "parentID": os.environ.get("CI_TIMING_PARENT_ID"),
+              "phase": phase, "label": label, "architecture": platform.machine(),
+              "startedAtUTC": datetime.now(timezone.utc).isoformat(),
+              "measurementKind": "in-process", "processID": os.getpid(), "exitCode": 0}
+    started = time.monotonic()
+    try:
+        yield record
+    except BaseException as error:
+        record["exitCode"] = 124 if isinstance(error, subprocess.TimeoutExpired) else 1
+        raise
+    finally:
+        record["seconds"] = round(time.monotonic() - started, 6)
+        save_record(Path(os.environ["CI_TIMING_DIR"]), record)
 
 
 def compiler_inputs(command):
@@ -114,13 +152,7 @@ def run(args):
     record.update(seconds=round(time.monotonic() - started, 6), exitCode=code)
     if metrics:
         record["swiftReported"] = metrics
-    try:
-        temporary = directory / (identity + ".tmp")
-        temporary.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
-        temporary.replace(directory / (identity + ".json"))
-    except OSError as error:
-        # The command's failure must never be replaced by a telemetry failure.
-        print(f"Could not save timing for {args.label}: {error}", file=sys.stderr)
+    save_record(directory, record)
     return code
 
 
