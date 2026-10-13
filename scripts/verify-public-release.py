@@ -16,7 +16,8 @@ import re
 import subprocess
 import tempfile
 
-from release_artifacts import ARCHES, WORKFLOW_PATH, ReleaseError, require, sha
+from release_artifacts import (ARCHES, WORKFLOW_PATH, ReleaseError, annotated_tag_commit,
+                               require, sha, validate_tag)
 
 
 REPOSITORY = "zz-zed/GPT-TouchBar-hud"
@@ -45,16 +46,11 @@ def file_record(path):
 
 def tag_commit(repository, tag):
     ref = github_json(repository, f"git/ref/tags/{tag}")
-    target = ref.get("object", {})
-    require(target.get("type") == "tag", "Release tag must be annotated")
-    annotated = github_json(repository, f"git/tags/{sha(target['sha'])}")
-    commit = annotated.get("object", {})
-    require(commit.get("type") == "commit", "Annotated tag must point to a commit")
-    return sha(commit.get("sha"))
+    return annotated_tag_commit(ref, lambda object_sha: github_json(repository, f"git/tags/{object_sha}"))
 
 
 def validate_release_metadata(release, latest, tag, allow_not_latest=False):
-    require(re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag) is not None, "Expected vMAJOR.MINOR.PATCH tag")
+    validate_tag(tag, tag.removeprefix("v"))
     require(release.get("tag_name") == tag, "Release tag mismatch")
     require(release.get("draft") is False and release.get("prerelease") is False,
             "Release must be public and non-prerelease")
@@ -186,8 +182,7 @@ def main():
     parser.add_argument("--allow-notes-edit", action="store_true", help="Allow an authorized online notes correction")
     args = parser.parse_args()
     require(re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repo) is not None, "Invalid repository")
-    require(re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", args.tag) is not None,
-            "Expected vMAJOR.MINOR.PATCH tag")
+    validate_tag(args.tag, args.tag.removeprefix("v"))
     release = github_json(args.repo, f"releases/tags/{args.tag}")
     latest = github_json(args.repo, "releases/latest")
     version, is_latest = validate_release_metadata(release, latest, args.tag, args.allow_not_latest)

@@ -10,14 +10,14 @@ DIAGNOSTIC_CACHE="$(swift_module_cache_path "$DIAGNOSTIC_TARGET")"
 flags=(-swift-version 5 -target "$DIAGNOSTIC_TARGET" -module-cache-path "$DIAGNOSTIC_CACHE")
 core=(Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/DiagnosticProcessStore.swift Sources/DiagnosticStore.swift Sources/DiagnosticRecorder.swift)
 swiftc "${flags[@]}" Sources/DiagnosticEnvironment.swift Tests/DiagnosticEnvironmentTests.swift -o .build/diagnostic-tests/environment
-.build/diagnostic-tests/environment
+ci_time execute environment .build/diagnostic-tests/environment
 swiftc "${flags[@]}" "${core[@]}" Tests/DiagnosticRecorderTests.swift -o .build/diagnostic-tests/recorder
-.build/diagnostic-tests/recorder
+ci_time execute recorder .build/diagnostic-tests/recorder
 swiftc "${flags[@]}" "${HOOK_CORE_SWIFT_FLAGS[@]}" "${core[@]}" \
     Sources/DiagnosticEnvironment.swift Sources/DiagnosticTaskTraceCoverage.swift Sources/DiagnosticExport.swift Sources/ConnectionDiagnostics.swift Sources/ConnectionDiagnosticsWindowController.swift \
     Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/CodexAppServerClient.swift Sources/AccountTokenUsage.swift \
     Tests/DiagnosticExportTests.swift -o .build/diagnostic-tests/export
-.build/diagnostic-tests/export
+ci_time execute export .build/diagnostic-tests/export
 # The shared engine replaces the old controller pipeline. Protocol, persistence,
 # export and current production integration remain mandatory.
 bash scripts/test-diagnostic-task-trace.sh

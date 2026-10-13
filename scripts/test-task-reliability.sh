@@ -14,7 +14,7 @@ swiftc -target "$(uname -m)-apple-macosx11.0" "${HOOK_CORE_SWIFT_FLAGS[@]}" \
   Tests/TaskReliabilityIntegrationTests.swift \
   -o build/task-reliability/integration/TaskReliabilityIntegrationTests
 set +e
-build/task-reliability/integration/TaskReliabilityIntegrationTests "$@" > build/task-reliability/integration/output.txt 2>&1
+ci_time execute task-reliability build/task-reliability/integration/TaskReliabilityIntegrationTests "$@" > build/task-reliability/integration/output.txt 2>&1
 TEST_EXIT=$?
 set -e
 printf '%s\n' "$TEST_EXIT" > build/task-reliability/integration/exit-code.txt

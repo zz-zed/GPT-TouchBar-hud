@@ -1,10 +1,14 @@
 """Loopback-only streaming fixtures; no GitHub or user application interaction."""
 import http.server
 import os
+from pathlib import Path
 import subprocess
 import sys
 import threading
 import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from ci_timing import observed_span
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -45,8 +49,12 @@ if __name__ == "__main__":
     threading.Thread(target=server.serve_forever, daemon=True).start()
     env = dict(os.environ, UPDATE_TEST_BASE_URL=f"http://127.0.0.1:{server.server_port}")
     try:
-        result = subprocess.run([sys.argv[1]], env=env, timeout=45, check=False)
+        with observed_span("execute", "app-update-progress-test") as timing:
+            result = subprocess.run([sys.argv[1]], env=env, timeout=45, check=False)
+            timing["exitCode"] = result.returncode
         sys.exit(result.returncode)
     finally:
-        server.shutdown()
-        server.server_close()
+        with observed_span("cleanup", "app-update-server-shutdown"):
+            server.shutdown()
+        with observed_span("cleanup", "app-update-server-close"):
+            server.server_close()

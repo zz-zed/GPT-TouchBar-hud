@@ -230,7 +230,16 @@ private final class ReliabilityFixture {
         let now = Date()
         engine.begin(now: now.addingTimeInterval(-1), generation: 1)
         try f.event("task_started", task: task, date: now)
-        check(engine.poll(now: now, generation: 1).runningIDs == [task], "Fixture starts through production engine")
+        // Discovery and reads share a bounded production poll budget. A cold
+        // first poll may yield before reading even this one fixture; require the
+        // same running identity after bounded reconciliation, not one CPU slice.
+        let startupDeadline = Date().addingTimeInterval(2)
+        var running = engine.poll(now: now, generation: 1).runningIDs
+        while running != [task] && Date() < startupDeadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+            running = engine.poll(now: now, generation: 1).runningIDs
+        }
+        check(running == [task], "Fixture starts through production engine")
         try f.append(Data(#"{"type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":null}}"#.utf8) + Data([10]), task: task)
         check(engine.poll(now: now.addingTimeInterval(1), generation: 1).runningIDs == [task], "Real unscoped usage does not clear running task")
         let usage = #"{"type":"event_msg","payload":{"type":"token_count"}}"# + "\n"

@@ -25,13 +25,18 @@ hud_install_move() { /bin/mv "$1" "$2"; }
 hud_install_open() { /usr/bin/open -n "$1" --args --hud-update-session "$2" "$3"; }
 # A diagnostic subprocess is optional and has a hard deadline. Never feed command
 # output into diagnostics, and never let its status select an installation branch.
+hud_install_diagnostic_watchdog() {
+    /bin/sleep 0.25
+    /bin/kill -KILL "$1" 2>/dev/null || true
+}
+
 hud_install_diagnostic() {
     local hud_event="$1" hud_diagnostic_pid hud_watchdog_pid
     hud_diagnostic_sequence=$((hud_diagnostic_sequence + 1))
     [[ -f "$hud_stage/diagnostic-handoff.json" && ! -L "$hud_stage/diagnostic-handoff.json" ]] || return 0
     "$hud_stage/progress-helper" --record-update-diagnostic "$hud_stage" "$hud_session" "$hud_event" "$hud_diagnostic_sequence" >/dev/null 2>&1 &
     hud_diagnostic_pid=$!
-    ( /bin/sleep 0.25; /bin/kill -KILL "$hud_diagnostic_pid" 2>/dev/null || true ) &
+    ( hud_install_diagnostic_watchdog "$hud_diagnostic_pid" ) &
     hud_watchdog_pid=$!
     wait "$hud_diagnostic_pid" 2>/dev/null || true
     /bin/kill -KILL "$hud_watchdog_pid" 2>/dev/null || true

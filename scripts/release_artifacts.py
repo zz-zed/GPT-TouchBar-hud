@@ -16,6 +16,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+from ci_policy import PolicyError, required_jobs, validate_jobs
 
 ARCHES = ("arm64", "x86_64")
 WORKFLOW_PATH = ".github/workflows/build-dmg.yml"
@@ -68,6 +69,18 @@ def validate_source(event, ref, requested_sha, workflow_sha, is_main_ancestor):
     return target
 
 
+def validate_release_source(event, ref, tag, commit, event_sha, deleted=False):
+    """Tag-triggered reruns keep their original commit; manual retries use main."""
+    sha(commit)
+    if event == "workflow_dispatch":
+        require(ref == "refs/heads/main", "Release retry workflow must run from main")
+        return commit
+    require(event == "push" and ref == f"refs/tags/{tag}", "Untrusted release event or ref")
+    require(not deleted, "Deleted tags cannot trigger publication")
+    require(commit == sha(event_sha), "Release tag moved since the triggering push; retry explicitly from main")
+    return commit
+
+
 def trusted_match(run, repository, workflow_id, source_sha):
     if (run.get("repository", {}).get("full_name", "").lower() != repository.lower()
             or run.get("head_repository", {}).get("full_name", "").lower() != repository.lower()
@@ -98,13 +111,19 @@ def validate_run(run, jobs, artifacts, repository, workflow_id, source_sha, now=
     run_id, attempt = int(run["id"]), int(run["run_attempt"])
     require(run_id > 0 and attempt > 0, "Invalid run identity")
     workflow_sha = sha(run["head_sha"])
-    for arch in ARCHES:
-        matching_jobs = [job for job in jobs if job.get("name") == f"Build DMG ({arch})"]
-        require(len(matching_jobs) == 1, f"Missing or duplicate {arch} job in the selected attempt")
-        job = matching_jobs[0]
-        require(job.get("run_id") == run_id and job.get("run_attempt", attempt) == attempt
-                and job.get("status") == "completed" and job.get("conclusion") == "success",
-                f"{arch} job was not successful in this run attempt")
+    try:
+        validate_jobs(jobs, required_jobs("main-full"), run_id, attempt)
+    except PolicyError as error:
+        raise ReleaseError(f"{error}; rebuild the same full source SHA on main") from error
+    # GitHub clones successful jobs into a partial rerun's attempt with new IDs
+    # and run_attempt, but keeps their original execution timestamps. Identity
+    # alone therefore cannot prove that all seven jobs ran in this attempt.
+    attempt_start = timestamp(run.get("run_started_at"))
+    for name in required_jobs("main-full"):
+        job = next(job for job in jobs if job.get("name") == name)
+        started, completed = timestamp(job.get("started_at")), timestamp(job.get("completed_at"))
+        require(attempt_start <= started <= completed,
+                f"Required job was reused from an earlier attempt or has invalid execution times: {name}; rerun all build jobs")
     now = now or dt.datetime.now(dt.timezone.utc)
     selected = {}
     for arch in ARCHES:
@@ -146,9 +165,31 @@ def write_json(path, value):
 
 
 def validate_tag(tag, version):
-    require(re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", tag) is not None,
-            "Invalid release tag")
+    require(isinstance(tag, str) and re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag) is not None,
+            "Expected stable vMAJOR.MINOR.PATCH tag")
     require(tag == f"v{version}", "Tag does not match the source version")
+
+
+def annotated_tag_commit(reference, load_tag):
+    """Shared publication/acceptance policy: one annotated tag points to a commit."""
+    require(isinstance(reference, dict), "Release tag is missing")
+    target = reference.get("object", {})
+    require(isinstance(target, dict), "Invalid release tag target")
+    require(target.get("type") == "tag", "Release tag must be annotated")
+    annotated = load_tag(sha(target.get("sha")))
+    require(isinstance(annotated, dict), "Annotated release tag is unavailable")
+    commit = annotated.get("object", {})
+    require(isinstance(commit, dict), "Invalid annotated tag target")
+    require(commit.get("type") == "commit", "Annotated tag must point directly to a commit")
+    return sha(commit.get("sha"))
+
+
+def local_tag_commit(tag):
+    reference = f"refs/tags/{tag}"
+    require(git("cat-file", "-t", reference) == "tag", "Release tag must be annotated")
+    header = git("cat-file", "-p", reference).split("\n\n", 1)[0].splitlines()
+    require("type commit" in header, "Annotated tag must point directly to a commit")
+    return sha(git("rev-parse", reference + "^{commit}"))
 
 
 def verify_download(directory, selection, version, build, tag):
@@ -271,9 +312,18 @@ class GitHub:
 
     def run_inputs(self, run):
         run_id, attempt = int(run["id"]), int(run["run_attempt"])
-        jobs = self.pages(f"{self.prefix}/actions/runs/{run_id}/attempts/{attempt}/jobs", "jobs")
+        jobs = self.attempt_jobs(run_id, attempt)
         artifacts = self.pages(f"{self.prefix}/actions/runs/{run_id}/artifacts", "artifacts")
         return jobs, artifacts
+
+    def attempt_jobs(self, run_id, attempt):
+        jobs = self.pages(f"{self.prefix}/actions/runs/{run_id}/attempts/{attempt}/jobs", "jobs")
+        # Some API responses omit run_attempt. The attempt-specific endpoint
+        # supplies that binding; never infer it from an all-attempts collection.
+        for job in jobs:
+            require(isinstance(job, dict), "Malformed workflow job")
+            job.setdefault("run_attempt", attempt)
+        return jobs
 
     def upload(self, release_id, name, path):
         url = f"https://uploads.github.com{self.prefix}/releases/{int(release_id)}/assets?name={urllib.parse.quote(name, safe='')}"
@@ -327,8 +377,8 @@ def validate_release_notes(notes):
             continue
         atx_title = re.match(r" {0,3}#(?:[ \t]|$)", line) is not None
         setext_title = previous_text and re.fullmatch(r" {0,3}=+[ \t]*", line) is not None
-        require(not atx_title and not setext_title,
-                f"RELEASE_NOTES.md line {number}: omit level-1 titles; the release name already supplies the title. Use ## for sections.")
+        if atx_title or setext_title:
+            print(f"::warning file=RELEASE_NOTES.md,line={number}::Level-1 title duplicates the release name; consider ##.", file=sys.stderr)
         previous_text = bool(line.strip()) and not line.startswith(("    ", "\t"))
 
 
@@ -375,19 +425,9 @@ def verify_remote_tag(api, tag, source_sha):
     """Resolve only the exact tag namespace, including annotated tags, never a branch."""
     reference = api.request("GET", f"{api.prefix}/git/ref/tags/{urllib.parse.quote(tag, safe='')}")
     require(reference and reference.get("ref") == f"refs/tags/{tag}", "Release tag is missing")
-    target = reference.get("object", {})
-    seen = set()
-    for _ in range(8):
-        target_sha = sha(target.get("sha"))
-        if target.get("type") == "commit":
-            require(target_sha == source_sha, "Release tag moved after verification")
-            return
-        require(target.get("type") == "tag" and target_sha not in seen, "Invalid release tag target")
-        seen.add(target_sha)
-        annotated = api.request("GET", f"{api.prefix}/git/tags/{target_sha}")
-        require(annotated is not None, "Annotated release tag is unavailable")
-        target = annotated.get("object", {})
-    raise ReleaseError("Release tag nesting exceeded its safety limit")
+    target_sha = annotated_tag_commit(reference,
+        lambda object_sha: api.request("GET", f"{api.prefix}/git/tags/{object_sha}"))
+    require(target_sha == source_sha, "Release tag moved after verification")
 
 
 def find_existing_release(api, tag):
@@ -448,7 +488,9 @@ def publish_release(api, directory, tag, source_sha, version, build):
     require(not release_plan(latest, expected, tag), "Draft assets incomplete; leaving draft unpublished")
     require(latest.get("body") == notes, "Draft metadata changed during upload")
     verify_remote_tag(api, tag, source_sha)
-    return api.request("PATCH", f"{api.prefix}/releases/{release_id}", {"draft": False, "make_latest": "true"})
+    # Let GitHub rank stable semantic versions, including delayed retries of an
+    # older draft, instead of unconditionally promoting whichever upload finishes last.
+    return api.request("PATCH", f"{api.prefix}/releases/{release_id}", {"draft": False, "make_latest": "legacy"})
 
 
 def main():
@@ -484,9 +526,10 @@ def main():
         return
     if args.command == "resolve-tag":
         validate_tag(args.tag, args.tag.removeprefix("v"))
-        require(os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
-                or os.environ.get("GITHUB_REF") == "refs/heads/main", "Release retry workflow must run from main")
-        commit = sha(git("rev-parse", f"refs/tags/{args.tag}^{{commit}}"))
+        commit = local_tag_commit(args.tag)
+        validate_release_source(os.environ.get("GITHUB_EVENT_NAME"), os.environ.get("GITHUB_REF"),
+                                args.tag, commit, os.environ.get("GITHUB_SHA"),
+                                deleted=os.environ.get("TAG_PUSH_DELETED") == "true")
         git("merge-base", "--is-ancestor", commit, "origin/main")
         info = plistlib.loads(git("show", f"{commit}:Resources/Info.plist").encode())
         version, build = info["CFBundleShortVersionString"], info["CFBundleVersion"]
