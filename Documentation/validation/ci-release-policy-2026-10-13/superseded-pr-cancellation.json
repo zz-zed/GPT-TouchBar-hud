@@ -1,0 +1,8 @@
+{
+  "run_id": 38359491411,
+  "run_attempt": 1,
+  "head_sha": "5cd179fe26561679fc8791eed2056dcb58e76ab7",
+  "status": "completed",
+  "conclusion": "cancelled",
+  "superseded_by": "1f36291719da09f75eb890a883a8df2f34eaa019"
+}

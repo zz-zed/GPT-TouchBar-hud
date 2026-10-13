@@ -1,0 +1,9 @@
+{
+  "run_id": 38353651561,
+  "run_attempt": 1,
+  "api_head_sha": "ab0cfafedd1ba5eded50f2bf0b00f373b56511ef",
+  "build_source_sha_from_artifact_names": "c36e4697b872d775d21dff878d0245a7d73559eb",
+  "live_job_validation": "passed",
+  "needs_snapshot": "reconstructed; not live Gate execution",
+  "mode": "read-only"
+}
