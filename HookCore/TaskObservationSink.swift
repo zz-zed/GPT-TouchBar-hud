@@ -10,6 +10,7 @@ public enum TaskObservationReason: String, Codable, Sendable {
     case restoredPending, hostUnavailable, suspended, resumed, excludedSubagent, unsupportedSource
     case missingLog, invalidPath, identityMismatch, readFailed, checkpointFailed, checkpointInvalid
     case budgetBacklog, hintOnly, staleGeneration, disabled, capacity, staleEvidence, aliasRetired, aliasCapacity, continuityRevalidated, malformedIndex
+    case journalRecovered, terminalReplay
 }
 public enum TaskReconciliationReason: String, Codable, Sendable { case reconnect, wake, hostRestart, monitoringEnabled, sleep, hostUnavailable, resume }
 

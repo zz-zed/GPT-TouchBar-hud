@@ -272,21 +272,23 @@ enum TaskReliabilityIntegrationTests {
         guard wait("\(mode.rawValue): new runtime recovers checkpoint and continuous inventory", until: {
             latest.map { $0.inventoryComplete && !$0.hasBacklog && $0.records.count >= fixture.mainTasks.count } ?? false
         }) else { return }
-        check(latest?.runningIDs.isEmpty == true, "\(mode.rawValue): persisted and pre-restart starts recover pending, not current execution")
-        check((latest?.activity.pendingVerificationCount ?? 0) > 0, "\(mode.rawValue): restored unresolved tasks remain explicitly pending")
+        let task = fixture.mainTasks.sorted { $0.session < $1.session }[2]
+        let recovered = fixture.mainTasks.subtracting([fixture.mainTasks.sorted { $0.session < $1.session }[1]])
+        check(latest?.runningIDs == recovered, "\(mode.rawValue): restart recovers exactly the unfinished identities, including a start while HUD was stopped")
         check(latest?.recentCompletions.isEmpty == true, "\(mode.rawValue): restart does not replay old completion feedback")
         let recoveredReads = capture.events.dropFirst(observationStart).compactMap { event -> TaskReadObservation? in
             if case .read(_, _, _, let boundary) = event { return boundary }; return nil
         }
         check(recoveredReads.contains { $0.before > 601_826 }, "\(mode.rawValue): production recovery actually resumes the large file at its saved offset")
         check(recoveredReads.reduce(0) { $0 + $1.bytesRead } < 4096, "\(mode.rawValue): valid checkpoint recovery reads only appended records, not old large output")
-        let task = fixture.mainTasks.sorted { $0.session < $1.session }[2]
         try fixture.event("item_completed", task: task)
         let target = try fixture.size(task)
         _ = wait("\(mode.rawValue): recovered runtime reads weak activity from the checkpoint", until: { reached(target, capture: capture) })
-        check(latest?.runningIDs.isEmpty == true, "\(mode.rawValue): historical start plus current tool activity cannot revive pending task")
+        check(latest?.runningIDs == recovered, "\(mode.rawValue): current tool activity preserves the verified recovered identities")
         try fixture.event("task_started", task: task, turn: "turn-confirmed-after-restart")
-        _ = wait("\(mode.rawValue): explicit new-observation start confirms exactly one task", until: { latest?.runningIDs == Set([task]) })
+        _ = wait("\(mode.rawValue): explicit new-observation start preserves the independent identity set", until: {
+            latest?.runningIDs == recovered && latest?.records[task]?.turnID == "turn-confirmed-after-restart"
+        })
 
         let opposite: TaskSourceMode = mode == .legacy ? .hooks : .legacy
         for nextMode in [opposite, mode] {
@@ -296,14 +298,14 @@ enum TaskReliabilityIntegrationTests {
             guard wait("\(mode.rawValue): mode switch to \(nextMode.rawValue) loads the shared checkpoint", until: {
                 deliveredMode == nextMode && latest.map { $0.inventoryComplete && !$0.hasBacklog } == true
             }) else { return }
-            check(latest?.runningIDs.isEmpty == true, "\(mode.rawValue): mode switch conservatively rechecks previous running claims")
+            check(latest?.runningIDs == recovered, "\(mode.rawValue): mode switch rechecks and restores the same unfinished identities")
             let switchBytes = capture.events.dropFirst(observationsBeforeSwitch).reduce(0) { result, event in
                 if case .read(_, _, _, let boundary) = event { return result + boundary.bytesRead }; return result
             }
             check(switchBytes < 4096, "\(mode.rawValue): \(nextMode.rawValue) reuses committed offsets after switching modes")
             try fixture.event("task_started", task: task, turn: "turn-switch-\(nextMode.rawValue)")
             _ = wait("\(mode.rawValue): \(nextMode.rawValue) accepts only its new-generation explicit start", until: {
-                latest?.runningIDs == Set([task])
+                latest?.runningIDs == recovered && latest?.records[task]?.turnID == "turn-switch-\(nextMode.rawValue)"
             })
         }
     }

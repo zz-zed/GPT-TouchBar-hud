@@ -66,7 +66,7 @@ struct DiagnosticTaskReadMetrics: Codable, Equatable {
 }
 enum DiagnosticTaskEvidenceKind: String, Codable { case started, complete, aborted, execution, weakActivity, unknown }
 enum DiagnosticTaskTransitionReason: String, Codable {
-    case malformedRecord, continuityRevalidated
+    case malformedRecord, continuityRevalidated, journalRecovered
     case acceptedStart, acceptedComplete, acceptedAbort, acceptedExecution
     case turnMismatch, missingStartEvidence, olderTimestamp, historicalBaselineRestricted
     case terminalLateActivity, staleExecution, invalidTurnIdentity, invalidTimestamp

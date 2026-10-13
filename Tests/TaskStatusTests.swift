@@ -184,10 +184,11 @@ enum TaskStatusTests {
         monitor.onUpdate = { updates.append($0) }
         monitor.start()
         let deadline = Date(timeIntervalSinceNow: 3)
-        while (updates.last?.unknownCount != 1 || updates.last?.legacyHealth != .healthy) && Date() < deadline {
+        while (updates.last?.runningCount != 1 || updates.last?.legacyHealth != .healthy) && Date() < deadline {
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         }
-        check(updates.last?.runningCount == 0 && updates.last?.unknownCount == 1, "Historical root starts are unknown and child sessions are excluded")
+        check(updates.last?.runningCount == 1 && updates.last?.unknownCount == 0,
+              "A complete fresh historical root start is recovered and child sessions are excluded")
         let liveHandle = try FileHandle(forWritingTo: rollout)
         try liveHandle.seekToEnd()
         let liveFormatter = ISO8601DateFormatter(); liveFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

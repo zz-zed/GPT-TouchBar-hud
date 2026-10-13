@@ -166,7 +166,7 @@ struct ReliabilityEngineTests {
         #expect(result.records[TaskIdentity(session: "s1")]?.phase == .completed)
     }
 
-    @Test func restartRestoresPendingAndRequiresNewLiveStart() throws {
+    @Test func restartRecoversVerifiedUnfinishedTurnWithoutANewStart() throws {
         let f = try Fixture(), log = try f.log()
         let checkpoint = f.home.appendingPathComponent("hud-state/checkpoint.json")
         let first = engine(f, checkpoint: checkpoint)
@@ -176,13 +176,14 @@ struct ReliabilityEngineTests {
         let second = engine(f, checkpoint: checkpoint)
         second.begin(now: f.now.addingTimeInterval(2), generation: 2)
         var result = settle(second, now: f.now.addingTimeInterval(2), generation: 2)
-        #expect(result.runningIDs.isEmpty)
+        #expect(result.runningIDs == [TaskIdentity(session: "s1")])
+        #expect(result.records[TaskIdentity(session: "s1")]?.executionBasis == .journalRecovered)
         #expect(result.records[TaskIdentity(session: "s1")]?.lastKnownPhase == .active)
         try f.append("token_count", to: log, date: f.now.addingTimeInterval(3))
         result = settle(second, now: f.now.addingTimeInterval(3), generation: 2)
-        #expect(result.runningIDs.isEmpty)
+        #expect(result.runningIDs == [TaskIdentity(session: "s1")])
         try f.append("task_complete", to: log, date: f.now.addingTimeInterval(4))
-        #expect(settle(second, now: f.now.addingTimeInterval(4), generation: 2).recentCompletions.isEmpty)
+        #expect(settle(second, now: f.now.addingTimeInterval(4), generation: 2).recentCompletions.count == 1)
         try f.append("task_started", turn: "t2", to: log, date: f.now.addingTimeInterval(5))
         #expect(settle(second, now: f.now.addingTimeInterval(5), generation: 2).runningIDs.count == 1)
         try f.append("task_complete", turn: "t1", to: log, date: f.now.addingTimeInterval(6))
@@ -221,7 +222,7 @@ struct ReliabilityEngineTests {
         let rebuilt = engine(f, checkpoint: checkpoint)
         rebuilt.begin(now: f.now.addingTimeInterval(2), generation: 2)
         let result = settle(rebuilt, now: f.now.addingTimeInterval(2), generation: 2)
-        #expect(result.runningIDs.isEmpty)
+        #expect(result.runningIDs == [TaskIdentity(session: "s1")])
         #expect(result.records[TaskIdentity(session: "s1")]?.lastKnownPhase == .active)
     }
 
@@ -277,7 +278,7 @@ struct ReliabilityEngineTests {
         try f.append("task_complete", turn: "b", to: log, date: f.now.addingTimeInterval(3))
         _ = settle(monitor, now: f.now.addingTimeInterval(3))
         try f.append("task_started", turn: "b", to: log, date: f.now.addingTimeInterval(4))
-        #expect(settle(monitor, now: f.now.addingTimeInterval(4)).runningIDs.count == 1)
+        #expect(settle(monitor, now: f.now.addingTimeInterval(4)).runningIDs.isEmpty)
     }
 
     @Test func currentMalformedGapHealsAfterCleanEvidence() throws {
@@ -347,7 +348,7 @@ struct ReliabilityEngineTests {
         _ = settle(resumed, now: f.now.addingTimeInterval(2), generation: 2)
         try f.append("task_started", turn: "old", to: log, date: f.now.addingTimeInterval(3))
         let result = settle(resumed, now: f.now.addingTimeInterval(3), generation: 2)
-        #expect(result.runningIDs.isEmpty)
+        #expect(result.runningIDs == [TaskIdentity(session: "s1")])
         #expect(result.records[TaskIdentity(session: "s1")]?.turnID == "new")
         #expect(result.recentCompletions.isEmpty)
     }
