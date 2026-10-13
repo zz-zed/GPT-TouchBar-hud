@@ -1,111 +1,132 @@
 #!/usr/bin/env python3
-"""Offline CI acceptance and fail-closed run-attempt checks."""
+"""Native Gate acceptance: result, immutable source and matrix omissions."""
 import copy
+import json
 from pathlib import Path
 import sys
 import unittest
-from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from ci_policy import PolicyError, matrices, required_jobs
+from ci_policy import PolicyError, matrices, pr_event_requires_checks
 from ci_gate import validate_gate
-from release_artifacts import GitHub
 
-REPO = "zz-zed/GPT-TouchBar-hud"
 SHA = "a" * 40
 
 
-def fixtures(profile, event):
-    run = {"id": 200, "run_attempt": 2, "event": event, "head_sha": SHA,
-           "path": ".github/workflows/build-dmg.yml", "repository": {"full_name": REPO}}
-    jobs = [{"name": name, "run_id": 200, "run_attempt": 2,
-             "status": "completed", "conclusion": "success"} for name in required_jobs(profile)]
-    needs = {key: {"result": "skipped" if profile == "docs" and key != "source" else "success"}
+def fixtures(profile, event, payload=None):
+    checks = event != "pull_request" or pr_event_requires_checks(payload)
+    native = checks and profile != "docs"
+    needs = {key: {"result": "success" if key == "source" or native else "skipped"}
              for key in ("source", "regression", "build")}
-    needs["source"]["outputs"] = {"sha": SHA}
-    return run, jobs, needs
+    regression, build = matrices(profile)
+    needs["source"]["outputs"] = {
+        "sha": SHA, "profile": profile, "checks_required": str(checks).lower(),
+        "build_required": "false" if profile == "docs" else "true",
+        "regression_matrix": json.dumps(regression), "build_matrix": json.dumps(build)}
+    return needs
 
 
 class CIGateTests(unittest.TestCase):
-    def validate(self, profile="main-full", event="push", mutate=None):
-        run, jobs, needs = fixtures(profile, event)
+    def validate(self, profile="main-full", event="push", mutate=None, payload=None):
+        needs = fixtures(profile, event, payload)
         if mutate:
-            mutate(run, jobs, needs)
-        validate_gate(run, jobs, profile, 200, 2, event, SHA, needs, REPO)
+            mutate(needs)
+        return validate_gate(profile, event, SHA, needs, payload)
 
-    def test_all_five_profiles_require_their_exact_jobs(self):
-        for profile, event, count in (("docs", "pull_request", 1), ("pr-standard", "pull_request", 4),
-                                      ("pr-full", "pull_request", 7), ("main-full", "push", 7),
-                                      ("recovery-full", "workflow_dispatch", 7)):
-            with self.subTest(profile=profile):
-                self.validate(profile, event)
-                self.assertEqual(len(required_jobs(profile)), count)
-        regression, build = matrices("pr-standard")
-        self.assertEqual(len(regression["include"]), 2)
-        self.assertEqual(build["include"], [{"arch": "arm64", "runner": "macos-15", "kind": "App"}])
+    def test_all_profiles_accept_only_expected_native_results(self):
+        for profile, event in (("docs", "pull_request"), ("docs", "push"), ("pr-standard", "pull_request"),
+                               ("pr-full", "pull_request"), ("main-full", "push"),
+                               ("recovery-full", "workflow_dispatch")):
+            with self.subTest(profile=profile, event=event):
+                self.assertTrue(self.validate(profile, event))
 
-    def test_each_required_job_must_be_present_unique_and_successful(self):
-        for index in range(7):
-            for failure in ("missing", "duplicate", "failure", "cancelled", "skipped", "in-progress",
-                            "wrong-run", "wrong-attempt", "missing-attempt"):
-                def mutate(run, jobs, needs):
-                    if failure == "missing":
-                        jobs.pop(index)
-                    elif failure == "duplicate":
-                        jobs.append(copy.deepcopy(jobs[index]))
-                    elif failure == "in-progress":
-                        jobs[index]["status"] = "in_progress"
-                    elif failure == "wrong-run":
-                        jobs[index]["run_id"] = 201
-                    elif failure == "wrong-attempt":
-                        jobs[index]["run_attempt"] = 1
-                    elif failure == "missing-attempt":
-                        jobs[index].pop("run_attempt")
-                    else:
-                        jobs[index]["conclusion"] = failure
-                with self.subTest(index=index, failure=failure), self.assertRaises(PolicyError):
-                    self.validate(mutate=mutate)
-
-    def test_missing_or_failed_aggregate_never_overrides_individual_jobs(self):
+    def test_missing_failed_cancelled_skipped_and_unfinished_dependencies_fail(self):
         for key in ("source", "regression", "build"):
-            for status in ("failure", "cancelled", "skipped", "missing"):
-                def mutate(run, jobs, needs):
+            for status in ("failure", "cancelled", "skipped", "in_progress", None, "missing", "invalid"):
+                def mutate(needs):
                     if status == "missing":
                         needs.pop(key)
+                    elif status == "invalid":
+                        needs[key] = None
                     else:
                         needs[key]["result"] = status
                 with self.subTest(key=key, status=status), self.assertRaises(PolicyError):
                     self.validate(mutate=mutate)
 
-    def test_run_identity_or_profile_mismatch_fails(self):
-        for key, value in (("id", 201), ("run_attempt", 1), ("head_sha", "b" * 40),
-                           ("event", "pull_request"), ("path", "other.yml"),
-                           ("repository", {"full_name": "other/repo"})):
+    def test_docs_cannot_claim_native_success(self):
+        for key in ("regression", "build"):
             with self.subTest(key=key), self.assertRaises(PolicyError):
-                self.validate(mutate=lambda run, jobs, needs: run.update({key: value}))
+                self.validate("docs", "pull_request", lambda n: n[key].update(result="success"))
+
+    def test_matrix_missing_duplicate_or_modified_entries_fail(self):
+        for profile, event in (("pr-standard", "pull_request"), ("main-full", "push")):
+            for key in ("regression_matrix", "build_matrix"):
+                for mutation in ("missing", "duplicate", "wrong-runner", "empty", "invalid"):
+                    def mutate(needs):
+                        outputs = needs["source"]["outputs"]
+                        matrix = json.loads(outputs[key])
+                        if mutation == "missing":
+                            matrix["include"].pop()
+                        elif mutation == "duplicate":
+                            matrix["include"].append(copy.deepcopy(matrix["include"][0]))
+                        elif mutation == "wrong-runner":
+                            matrix["include"][0]["runner"] = "ubuntu-latest"
+                        elif mutation == "empty":
+                            matrix["include"] = []
+                        else:
+                            outputs[key] = "invalid-json"
+                            return
+                        outputs[key] = json.dumps(matrix)
+                    with self.subTest(profile=profile, key=key, mutation=mutation), self.assertRaises(PolicyError):
+                        self.validate(profile, event, mutate)
+
+    def test_missing_outputs_or_source_identity_fail(self):
+        for key in fixtures("main-full", "push")["source"]["outputs"]:
+            with self.subTest(key=key), self.assertRaises(PolicyError):
+                self.validate(mutate=lambda n: n["source"]["outputs"].pop(key))
+        with self.assertRaises(PolicyError):
+            self.validate(mutate=lambda n: n["source"]["outputs"].update(sha="b" * 40))
+        with self.assertRaises(PolicyError):
+            self.validate(mutate=lambda n: n["source"]["outputs"].update(checks_required="false"))
+        with self.assertRaises(PolicyError):
+            self.validate(mutate=lambda n: n["source"]["outputs"].update(build_required="false"))
+
+    def test_event_profile_mismatch_fails(self):
         for profile in ("typo", "pr-standard", "recovery-full"):
             with self.subTest(profile=profile), self.assertRaises(PolicyError):
                 self.validate(profile, "push")
 
-    def test_attempt_endpoint_binds_missing_api_attempt_but_preserves_mismatch(self):
-        api = GitHub(REPO, "fixture")
-        jobs = [{"name": "legacy", "run_id": 200}, {"name": "wrong", "run_attempt": 1}]
-        with mock.patch.object(api, "pages", return_value=jobs) as pages:
-            bound = api.attempt_jobs(200, 2)
-        self.assertEqual(pages.call_args.args, (api.prefix + "/actions/runs/200/attempts/2/jobs", "jobs"))
-        self.assertEqual([job["run_attempt"] for job in bound], [2, 1])
-
-    def test_unavailable_job_collection_fails(self):
+    def test_known_metadata_is_separate_and_cannot_assert_code_success(self):
+        payloads = [{"action": "labeled", "label": {"name": "documentation"}},
+                    {"action": "unlabeled", "label": {"name": "documentation"}},
+                    {"action": "edited", "changes": {"body": {"from": "old"}}}]
+        for payload in payloads:
+            with self.subTest(payload=payload):
+                self.assertFalse(self.validate("pr-full", "pull_request", payload=payload))
+                with self.assertRaises(PolicyError):
+                    self.validate("pr-full", "pull_request",
+                                  lambda n: n["build"].update(result="success"), payload)
         with self.assertRaises(PolicyError):
-            self.validate(mutate=lambda run, jobs, needs: jobs.append(None))
+            self.validate("pr-full", "pull_request",
+                          lambda n: n["source"]["outputs"].update(checks_required="false"),
+                          {"action": "edited", "changes": {"base": {"ref": {"from": "develop"}}}})
 
-    def test_pr_head_identity_and_merge_preview_source_are_bound_separately(self):
-        run, jobs, needs = fixtures("pr-full", "pull_request")
-        merge_sha = "b" * 40
-        needs["source"]["outputs"]["sha"] = merge_sha
-        validate_gate(run, jobs, "pr-full", 200, 2, "pull_request", SHA, needs, REPO, merge_sha)
-        with self.assertRaises(PolicyError):
-            validate_gate(run, jobs, "pr-full", 200, 2, "pull_request", SHA, needs, REPO, SHA)
+    def test_workflow_uses_validated_matrices_without_gate_api_permissions(self):
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/build-dmg.yml").read_text()
+        for job, key in (("regression", "regression_matrix"), ("build", "build_matrix")):
+            section = workflow.split("\n  " + job + ":\n", 1)[1].split("\n  gate:", 1)[0]
+            if job == "regression":
+                section = section.split("\n  build:", 1)[0]
+            self.assertIn("matrix: ${{ fromJSON(needs.source.outputs." + key + ") }}", section)
+            self.assertIn("checks_required == 'true'", section)
+            self.assertIn("fail-fast: false", section)
+        gate = workflow.split("\n  gate:\n", 1)[1]
+        self.assertNotIn("actions: read", gate)
+        self.assertNotIn("GH_TOKEN", gate)
+        self.assertIn("'PR metadata' || 'CI Gate'", gate)
+        self.assertIn("format('metadata-{0}', github.run_id)", workflow)
+        self.assertIn("CI_SUITE: ${{ matrix.suite }}", workflow)
+        self.assertEqual(workflow.count('run: python3 "$CI_REGRESSION_SCRIPT" --suite "$CI_SUITE"'), 1)
 
 
 if __name__ == "__main__":

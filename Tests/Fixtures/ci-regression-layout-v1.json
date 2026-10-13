@@ -1,0 +1,38 @@
+{
+  "source_revision": "f047e996d8b851118e59814e3ad655ca706a1aba",
+  "suites": {
+    "data": [
+      "test-task-status",
+      "test-hook-integration",
+      "test-token-usage",
+      "test-task-reliability",
+      "test-account-token-usage",
+      "test-verified-quota",
+      "test-quota-alerts",
+      "test-host-auto-launcher",
+      "test-connection-diagnostics",
+      "test-diagnostic-logging",
+      "test-diagnostic-upgrade-storage",
+      "test-diagnostic-upgrade-installer",
+      "test-diagnostic-upgrade-recovery",
+      "test-host-lifecycle",
+      "test-single-instance",
+      "test-app-update",
+      "test-app-update-progress",
+      "test-github-release-fallback",
+      "test-app-update-notifications",
+      "test-reset-news-runtime",
+      "test-hooks"
+    ],
+    "interface": [
+      "test-hud-material",
+      "test-idle-performance",
+      "test-status-menu",
+      "test-notch-hud",
+      "test-notch-presentation",
+      "test-touchbar",
+      "test-touchbar-layout",
+      "test-design-layout"
+    ]
+  }
+}

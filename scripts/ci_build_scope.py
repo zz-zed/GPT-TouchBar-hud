@@ -12,7 +12,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from ci_policy import matrices, profile_for
+from ci_policy import matrices, profile_for, pr_event_requires_checks
 
 
 SHA_PATTERN = re.compile(r"[0-9a-fA-F]{40}\Z")
@@ -56,20 +56,24 @@ def main():
             except (OSError, subprocess.CalledProcessError):
                 added.add(path)
     labels = []
+    event = {}
     if args.event == "pull_request":
         try:
             event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
             labels = [label["name"] for label in event["pull_request"]["labels"]]
         except (KeyError, OSError, ValueError, TypeError):
             paths = None
+            event = {}
     force = os.environ.get("CI_FORCE_FULL_PR", "").lower() == "true" or "ci:full" in labels
     profile = profile_for(args.event, paths, force_full=force, added_paths=added)
     required = "false" if profile == "docs" else "true"
+    checks_required = args.event != "pull_request" or pr_event_requires_checks(event)
     print(required)  # Original boolean CLI contract.
     if args.github_output:
         regression, build = matrices(profile)
         with Path(args.github_output).open("a") as output:
             for key, value in {"profile": profile, "build_required": required,
+                               "checks_required": str(checks_required).lower(),
                                "regression_matrix": json.dumps(regression, separators=(",", ":")),
                                "build_matrix": json.dumps(build, separators=(",", ":"))}.items():
                 output.write(f"{key}={value}\n")

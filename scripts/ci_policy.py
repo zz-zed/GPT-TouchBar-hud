@@ -23,6 +23,22 @@ class PolicyError(ValueError):
     pass
 
 
+def pr_event_requires_checks(payload):
+    """Only understood metadata-only events may leave existing checks alone."""
+    if not isinstance(payload, dict):
+        return True
+    action = payload.get("action")
+    if action in ("labeled", "unlabeled"):
+        label = payload.get("label", {})
+        name = label.get("name") if isinstance(label, dict) else None
+        return not isinstance(name, str) or not name or name == "ci:full"
+    if action == "edited":
+        changes = payload.get("changes")
+        return not (isinstance(changes, dict) and changes
+                    and set(changes).issubset({"title", "body"}))
+    return True
+
+
 def ordinary_document(path):
     return (path in ("README.md", "LICENSE", "LICENSE.md", "CHANGELOG.md")
             or (path.startswith("Documentation/") and PurePosixPath(path).suffix == ".md")

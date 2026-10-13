@@ -144,9 +144,31 @@ def write_json(path, value):
 
 
 def validate_tag(tag, version):
-    require(re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", tag) is not None,
-            "Invalid release tag")
+    require(isinstance(tag, str) and re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag) is not None,
+            "Expected stable vMAJOR.MINOR.PATCH tag")
     require(tag == f"v{version}", "Tag does not match the source version")
+
+
+def annotated_tag_commit(reference, load_tag):
+    """Shared publication/acceptance policy: one annotated tag points to a commit."""
+    require(isinstance(reference, dict), "Release tag is missing")
+    target = reference.get("object", {})
+    require(isinstance(target, dict), "Invalid release tag target")
+    require(target.get("type") == "tag", "Release tag must be annotated")
+    annotated = load_tag(sha(target.get("sha")))
+    require(isinstance(annotated, dict), "Annotated release tag is unavailable")
+    commit = annotated.get("object", {})
+    require(isinstance(commit, dict), "Invalid annotated tag target")
+    require(commit.get("type") == "commit", "Annotated tag must point directly to a commit")
+    return sha(commit.get("sha"))
+
+
+def local_tag_commit(tag):
+    reference = f"refs/tags/{tag}"
+    require(git("cat-file", "-t", reference) == "tag", "Release tag must be annotated")
+    header = git("cat-file", "-p", reference).split("\n\n", 1)[0].splitlines()
+    require("type commit" in header, "Annotated tag must point directly to a commit")
+    return sha(git("rev-parse", reference + "^{commit}"))
 
 
 def verify_download(directory, selection, version, build, tag):
@@ -382,19 +404,9 @@ def verify_remote_tag(api, tag, source_sha):
     """Resolve only the exact tag namespace, including annotated tags, never a branch."""
     reference = api.request("GET", f"{api.prefix}/git/ref/tags/{urllib.parse.quote(tag, safe='')}")
     require(reference and reference.get("ref") == f"refs/tags/{tag}", "Release tag is missing")
-    target = reference.get("object", {})
-    seen = set()
-    for _ in range(8):
-        target_sha = sha(target.get("sha"))
-        if target.get("type") == "commit":
-            require(target_sha == source_sha, "Release tag moved after verification")
-            return
-        require(target.get("type") == "tag" and target_sha not in seen, "Invalid release tag target")
-        seen.add(target_sha)
-        annotated = api.request("GET", f"{api.prefix}/git/tags/{target_sha}")
-        require(annotated is not None, "Annotated release tag is unavailable")
-        target = annotated.get("object", {})
-    raise ReleaseError("Release tag nesting exceeded its safety limit")
+    target_sha = annotated_tag_commit(reference,
+        lambda object_sha: api.request("GET", f"{api.prefix}/git/tags/{object_sha}"))
+    require(target_sha == source_sha, "Release tag moved after verification")
 
 
 def find_existing_release(api, tag):
@@ -493,7 +505,7 @@ def main():
         validate_tag(args.tag, args.tag.removeprefix("v"))
         require(os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
                 or os.environ.get("GITHUB_REF") == "refs/heads/main", "Release retry workflow must run from main")
-        commit = sha(git("rev-parse", f"refs/tags/{args.tag}^{{commit}}"))
+        commit = local_tag_commit(args.tag)
         git("merge-base", "--is-ancestor", commit, "origin/main")
         info = plistlib.loads(git("show", f"{commit}:Resources/Info.plist").encode())
         version, build = info["CFBundleShortVersionString"], info["CFBundleVersion"]

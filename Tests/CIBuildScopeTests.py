@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("ci_build_scope", ROOT / "scripts/ci_build_scope.py")
 scope = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(scope)
-from ci_policy import profile_for, required_jobs
+from ci_policy import profile_for, required_jobs, pr_event_requires_checks
 
 
 class CIBuildScopeTests(unittest.TestCase):
@@ -114,6 +114,35 @@ class CIBuildScopeTests(unittest.TestCase):
     def test_pr_standard_requires_production_app_besides_core_tests(self):
         self.assertIn("Build App (arm64)", required_jobs("pr-standard"))
         self.assertEqual(len(required_jobs("main-full")), 7)
+
+    def test_pr_metadata_only_exemptions_and_unknown_payloads(self):
+        for action in ("labeled", "unlabeled"):
+            self.assertFalse(pr_event_requires_checks({"action": action, "label": {"name": "documentation"}}))
+            self.assertTrue(pr_event_requires_checks({"action": action, "label": {"name": "ci:full"}}))
+            self.assertTrue(pr_event_requires_checks({"action": action}))
+        self.assertFalse(pr_event_requires_checks({"action": "edited", "changes": {"title": {"from": "old"}}}))
+        self.assertFalse(pr_event_requires_checks({"action": "edited", "changes": {"title": {}, "body": {}}}))
+        for payload in (None, {}, {"action": "edited"}, {"action": "edited", "changes": {}},
+                        {"action": "edited", "changes": {"base": {"ref": {"from": "develop"}}}},
+                        {"action": "edited", "changes": {"unknown": {}}}, {"action": "synchronize"}):
+            with self.subTest(payload=payload):
+                self.assertTrue(pr_event_requires_checks(payload))
+
+    def test_cli_keeps_metadata_distinct_from_documentation_scope(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            event = Path(temporary) / "event.json"
+            output = Path(temporary) / "output"
+            event.write_text(json.dumps({"action": "edited", "changes": {"body": {"from": "old"}},
+                                         "pull_request": {"labels": []}}))
+            argv = ["ci_build_scope.py", "--before", "a" * 40, "--after", "b" * 40,
+                    "--event", "pull_request", "--github-output", str(output)]
+            with mock.patch.object(sys, "argv", argv), mock.patch.dict(os.environ, {"GITHUB_EVENT_PATH": str(event)}), \
+                    mock.patch.object(scope, "changed_paths", return_value=["Resources/Info.plist"]), \
+                    mock.patch("builtins.print"):
+                scope.main()
+            self.assertIn("profile=pr-full\n", output.read_text())
+            self.assertIn("build_required=true\n", output.read_text())
+            self.assertIn("checks_required=false\n", output.read_text())
 
 
 if __name__ == "__main__":

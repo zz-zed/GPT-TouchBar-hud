@@ -11,7 +11,7 @@ on:
   pull_request:
     branches:
       - main
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
   push:
     branches:
       - main
@@ -20,8 +20,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-dmg-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.source_sha || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Metadata events get a unique group and cannot cancel code validation.
+  # Keep this exemption in sync with ci_policy.pr_event_requires_checks.
+  group: >-
+    build-dmg-${{ github.event_name }}-${{ github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'ci:full') || (github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body))) && format('metadata-{0}', github.run_id) || github.event.pull_request.number || inputs.source_sha || github.sha }}
+  cancel-in-progress: >-
+    ${{ github.event_name == 'pull_request' && !(((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'ci:full') || (github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body))) }}
 
 jobs:
   source:
@@ -30,6 +34,7 @@ jobs:
     outputs:
       sha: ${{ steps.source.outputs.sha }}
       build_required: ${{ steps.source.outputs.build_required }}
+      checks_required: ${{ steps.source.outputs.checks_required }}
       profile: ${{ steps.source.outputs.profile }}
       regression_matrix: ${{ steps.source.outputs.regression_matrix }}
       build_matrix: ${{ steps.source.outputs.build_matrix }}
@@ -68,7 +73,7 @@ jobs:
   regression:
     name: Regression (${{ matrix.arch }}, ${{ matrix.suite }})
     needs: source
-    if: needs.source.outputs.build_required == 'true'
+    if: needs.source.outputs.checks_required == 'true' && needs.source.outputs.build_required == 'true'
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.source.outputs.regression_matrix) }}
@@ -77,6 +82,8 @@ jobs:
       HUD_SHARED_UI_TESTS: ${{ vars.HUD_SHARED_UI_TESTS || '1' }}
       CI_TIMING_DIR: ${{ github.workspace }}/build/ci-timings/${{ matrix.arch }}-${{ matrix.suite }}
       CI_TIMING_SCRIPT: ${{ needs.source.outputs.sha == github.workflow_sha && 'scripts/ci_timing.py' || '.ci-tools/scripts/ci_timing.py' }}
+      CI_REGRESSION_SCRIPT: ${{ needs.source.outputs.sha == github.workflow_sha && 'scripts/ci_regression.py' || '.ci-tools/scripts/ci_regression.py' }}
+      CI_SUITE: ${{ matrix.suite }}
     steps:
       - name: Check out immutable source
         uses: actions/checkout@v7
@@ -118,54 +125,8 @@ jobs:
             echo "Historical source predates the core-only build profile"
           fi
 
-      - name: Test task status, account, quota, and host behavior
-        if: matrix.suite == 'data'
-        run: |
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-task-status -- bash scripts/test-task-status.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-hook-integration -- bash scripts/test-hook-integration.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-token-usage -- bash scripts/test-token-usage.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-task-reliability -- bash scripts/test-task-reliability.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-account-token-usage -- bash scripts/test-account-token-usage.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-verified-quota -- bash scripts/test-verified-quota.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-quota-alerts -- bash scripts/test-quota-alerts.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-host-auto-launcher -- bash scripts/test-host-auto-launcher.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-connection-diagnostics -- bash scripts/test-connection-diagnostics.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-logging -- bash scripts/test-diagnostic-logging.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-upgrade-storage -- bash scripts/test-diagnostic-upgrade-storage.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-upgrade-installer -- bash scripts/test-diagnostic-upgrade-installer.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-diagnostic-upgrade-recovery -- bash scripts/test-diagnostic-upgrade-recovery.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-host-lifecycle -- bash scripts/test-host-lifecycle.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-single-instance -- bash scripts/test-single-instance.sh
-
-      - name: Test update policy and installer guards
-        if: matrix.suite == 'data'
-        run: |
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-app-update -- bash scripts/test-app-update.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-app-update-progress -- bash scripts/test-app-update-progress.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-github-release-fallback -- bash scripts/test-github-release-fallback.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-app-update-notifications -- bash scripts/test-app-update-notifications.sh
-
-      - name: Test reset forecast runtime and cache migration
-        if: matrix.suite == 'data'
-        env:
-          RESET_NEWS_CORE_DIR: ${{ runner.temp }}/reset-news-core-runtime-${{ matrix.arch }}
-        run: python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-reset-news-runtime -- bash scripts/test-reset-news-runtime.sh
-
-      - name: Verify HookCore and ResetNewsCore unit tests
-        if: matrix.suite == 'data'
-        run: python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-hooks -- bash scripts/test-hooks.sh
-
-      - name: Test rendering, menu, and native presentation
-        if: matrix.suite == 'interface'
-        run: |
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-hud-material -- bash scripts/test-hud-material.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-idle-performance -- bash scripts/test-idle-performance.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-status-menu -- bash scripts/test-status-menu.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-notch-hud -- bash scripts/test-notch-hud.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-notch-presentation -- bash scripts/test-notch-presentation.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-touchbar -- bash scripts/test-touchbar.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-touchbar-layout -- bash scripts/test-touchbar-layout.sh
-          python3 "$CI_TIMING_SCRIPT" run --phase suite --label test-design-layout -- bash scripts/test-design-layout.sh
+      - name: Run the complete regression suite
+        run: python3 "$CI_REGRESSION_SCRIPT" --suite "$CI_SUITE"
 
       - name: Summarize timings (including failed tests)
         if: always()
@@ -183,7 +144,7 @@ jobs:
   build:
     name: Build ${{ matrix.kind }} (${{ matrix.arch }})
     needs: source
-    if: needs.source.outputs.build_required == 'true'
+    if: needs.source.outputs.checks_required == 'true' && needs.source.outputs.build_required == 'true'
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.source.outputs.build_matrix) }}
@@ -312,12 +273,12 @@ jobs:
           retention-days: 30
 
   gate:
-    name: CI Gate
+    # Metadata runs must not emit a successful CI Gate for untested code.
+    name: ${{ needs.source.outputs.checks_required == 'false' && 'PR metadata' || 'CI Gate' }}
     needs: [source, regression, build]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
-      actions: read
       contents: read
     steps:
       - name: Check out this workflow's immutable gate policy
@@ -325,15 +286,11 @@ jobs:
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
-      - name: Require every expected job in this run attempt
+      - name: Verify native dependency results and expected matrix
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI_NEEDS_JSON: ${{ toJSON(needs) }}
           CI_PROFILE: ${{ needs.source.outputs.profile }}
-          CI_RUN_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           CI_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
         run: |
-          python3 scripts/ci_gate.py --repository "$GITHUB_REPOSITORY" \
-            --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" \
-            --profile "$CI_PROFILE" --event "$GITHUB_EVENT_NAME" \
-            --head-sha "$CI_RUN_HEAD_SHA" --source-sha "$CI_SOURCE_SHA"
+          python3 scripts/ci_gate.py --profile "$CI_PROFILE" \
+            --event "$GITHUB_EVENT_NAME" --source-sha "$CI_SOURCE_SHA"

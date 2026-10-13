@@ -7,6 +7,7 @@ sum is active runner time. Queue/checkout time is outside this controlled metric
 the separate full workflow verifies concurrent scheduling and release gates.
 """
 import argparse
+import ast
 from collections import Counter
 import hashlib
 import io
@@ -30,8 +31,16 @@ def git(*args):
     return subprocess.check_output(["git", *args], cwd=ROOT)
 
 
-def layout(text):
+def layout(text, regression_source=None):
     groups = {"data": [], "interface": []}
+    if 'python3 "$CI_REGRESSION_SCRIPT" --suite "$CI_SUITE"' in text:
+        if regression_source is None:
+            raise ValueError("Unified entry requires its source-versioned suite manifest")
+        for statement in ast.parse(regression_source).body:
+            if (isinstance(statement, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == "REGRESSION_SUITES" for t in statement.targets)):
+                groups = ast.literal_eval(statement.value)
+                break
     suite = None
     for line in text.splitlines():
         if line.startswith("      - "):
@@ -45,9 +54,16 @@ def layout(text):
                 raise ValueError("Unrecognized regression command: " + line)
             groups[suite].append(command[1])
     calls = [script for scripts in groups.values() for script in scripts]
-    if len(calls) != 29 or len(set(calls)) != 29:
+    if set(groups) != {"data", "interface"} or len(calls) != 29 or len(set(calls)) != 29:
         raise ValueError("Expected all 29 regression scripts exactly once")
     return groups
+
+
+def layout_at(revision):
+    workflow = git("show", revision + ":" + WORKFLOW).decode()
+    source = (git("show", revision + ":scripts/ci_regression.py").decode()
+              if 'python3 "$CI_REGRESSION_SCRIPT"' in workflow else None)
+    return layout(workflow, source)
 
 
 def validate_layouts(before, after):
@@ -93,7 +109,7 @@ def main():
     if any(p.startswith(("Sources/", "HookCore/", "ResetNewsCore/", "HookHelper/")) or
            (p.startswith("Tests/") and p.endswith(".swift")) or p == "Package.swift" for p in changed):
         raise ValueError("Production/build graph or Swift test bodies changed")
-    layouts = {mode: layout(git("show", sha + ":" + WORKFLOW).decode())
+    layouts = {mode: layout_at(sha)
                for mode, sha in [("original", baseline), ("regrouped", candidate)]}
     validate_layouts(layouts["original"], layouts["regrouped"])
     snapshot = git("archive", candidate, *ROOTS)

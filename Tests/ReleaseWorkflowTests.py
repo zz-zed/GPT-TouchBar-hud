@@ -113,6 +113,42 @@ class OfflineCase(unittest.TestCase):
             self.addCleanup(blocker.stop)
 
 
+class TagPolicyTests(unittest.TestCase):
+    def test_stable_tag_policy_rejects_prerelease_and_malformed_versions(self):
+        release.validate_tag(TAG, TAG.removeprefix("v"))
+        for tag in ("v0.1.43-beta.1", "v0.1", "v0.1.43+build", "0.1.43", "v0.1.43/extra"):
+            with self.subTest(tag=tag), self.assertRaises(release.ReleaseError):
+                release.validate_tag(tag, tag.removeprefix("v"))
+
+    def test_local_git_tag_type_matches_remote_policy(self):
+        with tempfile.TemporaryDirectory(prefix="hud-tag-policy-") as temporary:
+            root = Path(temporary)
+            def command(*args):
+                return subprocess.check_output(["git", "-c", "user.name=Fixture", "-c",
+                    "user.email=fixture@example.invalid", *args], cwd=root, stderr=subprocess.STDOUT).decode().strip()
+            command("init", "--quiet")
+            command("commit", "--quiet", "--allow-empty", "-m", "fixture")
+            expected = command("rev-parse", "HEAD")
+            command("tag", "v0.1.36")
+            command("tag", "-a", "v0.1.37", "-m", "fixture")
+            command("tag", "-a", "v0.1.38", "v0.1.37", "-m", "nested fixture")
+            original_git = release.git
+            with mock.patch.object(release, "git", side_effect=lambda *args: original_git(*args, cwd=root)):
+                self.assertEqual(release.local_tag_commit("v0.1.37"), expected)
+                with self.assertRaisesRegex(release.ReleaseError, "must be annotated"):
+                    release.local_tag_commit("v0.1.36")
+                with self.assertRaisesRegex(release.ReleaseError, "directly to a commit"):
+                    release.local_tag_commit("v0.1.38")
+
+    def test_missing_nested_or_noncommit_remote_tag_is_rejected(self):
+        for reference, target in ((None, None), ({"object": {"type": "commit", "sha": SOURCE_SHA}}, None),
+                                   ({"object": {"type": "tag", "sha": "f" * 40}}, None),
+                                   ({"object": {"type": "tag", "sha": "f" * 40}},
+                                    {"object": {"type": "tag", "sha": "e" * 40}})):
+            with self.subTest(reference=reference, target=target), self.assertRaises(release.ReleaseError):
+                release.annotated_tag_commit(reference, lambda _: target)
+
+
 class RunTrustTests(OfflineCase):
     def test_all_seven_core_jobs_are_required_even_without_new_gate(self):
         run = run_fixture(attempt=2)
@@ -571,7 +607,7 @@ class MemoryGitHub:
         self.run_input_ids = []
         self.commit_sha = SOURCE_SHA
         self.tag_exists = True
-        self.annotated_tag = False
+        self.annotated_tag = True
         self.tag_lookups = 0
         self.draft_visible_by_tag = True
         self.listed_releases = None
@@ -765,6 +801,13 @@ class ReleaseOrchestrationTests(OfflineCase):
         self.api.annotated_tag = True
         self.assertFalse(self.publish()["draft"])
         self.assertEqual(self.api.tag_lookups, 3)
+
+    def test_lightweight_tag_is_rejected_before_any_publish_write(self):
+        self.prepare()
+        self.api.annotated_tag = False
+        with self.assertRaisesRegex(release.ReleaseError, "must be annotated"):
+            self.publish()
+        self.assertEqual(self.api.writes, [])
 
     def test_missing_tag_cannot_fall_back_to_same_named_branch_or_create_tag(self):
         self.prepare()

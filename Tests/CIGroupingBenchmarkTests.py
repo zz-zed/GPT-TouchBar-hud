@@ -2,6 +2,7 @@
 """Protect coverage and attribution in the grouping experiment."""
 import importlib.util
 from pathlib import Path
+import json
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,12 +14,20 @@ spec.loader.exec_module(grouping)
 class GroupingTests(unittest.TestCase):
     def test_missing_or_duplicate_suite_is_rejected(self):
         workflow = (ROOT / grouping.WORKFLOW).read_text()
-        grouping.layout(workflow)
-        command = next(line for line in workflow.splitlines() if "--label test-hooks --" in line)
+        source = (ROOT / "scripts/ci_regression.py").read_text()
+        frozen = json.loads((ROOT / "Tests/Fixtures/ci-regression-layout-v1.json").read_text())["suites"]
+        self.assertEqual(grouping.layout(workflow, source), frozen)
         with self.assertRaises(ValueError):
-            grouping.layout(workflow.replace(command, ""))
+            grouping.layout(workflow, source.replace('"test-hooks"', '"test-task-status"'))
         with self.assertRaises(ValueError):
-            grouping.layout(workflow.replace(command, command + "\n" + command))
+            grouping.layout(workflow)
+        legacy = "\n".join("      - name: " + suite + "\n        if: matrix.suite == '" + suite + "'\n" +
+                           "\n".join("          python3 timer --phase suite --label " + script +
+                                     " -- bash scripts/" + script + ".sh" for script in scripts)
+                           for suite, scripts in frozen.items())
+        self.assertEqual(grouping.layout(legacy), frozen)
+        with self.assertRaises(ValueError):
+            grouping.layout(legacy.replace("--label test-hooks --", "--label missing --"))
 
     def test_only_intact_diagnostic_move_is_accepted(self):
         before = {"data": ["a", grouping.DIAGNOSTIC, "b"], "interface": ["c"]}
