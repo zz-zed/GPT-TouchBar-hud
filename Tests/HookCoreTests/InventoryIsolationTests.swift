@@ -206,7 +206,7 @@ struct InventoryIsolationTests {
         restored.begin(now: f.now.addingTimeInterval(3), generation: 2)
         let stillPending = restored.poll(now: f.now.addingTimeInterval(3), generation: 2)
         #expect(stillPending.activity.coverage.gaps.contains(.malformedLog))
-        #expect(stillPending.runningIDs.isEmpty)
+        #expect(stillPending.runningIDs == [TaskIdentity(session: "b")])
         try f.append("task_complete", to: a, date: f.now.addingTimeInterval(4))
         let settled = restored.poll(now: f.now.addingTimeInterval(4), generation: 2)
         #expect(!settled.activity.coverage.gaps.contains(.malformedLog))

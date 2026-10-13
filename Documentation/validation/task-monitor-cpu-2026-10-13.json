@@ -1,0 +1,233 @@
+{
+  "date": "2026-10-13",
+  "baseline_git_revision": "947641ce962b390155c65147340bde74de7a679a",
+  "branch": "fix/task-monitor-cpu",
+  "method": "ABBA; same frozen local task input; independent processes; production TaskEngineController and DiagnosticRecorder enabled; 3-second warmup then 30-second CPU window; no NSApplication UI or network quota polling",
+  "input": {
+    "entries": 296,
+    "indexed_rows": 719,
+    "copied_logs": 27,
+    "copied_bytes": 229255588,
+    "missing_logs": 269,
+    "log_input_sha256": "4ef62f25430b5ea39f79abcbacbdbb74eed1606645dfdebe9e388c6560956d4d"
+  },
+  "results": [
+    {
+      "variant": "baseline",
+      "run": 0,
+      "diagnostics_enabled": true,
+      "idle": {
+        "bytes_read": 0,
+        "cpu_percent_one_core": 29.37717841624639,
+        "cpu_seconds": 8.813285,
+        "fast_polls": 325,
+        "files_attempted": 10380,
+        "final_read_failures": 269,
+        "initial_read_failures": 269,
+        "polls": 325,
+        "wall_seconds": 30.000447541708127
+      },
+      "lifecycle_probes": [
+        {
+          "counted": true,
+          "event": "task_started",
+          "latency_seconds": 1.2712007916998118,
+          "matched": true
+        },
+        {
+          "counted": false,
+          "event": "task_complete",
+          "latency_seconds": 0.10430220834678039,
+          "matched": true
+        },
+        {
+          "counted": true,
+          "event": "task_started",
+          "latency_seconds": 1.1112120416364633,
+          "matched": true
+        },
+        {
+          "counted": false,
+          "event": "turn_aborted",
+          "latency_seconds": 0.09091687499312684,
+          "matched": true
+        }
+      ],
+      "peak_rss_bytes": 30605312,
+      "pid": 23405
+    },
+    {
+      "variant": "candidate",
+      "run": 1,
+      "diagnostics_enabled": true,
+      "idle": {
+        "bytes_read": 0,
+        "cpu_percent_one_core": 2.6554389362898503,
+        "cpu_seconds": 0.796629,
+        "fast_polls": 0,
+        "files_attempted": 832,
+        "final_read_failures": 269,
+        "initial_read_failures": 269,
+        "polls": 26,
+        "wall_seconds": 29.99989904166432
+      },
+      "lifecycle_probes": [
+        {
+          "counted": true,
+          "event": "task_started",
+          "latency_seconds": 0.6179953750106506,
+          "matched": true
+        },
+        {
+          "counted": false,
+          "event": "task_complete",
+          "latency_seconds": 1.0609410416800529,
+          "matched": true
+        },
+        {
+          "counted": true,
+          "event": "task_started",
+          "latency_seconds": 1.0758556666551158,
+          "matched": true
+        },
+        {
+          "counted": false,
+          "event": "turn_aborted",
+          "latency_seconds": 1.0923107500420883,
+          "matched": true
+        }
+      ],
+      "peak_rss_bytes": 30130176,
+      "pid": 23496
+    },
+    {
+      "variant": "candidate",
+      "run": 2,
+      "diagnostics_enabled": true,
+      "idle": {
+        "bytes_read": 0,
+        "cpu_percent_one_core": 2.51569780031863,
+        "cpu_seconds": 0.754756,
+        "fast_polls": 0,
+        "files_attempted": 832,
+        "final_read_failures": 269,
+        "initial_read_failures": 269,
+        "polls": 26,
+        "wall_seconds": 30.00185474997852
+      },
+      "lifecycle_probes": [
+        {
+          "counted": true,
+          "event": "task_started",
+          "latency_seconds": 0.539570624998305,
+          "matched": true
+        },
+        {
+          "counted": false,
+          "event": "task_complete",
+          "latency_seconds": 1.0666216666577384,
+          "matched": true
+        },
+        {
+          "counted": true,
+          "event": "task_started",
+          "latency_seconds": 1.0718425833038054,
+          "matched": true
+        },
+        {
+          "counted": false,
+          "event": "turn_aborted",
+          "latency_seconds": 1.0900636249571107,
+          "matched": true
+        }
+      ],
+      "peak_rss_bytes": 29933568,
+      "pid": 23551
+    },
+    {
+      "variant": "baseline",
+      "run": 3,
+      "diagnostics_enabled": true,
+      "idle": {
+        "bytes_read": 0,
+        "cpu_percent_one_core": 29.269315160617467,
+        "cpu_seconds": 8.781859,
+        "fast_polls": 322,
+        "files_attempted": 10304,
+        "final_read_failures": 269,
+        "initial_read_failures": 269,
+        "polls": 322,
+        "wall_seconds": 30.003636749985162
+      },
+      "lifecycle_probes": [
+        {
+          "counted": true,
+          "event": "task_started",
+          "latency_seconds": 1.428979000018444,
+          "matched": true
+        },
+        {
+          "counted": false,
+          "event": "task_complete",
+          "latency_seconds": 0.10277375002624467,
+          "matched": true
+        },
+        {
+          "counted": true,
+          "event": "task_started",
+          "latency_seconds": 1.1215875416528434,
+          "matched": true
+        },
+        {
+          "counted": false,
+          "event": "turn_aborted",
+          "latency_seconds": 0.10553095833165571,
+          "matched": true
+        }
+      ],
+      "peak_rss_bytes": 29949952,
+      "pid": 23580
+    }
+  ],
+  "baseline_mean_cpu_percent_one_core": 29.32324678843193,
+  "candidate_mean_cpu_percent_one_core": 2.58556836830424,
+  "relative_cpu_reduction_percent": 91.18253041022642,
+  "candidate_max_lifecycle_latency_seconds": 1.0923107500420883,
+  "source_sha256": {
+    "HookCore/TaskActivityEngine.swift": "e17db7c5df9f4241c5297c81c92ca3e8e0ae8670b757121576baeef93db6bb3f",
+    "HookCore/TaskCheckpointStore.swift": "0e282b9fa0a2123bad5010252aee9f22d6df05cbb9b6dd30d26e43efcdb1386b",
+    "Tests/HookCoreTests/TaskEngineRetryTests.swift": "9acbdf123e15e6609560f28dfef3419c16ead3a10495d02b9c17292f84fb7ac7",
+    "Tests/TaskMonitorCPUBenchmark.swift": "45f8f76027534ab990975c30fbd84d98cfb3428fa7ef7626894c72768a06fcf3",
+    "scripts/benchmark-task-monitor-cpu.sh": "2fef4e261aba665206664b16ca0584e2f36de67a24d1109037b11a6feb64dad6",
+    "scripts/task-monitor-cpu-fixture.py": "643f5236423fd7088898c17fa403f95fbc33758dc446b56feae9080b2c08e46c"
+  },
+  "validation": {
+    "swift_tests": "107 tests, 14 suites passed",
+    "task_status": "44 checks passed",
+    "task_reliability": "196 checks passed",
+    "hook_integration": "passed",
+    "baseline_retry_regression": "6 tests with 7 issues; expected failure before fix",
+    "app_build": "arm64 App and helper built; ad-hoc strict signatures and architecture checks passed via scripts/build-app.sh",
+    "zip": "CRC check passed; archived main executable and helper hashes match the signed App"
+  },
+  "limitations": [
+    "Short-term production-monitor comparison; full installed app CPU after replacement and long-term energy use not measured",
+    "arm64 local host only; no Intel or macOS 11 hardware validation",
+    "Missing history stays unknown; restored active tasks still require current-generation start or validated continuity under existing lifecycle policy"
+  ],
+  "artifacts": {
+    "app_path": "build/task-monitor-cpu/trial-arm64/GPT TouchBar HUD.app",
+    "version": "0.1.43",
+    "build": "46",
+    "minimum_macos": "11.0",
+    "source_identity": "f2d87887a328d678bcf12892cdca57aba4542c8dcc6679db777eb35b54c73f5c",
+    "app_executable_sha256": "c1c5df5291704c97621c289864e66fd8b698ad5de54359fecf109f610d44a706",
+    "helper_sha256": "342d740e6b486cf4e07758a3b04d8e0d0c0d7cb085a8985cf55b95b462d2be92",
+    "benchmark_binary_sha256": {
+      "baseline": "dc0afe43dbe431ea26c8cf2eca314ff0d6320d0c911d4c08cdde69e57852a59c",
+      "candidate": "0efca2e1c199b66759da7cc7cb220664f8f12fc8e5af2fb118fe56758c157059"
+    },
+    "zip_path": "build/task-monitor-cpu/GPT-TouchBar-HUD-cpu-fix-arm64.zip",
+    "zip_sha256": "bf8435b566480c73578e205cd46b7e9285832acc52c3f5dd4f2c9a7a7fdfa844"
+  }
+}
