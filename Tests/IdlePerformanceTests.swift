@@ -1,5 +1,8 @@
 import AppKit
 import Darwin
+#if HUD_SHARED_UI_TESTS
+@testable import HUDTestSupport
+#endif
 
 private final class RecoveryObserver: RateLimitStoreDelegate {
     var state = RateLimitDisplayState.initial

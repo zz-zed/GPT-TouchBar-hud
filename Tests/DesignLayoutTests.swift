@@ -1,6 +1,9 @@
 import AppKit
 import SwiftUI
 import ResetNewsCore
+#if HUD_SHARED_UI_TESTS
+@testable import HUDTestSupport
+#endif
 
 @main
 enum DesignLayoutTests {
