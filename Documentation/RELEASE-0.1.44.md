@@ -1,6 +1,10 @@
 # v0.1.44 发布记录
 
-2026-10-13。GPT TouchBar HUD v0.1.44 / Build 47 汇集已合入 main 的 Touch Bar 预告数量样式、任务监控 CPU 优化及任务恢复修复，并纳入此前仅在本地保存的自动更新退出修复。当前为发布准备记录，正式发布时间、源码提交及公开验包结果将在发布后补齐。
+2026-10-13。**GPT TouchBar HUD v0.1.44 / Build 47 已正式发布并设为 Latest。** 本版汇集 Touch Bar 预告数量样式、任务监控 CPU 优化及任务恢复修复，并纳入此前仅在本地保存的自动更新退出修复。
+
+- [正式 Release](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.44)于北京时间 2026-10-13 19:40:02 公开，非草稿、非预发布；附注标签指向源码提交 `e9df07c18e0c2b80d4531271e71a03156c42b2d6`。
+- [main 完整双架构构建](https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38389639559)的来源检查、四个回归作业、两个打包作业及 CI Gate 全部成功。[标签发布工作流](https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/38391715967)成功复用同一提交、同次运行、attempt 1 的两架构产物。
+- Latest 与公开正文经独立核验；正文和标签提交中的 `RELEASE_NOTES.md` 完全一致。
 
 ## 变更
 
@@ -23,8 +27,25 @@
 
 整合时消息运行时回归曾发现 flush 与写入确认使用不同投递方式，导致通知检查提前结束；改为同一主 RunLoop 投递后，完整运行时回归通过。原始失败与最终成功日志保留在本地 `build/release-evidence/v0.1.44/`。
 
+## 公开产物核验
+
+| 附件 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| `build-manifest.json` | 4,010 | `e275bf61dbc5ca117dfea9f5f86bc17b56393e852c6e62d5b959d9c60b638a75` |
+| `GPT-TouchBar-HUD-0.1.44-arm64.dmg` | 4,767,936 | `965693405a5f2b1a76bb9c08faa822b4ac9f5421a82113ce5c600de6236f4d83` |
+| `GPT-TouchBar-HUD-0.1.44-x86_64.dmg` | 4,962,408 | `3f1d6b650ff4a421ed247c37afef5d7c6d78abc2b4e1e1f16dea04536ab2e418` |
+| `SHA256SUMS.txt` | 201 | `1e4b290e7728f15add776c0701b780fde0ddc5c0c3fd309bb901acbabfd0467e` |
+
+使用 `python3 -B scripts/verify-public-release.py v0.1.44 --repo zz-zed/GPT-TouchBar-hud` 从公开 Release 重新下载四份附件。GitHub 摘要、大小、合并校验文件、构建清单、源码及构建来源、版本 0.1.44 / Build 47、应用标识、App/Helper 架构、macOS 11.0 最低系统标记、DMG 完整性、只读挂载、严格签名及首次打开助手 CDHash 绑定全部通过；挂载卷已卸载。下载使用系统已配置的本地代理，未修改系统代理设置。
+
+本地 arm64 正式 App 构建、严格签名和源码摘要核对通过；缓存迁移脚本使用隔离空缓存夹具编译并执行成功，该补充检查不代表覆盖所有历史缓存。完整缓存与通知场景由上述 453 项运行时回归及双架构 CI 覆盖。
+
+[机器可读核验清单](validation/release-0.1.44-publication.json)保存公开附件与 CI 来源。公开附件及核验原始结果保留在本地 `build/release-evidence/public-v0.1.44/`，本地回归及 CI 记录在 `build/release-evidence/v0.1.44/`。同步前的原始改动保留在本地 `backups/release-0.1.44-pre-sync.noindex/` 和 Git stash。发布记录在标签发布后提交，不改变二进制来源。
+
 ## 验证边界
 
 任务恢复依据本机日志，沿用 30 分钟证据时效，不代表宿主直接提供的执行真值。系统睡眠时长补偿、更强的来源进程身份适配、长期能耗及真实 macOS 11 尚未完成验收。CPU 数据来自相关记录中的同机短时对照，不承诺所有机器均得到相同降幅。
 
 安装包使用 ad-hoc 签名，未经 Apple 公证。发布验包只读挂载 DMG，不修改本机已安装应用；双架构构建通过不等于所有机型的运行验收。
+
+退出修复作用于运行中的 v0.1.44。旧版本若在升级时仍卡在等待退出阶段，更新包不能追补旧进程的退出代码；保留安装日志并参考[更新与失败恢复说明](UPDATING.md)，避免在安装仍进行时移动应用或暂存目录。
