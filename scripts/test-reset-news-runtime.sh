@@ -6,7 +6,7 @@ TEST_BUILD="$PROJECT_DIR/.build/reset-news-runtime-tests"
 mkdir -p "$TEST_BUILD"
 source scripts/reset-news-core-build.sh
 swiftc "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" \
-  Sources/ResetNewsFeedClient.swift Sources/ResetNewsRepository.swift Sources/ResetNewsMonitor.swift \
+  Sources/ResetNewsFeedClient.swift Sources/ResetNewsRepository.swift Sources/ResetNewsMonitor.swift Sources/MainRunLoopCompletion.swift \
   Sources/ResetNewsNotificationController.swift Sources/ResetNewsViewState.swift \
   Tests/ResetNewsRuntimeTests.swift -o "$TEST_BUILD/ResetNewsRuntimeTests"
 ci_time execute reset-news-runtime "$TEST_BUILD/ResetNewsRuntimeTests"

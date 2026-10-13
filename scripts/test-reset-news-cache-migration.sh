@@ -9,6 +9,6 @@ TEST_BUILD="$PROJECT_DIR/.build/reset-news-migration-tests"
 mkdir -p "$TEST_BUILD"
 export RESET_NEWS_CORE_DIR="${RESET_NEWS_CORE_DIR:-$PROJECT_DIR/.build/reset-news-core-migration-review}"
 source scripts/reset-news-core-build.sh
-swiftc "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" Sources/ResetNewsRepository.swift \
+swiftc "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" Sources/ResetNewsRepository.swift Sources/MainRunLoopCompletion.swift \
   Tests/ResetNewsCacheMigrationCheck.swift -o "$TEST_BUILD/ResetNewsCacheMigrationCheck"
 "$TEST_BUILD/ResetNewsCacheMigrationCheck" "$MIGRATION_COPY" "${2:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
