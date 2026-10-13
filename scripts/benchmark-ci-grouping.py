@@ -104,7 +104,7 @@ def main():
               "systemCaches": "not cleared", "sourceArchiveSHA256": hashlib.sha256(snapshot).hexdigest(),
               "compiler": subprocess.check_output(["xcrun", "swiftc", "--version"], stderr=subprocess.STDOUT, text=True).strip(),
               "sdk": subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-version"], text=True).strip(),
-              "modes": {}}
+              "modes": {}, "failures": [], "coverageMismatches": []}
     destination = args.output / "comparison.json"
     def save():
         destination.write_text(json.dumps(report, indent=2) + "\n")
@@ -148,25 +148,37 @@ def main():
                 save()
                 print(json.dumps({"mode": mode, **row}), flush=True)
                 if process.returncode:
-                    raise RuntimeError("Failed regression; no grouping accepted: " + str(log))
-                row["coverage"] = coverage(log.read_text().replace(str(tree), "<SOURCE>"), script)
-                if script in expected and expected[script] != row["coverage"]:
-                    raise ValueError("Changed test output: " + script)
-                expected[script] = row["coverage"]
+                    report["failures"].append({"mode": mode, "script": script, "exitCode": process.returncode})
+                try:
+                    row["coverage"] = coverage(log.read_text().replace(str(tree), "<SOURCE>"), script)
+                except ValueError as error:
+                    row["coverageError"] = str(error)
+                    row["coverage"] = None
+                if process.returncode == 0 and row["coverage"] is not None:
+                    if script in expected and expected[script] != row["coverage"]:
+                        report["coverageMismatches"].append(script)
+                    expected[script] = row["coverage"]
+                elif not process.returncode:
+                    report["failures"].append({"mode": mode, "script": script, "reason": row["coverageError"]})
                 save()
             result["seconds"] = round(time.monotonic() - started, 6)
             records = [json.loads(p.read_text()) for p in timings.glob("*.json")]
             suites = [r for r in records if r["phase"] == "suite"]
             if Counter(r["label"] for r in suites) != Counter(layouts[mode][args.suite]):
                 raise ValueError("Missing or duplicate executed suites")
-            if len({r["processID"] for r in suites}) != len(suites) or any(r["exitCode"] for r in records):
-                raise ValueError("Process isolation or exit status check failed")
+            if len({r["processID"] for r in suites}) != len(suites):
+                raise ValueError("Process isolation check failed")
+            result["testsPassed"] = all(r["exitCode"] == 0 for r in records) and all(r["coverage"] is not None for r in result["rows"])
             result["complete"] = True
             result["independentSuiteProcesses"] = True
             save()
     report["complete"] = True
-    report["sameSuiteCoverageEquivalent"] = True
+    report["testsPassed"] = all(mode["testsPassed"] for mode in report["modes"].values())
+    report["sameSuiteCoverageEquivalent"] = report["testsPassed"] and not report["coverageMismatches"]
     save()
+    # Attempt every script and both layouts, but never turn a failure into success.
+    if not report["sameSuiteCoverageEquivalent"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
