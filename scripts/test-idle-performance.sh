@@ -10,7 +10,6 @@ for source in Sources/*.swift; do
 done
 source scripts/swift-module-cache.sh
 SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
-swiftc "${HOOK_CORE_SWIFT_FLAGS[@]}" "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" \
-    -module-cache-path "$SWIFT_MODULE_CACHE" \
-    "${sources[@]}" Tests/IdlePerformanceTests.swift -o .build/idle-performance/IdlePerformanceTests
-.build/idle-performance/IdlePerformanceTests
+source scripts/ui-test-shared-build.sh
+ui_test_compile Tests/IdlePerformanceTests.swift .build/idle-performance/IdlePerformanceTests
+ci_time execute idle-performance .build/idle-performance/IdlePerformanceTests

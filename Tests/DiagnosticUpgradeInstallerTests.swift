@@ -2,7 +2,8 @@ import Foundation
 import Darwin
 
 /// Executes the production installation functions against disposable fake bundles.
-/// Only OS operations are replaced; every diagnostic CLI is the actual copied bridge.
+/// OS operations and the event-coverage watchdog are controlled; every CLI is the actual bridge.
+/// The hanging/failing diagnostic scenarios retain the production 0.25-second watchdog.
 @main enum DiagnosticUpgradeInstallerTests {
     static var checks = 0
     static let source = DiagnosticProcessIdentity(version: DiagnosticVersion(rawValue: "0.1.40"), build: DiagnosticBuild(rawValue: "41"))
@@ -87,6 +88,9 @@ import Darwin
         let start = Date()
         try process.run(); process.waitUntilExit()
         check(Date().timeIntervalSince(start) < 8, "\(scenario): diagnostics cannot hold installation indefinitely")
+        if scenario == "diagnostic-hang" {
+            check(Date().timeIntervalSince(start) < 4, "Production watchdog bounds the deliberately hung CLI")
+        }
         let expected: Int32
         switch scenario {
         case "owner-alive": expected = 3
@@ -186,6 +190,16 @@ import Darwin
     set -eu
     source "$1"
     hud_target="$2" hud_stage="$3" hud_session="$4" hud_case="$5"
+    # Event coverage must not depend on cold Swift/dyld startup finishing within
+    # a best-effort diagnostic deadline. Keep every event/exit-code assertion,
+    # with a bounded watchdog for these fixtures. The fault cases below keep
+    # the untouched production watchdog, including the 10-second hung helper.
+    if [[ "$hud_case" != diagnostic-hang && "$hud_case" != diagnostic-failure ]]; then
+        hud_install_diagnostic_watchdog() {
+            /bin/sleep 5
+            /bin/kill -KILL "$1" 2>/dev/null || true
+        }
+    fi
     hud_install_pause() { :; }
     hud_install_alive() { [[ "$hud_case" == owner-alive ]]; }
     hud_install_open() {

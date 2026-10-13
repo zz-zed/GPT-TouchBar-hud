@@ -1,0 +1,3 @@
+FAIL: stages backupStarted,backupFailed
+DiagnosticUpgradeInstallerTests/DiagnosticUpgradeInstallerTests.swift:11: Precondition failed: backup-failure: actual execution stages recorded
+scripts/test-diagnostic-upgrade-installer.sh: line 13: 98056 Trace/BPT trap: 5          "$TEST_BUILD/DiagnosticUpgradeInstallerTests"

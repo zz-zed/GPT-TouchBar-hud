@@ -1,0 +1,58 @@
+{
+  "run_id": 38353651561,
+  "head_sha": "ab0cfafedd1ba5eded50f2bf0b00f373b56511ef",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "Validate source revision",
+      "run_id": 38353651561,
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Build DMG (arm64)",
+      "run_id": 38353651561,
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Regression (arm64, interface)",
+      "run_id": 38353651561,
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Regression (x86_64, interface)",
+      "run_id": 38353651561,
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Regression (arm64, data)",
+      "run_id": 38353651561,
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Regression (x86_64, data)",
+      "run_id": 38353651561,
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Build DMG (x86_64)",
+      "run_id": 38353651561,
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ]
+}

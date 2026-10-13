@@ -7,8 +7,11 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import re
 import socket
+from string import Template
 import subprocess
 import sys
 import tempfile
@@ -21,6 +24,7 @@ from unittest import mock
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("release_artifacts", ROOT / "scripts/release_artifacts.py")
 release = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = release
@@ -52,14 +56,17 @@ def run_fixture(run_id=200, attempt=1, event="push", source_sha=SOURCE_SHA):
         "repository": {"full_name": REPOSITORY},
         "head_repository": {"full_name": REPOSITORY},
         "created_at": timestamp(NOW - timedelta(hours=2) + timedelta(seconds=run_id)),
+        "run_started_at": timestamp(NOW - timedelta(hours=2) + timedelta(seconds=run_id)),
         "updated_at": timestamp(NOW - timedelta(hours=1) + timedelta(seconds=run_id)),
     }
 
 
 def jobs_fixture(run):
-    return [{"name": "Build DMG (" + arch + ")", "status": "completed",
-             "conclusion": "success", "run_id": run["id"], "run_attempt": run["run_attempt"]}
-            for arch in ARCHES]
+    return [{"name": name, "status": "completed",
+             "conclusion": "success", "run_id": run["id"], "run_attempt": run["run_attempt"],
+             "started_at": timestamp(release.timestamp(run["run_started_at"]) + timedelta(seconds=1)),
+             "completed_at": timestamp(release.timestamp(run["run_started_at"]) + timedelta(minutes=20))}
+            for name in release.required_jobs("main-full")]
 
 
 def artifacts_fixture(run, source_sha=SOURCE_SHA):
@@ -112,7 +119,119 @@ class OfflineCase(unittest.TestCase):
             self.addCleanup(blocker.stop)
 
 
+class TagPolicyTests(unittest.TestCase):
+    def test_stable_tag_policy_rejects_prerelease_and_malformed_versions(self):
+        release.validate_tag(TAG, TAG.removeprefix("v"))
+        for tag in ("v0.1.43-beta.1", "v0.1", "v0.1.43+build", "0.1.43", "v0.1.43/extra"):
+            with self.subTest(tag=tag), self.assertRaises(release.ReleaseError):
+                release.validate_tag(tag, tag.removeprefix("v"))
+
+    def test_local_git_tag_type_matches_remote_policy(self):
+        with tempfile.TemporaryDirectory(prefix="hud-tag-policy-") as temporary:
+            root = Path(temporary)
+            def command(*args):
+                return subprocess.check_output(["git", "-c", "user.name=Fixture", "-c",
+                    "user.email=fixture@example.invalid", *args], cwd=root, stderr=subprocess.STDOUT).decode().strip()
+            command("init", "--quiet")
+            command("commit", "--quiet", "--allow-empty", "-m", "fixture")
+            expected = command("rev-parse", "HEAD")
+            command("tag", "v0.1.36")
+            command("tag", "-a", "v0.1.37", "-m", "fixture")
+            command("tag", "-a", "v0.1.38", "v0.1.37", "-m", "nested fixture")
+            original_git = release.git
+            with mock.patch.object(release, "git", side_effect=lambda *args: original_git(*args, cwd=root)):
+                self.assertEqual(release.local_tag_commit("v0.1.37"), expected)
+                with self.assertRaisesRegex(release.ReleaseError, "must be annotated"):
+                    release.local_tag_commit("v0.1.36")
+                with self.assertRaisesRegex(release.ReleaseError, "directly to a commit"):
+                    release.local_tag_commit("v0.1.38")
+
+    def test_missing_nested_or_noncommit_remote_tag_is_rejected(self):
+        for reference, target in ((None, None), ({"object": {"type": "commit", "sha": SOURCE_SHA}}, None),
+                                   ({"object": {"type": "tag", "sha": "f" * 40}}, None),
+                                   ({"object": {"type": "tag", "sha": "f" * 40}},
+                                    {"object": {"type": "tag", "sha": "e" * 40}})):
+            with self.subTest(reference=reference, target=target), self.assertRaises(release.ReleaseError):
+                release.annotated_tag_commit(reference, lambda _: target)
+
+
+class ReleaseRetryBindingTests(unittest.TestCase):
+    def test_failed_publish_only_and_full_reruns_download_the_produced_stage(self):
+        workflow = (ROOT / ".github/workflows/release.yml").read_text()
+        verify, publish = workflow.split("\n  verify:\n", 1)[1].split("\n  publish:\n", 1)
+        producer = re.search(r'id: stage\n\s+run: echo "name=([^"\n]+)"', verify).group(1)
+        output = re.search(r"stage_artifact: (.+)", verify).group(1)
+        upload = re.search(r"uses: actions/upload-artifact@[^\n]+\n\s+with:\n\s+name: (.+)", verify).group(1)
+        download = re.search(r"uses: actions/download-artifact@[^\n]+\n\s+with:\n\s+name: (.+)", publish).group(1)
+
+        def render(expression, context):
+            return re.sub(r"\$\{\{\s*(.*?)\s*\}\}", lambda match: context[match[1]], expression)
+
+        # GitHub retains successful dependency outputs on a failed-job-only
+        # rerun; the publisher's run_attempt advances independently of verify.
+        for run_id, verify_attempt, publish_attempt in ((200, 1, 1), (200, 1, 2),
+                                                       (200, 2, 2), (300, 1, 1)):
+            with self.subTest(run_id=run_id, verify=verify_attempt, publish=publish_attempt):
+                stage = Template(producer).substitute(GITHUB_RUN_ID=run_id, GITHUB_RUN_ATTEMPT=verify_attempt)
+                context = {"steps.stage.outputs.name": stage,
+                           "github.run_id": str(run_id), "github.run_attempt": str(verify_attempt)}
+                stored = {render(upload, context): "verified bytes"}
+                context["needs.verify.outputs.stage_artifact"] = render(output, context)
+                context["github.run_attempt"] = str(publish_attempt)
+                self.assertEqual(stored[render(download, context)], "verified bytes")
+                self.assertEqual(stage, f"verified-release-{run_id}-{verify_attempt}")
+        self.assertIn("TAG_PUSH_DELETED: ${{ github.event.deleted }}", verify)
+
+
 class RunTrustTests(OfflineCase):
+    def test_partial_rerun_cloned_successes_with_new_attempt_ids_are_rejected(self):
+        run = run_fixture(attempt=2)
+        original = jobs_fixture(run)
+        run["run_started_at"] = timestamp(NOW - timedelta(minutes=10))
+        fresh = jobs_fixture(run)
+        for index, old in enumerate(original):
+            with self.subTest(name=old["name"]):
+                jobs = copy.deepcopy(fresh)
+                # Mirrors the live attempt endpoint: identity says attempt 2,
+                # yet execution timestamps belong to the earlier attempt.
+                jobs[index].update(started_at=old["started_at"], completed_at=old["completed_at"])
+                with self.assertRaisesRegex(release.ReleaseError, "reused from an earlier attempt"):
+                    release.validate_run(run, jobs, artifacts_fixture(run), REPOSITORY, WORKFLOW_ID, SOURCE_SHA, now=NOW)
+        self.assertEqual(release.validate_run(run, fresh, artifacts_fixture(run),
+                         REPOSITORY, WORKFLOW_ID, SOURCE_SHA, now=NOW)["run_attempt"], 2)
+
+    def test_missing_or_invalid_attempt_execution_times_are_rejected(self):
+        for field, value in (("run_started_at", None), ("started_at", None),
+                             ("completed_at", None), ("completed_at", "2000-01-01T00:00:00Z")):
+            run = run_fixture()
+            jobs = jobs_fixture(run)
+            if field == "run_started_at":
+                run[field] = value
+            else:
+                jobs[0][field] = value
+            with self.subTest(field=field, value=value), self.assertRaises(release.ReleaseError):
+                release.validate_run(run, jobs, artifacts_fixture(run), REPOSITORY, WORKFLOW_ID, SOURCE_SHA, now=NOW)
+
+    def test_all_seven_core_jobs_are_required_even_without_new_gate(self):
+        run = run_fixture(attempt=2)
+        original = jobs_fixture(run)
+        self.assertEqual(len(original), 7)
+        self.assertNotIn("CI Gate", [job["name"] for job in original])
+        release.validate_run(run, original, artifacts_fixture(run), REPOSITORY, WORKFLOW_ID, SOURCE_SHA, now=NOW)
+        for index in range(7):
+            for failure in ("missing", "duplicate", "failure", "cancelled", "skipped", "wrong-attempt"):
+                jobs = copy.deepcopy(original)
+                if failure == "missing":
+                    jobs.pop(index)
+                elif failure == "duplicate":
+                    jobs.append(copy.deepcopy(jobs[index]))
+                elif failure == "wrong-attempt":
+                    jobs[index]["run_attempt"] = 1
+                else:
+                    jobs[index]["conclusion"] = failure
+                with self.subTest(job=original[index]["name"], failure=failure), self.assertRaises(release.ReleaseError):
+                    release.validate_run(run, jobs, artifacts_fixture(run), REPOSITORY, WORKFLOW_ID, SOURCE_SHA, now=NOW)
+
     def test_accepts_dual_architecture_trusted_main_push(self):
         selection = valid_selection()
         self.assertEqual(selection["source_sha"], SOURCE_SHA)
@@ -233,8 +352,58 @@ class RunTrustTests(OfflineCase):
         with self.assertRaises(release.ReleaseError):
             release.select_run([run_fixture(source_sha="d" * 40)], REPOSITORY, WORKFLOW_ID, SOURCE_SHA)
 
+    def test_successive_main_commits_and_out_of_order_finishes_never_mix_sources(self):
+        earlier = run_fixture(100)
+        later = run_fixture(200, source_sha=WORKFLOW_SHA)
+        earlier["updated_at"] = timestamp(NOW)
+        runs = [earlier, later, run_fixture(300, event="pull_request")]
+        for source, expected in ((SOURCE_SHA, earlier), (WORKFLOW_SHA, later)):
+            with self.subTest(source=source):
+                selected = release.select_run(runs, REPOSITORY, WORKFLOW_ID, source)
+                self.assertEqual(selected["id"], expected["id"])
+                selection = release.validate_run(selected, jobs_fixture(selected),
+                    artifacts_fixture(selected, source), REPOSITORY, WORKFLOW_ID, source, now=NOW)
+                self.assertEqual(selection["source_sha"], source)
+        with self.assertRaises(release.ReleaseError):
+            release.select_run(runs, REPOSITORY, WORKFLOW_ID, "d" * 40)
+
 
 class SourceRecoveryTests(OfflineCase):
+    def test_tag_push_and_rerun_bind_the_original_event_commit(self):
+        self.assertEqual(release.validate_release_source("push", "refs/tags/" + TAG,
+                         TAG, SOURCE_SHA, SOURCE_SHA), SOURCE_SHA)
+        for current in (WORKFLOW_SHA, "bad-sha"):
+            with self.subTest(current=current), self.assertRaises(release.ReleaseError):
+                release.validate_release_source("push", "refs/tags/" + TAG, TAG, current, SOURCE_SHA)
+
+    def test_tag_deletion_wrong_ref_or_untrusted_event_cannot_publish(self):
+        for event, ref, deleted in (("push", "refs/tags/" + TAG, True),
+                                   ("push", "refs/heads/main", False),
+                                   ("push", "refs/tags/v0.1.31", False),
+                                   ("pull_request", "refs/tags/" + TAG, False),
+                                   (None, None, False)):
+            with self.subTest(event=event, ref=ref, deleted=deleted), self.assertRaises(release.ReleaseError):
+                release.validate_release_source(event, ref, TAG, SOURCE_SHA, SOURCE_SHA, deleted)
+
+    def test_manual_release_retry_uses_tag_commit_while_main_advances(self):
+        self.assertEqual(release.validate_release_source("workflow_dispatch", "refs/heads/main",
+                         TAG, SOURCE_SHA, WORKFLOW_SHA), SOURCE_SHA)
+        for ref in ("refs/heads/feature", "refs/tags/" + TAG, None):
+            with self.subTest(ref=ref), self.assertRaises(release.ReleaseError):
+                release.validate_release_source("workflow_dispatch", ref, TAG, SOURCE_SHA, WORKFLOW_SHA)
+
+    def test_moved_or_deleted_push_is_refused_by_resolve_cli_before_source_reads(self):
+        argv = ["release_artifacts.py", "resolve-tag", "--tag", TAG]
+        for moved, deleted in ((True, False), (False, True)):
+            env = {"GITHUB_EVENT_NAME": "push", "GITHUB_REF": "refs/tags/" + TAG,
+                   "GITHUB_SHA": SOURCE_SHA, "TAG_PUSH_DELETED": str(deleted).lower()}
+            with self.subTest(moved=moved, deleted=deleted), mock.patch.object(sys, "argv", argv), \
+                    mock.patch.dict(os.environ, env), \
+                    mock.patch.object(release, "local_tag_commit", return_value=WORKFLOW_SHA if moved else SOURCE_SHA), \
+                    mock.patch.object(release, "git", side_effect=AssertionError("No ancestor/version reads after refusal")), \
+                    self.assertRaises(release.ReleaseError):
+                release.main()
+
     def test_push_accepts_only_its_own_main_sha(self):
         self.assertEqual(release.validate_source("push", "refs/heads/main", "", SOURCE_SHA,
                                                lambda _: False), SOURCE_SHA)
@@ -550,7 +719,7 @@ class MemoryGitHub:
         self.run_input_ids = []
         self.commit_sha = SOURCE_SHA
         self.tag_exists = True
-        self.annotated_tag = False
+        self.annotated_tag = True
         self.tag_lookups = 0
         self.draft_visible_by_tag = True
         self.listed_releases = None
@@ -612,12 +781,13 @@ class MemoryGitHub:
 
 
 class ReleaseNotesTests(OfflineCase):
-    def test_rejects_level_one_titles_in_release_body(self):
+    def test_warns_for_level_one_titles_without_blocking_or_rewriting(self):
         for notes in ("# GPT TouchBar HUD v0.1.33\n\nChanges.\n", "\ufeff# Title\n",
                       "Intro.\n\n   # Title\n", "#\n", "#\tTitle\r\n",
                       "Release title\n===\n"):
-            with self.subTest(notes=notes), self.assertRaisesRegex(release.ReleaseError, "omit level-1 titles"):
+            with self.subTest(notes=notes), mock.patch.object(sys, "stderr", new_callable=io.StringIO) as warnings:
                 release.validate_release_notes(notes)
+                self.assertIn("::warning", warnings.getvalue())
 
     def test_accepts_sections_and_preserves_body_without_rewriting(self):
         notes = "本版调整设置。\n\n## 改进\n\n- One change.\n\n### Details\n#42 is an issue reference.\n"
@@ -689,25 +859,15 @@ class ReleaseOrchestrationTests(OfflineCase):
         self.assertTrue(any(path.endswith("RELEASE_NOTES.md?ref=" + SOURCE_SHA) for _, path, _ in self.api.requests))
         self.assertFalse(any("ref=main" in path for _, path, _ in self.api.requests))
 
-    def test_prepare_rejects_duplicate_title_before_download_or_api_access(self):
+    def test_title_warning_preserves_immutable_body_through_prepare_and_publish(self):
         notes = "# GPT TouchBar HUD " + TAG + "\n\n## Changes\n\nFixture.\n"
-        (self.source / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
-        with self.assertRaisesRegex(release.ReleaseError, "omit level-1 titles"):
-            self.prepare()
-        self.assertFalse(self.output.exists())
-        self.assertEqual(self.api.requests, [])
-        self.assertEqual(self.api.writes, [])
-        self.assertEqual((self.source / "RELEASE_NOTES.md").read_text(encoding="utf-8"), notes)
-
-    def test_publish_revalidates_immutable_title_before_any_release_write(self):
-        self.prepare()
-        notes = "# GPT TouchBar HUD " + TAG + "\n\n## Changes\n\nFixture.\n"
-        # Simulate staging produced before this validation rule existed.
         self.api.notes = notes
-        (self.output / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
-        with self.assertRaisesRegex(release.ReleaseError, "omit level-1 titles"):
+        (self.source / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
+        with mock.patch.object(sys, "stderr", new_callable=io.StringIO) as warnings:
+            self.prepare()
             self.publish()
-        self.assertEqual(self.api.writes, [])
+            self.assertIn("::warning", warnings.getvalue())
+        self.assertEqual(self.api.existing["body"], notes)
         self.assertEqual((self.output / "RELEASE_NOTES.md").read_text(encoding="utf-8"), notes)
 
     def test_latest_failed_run_never_downloads_or_falls_back(self):
@@ -753,6 +913,13 @@ class ReleaseOrchestrationTests(OfflineCase):
         self.api.annotated_tag = True
         self.assertFalse(self.publish()["draft"])
         self.assertEqual(self.api.tag_lookups, 3)
+
+    def test_lightweight_tag_is_rejected_before_any_publish_write(self):
+        self.prepare()
+        self.api.annotated_tag = False
+        with self.assertRaisesRegex(release.ReleaseError, "must be annotated"):
+            self.publish()
+        self.assertEqual(self.api.writes, [])
 
     def test_missing_tag_cannot_fall_back_to_same_named_branch_or_create_tag(self):
         self.prepare()
@@ -828,6 +995,48 @@ class ReleaseOrchestrationTests(OfflineCase):
         self.assertFalse(result["draft"])
         self.assertEqual([entry[0] for entry in self.api.writes], ["upload", "upload", "upload", "PATCH"])
         self.assertNotIn(name, [entry[1] for entry in self.api.writes if entry[0] == "upload"])
+
+    def test_interrupted_upload_retry_preserves_acknowledged_or_unacknowledged_assets(self):
+        self.prepare()
+        original_upload = self.api.upload
+        for received_before_failure in (False, True):
+            with self.subTest(received_before_failure=received_before_failure):
+                self.api.existing = None
+                self.api.writes = []
+                def interrupted(*args):
+                    if received_before_failure:
+                        original_upload(*args)
+                    raise release.ReleaseError("Fixture upload connection lost")
+                with mock.patch.object(self.api, "upload", side_effect=interrupted), \
+                        self.assertRaisesRegex(release.ReleaseError, "connection lost"):
+                    self.publish()
+                self.assertTrue(self.api.existing["draft"])
+                uploaded = {entry["name"] for entry in self.api.existing["assets"]}
+                self.api.writes = []
+                result = self.publish()
+                self.assertFalse(result["draft"])
+                self.assertFalse(uploaded.intersection(entry[1] for entry in self.api.writes if entry[0] == "upload"))
+                self.assertFalse(any(entry[0] == "POST" for entry in self.api.writes))
+                self.assertEqual(self.api.writes[-1][2], {"draft": False, "make_latest": "legacy"})
+
+    def test_lost_publication_response_does_not_allow_a_second_public_write(self):
+        self.prepare()
+        original_request = self.api.request
+        def interrupted(method, path, data=None, binary=False):
+            result = original_request(method, path, data, binary)
+            if method == "PATCH":
+                raise release.ReleaseError("Fixture publication response lost")
+            return result
+        with mock.patch.object(self.api, "request", side_effect=interrupted), \
+                self.assertRaisesRegex(release.ReleaseError, "response lost"):
+            self.publish()
+        self.assertFalse(self.api.existing["draft"])
+        before = copy.deepcopy(self.api.existing)
+        self.api.writes = []
+        with self.assertRaisesRegex(release.ReleaseError, "Published releases are immutable"):
+            self.publish()
+        self.assertEqual(self.api.writes, [])
+        self.assertEqual(self.api.existing, before)
 
     def test_draft_missing_from_tag_endpoint_resumes_through_release_listing(self):
         self.prepare()

@@ -1,0 +1,98 @@
+{
+  "mode": "read-only; no download or publishing",
+  "selection": {
+    "repository": "zz-zed/GPT-TouchBar-hud",
+    "workflow_id": 359277221,
+    "source_sha": "7c132acb06df6cd4fe1eb561c4a0699bd1800101",
+    "workflow_sha": "7c132acb06df6cd4fe1eb561c4a0699bd1800101",
+    "run_id": 38348466901,
+    "run_attempt": 1,
+    "event": "push",
+    "artifacts": {
+      "arm64": {
+        "id": 11790190164,
+        "node_id": "MDg6QXJ0aWZhY3QxMTc5MDE5MDE2NA==",
+        "name": "release-7c132acb06df6cd4fe1eb561c4a0699bd1800101-arm64-38348466901-1",
+        "size_in_bytes": 4725184,
+        "url": "https://api.github.com/repos/zz-zed/GPT-TouchBar-hud/actions/artifacts/11790190164",
+        "archive_download_url": "https://api.github.com/repos/zz-zed/GPT-TouchBar-hud/actions/artifacts/11790190164/zip",
+        "expired": false,
+        "digest": "sha256:98f4b36622808fe83e41cdd9f9e7539c94c3b4fdfdf6798e457ea9b975d3efef",
+        "created_at": "2026-10-13T04:54:19Z",
+        "updated_at": "2026-10-13T04:54:19Z",
+        "expires_at": "2026-11-12T04:54:18Z",
+        "workflow_run": {
+          "id": 38348466901,
+          "repository_id": 1372451353,
+          "head_repository_id": 1372451353,
+          "head_branch": "main",
+          "head_sha": "7c132acb06df6cd4fe1eb561c4a0699bd1800101"
+        }
+      },
+      "x86_64": {
+        "id": 11789986423,
+        "node_id": "MDg6QXJ0aWZhY3QxMTc4OTk4NjQyMw==",
+        "name": "release-7c132acb06df6cd4fe1eb561c4a0699bd1800101-x86_64-38348466901-1",
+        "size_in_bytes": 4926993,
+        "url": "https://api.github.com/repos/zz-zed/GPT-TouchBar-hud/actions/artifacts/11789986423",
+        "archive_download_url": "https://api.github.com/repos/zz-zed/GPT-TouchBar-hud/actions/artifacts/11789986423/zip",
+        "expired": false,
+        "digest": "sha256:bc3adaf951b2726d301965b779872c11e960d40c498105365e8ef6c54ea98fb9",
+        "created_at": "2026-10-13T04:59:16Z",
+        "updated_at": "2026-10-13T04:59:16Z",
+        "expires_at": "2026-11-12T04:58:46Z",
+        "workflow_run": {
+          "id": 38348466901,
+          "repository_id": 1372451353,
+          "head_repository_id": 1372451353,
+          "head_branch": "main",
+          "head_sha": "7c132acb06df6cd4fe1eb561c4a0699bd1800101"
+        }
+      }
+    }
+  },
+  "jobs": [
+    {
+      "name": "Validate source revision",
+      "run_id": 38348466901,
+      "run_attempt": 1,
+      "conclusion": "success"
+    },
+    {
+      "name": "Build DMG (arm64)",
+      "run_id": 38348466901,
+      "run_attempt": 1,
+      "conclusion": "success"
+    },
+    {
+      "name": "Build DMG (x86_64)",
+      "run_id": 38348466901,
+      "run_attempt": 1,
+      "conclusion": "success"
+    },
+    {
+      "name": "Regression (arm64, interface)",
+      "run_id": 38348466901,
+      "run_attempt": 1,
+      "conclusion": "success"
+    },
+    {
+      "name": "Regression (x86_64, data)",
+      "run_id": 38348466901,
+      "run_attempt": 1,
+      "conclusion": "success"
+    },
+    {
+      "name": "Regression (arm64, data)",
+      "run_id": 38348466901,
+      "run_attempt": 1,
+      "conclusion": "success"
+    },
+    {
+      "name": "Regression (x86_64, interface)",
+      "run_id": 38348466901,
+      "run_attempt": 1,
+      "conclusion": "success"
+    }
+  ]
+}

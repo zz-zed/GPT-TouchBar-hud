@@ -14,5 +14,7 @@ if [[ "$hook_core_rebuild" == 1 ]]; then
     swiftc -target "$(uname -m)-apple-macosx11.0" -O -parse-as-library -emit-module -emit-library -static -module-name HookCore \
         -module-cache-path "$SWIFT_MODULE_CACHE" HookCore/*.swift \
         -emit-module-path "$HOOK_CORE_DIR/HookCore.swiftmodule" -o "$HOOK_CORE_DIR/libHookCore.a"
+else
+    ci_time dependency-reuse HookCore true
 fi
 HOOK_CORE_SWIFT_FLAGS=(-I "$HOOK_CORE_DIR" -L "$HOOK_CORE_DIR" -lHookCore)

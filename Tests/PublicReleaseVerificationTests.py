@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,6 +92,17 @@ class PublicReleaseVerificationTests(unittest.TestCase):
         release["assets"] = self.assets[:-1]
         with self.assertRaisesRegex(verifier.ReleaseError, "attachments"):
             verifier.validate_release_metadata(release, {"tag_name": TAG}, TAG)
+
+    def test_public_and_publisher_share_stable_annotated_tag_policy(self):
+        with mock.patch.object(verifier, "github_json", side_effect=[
+                {"object": {"type": "tag", "sha": "f" * 40}},
+                {"object": {"type": "commit", "sha": SOURCE}}]):
+            self.assertEqual(verifier.tag_commit(REPOSITORY, TAG), SOURCE)
+        with mock.patch.object(verifier, "github_json", return_value={"object": {"type": "commit", "sha": SOURCE}}):
+            with self.assertRaisesRegex(verifier.ReleaseError, "must be annotated"):
+                verifier.tag_commit(REPOSITORY, TAG)
+        with self.assertRaisesRegex(verifier.ReleaseError, "stable"):
+            verifier.validate_release_metadata({}, {}, "v0.1.43-beta.1")
 
 
 if __name__ == "__main__":
