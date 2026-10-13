@@ -44,7 +44,7 @@ jobs:
             flags=(--first-mode shared --reverse-fixtures)
           fi
           python3 scripts/benchmark-ui-test-reuse.py \
-            --candidate fe97ae0454e220f289db1e58a4672219d51c86c4 \
+            --candidate d3ebf51cb4bbf710f9a126527e613504bb2c20d3 \
             --samples 1 "${flags[@]}" --output benchmark
       - name: Retain every sample, including failures
         if: always()
