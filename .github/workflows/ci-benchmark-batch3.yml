@@ -46,8 +46,8 @@ jobs:
             flags=(--first-mode regrouped)
           fi
           python3 scripts/benchmark-ci-grouping.py \
-            --baseline d3ebf51cb4bbf710f9a126527e613504bb2c20d3 \
-            --candidate d29b7ea8d838876847fa4a006b05a03b0e9a056b \
+            --baseline 7f7cf691f4431b49bcf2ea2af2b48afd2c918a20 \
+            --candidate 760d664a9cb99f73339e567a98090b8f499b46ad \
             --suite "$SUITE" "${flags[@]}" --output benchmark
       - name: Retain every sample, including failures
         if: always()
