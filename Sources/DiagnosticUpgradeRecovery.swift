@@ -150,12 +150,10 @@ final class DiagnosticUpgradeRecovery {
     }
 
     /// One shared deadline can contain diagnostics and future asynchronous shutdown participants.
-    /// Completion is on main, at most once; a stalled writer cannot extend the deadline.
+    /// Completion is on the main run loop, at most once; a stalled writer cannot extend the deadline.
     static func prepareTermination(deadline: DispatchTime, reason: DiagnosticExitReason = .system, recorder: DiagnosticRecorder = .shared,
                                    completion: @escaping () -> Void) {
-        var completed = false // Main queue owns this gate.
-        let finish = { if !completed { completed = true; completion() } }
-        DispatchQueue.main.asyncAfter(deadline: deadline, execute: finish)
+        let finish = MainRunLoopCompletion(deadline: deadline, completion: completion)
         recorder.record(.lifecycle(.shutdownRequested))
         recorder.record(.exitRequested(reason: reason))
         if DiagnosticInstallerBridge.preparedHandoff != nil {
@@ -165,8 +163,8 @@ final class DiagnosticUpgradeRecovery {
             if DiagnosticInstallerBridge.preparedHandoff != nil {
                 recorder.record(.upgrade(stage: .exitFlushCompleted,
                     result: result == .persisted ? .success : (result == .disabled ? .skipped : .ioFailure)))
-                recorder.flushReporting { _ in DispatchQueue.main.async(execute: finish) }
-            } else { DispatchQueue.main.async(execute: finish) }
+                recorder.flushReporting { _ in finish.complete() }
+            } else { finish.complete() }
         }
     }
 }

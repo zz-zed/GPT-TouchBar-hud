@@ -6,9 +6,9 @@
 
 **[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
-> 当前版本：v0.1.39 / Build 42。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.39)。
+> 当前版本：v0.1.44 / Build 47。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.44)。
 
-> 本版修复已结束任务被迟到的工具结果或 Token 更新重新计为执行中的问题，统一普通日志与 Hooks 模式的任务状态判定。
+> 本版修复自动更新等待旧应用退出的问题，降低任务监控 CPU 占用，并在 HUD 重启后核验日志、恢复仍在执行的任务。
 
 ## 界面与使用场景
 

@@ -81,7 +81,7 @@ final class ResetNewsRepository {
                 }
                 return decoded
             }
-            DispatchQueue.main.async {
+            MainRunLoopCompletion.perform {
                 switch result {
                 case .success(let decoded):
                     self.state = decoded
@@ -147,7 +147,7 @@ final class ResetNewsRepository {
     /// An asynchronous fence for shutdown and isolated reload checks.
     func flush(completion: @escaping () -> Void) {
         load {
-            self.ioQueue.async { DispatchQueue.main.async(execute: completion) }
+            self.ioQueue.async { MainRunLoopCompletion.perform(completion) }
         }
     }
 
@@ -191,7 +191,7 @@ final class ResetNewsRepository {
                 encoder.outputFormatting = [.sortedKeys]
                 try storage.write(encoder.encode(snapshot), file)
             }
-            DispatchQueue.main.async {
+            MainRunLoopCompletion.perform {
                 let saved: Bool
                 let error: String?
                 switch result {

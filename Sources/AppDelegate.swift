@@ -252,20 +252,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         guard !terminationInProgress else { return .terminateLater }
         terminationInProgress = true
         let deadline = DispatchTime.now() + .seconds(3)
+        let reply = MainRunLoopCompletion(deadline: deadline) {
+            sender.reply(toApplicationShouldTerminate: true)
+        }
         resetNewsMonitor.stop()
         let group = DispatchGroup()
         group.enter()
         resetNewsMonitor.flush { group.leave() }
         group.enter()
         DiagnosticUpgradeRecovery.prepareTermination(deadline: deadline, reason: terminationReason) { group.leave() }
-        var replied = false
-        let reply = {
-            guard !replied else { return }
-            replied = true
-            sender.reply(toApplicationShouldTerminate: true)
-        }
-        group.notify(queue: .main, execute: reply)
-        DispatchQueue.main.asyncAfter(deadline: deadline, execute: reply)
+        group.notify(queue: .global(qos: .utility)) { reply.complete() }
         return .terminateLater
     }
 

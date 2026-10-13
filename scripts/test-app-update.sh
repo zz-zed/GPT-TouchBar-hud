@@ -15,3 +15,4 @@ if zsh Resources/install-update.sh 999999 /tmp/not-an-install.app /tmp/not-a-sta
   exit 1
 fi
 echo 'PASS: updater shell syntax and invalid-target rejection'
+bash scripts/test-app-termination.sh
