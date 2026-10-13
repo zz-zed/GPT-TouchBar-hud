@@ -108,6 +108,40 @@ class TimingTests(unittest.TestCase):
         self.assertEqual(disabled.stdout, result.stdout)
         self.assertEqual(len(self.rows()), 1)
 
+    def test_in_process_span_preserves_timeout_and_disabled_behavior(self):
+        code = ("import sys, subprocess; sys.path.insert(0, sys.argv[1]); "
+                "from ci_timing import observed_span\n"
+                "try:\n"
+                " with observed_span('execute', 'timeout'):\n"
+                "  raise subprocess.TimeoutExpired('fixture', 45)\n"
+                "except subprocess.TimeoutExpired as error:\n"
+                " assert error.timeout == 45\n"
+                " print('original timeout preserved')\n")
+        command = [sys.executable, "-c", code, str(ROOT / "scripts")]
+        result = subprocess.run(command, env=self.environment, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        row, = self.rows()
+        self.assertEqual(row["exitCode"], 124)
+        self.assertEqual(row["measurementKind"], "in-process")
+        disabled = dict(self.environment)
+        disabled.pop("CI_TIMING_DIR")
+        result2 = subprocess.run(command, env=disabled, capture_output=True, text=True)
+        self.assertEqual((result2.returncode, result2.stdout), (0, result.stdout))
+        self.assertEqual(len(self.rows()), 1)
+
+    def test_update_server_keeps_child_failure_and_records_cleanup(self):
+        result = subprocess.run(self.command(sys.executable, str(ROOT / "Tests/app_update_download_server.py"),
+                                            "/usr/bin/false"), env=self.environment, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        rows = self.rows()
+        outer = next(r for r in rows if r["label"] == "fixture")
+        child = next(r for r in rows if r["label"] == "app-update-progress-test")
+        self.assertEqual(child["exitCode"], 1)
+        self.assertEqual(child["parentID"], outer["id"])
+        self.assertEqual({r["label"] for r in rows if r["phase"] == "cleanup"},
+                         {"app-update-server-shutdown", "app-update-server-close"})
+        self.assertTrue(all(r["exitCode"] == 0 for r in rows if r["phase"] == "cleanup"))
+
 
 if __name__ == "__main__":
     unittest.main()
