@@ -2,6 +2,8 @@
 # Source this file, then call swift_module_cache_path [target] [SDK path].
 # A single directory is reused by compilations with the same compiler, SDK and target.
 
+source "$(dirname "${BASH_SOURCE[0]}")/ci-timing.sh"
+
 swift_module_cache_path() {
     local target="${1:-native}"
     local sdk_path="${2:-${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}}"
