@@ -6,5 +6,6 @@ export PYTHONDONTWRITEBYTECODE=1
 "${RELEASE_TEST_PYTHON:-python3}" Tests/UISharedBuildKeyTests.py
 "${RELEASE_TEST_PYTHON:-python3}" Tests/CIGroupingBenchmarkTests.py
 "${RELEASE_TEST_PYTHON:-python3}" Tests/CIBuildScopeTests.py
+"${RELEASE_TEST_PYTHON:-python3}" Tests/CIGateTests.py
 "${RELEASE_TEST_PYTHON:-python3}" Tests/PublicReleaseVerificationTests.py
 exec "${RELEASE_TEST_PYTHON:-python3}" Tests/ReleaseWorkflowTests.py "$@"

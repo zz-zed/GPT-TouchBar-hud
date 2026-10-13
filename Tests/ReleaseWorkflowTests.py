@@ -21,6 +21,7 @@ from unittest import mock
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("release_artifacts", ROOT / "scripts/release_artifacts.py")
 release = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = release
@@ -57,9 +58,9 @@ def run_fixture(run_id=200, attempt=1, event="push", source_sha=SOURCE_SHA):
 
 
 def jobs_fixture(run):
-    return [{"name": "Build DMG (" + arch + ")", "status": "completed",
+    return [{"name": name, "status": "completed",
              "conclusion": "success", "run_id": run["id"], "run_attempt": run["run_attempt"]}
-            for arch in ARCHES]
+            for name in release.required_jobs("main-full")]
 
 
 def artifacts_fixture(run, source_sha=SOURCE_SHA):
@@ -113,6 +114,26 @@ class OfflineCase(unittest.TestCase):
 
 
 class RunTrustTests(OfflineCase):
+    def test_all_seven_core_jobs_are_required_even_without_new_gate(self):
+        run = run_fixture(attempt=2)
+        original = jobs_fixture(run)
+        self.assertEqual(len(original), 7)
+        self.assertNotIn("CI Gate", [job["name"] for job in original])
+        release.validate_run(run, original, artifacts_fixture(run), REPOSITORY, WORKFLOW_ID, SOURCE_SHA, now=NOW)
+        for index in range(7):
+            for failure in ("missing", "duplicate", "failure", "cancelled", "skipped", "wrong-attempt"):
+                jobs = copy.deepcopy(original)
+                if failure == "missing":
+                    jobs.pop(index)
+                elif failure == "duplicate":
+                    jobs.append(copy.deepcopy(jobs[index]))
+                elif failure == "wrong-attempt":
+                    jobs[index]["run_attempt"] = 1
+                else:
+                    jobs[index]["conclusion"] = failure
+                with self.subTest(job=original[index]["name"], failure=failure), self.assertRaises(release.ReleaseError):
+                    release.validate_run(run, jobs, artifacts_fixture(run), REPOSITORY, WORKFLOW_ID, SOURCE_SHA, now=NOW)
+
     def test_accepts_dual_architecture_trusted_main_push(self):
         selection = valid_selection()
         self.assertEqual(selection["source_sha"], SOURCE_SHA)
@@ -612,12 +633,13 @@ class MemoryGitHub:
 
 
 class ReleaseNotesTests(OfflineCase):
-    def test_rejects_level_one_titles_in_release_body(self):
+    def test_warns_for_level_one_titles_without_blocking_or_rewriting(self):
         for notes in ("# GPT TouchBar HUD v0.1.33\n\nChanges.\n", "\ufeff# Title\n",
                       "Intro.\n\n   # Title\n", "#\n", "#\tTitle\r\n",
                       "Release title\n===\n"):
-            with self.subTest(notes=notes), self.assertRaisesRegex(release.ReleaseError, "omit level-1 titles"):
+            with self.subTest(notes=notes), mock.patch.object(sys, "stderr", new_callable=io.StringIO) as warnings:
                 release.validate_release_notes(notes)
+                self.assertIn("::warning", warnings.getvalue())
 
     def test_accepts_sections_and_preserves_body_without_rewriting(self):
         notes = "本版调整设置。\n\n## 改进\n\n- One change.\n\n### Details\n#42 is an issue reference.\n"
@@ -689,25 +711,15 @@ class ReleaseOrchestrationTests(OfflineCase):
         self.assertTrue(any(path.endswith("RELEASE_NOTES.md?ref=" + SOURCE_SHA) for _, path, _ in self.api.requests))
         self.assertFalse(any("ref=main" in path for _, path, _ in self.api.requests))
 
-    def test_prepare_rejects_duplicate_title_before_download_or_api_access(self):
+    def test_title_warning_preserves_immutable_body_through_prepare_and_publish(self):
         notes = "# GPT TouchBar HUD " + TAG + "\n\n## Changes\n\nFixture.\n"
-        (self.source / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
-        with self.assertRaisesRegex(release.ReleaseError, "omit level-1 titles"):
-            self.prepare()
-        self.assertFalse(self.output.exists())
-        self.assertEqual(self.api.requests, [])
-        self.assertEqual(self.api.writes, [])
-        self.assertEqual((self.source / "RELEASE_NOTES.md").read_text(encoding="utf-8"), notes)
-
-    def test_publish_revalidates_immutable_title_before_any_release_write(self):
-        self.prepare()
-        notes = "# GPT TouchBar HUD " + TAG + "\n\n## Changes\n\nFixture.\n"
-        # Simulate staging produced before this validation rule existed.
         self.api.notes = notes
-        (self.output / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
-        with self.assertRaisesRegex(release.ReleaseError, "omit level-1 titles"):
+        (self.source / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
+        with mock.patch.object(sys, "stderr", new_callable=io.StringIO) as warnings:
+            self.prepare()
             self.publish()
-        self.assertEqual(self.api.writes, [])
+            self.assertIn("::warning", warnings.getvalue())
+        self.assertEqual(self.api.existing["body"], notes)
         self.assertEqual((self.output / "RELEASE_NOTES.md").read_text(encoding="utf-8"), notes)
 
     def test_latest_failed_run_never_downloads_or_falls_back(self):

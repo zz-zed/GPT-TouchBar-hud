@@ -1,0 +1,36 @@
+{
+  "offline": {
+    "result": "passed",
+    "test_methods": 97,
+    "log": "offline.log"
+  },
+  "installer_original": {
+    "result": "failed",
+    "exit_code": 133,
+    "log": "installer-failure.log"
+  },
+  "installer_after_fixture_fix": {
+    "result": "passed",
+    "checks": 139,
+    "scenarios": 12,
+    "log": "installer-fixed.log"
+  },
+  "recovery": {
+    "result": "passed",
+    "checks": 25,
+    "log": "recovery.log"
+  },
+  "app_build_and_first_open": {
+    "result": "running",
+    "log": "app-build-first-open.log"
+  },
+  "actionlint": {
+    "result": "passed",
+    "version": "1.7.12",
+    "shellcheck": "unavailable; disabled explicitly"
+  },
+  "production_diagnostic_watchdog_seconds": 0.25,
+  "event_coverage_fixture_watchdog_seconds": 5,
+  "benchmark_claim": "No new overall pipeline speedup claimed",
+  "branch_protection": "unchanged"
+}

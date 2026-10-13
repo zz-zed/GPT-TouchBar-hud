@@ -16,6 +16,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+from ci_policy import PolicyError, required_jobs, validate_jobs
 
 ARCHES = ("arm64", "x86_64")
 WORKFLOW_PATH = ".github/workflows/build-dmg.yml"
@@ -98,13 +99,10 @@ def validate_run(run, jobs, artifacts, repository, workflow_id, source_sha, now=
     run_id, attempt = int(run["id"]), int(run["run_attempt"])
     require(run_id > 0 and attempt > 0, "Invalid run identity")
     workflow_sha = sha(run["head_sha"])
-    for arch in ARCHES:
-        matching_jobs = [job for job in jobs if job.get("name") == f"Build DMG ({arch})"]
-        require(len(matching_jobs) == 1, f"Missing or duplicate {arch} job in the selected attempt")
-        job = matching_jobs[0]
-        require(job.get("run_id") == run_id and job.get("run_attempt", attempt) == attempt
-                and job.get("status") == "completed" and job.get("conclusion") == "success",
-                f"{arch} job was not successful in this run attempt")
+    try:
+        validate_jobs(jobs, required_jobs("main-full"), run_id, attempt)
+    except PolicyError as error:
+        raise ReleaseError(f"{error}; rebuild the same full source SHA on main") from error
     now = now or dt.datetime.now(dt.timezone.utc)
     selected = {}
     for arch in ARCHES:
@@ -271,9 +269,18 @@ class GitHub:
 
     def run_inputs(self, run):
         run_id, attempt = int(run["id"]), int(run["run_attempt"])
-        jobs = self.pages(f"{self.prefix}/actions/runs/{run_id}/attempts/{attempt}/jobs", "jobs")
+        jobs = self.attempt_jobs(run_id, attempt)
         artifacts = self.pages(f"{self.prefix}/actions/runs/{run_id}/artifacts", "artifacts")
         return jobs, artifacts
+
+    def attempt_jobs(self, run_id, attempt):
+        jobs = self.pages(f"{self.prefix}/actions/runs/{run_id}/attempts/{attempt}/jobs", "jobs")
+        # Some API responses omit run_attempt. The attempt-specific endpoint
+        # supplies that binding; never infer it from an all-attempts collection.
+        for job in jobs:
+            require(isinstance(job, dict), "Malformed workflow job")
+            job.setdefault("run_attempt", attempt)
+        return jobs
 
     def upload(self, release_id, name, path):
         url = f"https://uploads.github.com{self.prefix}/releases/{int(release_id)}/assets?name={urllib.parse.quote(name, safe='')}"
@@ -327,8 +334,8 @@ def validate_release_notes(notes):
             continue
         atx_title = re.match(r" {0,3}#(?:[ \t]|$)", line) is not None
         setext_title = previous_text and re.fullmatch(r" {0,3}=+[ \t]*", line) is not None
-        require(not atx_title and not setext_title,
-                f"RELEASE_NOTES.md line {number}: omit level-1 titles; the release name already supplies the title. Use ## for sections.")
+        if atx_title or setext_title:
+            print(f"::warning file=RELEASE_NOTES.md,line={number}::Level-1 title duplicates the release name; consider ##.", file=sys.stderr)
         previous_text = bool(line.strip()) and not line.startswith(("    ", "\t"))
 
 

@@ -11,17 +11,7 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "Package.swift"
-      - "Sources/**"
-      - "HookCore/**"
-      - "ResetNewsCore/**"
-      - "HookHelper/**"
-      - "Tests/**"
-      - "Resources/**"
-      - "scripts/**"
-      - ".github/workflows/build-dmg.yml"
-      - ".github/workflows/release.yml"
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches:
       - main
@@ -30,8 +20,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-dmg-${{ github.event_name }}-${{ inputs.source_sha || github.sha }}
-  cancel-in-progress: false
+  group: build-dmg-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.source_sha || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   source:
@@ -40,30 +30,40 @@ jobs:
     outputs:
       sha: ${{ steps.source.outputs.sha }}
       build_required: ${{ steps.source.outputs.build_required }}
+      profile: ${{ steps.source.outputs.profile }}
+      regression_matrix: ${{ steps.source.outputs.regression_matrix }}
+      build_matrix: ${{ steps.source.outputs.build_matrix }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.workflow_sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Test CI tools and release refusal rules (offline, once)
+        run: bash scripts/test-release-workflows.sh
       - name: Resolve immutable source (manual recovery only from main)
         id: source
         env:
           SOURCE_SHA_INPUT: ${{ inputs.source_sha }}
           BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_FORCE_FULL_PR: ${{ vars.CI_FORCE_FULL_PR }}
         run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
           if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
             test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           fi
           SOURCE_SHA="$(python3 scripts/release_artifacts.py resolve-source)"
           echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
-          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            BUILD_REQUIRED="$(python3 scripts/ci_build_scope.py --before "$BEFORE_SHA" --after "$SOURCE_SHA")" || BUILD_REQUIRED=true
-            [[ "$BUILD_REQUIRED" == true || "$BUILD_REQUIRED" == false ]] || BUILD_REQUIRED=true
-          else
-            BUILD_REQUIRED=true
+          git cat-file -e "$SOURCE_SHA^{commit}"
+          DIFF_AFTER="$SOURCE_SHA"
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            BEFORE_SHA="$(git merge-base "$PR_BASE_SHA" "$PR_HEAD_SHA")" || BEFORE_SHA=""
+            DIFF_AFTER="$PR_HEAD_SHA"
           fi
-          echo "build_required=$BUILD_REQUIRED" >> "$GITHUB_OUTPUT"
+          python3 scripts/ci_build_scope.py --event "$GITHUB_EVENT_NAME" \
+            --before "$BEFORE_SHA" --after "$DIFF_AFTER" --github-output "$GITHUB_OUTPUT"
 
   regression:
     name: Regression (${{ matrix.arch }}, ${{ matrix.suite }})
@@ -71,22 +71,10 @@ jobs:
     if: needs.source.outputs.build_required == 'true'
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            runner: macos-15
-            suite: data
-          - arch: arm64
-            runner: macos-15
-            suite: interface
-          - arch: x86_64
-            runner: macos-15-intel
-            suite: data
-          - arch: x86_64
-            runner: macos-15-intel
-            suite: interface
+      matrix: ${{ fromJSON(needs.source.outputs.regression_matrix) }}
     runs-on: ${{ matrix.runner }}
     env:
+      HUD_SHARED_UI_TESTS: ${{ vars.HUD_SHARED_UI_TESTS || '1' }}
       CI_TIMING_DIR: ${{ github.workspace }}/build/ci-timings/${{ matrix.arch }}-${{ matrix.suite }}
       CI_TIMING_SCRIPT: ${{ needs.source.outputs.sha == github.workflow_sha && 'scripts/ci_timing.py' || '.ci-tools/scripts/ci_timing.py' }}
     steps:
@@ -193,19 +181,16 @@ jobs:
           retention-days: 30
 
   build:
-    name: Build DMG (${{ matrix.arch }})
+    name: Build ${{ matrix.kind }} (${{ matrix.arch }})
     needs: source
     if: needs.source.outputs.build_required == 'true'
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            runner: macos-15
-          - arch: x86_64
-            runner: macos-15-intel
-
+      matrix: ${{ fromJSON(needs.source.outputs.build_matrix) }}
     runs-on: ${{ matrix.runner }}
+    env:
+      CI_TIMING_DIR: ${{ github.workspace }}/build/ci-timings/${{ matrix.arch }}-build
+      CI_TIMING_SCRIPT: .release-tools/scripts/ci_timing.py
 
     steps:
       - name: Check out repository
@@ -245,15 +230,20 @@ jobs:
           echo "arch=$ACTUAL_ARCH" >> "$GITHUB_OUTPUT"
           echo "Building version $VERSION for $ACTUAL_ARCH"
 
-      - name: Test release provenance and refusal rules (offline)
-        run: bash .release-tools/scripts/test-release-workflows.sh
+      - name: Initialize build timing metadata
+        run: python3 "$CI_TIMING_SCRIPT" init
+
+      - name: Build production App for standard PR
+        if: matrix.kind == 'App'
+        run: python3 "$CI_TIMING_SCRIPT" run --phase build --label build-app -- bash scripts/build-app.sh
 
       - name: Build and package DMG
+        if: matrix.kind == 'DMG'
         id: package
         shell: bash
         run: |
           chmod +x scripts/build-app.sh scripts/package-dmg.sh
-          scripts/package-dmg.sh
+          python3 "$CI_TIMING_SCRIPT" run --phase package --label package-dmg -- bash scripts/package-dmg.sh
           VERSION="${{ steps.metadata.outputs.version }}"
           ARCH="${{ steps.metadata.outputs.arch }}"
           SOURCE_PATH="dist/GPT-TouchBar-HUD-$VERSION.dmg"
@@ -264,19 +254,25 @@ jobs:
       - name: Test first-open helper with isolated app copy
         run: bash scripts/test-first-open.sh
 
-      - name: Verify app and DMG
+      - name: Verify app signatures and architecture
         shell: bash
         run: |
-          DMG_PATH="${{ steps.package.outputs.dmg }}"
-          test -f "$DMG_PATH"
           codesign --verify --deep --strict "build/GPT TouchBar HUD.app"
           codesign --verify --all-architectures --strict "build/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter"
           lipo "build/GPT TouchBar HUD.app/Contents/Helpers/HookEmitter" -verify_arch "${{ steps.metadata.outputs.arch }}"
-          hdiutil verify "$DMG_PATH"
           lipo "build/GPT TouchBar HUD.app/Contents/MacOS/GPTTouchBarHUD" \
             -verify_arch "${{ steps.metadata.outputs.arch }}"
 
+      - name: Verify DMG
+        if: matrix.kind == 'DMG'
+        env:
+          DMG_PATH: ${{ steps.package.outputs.dmg }}
+        run: |
+          test -f "$DMG_PATH"
+          hdiutil verify "$DMG_PATH"
+
       - name: Record immutable build provenance
+        if: matrix.kind == 'DMG'
         id: provenance
         env:
           SOURCE_SHA: ${{ needs.source.outputs.sha }}
@@ -294,9 +290,47 @@ jobs:
           echo "path=$OUTPUT" >> "$GITHUB_OUTPUT"
 
       - name: Upload architecture DMG, checksum, and manifest
+        if: matrix.kind == 'DMG'
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.provenance.outputs.name }}
           path: ${{ steps.provenance.outputs.path }}
           if-no-files-found: error
           retention-days: 30
+
+      - name: Summarize build timings
+        if: always()
+        run: python3 "$CI_TIMING_SCRIPT" report
+
+      - name: Upload build timing evidence separately from release payload
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-timings-${{ matrix.arch }}-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.CI_TIMING_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+
+  gate:
+    name: CI Gate
+    needs: [source, regression, build]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check out this workflow's immutable gate policy
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - name: Require every expected job in this run attempt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_NEEDS_JSON: ${{ toJSON(needs) }}
+          CI_PROFILE: ${{ needs.source.outputs.profile }}
+        run: |
+          python3 scripts/ci_gate.py --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" \
+            --profile "$CI_PROFILE" --event "$GITHUB_EVENT_NAME" --head-sha "$GITHUB_SHA"
