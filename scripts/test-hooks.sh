@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export HUD_CORE_TESTS_ONLY=1
+source scripts/ci-timing.sh
 # CLT 6.4 ships TestingMacros in a nested plugin directory not searched by swiftbuild.
 # Supply the existing bundled plugin when present; do not install a package or change the toolchain.
 swift_bin="$(xcrun --find swiftc)"
@@ -9,4 +11,4 @@ flags=()
 if [[ -f "$testing_plugin" ]]; then
     flags=(-Xswiftc -load-plugin-library -Xswiftc "$testing_plugin")
 fi
-swift test "${flags[@]}" "$@"
+ci_time core-tests core-tests swift test "${flags[@]}" "$@"
