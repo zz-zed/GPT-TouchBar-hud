@@ -1,0 +1,59 @@
+name: Batch 3 paired regression grouping benchmark
+
+on:
+  push:
+    branches: [codex/ci-benchmark-batch3]
+    paths: [.github/workflows/ci-benchmark-batch3.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  paired:
+    name: Grouping (${{ matrix.arch }}, ${{ matrix.suite }}, sample ${{ matrix.sample }})
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x86_64]
+        suite: [data, interface]
+        sample: [1, 2, 3]
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select production toolchain
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          test "$(uname -m)" = '${{ matrix.arch }}'
+          xcrun swiftc --version
+          xcrun --sdk macosx --show-sdk-version
+      - name: Compare full original and regrouped job workloads
+        env:
+          SAMPLE: ${{ matrix.sample }}
+          SUITE: ${{ matrix.suite }}
+        run: |
+          flags=()
+          if [[ "$SAMPLE" == 2 ]]; then
+            flags=(--first-mode regrouped)
+          fi
+          python3 scripts/benchmark-ci-grouping.py \
+            --baseline d3ebf51cb4bbf710f9a126527e613504bb2c20d3 \
+            --candidate d29b7ea8d838876847fa4a006b05a03b0e9a056b \
+            --suite "$SUITE" "${flags[@]}" --output benchmark
+      - name: Retain every sample, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: grouping-${{ matrix.arch }}-${{ matrix.suite }}-${{ matrix.sample }}
+          path: benchmark
+          if-no-files-found: error
+          retention-days: 30
