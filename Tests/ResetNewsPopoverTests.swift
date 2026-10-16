@@ -26,6 +26,110 @@ enum ResetNewsPopoverTests {
         let height = min(bitmap.pixelsHigh, Int(45 * CGFloat(bitmap.pixelsHigh) / bitmap.size.height))
         return Array(UnsafeBufferPointer(start: bitmap.bitmapData! + (bitmap.pixelsHigh - height) * bitmap.bytesPerRow, count: height * bitmap.bytesPerRow))
     }
+    static func tracedController(_ scenario: String, controller: ResetNewsPopoverController = ResetNewsPopoverController()) -> ResetNewsPopoverController {
+        if ProcessInfo.processInfo.environment["RESET_NEWS_POPOVER_TRACE"] == "1" {
+            controller.onPresentationTrace = { event in
+                let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+                if let data = try? encoder.encode(event), let text = String(data: data, encoding: .utf8) {
+                    FileHandle.standardError.write(Data(("TRACE " + scenario + " " + text + "\n").utf8))
+                }
+            }
+        }
+        return controller
+    }
+    static func controlledLateFocusChecks() {
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let others = NSWorkspace.shared.runningApplications.filter { $0.processIdentifier != ownPID }
+        check(others.count >= 2, "Native focus fixture has two external application identities without activating them")
+        let other = others[0], third = others[1]
+        let workspace = NotificationCenter()
+        var focus = ResetNewsPopoverController.FocusSnapshot(applicationIsActive: true, frontmostProcessIdentifier: ownPID)
+        let controller = tracedController("controlled-app", controller: ResetNewsPopoverController(focusSnapshot: { focus }, workspaceNotifications: workspace))
+        let frame = NSScreen.main!.visibleFrame
+        let anchorWindow = NSPanel(contentRect: CGRect(x: frame.midX - 100, y: frame.midY, width: 110, height: 24),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        anchorWindow.isReleasedWhenClosed = false
+        let anchor = NSButton(title: "预告", target: nil, action: nil)
+        anchorWindow.contentView = anchor
+        anchorWindow.orderFrontRegardless()
+        defer { controller.close(); anchorWindow.orderOut(nil) }
+        controller.show(relativeTo: anchor); pump()
+        check(controller.presentedWindow?.isVisible == true, "Controlled presentation A opens")
+        focus = .init(applicationIsActive: false, frontmostProcessIdentifier: other.processIdentifier)
+        NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
+        check(controller.presentedWindow == nil, "A real active-to-inactive transition closes presentation A")
+        // The process-level notification has no popup identity. Its delivery is
+        // delayed until after the next explicit opening, where the app is active.
+        let lateAResign = { NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp) }
+        focus = .init(applicationIsActive: true, frontmostProcessIdentifier: ownPID)
+        controller.show(relativeTo: anchor)
+        let presentationB = controller.presentedWindow
+        check(presentationB?.isVisible == true, "Controlled presentation B opens before delayed A delivery")
+        DispatchQueue.main.async(execute: lateAResign)
+        pump()
+        check(controller.presentedWindow === presentationB && presentationB?.isVisible == true,
+              "A delayed previous-cycle resign notification cannot close an active presentation B")
+        focus = .init(applicationIsActive: false, frontmostProcessIdentifier: other.processIdentifier)
+        NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
+        check(controller.presentedWindow == nil, "The next genuine deactivation still closes presentation B immediately")
+
+        func postActivation(_ app: NSRunningApplication) {
+            workspace.post(name: NSWorkspace.didActivateApplicationNotification, object: nil,
+                userInfo: [NSWorkspace.applicationUserInfoKey: app])
+        }
+        func openInactive(_ pid: pid_t?) -> NSWindow {
+            focus = .init(applicationIsActive: false, frontmostProcessIdentifier: pid)
+            controller.show(relativeTo: anchor)
+            check(controller.presentedWindow?.isVisible == true, "An initially inactive HUD can open cached details")
+            return controller.presentedWindow!
+        }
+        _ = openInactive(other.processIdentifier)
+        let latePreviousActivation = { postActivation(other) }
+        controller.close()
+        let inactiveB = openInactive(other.processIdentifier)
+        DispatchQueue.main.async(execute: latePreviousActivation)
+        NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
+        pump()
+        check(controller.presentedWindow === inactiveB && inactiveB.isVisible,
+              "Inactive reopening ignores previous-cycle resign and unchanged foreground activation")
+        postActivation(third)
+        check(controller.presentedWindow === inactiveB && inactiveB.isVisible,
+              "An activation notification inconsistent with the actual foreground is stale")
+        focus = .init(applicationIsActive: false, frontmostProcessIdentifier: third.processIdentifier)
+        postActivation(third)
+        check(controller.presentedWindow == nil, "A genuine foreground switch closes an initially inactive popup immediately")
+
+        _ = openInactive(other.processIdentifier)
+        // Becoming active after opening must establish a new, real deactivation edge.
+        focus = .init(applicationIsActive: true, frontmostProcessIdentifier: ownPID)
+        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+        focus = .init(applicationIsActive: false, frontmostProcessIdentifier: other.processIdentifier)
+        NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
+        check(controller.presentedWindow == nil, "Inactive-to-active-to-inactive closes normally within one presentation")
+
+        let stillInactive = openInactive(other.processIdentifier)
+        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+        NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
+        check(controller.presentedWindow === stillInactive, "Stale active notifications cannot invent an activation edge")
+        focus = .init(applicationIsActive: false, frontmostProcessIdentifier: nil)
+        postActivation(third)
+        check(controller.presentedWindow == nil, "Unknown current foreground conservatively honors external activation")
+        _ = openInactive(nil)
+        focus = .init(applicationIsActive: false, frontmostProcessIdentifier: third.processIdentifier)
+        postActivation(third)
+        check(controller.presentedWindow == nil, "Unknown opening foreground does not suppress a later valid activation")
+
+        let keyClosed = openInactive(other.processIdentifier)
+        controller.model.pageVisibilityChanged(true)
+        NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: keyClosed)
+        check(controller.presentedWindow == nil && !controller.model.pageVisible,
+              "Window focus loss still closes inactive details and clears reading visibility")
+        _ = openInactive(other.processIdentifier)
+        DispatchQueue.main.async(execute: lateAResign)
+        controller.close(); pump()
+        check(controller.presentedWindow == nil && !controller.model.isVisible,
+              "Explicit close stays closed while delayed focus notifications drain")
+    }
     static func crossEntryChecks() {
         let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         status.button!.title = "预告测试"
@@ -38,7 +142,7 @@ enum ResetNewsPopoverTests {
         floating.contentView = button
         floating.orderFrontRegardless(); pump()
         defer { floating.orderOut(nil) }
-        let controller = ResetNewsPopoverController()
+        let controller = tracedController("cross-entry")
         var windows: [NSWindow] = []
         for iteration in 0..<3 {
             controller.show(relativeTo: button); pump()
@@ -91,6 +195,11 @@ enum ResetNewsPopoverTests {
         NSApp.setActivationPolicy(.accessory)
         NSApp.appearance = NSAppearance(named: .aqua)
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        controlledLateFocusChecks()
+        if CommandLine.arguments.contains("--controlled-only") {
+            print("PASS: \(checks) controlled popup focus checks")
+            return
+        }
         crossEntryChecks()
         for visible in [CGRect(x: 0, y: 0, width: 1680, height: 1020), CGRect(x: -1920, y: -30, width: 1920, height: 1050),
                         CGRect(x: -400, y: 200, width: 360, height: 300)] {
@@ -136,7 +245,9 @@ enum ResetNewsPopoverTests {
                     anchor = hud.messageAnchorView
                 }
                 anchorWindow.orderFrontRegardless(); pump()
-                let controller = ResetNewsPopoverController()
+                var simulatedFocus: ResetNewsPopoverController.FocusSnapshot?
+                let controller = tracedController("\(screenIndex)-\(name)", controller:
+                    ResetNewsPopoverController(focusSnapshot: { simulatedFocus ?? .current }))
                 let sampleItems = name == "floating" ? Array(items.prefix(3)) : items
                 var state = ResetNewsViewState(enabled: true, status: .success, items: sampleItems, forecastAvailability: .current)
                 state.readIDs = Set(sampleItems.map(\.id))
@@ -184,12 +295,17 @@ enum ResetNewsPopoverTests {
                 pump()
                 check(!popover.isVisible && !controller.model.isVisible && !controller.model.pageVisible,
                     "Details losing key focus closes the popup and clears reading visibility")
+                // Pair the synthetic process notification with controlled actual
+                // focus facts; an already-inactive application has not just resigned.
+                simulatedFocus = .init(applicationIsActive: true, frontmostProcessIdentifier: ProcessInfo.processInfo.processIdentifier)
                 controller.show(relativeTo: anchor); pump()
                 check(controller.presentedWindow?.isVisible == true, "Details can reopen after losing focus")
+                simulatedFocus = .init(applicationIsActive: false, frontmostProcessIdentifier: nil)
                 NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
                 pump()
                 check(controller.presentedWindow?.isVisible != true && !controller.model.isVisible,
                     "Application deactivation closes reopened details")
+                simulatedFocus = nil
                 controller.show(relativeTo: anchor); pump()
                 check(controller.presentedWindow?.isVisible == true, "Details can reopen after app deactivation")
                 let reopened = controller.presentedWindow!

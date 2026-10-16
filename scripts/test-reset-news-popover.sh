@@ -13,4 +13,4 @@ SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
 swiftc "${HOOK_CORE_SWIFT_FLAGS[@]}" "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" -whole-module-optimization \
     -module-cache-path "$SWIFT_MODULE_CACHE" "${sources[@]}" \
     Tests/ResetNewsPopoverTests.swift -o .build/reset-news-popover-tests/ResetNewsPopoverTests
-.build/reset-news-popover-tests/ResetNewsPopoverTests
+.build/reset-news-popover-tests/ResetNewsPopoverTests "$@"
