@@ -162,7 +162,6 @@ final class AppDisplayCoordinator {
         resetNewsPopover.update(snapshot.news, forecast: snapshot.forecast, context: snapshot.context)
     }
     func hostDidStart() {
-        resetCompletionFeedback()
         if hudRequestedVisible && !sessionSuspended { presentSelectedHUD() } else { hudWindow.orderOut(nil) }
         menu.updateMenuState(); renderDisplayState()
     }
@@ -179,7 +178,7 @@ final class AppDisplayCoordinator {
         if hudRequestedVisible && !sessionSuspended { presentSelectedHUD() }
         renderDisplayState()
     }
-    func frontApplicationChanged() { notchHUD.environmentChanged() }
+    func frontApplicationChanged() { guard !isStopped else { return }; notchHUD.environmentChanged() }
     func stop() { isStopped = true; resetCompletionFeedback(); hidePanels() }
     func hidePanels() { notchHUD.hide(); hudWindow.orderOut(nil); resetNewsPopover.close() }
     func resetCompletionFeedback() { completionFeedback.reset() }

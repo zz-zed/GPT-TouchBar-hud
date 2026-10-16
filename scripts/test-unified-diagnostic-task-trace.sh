@@ -26,6 +26,7 @@ sources=(
     Sources/DiagnosticTaskPresentation.swift
     Sources/DiagnosticTaskTrace.swift
     Sources/DiagnosticTaskTraceCoverage.swift
+    Sources/ForecastPresentation.swift
     Sources/HUDAppearance.swift
     Sources/HUDPresentation.swift
     Sources/LimitModels.swift

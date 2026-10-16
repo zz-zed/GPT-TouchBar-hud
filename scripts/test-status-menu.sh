@@ -12,5 +12,5 @@ source scripts/swift-module-cache.sh
 SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
 swiftc -whole-module-optimization "${HOOK_CORE_SWIFT_FLAGS[@]}" "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" \
     -module-cache-path "$SWIFT_MODULE_CACHE" \
-    "${sources[@]}" Tests/StatusMenuTests.swift -o .build/status-menu/StatusMenuTests
+    "${sources[@]}" Tests/StatusMenuTests.swift Tests/AppLifecycleCoordinatorChecks.swift -o .build/status-menu/StatusMenuTests
 .build/status-menu/StatusMenuTests

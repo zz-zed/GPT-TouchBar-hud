@@ -108,6 +108,7 @@ struct StatusMenuTests {
         defer { DisplayLanguage.defaults.removePersistentDomain(forName: suite) }
         checkSharedPresentation()
         checkDisplayDispatch()
+        AppLifecycleCoordinatorChecks.run { check($0, $1) }
         let now = Date()
         let quotaStart = RateLimitDisplayState.initial
         var base = quotaStart
