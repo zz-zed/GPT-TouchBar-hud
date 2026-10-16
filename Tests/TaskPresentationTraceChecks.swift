@@ -42,12 +42,7 @@ enum TaskPresentationTraceChecks {
         NotchHUDTests.check(snapshot.runningIDs == [TaskIdentity(session: "presentation-fixture")], "Trace fixture is independently expected to contain exactly one running task")
         var state = RateLimitDisplayState.initial
         state.taskStatus = TaskStatusMonitor.summary(snapshot)
-        let defaultsName = "task-presentation-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: defaultsName)!
-        defaults.register(defaults: [ResetNewsMonitor.enabledPreferenceKey: false, QuotaAlertMonitor.enabledPreferenceKey: false])
-        defer { defaults.removePersistentDomain(forName: defaultsName) }
-        let news = ResetNewsMonitor(repository: ResetNewsRepository(directory: home.appendingPathComponent("news")), defaults: defaults)
-        let menu = AppDelegate(resetNewsMonitor: news, quotaAlerts: QuotaAlertMonitor(defaults: defaults))
+        let menu = StatusMenuController(touchBarHardware: .current, appUpdater: AppUpdater())
         menu.updateStatusTitle(with: state)
         let touch = TouchBarRateLimitsView()
         touch.update(with: state)

@@ -123,6 +123,9 @@ class CIBuildScopeTests(unittest.TestCase):
         for path in ("Package.swift", "scripts/test-hooks.sh", ".github/workflows/build-dmg.yml",
                      "HookCore/State.swift", "HookHelper/main.swift", "ResetNewsCore/Cache.swift",
                      "Resources/icon.png", "Sources/AppUpdateInstallation.swift", "Sources/AppDelegate.swift",
+                     "Sources/AppLifecycleCoordinator.swift", "Sources/AppLifecycleState.swift",
+                     "Sources/AppDisplayCoordinator.swift", "Sources/StatusMenuController.swift",
+                     "Sources/PreferencesCoordinator.swift", "Sources/ForecastPresentation.swift",
                      "Sources/HostLifecycleMonitor.swift", "Sources/SingleInstanceLock.swift",
                      "Sources/TouchBarRateLimitsView.swift", "Sources/NotchHUDController.swift"):
             with self.subTest(path=path):
