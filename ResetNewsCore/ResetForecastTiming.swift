@@ -21,8 +21,10 @@ enum ResetForecastTiming {
     private static let relativeDeadlinePattern = "within\\s+(?:the\\s+next\\s+)?(?:(\(relativeAmountPattern))\\s+)?(hours?|hrs?|minutes?|mins?)(?:(?:\\s+and\\s*|,\\s*(?:and\\s*)?|\\s+)(\(relativeAmountPattern))\\s*(minutes?|mins?))?"
     // Reject an unsupported adjacent duration instead of assigning an expiry to its prefix.
     // Sentence punctuation ends this check; unrelated later prose does not invalidate a duration.
-    private static let continuationAmountPattern = #"(?:about\s+)?(?:[+-]?\d+(?:\.\d+)?(?:\s*[–-]\s*\d+(?:\.\d+)?)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|(?:a\s+)?few|several)"#
-    private static let durationContinuationPattern = "^\\s*(?:,?\\s*and\\s*|,\\s*|\\+\\s*|\\s+)(?:\(continuationAmountPattern))\\s*(?:hours?|hrs?|minutes?|mins?|seconds?|secs?|days?|weeks?)(?![a-z0-9])"
+    private static let continuationAmountPattern = #"(?:(?:another|about)\s+)*(?:[+-]?\d+(?:\.\d+)?(?:\s*[–-]\s*\d+(?:\.\d+)?)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[-\s]+(?:one|two|three|four|five|six|seven|eight|nine))?|(?:a\s+)?few|several)"#
+    // A fractional continuation can inherit the preceding unit ("an hour and a half").
+    private static let continuationHalfPattern = #"(?:(?:another|about)\s+)*(?:a\s+)?half(?![a-z0-9])"#
+    private static let durationContinuationPattern = "^\\s*(?:,?\\s*(?:and|plus)\\s*|,\\s*|\\+\\s*|\\s+)(?:\(continuationHalfPattern)|(?:\(continuationAmountPattern))\\s*(?:hours?|hrs?|minutes?|mins?|seconds?|secs?|days?|weeks?)(?![a-z0-9]))"
     // Keep a day qualifier with EOD; otherwise "EOD tomorrow" would silently become today.
     private static let endOfDayPattern = "(?:(\(dayPattern))\\s+)?(?:EOD|end\\s+of\\s+(?:the\\s+)?day)(?:\\s+(\(dayPattern)))?(?:\\s+(\(zonePattern)))?(?:\\s+time)?"
 
