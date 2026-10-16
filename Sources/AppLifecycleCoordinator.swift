@@ -101,7 +101,7 @@ final class AppLifecycleCoordinator {
     }
     func refreshQuota() { guard acceptsCallbacks else { return }; store.start() }
     private func updateWorkGates() {
-        if state.quotaWorkEnabled { quotaAlerts.resume() } else { quotaAlerts.suspend() }
+        if state.quotaAlertsAllowed { quotaAlerts.resume() } else { quotaAlerts.suspend() }
         resetNewsMonitor.updateGate(codexRunning: state.codexRunning,
             hudRunning: state.runtimeRunning, suspended: state.sessionSuspended)
     }

@@ -59,8 +59,8 @@ struct AppLifecycleState: Equatable {
     var runtimeRunning: Bool { runtime == .active }
     var sessionSuspended: Bool { !pauseReasons.isEmpty }
 
-    /// Aggregate supported-host availability controls quota work.
-    var quotaWorkEnabled: Bool {
+    /// Aggregate supported-host availability controls quota alerts; quota collection keeps its existing lifecycle.
+    var quotaAlertsAllowed: Bool {
         runtimeRunning && hostRunning && !sessionSuspended
     }
 

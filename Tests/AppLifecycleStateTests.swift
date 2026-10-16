@@ -22,7 +22,7 @@ enum AppLifecycleStateTests {
         check(state.runtime == .stopped, "The runtime begins stopped")
         check(!state.runtimeRunning && !state.sessionSuspended, "Initial state has no runtime or pause reasons")
         check(!state.hostRunning && !state.codexRunning, "Initial host facts are unavailable")
-        check(!state.quotaWorkEnabled && !state.resetNewsWorkEnabled, "Stopped runtime closes both work gates")
+        check(!state.quotaAlertsAllowed && !state.resetNewsWorkEnabled, "Stopped runtime closes both work gates")
         check(state.stop() == .none, "Stopping before start has no effects")
         check(state.finishStop() == .none, "Finishing a nonexistent shutdown has no effects")
 
@@ -36,29 +36,29 @@ enum AppLifecycleStateTests {
         let initial = state.start(hostRunning: true, codexRunning: false)
         check(initial.runtimeStarted && initial.hostStarted, "Starting with a supported host requests its initial work once")
         check(!initial.codexStarted, "A non-Codex host does not synthesize a Codex start")
-        check(state.quotaWorkEnabled && !state.resetNewsWorkEnabled, "ChatGPT-only host availability enables quota work only")
+        check(state.quotaAlertsAllowed && !state.resetNewsWorkEnabled, "ChatGPT-only host availability enables quota alerts only")
 
         let codexStart = state.updateCodexRunning(true)
         check(codexStart.codexStarted && !codexStart.hostStarted, "Starting Codex does not repeat aggregate host work")
-        check(state.quotaWorkEnabled && state.resetNewsWorkEnabled, "Codex enables reset news alongside quota work")
+        check(state.quotaAlertsAllowed && state.resetNewsWorkEnabled, "Codex enables reset news alongside quota alerts")
         check(state.updateCodexRunning(true) == .none, "Duplicate Codex starts have no effects")
 
         let codexStop = state.updateCodexRunning(false)
         check(codexStop.codexStopped && !codexStop.hostStopped, "Stopping Codex leaves another supported host running")
         check(state.hostRunning && !state.codexRunning, "Aggregate and Codex facts remain separate")
-        check(state.quotaWorkEnabled && !state.resetNewsWorkEnabled, "Stopping Codex closes only reset news work")
+        check(state.quotaAlertsAllowed && !state.resetNewsWorkEnabled, "Stopping Codex closes only reset news work")
 
         let hostStop = state.updateHostRunning(false)
         check(hostStop.hostStopped && !hostStop.codexStopped, "The final host exit is a separate transition")
-        check(!state.quotaWorkEnabled && !state.resetNewsWorkEnabled, "Without either host both gates close")
+        check(!state.quotaAlertsAllowed && !state.resetNewsWorkEnabled, "Without either host both gates close")
         check(state.updateHostRunning(false) == .none, "Duplicate host exits have no effects")
 
         state.updateCodexRunning(true)
         check(!state.hostRunning && state.codexRunning, "Independent callbacks can temporarily report Codex before the aggregate host")
-        check(!state.quotaWorkEnabled && state.resetNewsWorkEnabled, "Each gate follows its own host fact during callback reconciliation")
+        check(!state.quotaAlertsAllowed && state.resetNewsWorkEnabled, "Each gate follows its own host fact during callback reconciliation")
         let hostStart = state.updateHostRunning(true)
         check(hostStart.hostStarted && !hostStart.codexStarted, "Reconciling the aggregate host does not repeat Codex work")
-        check(state.quotaWorkEnabled && state.resetNewsWorkEnabled, "Both gates open after both host facts reconcile")
+        check(state.quotaAlertsAllowed && state.resetNewsWorkEnabled, "Both gates open after both host facts reconcile")
     }
 
     private static func testOverlappingPauseReasonsResumeOnlyAfterTheLastReason() {
@@ -66,7 +66,7 @@ enum AppLifecycleStateTests {
         state.start(hostRunning: true, codexRunning: true)
         let locked = state.setPause(.screenLocked, active: true)
         check(locked.becameSuspended && !locked.becameResumed, "The first pause suspends service work")
-        check(!state.quotaWorkEnabled && !state.resetNewsWorkEnabled, "Suspension closes both work gates")
+        check(!state.quotaAlertsAllowed && !state.resetNewsWorkEnabled, "Suspension closes both work gates")
         check(state.setPause(.screenLocked, active: true) == .none, "Duplicate lock notifications do not repeat suspension")
 
         let sleeping = state.setPause(.systemSleeping, active: true)
@@ -78,17 +78,17 @@ enum AppLifecycleStateTests {
         let wake = state.setPause(.systemSleeping, active: false)
         check(!wake.becameResumed && state.sessionSuspended, "Wake does not resume a locked and inactive session")
         check(state.pauseReasons == [.screenLocked, .sessionInactive], "Wake clears only the sleep reason")
-        check(!state.quotaWorkEnabled && !state.resetNewsWorkEnabled, "Work gates remain closed after a partial wake")
+        check(!state.quotaAlertsAllowed && !state.resetNewsWorkEnabled, "Work gates remain closed after a partial wake")
 
         let unlock = state.setPause(.screenLocked, active: false)
         check(!unlock.becameResumed && state.sessionSuspended, "Unlock does not resume an inactive session")
         check(state.pauseReasons == [.sessionInactive], "Unlock clears only the screen-lock reason")
-        check(!state.quotaWorkEnabled && !state.resetNewsWorkEnabled, "Work gates remain closed until the user session is active")
+        check(!state.quotaAlertsAllowed && !state.resetNewsWorkEnabled, "Work gates remain closed until the user session is active")
 
         let active = state.setPause(.sessionInactive, active: false)
         check(active.becameResumed && !active.becameSuspended, "Removing the final reason resumes service work once")
         check(!state.sessionSuspended && state.pauseReasons.isEmpty, "The last reason leaves the session unsuspended")
-        check(state.quotaWorkEnabled && state.resetNewsWorkEnabled, "Both work gates reopen only after all reasons clear")
+        check(state.quotaAlertsAllowed && state.resetNewsWorkEnabled, "Both work gates reopen only after all reasons clear")
         check(state.setPause(.sessionInactive, active: false) == .none, "Duplicate activation does not repeat resume")
         check(state.setPause(.screenLocked, active: false) == .none, "A late duplicate unlock does not repeat resume")
     }
@@ -111,7 +111,7 @@ enum AppLifecycleStateTests {
         check(!stop.hostStopped && !stop.codexStopped, "Runtime shutdown does not synthesize host exits")
         check(!stop.becameResumed, "Stopping a paused runtime does not synthesize a resume")
         check(state.runtime == .stopping && !state.runtimeRunning, "Work becomes inactive before service shutdown finishes")
-        check(!state.quotaWorkEnabled && !state.resetNewsWorkEnabled, "Stopping immediately closes every work gate")
+        check(!state.quotaAlertsAllowed && !state.resetNewsWorkEnabled, "Stopping immediately closes every work gate")
         check(state.stop() == .none, "Repeated stop while stopping has no effects")
         check(state.start(hostRunning: false, codexRunning: false) == .none, "A runtime cannot restart during shutdown")
         let stopping = state
@@ -131,7 +131,7 @@ enum AppLifecycleStateTests {
         check(state.setPause(.screenLocked, active: false) == .none, "Late unlock callbacks are ignored after stop")
         check(state.setPause(.sessionInactive, active: true) == .none, "Late activation changes are ignored after stop")
         check(state == stopped, "Late callbacks cannot reactivate or mutate a stopped runtime")
-        check(!state.quotaWorkEnabled && !state.resetNewsWorkEnabled, "Stopped runtime keeps both work gates closed")
+        check(!state.quotaAlertsAllowed && !state.resetNewsWorkEnabled, "Stopped runtime keeps both work gates closed")
     }
 
     private static func testExplicitRestartPreservesUnresolvedPauseReasons() {
@@ -145,9 +145,9 @@ enum AppLifecycleStateTests {
         check(restarted.runtimeStarted && restarted.hostStarted && !restarted.codexStarted, "Explicit restart starts a new runtime with fresh host facts")
         check(state.runtimeRunning && state.hostRunning && !state.codexRunning, "Restart uses supplied host facts rather than stopped observations")
         check(state.pauseReasons == [.screenLocked] && state.sessionSuspended, "Restart preserves the unresolved lock reason")
-        check(!restarted.becameResumed && !state.quotaWorkEnabled && !state.resetNewsWorkEnabled, "Restart cannot resume work while still locked")
+        check(!restarted.becameResumed && !state.quotaAlertsAllowed && !state.resetNewsWorkEnabled, "Restart cannot resume work while still locked")
         let unlock = state.setPause(.screenLocked, active: false)
-        check(unlock.becameResumed && state.quotaWorkEnabled, "An explicit unlock after restart resumes quota work")
+        check(unlock.becameResumed && state.quotaAlertsAllowed, "An explicit unlock after restart resumes quota alerts")
         check(!state.resetNewsWorkEnabled, "Resuming the session does not imply that Codex is running")
         check(state.setPause(.screenLocked, active: false) == .none, "Repeated unlock after restart remains idempotent")
     }

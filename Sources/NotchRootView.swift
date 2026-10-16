@@ -28,7 +28,7 @@ struct NotchRootView: View {
             if model.state != .expanded {
                 Button(action: model.click) { Color.black.opacity(0.001).frame(width: model.size.width, height: layout.visualBarHeight) }
                     .buttonStyle(PlainButtonStyle())
-                    .accessibilityLabel(DisplayLanguage.text("展开详情", "Expand details"))
+                    .accessibilityLabel(model.presentationContext.text("展开详情", "Expand details"))
                     .accessibilityIdentifier("notch.expand")
             }
             marks(layout).allowsHitTesting(false)
@@ -57,7 +57,7 @@ struct NotchRootView: View {
     private func resetForecastButton(_ layout: NotchLayout) -> some View {
         let count = model.resetNews.indicatorCount
         let cached = model.resetNews.forecastAvailability == .cached
-        let label = ResetForecastIndicator.accessibilityLabel(count, cached: cached)
+        let label = model.forecast.indicator.accessibilityLabel
         return Button(action: model.openResetForecasts) {
             HStack(spacing: 1) {
                 Image(nsImage: ResetForecastIndicator.image(size: 16)).renderingMode(.template)

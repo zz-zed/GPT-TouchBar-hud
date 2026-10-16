@@ -50,6 +50,20 @@ struct ResetForecastSemanticTests {
             #expect(value.kind == .window && value.shoulderQualifier == value.dateText)
         }
     }
+    @Test func exactClockKeepsPriorityOverAnAccompanyingWindow() {
+        let now = date("2026-10-15T04:00:00Z")
+        let fact = ResetNewsFact(kind: .upcomingReset, effectiveAt: now, effectiveAtPrecision: .exact,
+            officialWindow: .init(startAt: now.addingTimeInterval(-86400), endAt: now.addingTimeInterval(86400)))
+        let value = ResetForecastHeadline(fact: fact, publishedAt: now, now: now, calendar: calendar("Asia/Shanghai"))
+        #expect(value.kind == .exact && !value.spansMultipleDays && value.compactValue == "12:00")
+    }
+    @Test func windowCrossingFromThePreviousYearKeepsItsYearQualifier() {
+        let now = date("2027-01-01T04:00:00Z"), start = date("2026-12-31T15:00:00Z")
+        let fact = ResetNewsFact(kind: .upcomingReset, effectiveAt: now, effectiveAtPrecision: .windowBoundary,
+            officialWindow: .init(startAt: start, endAt: now))
+        let value = ResetForecastHeadline(fact: fact, publishedAt: start, now: now, calendar: calendar("Asia/Shanghai"))
+        #expect(value.kind == .window && value.compactValue.contains("2026/12/31") && value.compactDetail.contains("2027/01/01"))
+    }
     @Test func unknownHasNoRelativeDayOrClock() {
         let value = ResetForecastHeadline(fact: .init(kind: .upcomingReset), publishedAt: nil,
             now: date("2026-10-15T04:00:00Z"), calendar: calendar("UTC"))

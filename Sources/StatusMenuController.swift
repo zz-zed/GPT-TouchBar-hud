@@ -27,6 +27,7 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
     private var menuDisplayMode: MenuBarDisplayMode { configuration.menuDisplayMode }
     private var hudRequestedVisible: Bool { configuration.hudRequestedVisible }
     private var statusMenuOpen = false
+    private var acceptsActions = true
     private var hudVisibilityMenuItem: NSMenuItem?
     private var persistentTouchBarMenuItem: NSMenuItem?
     private var availableUpdateMenuItem: NSMenuItem?
@@ -55,19 +56,27 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
     }
     func update(_ snapshot: AppDisplaySnapshot, statusTitle: Bool = true) {
         self.snapshot = snapshot
-        if statusTitle { updateStatusTitle(with: snapshot.state) }
+        if statusTitle { updateStatusTitle(with: snapshot.state, metrics: snapshot.metrics) }
         if statusMenuOpen {
-            (summaryMenuItem?.view as? StatusSummaryView)?.update(snapshot.state, news: snapshot.news, forecast: snapshot.forecast)
+            (summaryMenuItem?.view as? StatusSummaryView)?.update(snapshot.state, news: snapshot.news, forecast: snapshot.forecast, context: snapshot.context)
         }
     }
     func menuWillOpen(_ menu: NSMenu) {
+        guard acceptsActions else { return }
         statusMenuOpen = true
         onWillOpen?()
         collapseDetailsMenuItem?.isHidden = !configuration.notchExpanded
-        (summaryMenuItem?.view as? StatusSummaryView)?.update(snapshot.state, news: snapshot.news, forecast: snapshot.forecast)
+        (summaryMenuItem?.view as? StatusSummaryView)?.update(snapshot.state, news: snapshot.news, forecast: snapshot.forecast, context: snapshot.context)
     }
     func menuDidClose(_ menu: NSMenu) { statusMenuOpen = false }
+    func stop() {
+        acceptsActions = false; statusMenuOpen = false
+        statusItem.menu?.cancelTracking(); statusItem.menu = nil
+        statusItem.button?.isEnabled = false
+    }
     func configureStatusItem() {
+        acceptsActions = true
+        statusItem.button?.isEnabled = true
         guard let button = statusItem.button else {
             return
         }
@@ -94,11 +103,19 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         let summary = NSMenuItem()
         let state = snapshot.state
         let summaryView = StatusSummaryView(state: state)
-        summaryView.update(state, news: latestResetNewsState, forecast: snapshot.forecast)
-        summaryView.onRefresh = { [weak self] in self?.onRefreshAll?() }
-        summaryView.onForecast = { [weak self] in self?.onForecast?() }
-        summaryView.onForecastRetry = { [weak self] in self?.onForecastRetry?() }
-        summaryView.onQuotaRetry = { [weak self] in self?.onRefreshQuota?() }
+        summaryView.update(state, news: latestResetNewsState, forecast: snapshot.forecast, context: snapshot.context)
+        summaryView.onRefresh = { [weak self] in
+            guard let self, self.acceptsActions else { return }; self.onRefreshAll?()
+        }
+        summaryView.onForecast = { [weak self] in
+            guard let self, self.acceptsActions else { return }; self.onForecast?()
+        }
+        summaryView.onForecastRetry = { [weak self] in
+            guard let self, self.acceptsActions else { return }; self.onForecastRetry?()
+        }
+        summaryView.onQuotaRetry = { [weak self] in
+            guard let self, self.acceptsActions else { return }; self.onRefreshQuota?()
+        }
         summary.view = summaryView
         summaryMenuItem = summary
         menu.addItem(summary)
@@ -176,6 +193,7 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard acceptsActions else { return false }
         if menuItem.action == #selector(openMenuForecast) { return snapshot.forecast.hasForecastDetails }
 
         if menuItem.action == #selector(selectDisplayMode(_:)) {
@@ -228,13 +246,14 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         menu.addItem(.separator())
     }
 
-    @objc func checkForAppUpdates(_ sender: AnyObject?) { appUpdater.check() }
+    @objc func checkForAppUpdates(_ sender: AnyObject?) { guard acceptsActions else { return }; appUpdater.check() }
 
-    @objc func viewAppUpdateProgress(_ sender: AnyObject?) { appUpdater.presentInstallationProgress() }
+    @objc func viewAppUpdateProgress(_ sender: AnyObject?) { guard acceptsActions else { return }; appUpdater.presentInstallationProgress() }
 
-    @objc func viewAvailableAppUpdate(_ sender: AnyObject?) { appUpdater.presentAvailableUpdate() }
+    @objc func viewAvailableAppUpdate(_ sender: AnyObject?) { guard acceptsActions else { return }; appUpdater.presentAvailableUpdate() }
 
-    func updateStatusTitle(with state: RateLimitDisplayState) {
+    func updateStatusTitle(with state: RateLimitDisplayState, metrics: [HUDMetric]? = nil) {
+        let language = snapshot.context.language
         guard let button = statusItem.button else {
             menuTaskTrace.record(state, action: .skipped, reason: .unavailable, compact: .hidden)
             TaskPresentationTrace.record(state, surface: .menuBar, action: .unavailable)
@@ -253,7 +272,7 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         if let fiveHour = state.fiveHour {
             tooltipParts.append("5 小时剩余 \(fiveHour.remainingText)")
         } else if let resetCredits = state.resetCredits, resetCredits.availableCount > 0 {
-            tooltipParts.append("可重置 \(resetCredits.availableCount) 次，\(resetCredits.expirationText)")
+            tooltipParts.append("可重置 \(resetCredits.availableCount) 次，\(resetCredits.expirationText(context: snapshot.context))")
         }
 
         if let weekly = state.weekly {
@@ -269,17 +288,17 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
             tooltip = state.errorMessage ?? "\(AppIdentity.productName) 额度"
         }
         if let usage = state.tokenUsage {
-            tooltip += "\n\(usage.yesterdayText)；\(usage.cumulativeText)\n\(usage.toolTip)"
+            tooltip += "\n\(usage.yesterdayText(language: language))；\(usage.cumulativeText(language: language))\n\(usage.toolTip(context: snapshot.context))"
         }
         if let task {
-            tooltip += "\n" + task.label + "\n" + task.detail
+            tooltip += "\n" + task.label(language: language) + "\n" + task.detail(language: language)
         }
         let availableVersion = appUpdater.viewState.availableVersion
         let updateLabel = availableVersion.map { " · 新版本 \($0) 可用" } ?? ""
         button.toolTip = tooltip + updateLabel
-        button.setAccessibilityLabel(AppIdentity.productName + (task.map { " · " + $0.label } ?? "") + updateLabel)
+        button.setAccessibilityLabel(AppIdentity.productName + (task.map { " · " + $0.label(language: language) } ?? "") + updateLabel)
 
-        let presentation = MenuBarPresentation(state: state, mode: menuDisplayMode, panelVisible: configuration.panelVisible, hasUpdate: availableVersion != nil)
+        let presentation = MenuBarPresentation(state: state, mode: menuDisplayMode, panelVisible: configuration.panelVisible, hasUpdate: availableVersion != nil, metrics: metrics)
         presentation.apply(to: statusItem, taskTrace: menuTaskTrace)
     }
 
@@ -312,25 +331,25 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         }
     }
 
-    @objc private func openMenuForecast() { onForecast?() }
-    @objc private func openResetNewsFromMenu(_ sender: AnyObject?) {
+    @objc private func openMenuForecast() { guard acceptsActions else { return }; onForecast?() }
+    @objc private func openResetNewsFromMenu(_ sender: AnyObject?) { guard acceptsActions else { return };
         let anchor = (sender as? NSMenuItem)?.representedObject as? NSView
         DispatchQueue.main.async { [weak self] in self?.onForecastFromContext?(anchor) }
     }
-    @objc private func toggleHUDWindow(_ sender: AnyObject?) { onToggleHUD?() }
-    @objc private func hideHUDFromContextMenu(_ sender: AnyObject?) { onHideHUD?() }
-    @objc private func collapseNotch(_ sender: AnyObject?) { onCollapse?() }
-    @objc private func selectDisplayMode(_ sender: NSMenuItem) {
+    @objc private func toggleHUDWindow(_ sender: AnyObject?) { guard acceptsActions else { return }; onToggleHUD?() }
+    @objc private func hideHUDFromContextMenu(_ sender: AnyObject?) { guard acceptsActions else { return }; onHideHUD?() }
+    @objc private func collapseNotch(_ sender: AnyObject?) { guard acceptsActions else { return }; onCollapse?() }
+    @objc private func selectDisplayMode(_ sender: NSMenuItem) { guard acceptsActions else { return };
         guard HUDDisplayMode.allCases.indices.contains(sender.tag) else { return }
         onSelectDisplayMode?(HUDDisplayMode.allCases[sender.tag])
     }
-    @objc private func selectMenuMode(_ sender: NSMenuItem) {
+    @objc private func selectMenuMode(_ sender: NSMenuItem) { guard acceptsActions else { return };
         guard MenuBarDisplayMode.allCases.indices.contains(sender.tag) else { return }
         onSelectMenuMode?(MenuBarDisplayMode.allCases[sender.tag])
     }
-    @objc private func togglePersistentTouchBar(_ sender: NSMenuItem) { onTogglePersistent?() }
-    @objc private func refreshDataFromMenu(_ sender: AnyObject?) { onRefreshAll?() }
-    @objc private func refreshQuotaFromMenu(_ sender: AnyObject?) { onRefreshQuota?() }
-    @objc private func openPreferences(_ sender: AnyObject?) { onPreferences?() }
-    @objc private func quitFromMenu(_ sender: AnyObject?) { onQuit?() }
+    @objc private func togglePersistentTouchBar(_ sender: NSMenuItem) { guard acceptsActions else { return }; onTogglePersistent?() }
+    @objc private func refreshDataFromMenu(_ sender: AnyObject?) { guard acceptsActions else { return }; onRefreshAll?() }
+    @objc private func refreshQuotaFromMenu(_ sender: AnyObject?) { guard acceptsActions else { return }; onRefreshQuota?() }
+    @objc private func openPreferences(_ sender: AnyObject?) { guard acceptsActions else { return }; onPreferences?() }
+    @objc private func quitFromMenu(_ sender: AnyObject?) { guard acceptsActions else { return }; onQuit?() }
 }

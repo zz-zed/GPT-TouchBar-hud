@@ -35,7 +35,8 @@ enum AppLifecycleCoordinatorChecks {
         defer { try? FileManager.default.removeItem(at: directory) }
         let news = ResetNewsMonitor(repository: ResetNewsRepository(directory: directory), defaults: defaults)
         let updater = AppUpdater(session: URLSession(configuration: .ephemeral), preferences: AppUpdatePreferences(defaults: defaults),
-            policy: .standard, now: Date.init, automaticChecksAvailable: false)
+            policy: .standard, now: Date.init, automaticChecksAvailable: false,
+            notifications: AppUpdateNotificationController(defaults: defaults))
         var host = HostLifecycleSnapshot(hostIsRunning: true, codexIsRunning: true)
         var poll: (() -> Void)?
         let hostMonitor = HostLifecycleMonitor(notificationCenter: NotificationCenter(), runningStateProvider: { host },
@@ -66,7 +67,7 @@ enum AppLifecycleCoordinatorChecks {
         check(lifecycle.state.runtimeRunning && displayStops == 0 && client.stops == 0 && terminations == 0,
             "Denied host-exit quit retains the runtime and display during installation")
         check(!lifecycle.state.hostRunning && !lifecycle.state.codexRunning
-            && !lifecycle.state.quotaWorkEnabled && !lifecycle.state.resetNewsWorkEnabled,
+            && !lifecycle.state.quotaAlertsAllowed && !lifecycle.state.resetNewsWorkEnabled,
             "Host and Codex facts still update and close their independent gates when exit is denied")
         display.renderDisplayState()
         check(submissions == 1 && progressRequests == 3, "Display remains usable while installation defers host exit")

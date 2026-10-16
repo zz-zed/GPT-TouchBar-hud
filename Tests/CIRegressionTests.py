@@ -16,10 +16,14 @@ import ci_regression as regression
 class CIRegressionTests(unittest.TestCase):
     def test_frozen_workflow_coverage_and_order_are_preserved(self):
         frozen = json.loads((ROOT / "Tests/Fixtures/ci-regression-layout-v1.json").read_text())
-        self.assertEqual(regression.REGRESSION_SUITES, frozen["suites"])
+        # The historical entry points retain their order; the architecture refactor
+        # adds the real coordinator shutdown fence immediately after lifecycle checks.
+        expected = frozen["suites"]
+        expected["data"].insert(expected["data"].index("test-host-lifecycle") + 1, "test-app-termination")
+        self.assertEqual(regression.REGRESSION_SUITES, expected)
         scripts = sum(regression.REGRESSION_SUITES.values(), [])
-        self.assertEqual(len(scripts), 29)
-        self.assertEqual(len(set(scripts)), 29)
+        self.assertEqual(len(scripts), 30)
+        self.assertEqual(len(set(scripts)), 30)
 
     def test_every_script_has_its_own_timing_and_bash_invocation(self):
         for suite, scripts in regression.REGRESSION_SUITES.items():

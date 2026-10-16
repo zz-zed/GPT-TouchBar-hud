@@ -152,18 +152,19 @@ final class NotchHUDView: NSView {
         let rect = strip.attributedTitle.boundingRect(with: NSSize(width: max(1, width - 26), height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading])
         return max(24, ceil(rect.height) + 6) + summaryTopPadding
     }
-    func update(_ state: RateLimitDisplayState, expanded: Bool, taskDisplayEnabled: Bool = true, abbreviateLabels: Bool = false) {
+    func update(_ state: RateLimitDisplayState, expanded: Bool, taskDisplayEnabled: Bool = true, abbreviateLabels: Bool = false,
+                context: PresentationContext = PresentationContext()) {
         var observed = state
         observed.taskTrace.tasksEnabled = taskDisplayEnabled
         self.state = state
         self.expanded = expanded
-        rows = HUDMetric.rows(for: state)
-        let task = NotchTaskPresentation(state.taskStatus, enabled: taskDisplayEnabled)
+        rows = HUDMetric.rows(for: state, context: context)
+        let task = NotchTaskPresentation(state.taskStatus, enabled: taskDisplayEnabled, language: context.language)
         let compact: DiagnosticTaskCompactRule = !taskDisplayEnabled ? .hidden : (task.badge.contains("9+") ? .ninePlus : .exact)
         let presentation: DiagnosticTaskPresentation = task.appearance == .unknown ? .unknown : (state.taskStatus?.diagnosticPresentation ?? .unknown)
         taskTrace.record(observed, action: .received, compact: compact, presentation: presentation)
         taskTrace.record(observed, action: .renderRequested, compact: compact, presentation: presentation)
-        let values = rows.isEmpty ? DisplayLanguage.text("额度 —", "Quota —") : rows.map(\.compact).joined(separator: "  ")
+        let values = rows.isEmpty ? context.text("额度 —", "Quota —") : rows.map(\.compact).joined(separator: "  ")
         summaryText = (taskDisplayEnabled ? task.badge + "  " : "") + values + (state.errorMessage == nil ? "" : " !")
         // One attributed group is both rendered and measured: no phantom digits or separators.
         let title = NSMutableAttributedString()
@@ -189,27 +190,28 @@ final class NotchHUDView: NSView {
             append((title.length > 0 ? "  " : "") + values, font: strip.font!, color: .white)
         } else {
             for row in rows {
-                append((title.length > 0 ? "   " : "") + (abbreviateLabels && row.percent == nil ? DisplayLanguage.text("卡", "R") : row.compactTitle) + " ", font: .systemFont(ofSize: 10), color: .lightGray)
+                append((title.length > 0 ? "   " : "") + (abbreviateLabels && row.percent == nil ? context.text("卡", "R") : row.compactTitle) + " ", font: .systemFont(ofSize: 10), color: .lightGray)
                 append(row.value, font: strip.font!, color: DesignTokens.accent)
             }
         }
         if state.errorMessage != nil { append("  !", font: strip.font!, color: .systemOrange) }
         strip.attributedTitle = title
-        strip.setAccessibilityLabel(task.title + "，" + values + DisplayLanguage.text(expanded ? "，收起详情" : "，展开详情", expanded ? ", Collapse details" : ", Expand details"))
-        strip.toolTip = state.taskStatus?.detail ?? task.note ?? task.title
+        strip.setAccessibilityLabel(task.title + "，" + values + context.text(expanded ? "，收起详情" : "，展开详情", expanded ? ", Collapse details" : ", Expand details"))
+        strip.toolTip = state.taskStatus?.detail(language: context.language) ?? task.note ?? task.title
         taskTitle.stringValue = task.title
-        taskTitle.toolTip = state.taskStatus?.detail
+        taskTitle.toolTip = state.taskStatus?.detail(language: context.language)
         taskNote.stringValue = task.note ?? ""
         let formatter = DateFormatter()
+        formatter.calendar = context.calendar; formatter.timeZone = context.calendar.timeZone
         formatter.dateFormat = "HH:mm"
-        updateLabel.stringValue = state.isRefreshing ? DisplayLanguage.text("刷新中…", "Refreshing…")
-            : state.lastUpdated.map { DisplayLanguage.text("上次 ", "Updated ") + formatter.string(from: $0) } ?? DisplayLanguage.text("尚未更新", "Not updated")
+        updateLabel.stringValue = state.isRefreshing ? context.text("刷新中…", "Refreshing…")
+            : state.lastUpdated.map { context.text("上次 ", "Updated ") + formatter.string(from: $0) } ?? context.text("尚未更新", "Not updated")
         updateLabel.alignment = .right
-        errorLabel.stringValue = rows.isEmpty ? DisplayLanguage.text("连接异常 · 暂无额度数据", "Offline · no quota data") : DisplayLanguage.text("连接异常 · 以下为上次数据", "Offline · last known values")
+        errorLabel.stringValue = rows.isEmpty ? context.text("连接异常 · 暂无额度数据", "Offline · no quota data") : context.text("连接异常 · 以下为上次数据", "Offline · last known values")
         errorLabel.toolTip = state.errorMessage
-        emptyLabel.stringValue = DisplayLanguage.text("暂无额度数据", "No quota data")
+        emptyLabel.stringValue = context.text("暂无额度数据", "No quota data")
         if state.resetCredits?.availableCount == 0 {
-            emptyLabel.stringValue += DisplayLanguage.text(" · 重置卡 0 张", " · 0 reset credits")
+            emptyLabel.stringValue += context.text(" · 重置卡 0 张", " · 0 reset credits")
         }
         for (index, views) in metricViews.enumerated() {
             guard index < rows.count else { continue }
@@ -222,14 +224,14 @@ final class NotchHUDView: NSView {
         }
         secondary.stringValue = state.tokenUsage.map { $0.yesterdayText + "  ·  " + $0.cumulativeText } ?? ""
         secondary.toolTip = state.tokenUsage?.toolTip
-        points.stringValue = state.creditBalance.map { DisplayLanguage.current == .chinese ? $0.displayText : $0.displayText.replacingOccurrences(of: "还剩点数：", with: "Credits: ") } ?? ""
+        points.stringValue = state.creditBalance.map { context.language == .chinese ? $0.displayText : $0.displayText.replacingOccurrences(of: "还剩点数：", with: "Credits: ") } ?? ""
         points.toolTip = points.stringValue
-        refresh.title = state.isRefreshing ? "…" : DisplayLanguage.text("刷新", "Refresh")
+        refresh.title = state.isRefreshing ? "…" : context.text("刷新", "Refresh")
         refresh.attributedTitle = NSAttributedString(string: refresh.title, attributes: [.font: refresh.font!, .foregroundColor: DesignTokens.accent])
         refresh.isEnabled = !state.isRefreshing
-        hideButton.title = DisplayLanguage.text("隐藏", "Hide")
-        settings.title = DisplayLanguage.text("设置", "Settings")
-        collapseButton.title = DisplayLanguage.text("收起", "Collapse")
+        hideButton.title = context.text("隐藏", "Hide")
+        settings.title = context.text("设置", "Settings")
+        collapseButton.title = context.text("收起", "Collapse")
         needsLayout = true
         needsDisplay = true
     }
@@ -386,6 +388,7 @@ final class LegacyNotchHUDController: NSObject {
     let panel: NSPanel = NotchPanel()
     let view = NotchHUDView(frame: .zero)
     private var geometry: NotchHUDGeometry?
+    private var context = PresentationContext()
     private var state = RateLimitDisplayState.initial
     private var taskDisplayEnabled = true
     private var globalMonitor: Any?
@@ -436,7 +439,8 @@ final class LegacyNotchHUDController: NSObject {
         globalMonitor = nil
         localMonitor = nil
     }
-    func update(_ state: RateLimitDisplayState, taskDisplayEnabled: Bool = true) {
+    func update(_ state: RateLimitDisplayState, taskDisplayEnabled: Bool = true, context: PresentationContext = PresentationContext()) {
+        self.context = context
         self.state = state
         self.taskDisplayEnabled = taskDisplayEnabled
         // Data changes are immediate and never initiate or replay a completion animation.
@@ -484,12 +488,12 @@ final class LegacyNotchHUDController: NSObject {
     }
     private func relayout(animated: Bool = false) {
         stopTransition()
-        view.update(state, expanded: isExpanded, taskDisplayEnabled: taskDisplayEnabled)
+        view.update(state, expanded: isExpanded, taskDisplayEnabled: taskDisplayEnabled, context: context)
         guard let geometry else { return }
         view.notchWidth = geometry.notchWidth
         let availableWidth = geometry.frame(width: geometry.screen.width, height: 24).width
         if view.compactWidth > availableWidth {
-            view.update(state, expanded: isExpanded, taskDisplayEnabled: taskDisplayEnabled, abbreviateLabels: true)
+            view.update(state, expanded: isExpanded, taskDisplayEnabled: taskDisplayEnabled, abbreviateLabels: true, context: context)
         }
         let width = geometry.frame(width: isExpanded ? max(340, view.compactWidth) : view.compactWidth, height: 24).width
         let target = geometry.frame(width: width, height: view.preferredHeight(width: width))

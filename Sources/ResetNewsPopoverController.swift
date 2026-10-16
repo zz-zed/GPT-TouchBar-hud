@@ -30,7 +30,7 @@ private struct ResetNewsPopoverContent: View {
         VStack(alignment: .leading, spacing: 12) {
             if model.onBack != nil {
                 Button(action: { if isCurrentPresentation() { model.onBack?() } }) {
-                    Label(DisplayLanguage.text("返回额度", "Back to quota"), systemImage: "chevron.left")
+                    Label(model.context.text("返回额度", "Back to quota"), systemImage: "chevron.left")
                 }.buttonStyle(PlainButtonStyle()).foregroundColor(.secondary)
                     .font(.system(size: 12)).accessibilityIdentifier("resetNews.backToMenu")
             }

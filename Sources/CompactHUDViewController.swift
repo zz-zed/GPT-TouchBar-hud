@@ -10,6 +10,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     private let diagnostics: DiagnosticRecording
     private let taskTrace: DiagnosticTaskDisplayObserver
     private lazy var touchBarView = TouchBarRateLimitsView(diagnostics: diagnostics, consumer: .touchBarResponder)
+    private var currentContext = PresentationContext()
     private var currentState = RateLimitDisplayState.initial
     private let onRefresh: () -> Void
     private let onClose: () -> Void
@@ -54,7 +55,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     override func loadView() {
         view = hudView
         view.frame = NSRect(x: 0, y: 0, width: 250, height: DesignTokens.hudHeight)
-        update(with: currentState)
+        update(with: currentState, context: currentContext)
         updateMessages(forecastIndicator)
     }
 
@@ -87,8 +88,8 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         }
     }
 
-    func update(with state: RateLimitDisplayState) {
-        currentState = state
+    func update(with state: RateLimitDisplayState, context: PresentationContext = PresentationContext()) {
+        currentState = state; currentContext = context
 
         guard isViewLoaded else {
             taskTrace.record(state, action: .skipped, reason: .notLoaded)
@@ -98,17 +99,17 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
 
         // The controller also owns the responder-chain Touch Bar. Its updates
         // must continue independently of the floating window's visibility.
-        if hudView.window?.isVisible != false { hudView.update(with: state) }
+        if hudView.window?.isVisible != false { hudView.update(with: state, context: context) }
         else {
             taskTrace.record(state, action: .skipped, reason: .hidden)
             TaskPresentationTrace.record(state, surface: .floatingHUD, action: .hidden)
         }
-        touchBarView.update(with: state)
+        touchBarView.update(with: state, context: context)
     }
 
     func prepareToShow() {
         _ = view
-        hudView.update(with: currentState)
+        hudView.update(with: currentState, context: currentContext)
         hudView.updateMessages(forecastIndicator)
     }
 
@@ -237,18 +238,18 @@ final class CompactQuotaHUDView: NSView {
         window?.makeFirstResponder(self)
     }
 
-    func update(with state: RateLimitDisplayState) {
+    func update(with state: RateLimitDisplayState, context: PresentationContext = PresentationContext()) {
         taskTrace.record(state, action: .received, compact: .exact)
         TaskPresentationTrace.record(state, surface: .floatingHUD, action: .renderRequested)
         let taskStatus = state.displayedTaskStatus
-        toolTip = state.statusText
-        taskLabel.toolTip = taskStatus?.detail
+        toolTip = state.statusText(context: context)
+        taskLabel.toolTip = taskStatus?.detail(language: context.language)
         let next = Content(fivePercent: state.fiveHour.map { Int($0.remainingPercent.rounded()) },
                            weeklyPercent: state.weekly.map { Int($0.remainingPercent.rounded()) },
-                           credits: state.resetCredits.flatMap { $0.availableCount > 0 ? $0.compactText : nil },
+                           credits: state.resetCredits.flatMap { $0.availableCount > 0 ? $0.compactText(language: context.language) : nil },
                            refreshing: state.isRefreshing, hasError: state.errorMessage != nil,
-                           task: taskStatus?.label, appearance: TaskStatusAppearance(taskStatus),
-                           language: DisplayLanguage.current)
+                           task: taskStatus?.label(language: context.language), appearance: TaskStatusAppearance(taskStatus),
+                           language: context.language)
         guard next != renderedContent else {
             taskTrace.record(state, action: .skipped, reason: .sameValueSuppressed, compact: .exact)
             return
@@ -257,14 +258,14 @@ final class CompactQuotaHUDView: NSView {
         renderedContent = next
         layoutUpdateCount += 1
         refreshButton.isEnabled = !state.isRefreshing
-        refreshButton.image = NSImage(systemSymbolName: state.isRefreshing ? "ellipsis" : (state.errorMessage == nil ? "arrow.clockwise" : "exclamationmark.arrow.circlepath"), accessibilityDescription: state.statusText)
-        let refreshLabel = DisplayLanguage.text("刷新额度", "Refresh quotas")
+        refreshButton.image = NSImage(systemSymbolName: state.isRefreshing ? "ellipsis" : (state.errorMessage == nil ? "arrow.clockwise" : "exclamationmark.arrow.circlepath"), accessibilityDescription: state.statusText(context: context))
+        let refreshLabel = context.text("刷新额度", "Refresh quotas")
         refreshButton.toolTip = refreshLabel
         refreshButton.setAccessibilityLabel(refreshLabel)
         updateForecastPresentation()
         taskLabel.isHidden = taskStatus == nil
-        taskLabel.stringValue = taskStatus?.label ?? ""
-        taskLabel.toolTip = taskStatus?.detail
+        taskLabel.stringValue = taskStatus?.label(language: context.language) ?? ""
+        taskLabel.toolTip = taskStatus?.detail(language: context.language)
         updateTaskColor()
         let hasError = state.errorMessage != nil && state.fiveHour == nil && state.weekly == nil
 
@@ -277,7 +278,7 @@ final class CompactQuotaHUDView: NSView {
                 setMetricCount(1)
             }
         } else if let resetCredits = state.resetCredits, resetCredits.availableCount > 0 {
-            firstItem.update(with: resetCredits)
+            firstItem.update(with: resetCredits, language: context.language)
             if let weekly = state.weekly {
                 secondItem.update(with: weekly, title: "7d")
                 setMetricCount(2)
@@ -293,7 +294,7 @@ final class CompactQuotaHUDView: NSView {
             setMetricCount(2)
         }
 
-        toolTip = state.statusText
+        toolTip = state.statusText(context: context)
     }
 
     func updateAppearance(_ appearance: HUDAppearance) {
@@ -531,8 +532,8 @@ private final class CompactQuotaItemView: NSView {
         dotView.color = color(for: remaining)
     }
 
-    func update(with resetCredits: ResetCreditSummary) {
-        label.stringValue = resetCredits.compactText
+    func update(with resetCredits: ResetCreditSummary, language: DisplayLanguage = .current) {
+        label.stringValue = resetCredits.compactText(language: language)
         isPlaceholder = false
         updateColors()
         dotView.color = .systemTeal

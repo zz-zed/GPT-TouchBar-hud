@@ -20,3 +20,5 @@ for scenario in ('completion', 'deadline', 'late-completion', 'duplicate-complet
     print(result.stdout.strip())
 print('PASS: 4 native AppKit termination scenarios')
 PY
+
+bash scripts/test-app-lifecycle-termination.sh
