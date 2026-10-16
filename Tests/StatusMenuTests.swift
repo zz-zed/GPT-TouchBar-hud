@@ -205,7 +205,45 @@ struct StatusMenuTests {
         let presentation = MenuForecastPresentation(relative, now: publication, calendar: calendar)
         check(presentation.value == "预计今天 14:56 前" && presentation.compactValue == "14:56 前",
             "Publication-relative deadline keeps its qualified time")
-        print("PASS: \(checks) status menu checks; 28 native scene snapshots")
+        DisplayLanguage.current = .english
+        func englishScene(_ name: String, _ q: RateLimitDisplayState, _ n: ResetNewsViewState) throws {
+            summary.update(q, news: n)
+            try snapshot(summary, name: "scene-en-" + name)
+            for field in descendants(summary).compactMap({ $0 as? NSTextField })
+                where !field.isHidden && !field.stringValue.isEmpty {
+                check(field.attributedStringValue.size().width <= field.frame.width + 1,
+                    "English \(name) label fits: \(field.stringValue)")
+            }
+        }
+        try englishScene("active", base, active)
+        check(text(summary).contains("5-hour remaining") && text(summary).contains("Public reset forecast"),
+            "English information preference updates quota and forecast labels")
+        try englishScene("crossday", base, withWindow)
+        check(text(summary).contains("Today") && text(summary).contains("Tomorrow"),
+            "English cross-day forecast keeps both date boundaries")
+        try englishScene("date", base, withDate)
+        check(text(summary).contains("Tomorrow") && text(summary).contains("Time not announced"),
+            "English date-only forecast does not invent a clock")
+        try englishScene("pending", base, withPending)
+        check(text(summary).contains("Time TBD"), "English unknown time remains explicit")
+        try englishScene("weekly", weeklyOnly, active)
+        try englishScene("empty", noCredit, empty)
+        check(text(summary).contains("No forecast") && text(summary).contains("0 left"),
+            "English zero-credit empty state is concise")
+        try englishScene("failed", firstFail, failed)
+        check(text(summary).contains("Account data unavailable") && text(summary).contains("Forecast unavailable"),
+            "English independent failures remain distinguishable")
+        try englishScene("cached", base, cached)
+        check(text(summary).contains("Cached") && find("menu.forecast.retry", in: summary) != nil,
+            "English cached forecast keeps provenance and retry")
+        try englishScene("stale", staleQuota, active)
+        check(text(summary).contains("Quota unavailable"), "English stale account quota is labeled")
+        try englishScene("token-unknown", tokenUnknown, empty)
+        check(text(summary).contains("Token usage pending"), "English unknown token usage is labeled")
+        DisplayLanguage.current = .chinese
+        summary.update(base, news: active)
+        check(text(summary).contains("5小时额度剩余"), "Information language switch restores Chinese")
+        print("PASS: \(checks) status menu checks; 28 Chinese and 10 English native scene snapshots")
     }
     static func snapshot(_ view: NSView, name: String) throws {
         view.wantsLayer = true
