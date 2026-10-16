@@ -74,7 +74,11 @@ struct ResetForecastRelativeDeadlineTests {
 
     @Test(arguments: ["within 1 hour and thirty minutes", "within 1 hour thirty minutes",
         "within 1 hour, thirty minutes", "within 1 hour and 30 seconds",
-        "within 1 hour and 30–40 minutes", "within 1 hour and about 30 minutes"])
+        "within 1 hour and 30–40 minutes", "within 1 hour and about 30 minutes",
+        "within 1 hour and a half", "within 1 hour and half an hour",
+        "within 1 hour and twenty-five minutes", "within 1 hour and twenty five minutes",
+        "within 1 hour plus 30 minutes", "within 1 hour and another 30 minutes",
+        "within 1 hour and about twenty-five minutes", "within 1 hour and another half hour"])
     func unsupportedDurationContinuationCannotExpireAPrefix(_ text: String) throws {
         let publication = date("2026-10-15T04:00:00Z")
         let signal = ResetForecastSignal(sourceID: "123", sourceURL: URL(string: "https://x.com/thsottiaux/status/123")!,
@@ -88,7 +92,8 @@ struct ResetForecastRelativeDeadlineTests {
     }
 
     @Test(arguments: ["Landing within an hour. Thirty minutes later we will post details.",
-        "Landing within an hour, compared with several days last time."])
+        "Landing within an hour, compared with several days last time.",
+        "Landing within an hour, retry in thirty minutes if needed."])
     func unrelatedFollowingProseDoesNotInvalidateSingleDuration(_ originalText: String) throws {
         let publication = date("2026-10-15T04:00:00Z")
         let signal = ResetForecastSignal(sourceID: "123", sourceURL: URL(string: "https://x.com/thsottiaux/status/123")!,
