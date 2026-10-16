@@ -157,6 +157,12 @@ enum TouchBarLayoutTests {
         check(view.bounds.contains(messageButton.frame), "Message action remains inside the Touch Bar content")
         messageButton.performClick(nil)
         check(openedMessages == 1, "Touch Bar message tap invokes the local detail callback")
+        view.updateMessages(ForecastIndicatorPresentation(count: 3, available: true, cached: true))
+        check(messageButton.toolTip == "Last reset forecasts (3 upcoming)", "Same count cache transition updates forecast freshness")
+        let beforeFreshLayout = view.layoutUpdateCount
+        view.updateMessages(ForecastIndicatorPresentation(count: 3, available: true))
+        check(messageButton.toolTip == "Reset forecasts (3 upcoming)", "Same count recovery clears the cached tooltip")
+        check(view.layoutUpdateCount == beforeFreshLayout, "Freshness-only updates do not rebuild unchanged Touch Bar geometry")
         DisplayLanguage.current = .chinese
         view.update(with: state)
         verifyForecastTitle("3", "Chinese forecast entry")

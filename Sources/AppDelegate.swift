@@ -230,6 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         updateResetNewsGate()
         screenConfigurationChanged()
     }
+    private var displaySnapshot = AppDisplaySnapshot(state: .initial, news: ResetNewsViewState())
     private var summaryState = RateLimitDisplayState.initial
     private var statusMenuOpen = false
     func menuWillOpen(_ menu: NSMenu) {
@@ -237,7 +238,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         statusMenuOpen = true
         collapseDetailsMenuItem?.isHidden = !notchHUD.isExpanded
         let summary = summaryMenuItem?.view as? StatusSummaryView
-        summary?.update(summaryState, news: latestResetNewsState)
+        summary?.update(summaryState, news: latestResetNewsState, forecast: displaySnapshot.forecast)
     }
     func menuDidClose(_ menu: NSMenu) {
         statusMenuOpen = false
@@ -291,13 +292,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         state.taskStatus = taskStatusEnabled ? completionFeedback.applying(to: latestTaskStatus) : nil
         state.taskTrace = DiagnosticTaskDisplayContext(reference: taskStatusEnabled ? latestTaskStatus?.diagnosticSnapshot : latestTaskDiagnosticSnapshot,
             tasksEnabled: taskStatusEnabled, presentationRevision: taskPresentationRevision, reason: reason)
+        displaySnapshot = AppDisplaySnapshot(state: state, news: latestResetNewsState)
         mainTaskTrace.record(state, action: reason == .completionFeedbackExpired ? .presentationRevised : .received)
         updateStatusTitle(with: state)
         hudController.update(with: state)
         notchHUD.update(state, taskDisplayEnabled: taskStatusEnabled)
         persistentTouchBar.update(with: state)
         summaryState = state
-        if statusMenuOpen { (summaryMenuItem?.view as? StatusSummaryView)?.update(state, news: latestResetNewsState) }
+        if statusMenuOpen { (summaryMenuItem?.view as? StatusSummaryView)?.update(state, news: latestResetNewsState, forecast: displaySnapshot.forecast) }
         preferences?.update(appearance: hudAppearance, state: state, taskEnabled: taskStatusEnabled, persistentEnabled: persistentTouchBar.isEnabled, persistentAvailable: persistentTouchBar.isAvailable, appUpdate: appUpdater.viewState)
         preferences?.updateAutoLaunch(enabled: HostAutoLauncher.isEnabled, error: autoLaunchError, busy: autoLaunchBusy)
         updateQuotaAlertPreferences()
@@ -309,14 +311,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func renderResetNews() {
         let state = latestResetNewsState
-        let available = state.enabled || !state.items.isEmpty
+        displaySnapshot = AppDisplaySnapshot(state: summaryState, news: state)
+        let snapshot = displaySnapshot
         if statusMenuOpen {
-            (summaryMenuItem?.view as? StatusSummaryView)?.update(summaryState, news: state)
+            (summaryMenuItem?.view as? StatusSummaryView)?.update(summaryState, news: state, forecast: snapshot.forecast)
         }
-        hudController.updateMessages(forecastCount: state.indicatorCount, available: available)
-        persistentTouchBar.updateMessages(forecastCount: state.indicatorCount, available: available)
-        notchHUD.updateResetNews(state)
-        resetNewsPopover.update(state)
+        hudController.updateMessages(snapshot.forecast.indicator)
+        persistentTouchBar.updateMessages(snapshot.forecast.indicator)
+        notchHUD.updateResetNews(state, forecast: snapshot.forecast, context: snapshot.context)
+        resetNewsPopover.update(state, forecast: snapshot.forecast, context: snapshot.context)
         preferences?.updateResetNews(state, soundEnabled: resetNewsMonitor.soundEnabled)
     }
 
@@ -335,7 +338,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func openResetNews(relativeTo source: NSView? = nil, itemIDs: [String] = []) {
         guard !sessionSuspended, let anchor = source.flatMap({ $0.window?.isVisible == true && $0.window?.isOnActiveSpace == true && !$0.isHidden ? $0 : nil }) ?? statusItem.button else { return }
-        resetNewsPopover.update(latestResetNewsState)
+        resetNewsPopover.update(latestResetNewsState, forecast: displaySnapshot.forecast, context: displaySnapshot.context)
         resetNewsPopover.show(relativeTo: anchor, itemIDs: itemIDs)
     }
 
@@ -349,7 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         statusItem.menu?.cancelTracking()
         DispatchQueue.main.async { [weak self] in
             guard let self, let anchor = self.statusItem.button, !self.sessionSuspended else { return }
-            self.resetNewsPopover.update(self.latestResetNewsState)
+            self.resetNewsPopover.update(self.latestResetNewsState, forecast: self.displaySnapshot.forecast, context: self.displaySnapshot.context)
             self.resetNewsPopover.show(relativeTo: anchor, onBack: { [weak self] in
                 guard let self, !self.sessionSuspended else { return }
                 DispatchQueue.main.async { [weak self] in self?.statusItem.button?.performClick(nil) }

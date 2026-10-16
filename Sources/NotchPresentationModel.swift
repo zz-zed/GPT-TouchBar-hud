@@ -42,6 +42,8 @@ final class NotchPresentationModel: ObservableObject {
     @Published private(set) var sweepFeedbackVisible = false
     @Published private(set) var content = NotchContentAdapter(.initial, tasksEnabled: true)
     @Published private(set) var resetNews = ResetNewsViewState()
+    @Published private(set) var forecast = ForecastPresentation(ResetNewsViewState())
+    private(set) var presentationContext = PresentationContext()
     var visiblePages: [NotchDetailPage] {
         resetNews.enabled ? NotchDetailPage.allCases : [.quota, .activity, .usage]
     }
@@ -98,9 +100,12 @@ final class NotchPresentationModel: ObservableObject {
         } else { taskTrace.record(observed, action: .skipped, reason: .sameValueSuppressed, compact: compact, presentation: presentation) }
         if shouldSignal { showSweepFeedback() }
     }
-    func updateResetNews(_ state: ResetNewsViewState) {
-        guard resetNews != state else { return }
-        resetNews = state
+    func updateResetNews(_ state: ResetNewsViewState, forecast: ForecastPresentation? = nil,
+                         context: PresentationContext = PresentationContext()) {
+        let next = forecast ?? ForecastPresentation(state, context: context)
+        if self.forecast != next { self.forecast = next }
+        if presentationContext != context { presentationContext = context }
+        if resetNews != state { resetNews = state }
         if !state.enabled && page == .messages { page = .quota }
     }
     func resetNewsPageVisibilityChanged(_ visible: Bool) { resetNewsPageVisible = visible && messagesVisible }

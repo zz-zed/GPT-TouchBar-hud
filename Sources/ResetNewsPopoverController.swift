@@ -3,6 +3,8 @@ import SwiftUI
 
 final class ResetNewsPopoverModel: ObservableObject {
     @Published var state = ResetNewsViewState()
+    var context = PresentationContext()
+    @Published var forecast = ForecastPresentation(ResetNewsViewState())
     @Published var isVisible = false
     @Published var focusedItemID: String?
     @Published var contentSize = CGSize(width: 420, height: 360)
@@ -38,7 +40,8 @@ private struct ResetNewsPopoverContent: View {
                 onSettings: { if isCurrentPresentation() { model.onSettings?() } },
                 onPageVisibility: { if isCurrentPresentation() { model.pageVisibilityChanged($0) } },
                 onVisibleItem: { if isCurrentPresentation() { model.cardVisible($0) } },
-                onPreferredHeightChange: { if isCurrentPresentation() { onPreferredHeight($0) } })
+                onPreferredHeightChange: { if isCurrentPresentation() { onPreferredHeight($0) } },
+                presentation: model.forecast, context: model.context)
         }.padding(16).frame(width: model.contentSize.width, height: model.contentSize.height, alignment: .topLeading)
     }
 }
@@ -125,7 +128,13 @@ final class ResetNewsPopoverController: NSObject, NSPopoverDelegate {
             self?.containWindow(for: presentation)
         }
     }
-    func update(_ state: ResetNewsViewState) { model.state = state }
+    func update(_ state: ResetNewsViewState, forecast: ForecastPresentation? = nil,
+                context: PresentationContext = PresentationContext()) {
+        model.context = context
+        let next = forecast ?? ForecastPresentation(state, context: context)
+        if model.forecast != next { model.forecast = next }
+        if model.state != state { model.state = state }
+    }
     func show(relativeTo anchor: NSView, itemIDs: [String] = [], onBack: (() -> Void)? = nil) {
         guard let anchorWindow = anchor.window else { return }
         let anchorRect = anchorWindow.convertToScreen(anchor.convert(anchor.bounds, to: nil))

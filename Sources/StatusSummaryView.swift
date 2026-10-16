@@ -1,134 +1,26 @@
 import AppKit
 import ResetNewsCore
 
-/// The public forecast and the account quota have separate freshness and actions.
-struct MenuForecastPresentation: Equatable {
-    enum Kind: Equatable { case hidden, currentEmpty, checking, paused, unavailable, announced, cached }
-    let kind: Kind
-    let value: String
-    let detail: String
-    let canOpen: Bool
-    let help: String
-    let compactValue: String
-    let compactDetail: String
-    let isWide: Bool
-    let canRetry: Bool
-
-    var isEmpty: Bool { kind == .currentEmpty }
-
+/// Menu sizing remains local; semantic fields come from the shared forecast projection.
+struct MenuForecastPresentation {
+    let forecast: ForecastPresentation
+    var kind: ForecastPresentation.Kind { forecast.kind }
+    var value: String { forecast.value }
+    var detail: String { forecast.detail }
+    var canOpen: Bool { forecast.hasForecastDetails }
+    var help: String { forecast.help }
+    var compactValue: String { forecast.compactValue }
+    var compactDetail: String { forecast.compactDetail }
+    var canRetry: Bool { forecast.canRetry }
+    var isEmpty: Bool { forecast.isEmpty }
+    var isWide: Bool {
+        forecast.headline?.spansMultipleDays == true || (compactValue as NSString).size(withAttributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 18, weight: .semibold)]).width > 135
+            || (forecast.headline?.kind == .dateOnly && (compactDetail as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 10)]).width > 151)
+    }
     init(_ state: ResetNewsViewState, now: Date = Date(), calendar: Calendar = .current) {
-        let chinese = DisplayLanguage.current == .chinese
-        canOpen = state.canOpenDetails
-        help = Self.statusLabel(state.status) + (state.detail.map { " · " + ResetNewsDisplayText.hidingAddresses(in: $0) } ?? "")
-            + (state.forecastCheckedAt.map { "\n" + DisplayLanguage.text("预告数据更新于 ", "Forecast checked ") + Self.date($0) } ?? "")
-        guard state.enabled else {
-            kind = .hidden; value = DisplayLanguage.text("预告已关闭", "Forecasts off")
-            detail = DisplayLanguage.text("可在设置中开启", "Enable in settings")
-            compactValue = ""; compactDetail = ""; isWide = false; canRetry = false
-            return
-        }
-        let item = state.items.first { $0.facts.contains(where: { $0.kind == .upcomingReset }) }
-        if let item, let fact = item.facts.first(where: { $0.kind == .upcomingReset }) {
-            let schedule = ResetForecastHeadline(fact: fact, publishedAt: item.publishedAt, now: now,
-                calendar: calendar, locale: Locale(identifier: chinese ? "zh_CN" : "en_US"))
-            kind = state.forecastAvailability == .cached ? .cached : .announced
-            value = schedule.summary
-            detail = kind == .cached
-                ? DisplayLanguage.text("上次预告 · ", "Cached · ") + state.forecastCheckedAt.map { Self.date($0) }.unwrap(or: DisplayLanguage.text("时间未知", "time unknown"))
-                : DisplayLanguage.text("查看当前安排", "View forecast")
-            canRetry = kind == .cached && [.failure, .partial, .stale].contains(state.status)
-            if let window = fact.officialWindow, let start = window.startAt, let end = window.endAt,
-               !calendar.isDate(start, inSameDayAs: end) {
-                let clock = DateFormatter(); clock.dateFormat = "HH:mm"; clock.timeZone = calendar.timeZone
-                let day = DateFormatter(); day.dateFormat = "MM/dd"; day.timeZone = calendar.timeZone
-                let startDay = calendar.isDate(start, inSameDayAs: now) ? DisplayLanguage.text("今天", "Today") : day.string(from: start)
-                let endDay = calendar.isDate(end, inSameDayAs: now) ? DisplayLanguage.text("今天", "Today")
-                    : calendar.isDate(end, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: now) ?? now)
-                        ? DisplayLanguage.text("明天", "Tomorrow") : day.string(from: end)
-                compactValue = "\(startDay) \(clock.string(from: start)) – \(endDay) \(clock.string(from: end))"
-                compactDetail = DisplayLanguage.text("预计时段 · ", "Expected window · ")
-                    + "\(day.string(from: start))–\(day.string(from: end))"
-                isWide = true
-            } else if schedule.hasClock {
-                compactValue = schedule.headline
-                let when = fact.effectiveAt ?? fact.officialWindow?.endAt
-                compactDetail = (schedule.lead ?? DisplayLanguage.text("预计", "Expected"))
-                    + (when.map { " · " + Self.day($0, calendar: calendar) } ?? "")
-                isWide = (compactValue as NSString).size(withAttributes: [
-                    .font: NSFont.monospacedDigitSystemFont(ofSize: 18, weight: .semibold)]).width > 135
-            } else if schedule.dateText != nil {
-                if schedule.lead == "预计日期" || schedule.lead == "Announced date" {
-                    compactValue = schedule.summary.contains(chinese ? "今天" : "today") ? DisplayLanguage.text("今天", "Today")
-                        : schedule.summary.contains(chinese ? "明天" : "tomorrow") ? DisplayLanguage.text("明天", "Tomorrow")
-                        : schedule.dateText ?? DisplayLanguage.text("日期待确认", "Date pending")
-                } else { compactValue = schedule.dateText ?? DisplayLanguage.text("日期待确认", "Date pending") }
-                compactDetail = (schedule.dateText ?? "") + DisplayLanguage.text(" · 时刻未公布", " · Time not announced")
-                isWide = (compactValue as NSString).size(withAttributes: [
-                    .font: NSFont.monospacedDigitSystemFont(ofSize: 18, weight: .semibold)]).width > 135
-                    || (compactDetail as NSString).size(withAttributes: [
-                        .font: NSFont.systemFont(ofSize: 10)]).width > 151
-            } else {
-                compactValue = DisplayLanguage.text("时间待定", "Time TBD")
-                compactDetail = DisplayLanguage.text("已有公开预告", "Public forecast available")
-                isWide = false
-            }
-            return
-        }
-        isWide = false
-        switch state.forecastAvailability {
-        case .current:
-            kind = .currentEmpty; value = DisplayLanguage.text("当前暂无公开重置预告", "No current public reset forecast"); detail = ""
-            compactValue = DisplayLanguage.text("预告 · 暂无", "No forecast"); compactDetail = ""; canRetry = false
-        case .cached:
-            kind = .unavailable; value = DisplayLanguage.text("预告暂不可用", "Forecast unavailable")
-            detail = DisplayLanguage.text("上次结果已过期", "Last result expired")
-            compactValue = value; compactDetail = ""; canRetry = state.status != .checking
-        case .unknown:
-            detail = ""; canRetry = [.failure, .partial, .stale].contains(state.status)
-            switch state.status {
-            case .checking:
-                kind = .checking; value = DisplayLanguage.text("正在获取预告", "Loading forecast")
-            case .failure, .partial, .stale:
-                kind = .unavailable; value = DisplayLanguage.text("预告暂不可用", "Forecast unavailable")
-            case .codexNotRunning:
-                kind = .paused; value = DisplayLanguage.text("等待 Codex 启动", "Waiting for Codex")
-            case .idle:
-                kind = .paused; value = DisplayLanguage.text("预告检查已暂停", "Forecast checks paused")
-            case .disabled:
-                kind = .hidden; value = DisplayLanguage.text("预告已关闭", "Forecasts off")
-            case .success:
-                kind = .checking; value = DisplayLanguage.text("尚未获取预告", "Forecast not fetched")
-            }
-            compactValue = value; compactDetail = ""
-        }
+        forecast = ForecastPresentation(state, context: PresentationContext(now: now, calendar: calendar))
     }
-
-    private static func statusLabel(_ status: ResetNewsCheckStatus) -> String {
-        guard DisplayLanguage.current == .english else { return status.label }
-        switch status {
-        case .idle: return "Forecast checks paused"
-        case .checking: return "Checking reset forecasts"
-        case .success: return "Forecast check complete"
-        case .partial: return "Some forecast sources failed"
-        case .stale: return "Forecast source expired"
-        case .failure: return "Forecast check failed"
-        case .codexNotRunning: return "Waiting for Codex"
-        case .disabled: return "Reset forecasts off"
-        }
-    }
-
-    private static func day(_ date: Date, calendar: Calendar) -> String {
-        let formatter = DateFormatter(); formatter.dateFormat = "MM/dd"; formatter.timeZone = calendar.timeZone
-        return formatter.string(from: date)
-    }
-    private static func date(_ date: Date) -> String {
-        let formatter = DateFormatter(); formatter.dateFormat = "MM/dd HH:mm"; formatter.timeZone = .current
-        return formatter.string(from: date)
-    }
-}
-
-private extension Optional where Wrapped == String {
-    func unwrap(or fallback: String) -> String { self ?? fallback }
+    init(_ forecast: ForecastPresentation) { self.forecast = forecast }
 }
 
 private enum MenuMetricStyle: Equatable { case quota, credit, quietCredit, forecast, wideForecast, hint }
@@ -219,9 +111,9 @@ final class StatusSummaryView: NSView {
         update(state)
     }
 
-    func update(_ state: RateLimitDisplayState, news: ResetNewsViewState? = nil) {
+    func update(_ state: RateLimitDisplayState, news: ResetNewsViewState? = nil, forecast presentation: ForecastPresentation? = nil) {
         if let news { self.news = news }
-        let forecast = MenuForecastPresentation(self.news)
+        let forecast = presentation.map(MenuForecastPresentation.init) ?? MenuForecastPresentation(self.news)
         let hasQuota = state.fiveHour != nil || state.weekly != nil
         let firstLoad = !hasQuota && state.lastUpdated == nil && state.resetCredits == nil
         var metrics: [MenuMetric] = []
@@ -264,7 +156,7 @@ final class StatusSummaryView: NSView {
                 detail: active ? (forecast.kind == .cached ? forecast.detail : forecast.compactDetail) : "",
                 style: active ? (wide ? .wideForecast : .forecast) : .hint,
                 actionable: active, retryable: forecast.canRetry,
-                isCached: forecast.kind == .cached, hasPendingTime: forecast.compactValue == DisplayLanguage.text("时间待定", "Time TBD"),
+                isCached: forecast.kind == .cached, hasPendingTime: forecast.forecast.hasPendingTime,
                 help: forecast.value + "\n" + forecast.help))
         }
         let tokenUnknown = state.tokenUsage == nil ||

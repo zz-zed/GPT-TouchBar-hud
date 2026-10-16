@@ -16,12 +16,59 @@ struct StatusMenuTests {
         return ([((view as? NSTextField)?.stringValue ?? "")] + view.subviews.map(text))
             .filter { !$0.isEmpty }.joined(separator: " ")
     }
+    static func checkSharedPresentation() {
+        let now = ISO8601DateFormatter().date(from: "2026-12-31T04:00:00Z")!
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let context = PresentationContext(now: now, language: .english, calendar: calendar)
+        let item = ResetNewsItem(id: "semantic", sources: [.feed], originalText: "tomorrow",
+            facts: [.init(kind: .upcomingReset, timingText: "tomorrow")], publishedAt: now, firstSeenAt: now)
+        var state = ResetNewsViewState(enabled: true, status: .success, items: [item], forecastAvailability: .current)
+        let first = AppDisplaySnapshot(state: .initial, news: state, context: context)
+        let duplicate = AppDisplaySnapshot(state: .initial, news: state, context: context)
+        check(first.forecast == duplicate.forecast, "Same domain input and context have identical shared presentation")
+        check(first.forecast.headline == first.forecast.cards[item.id]?.first, "Shoulder and card consume one shared forecast interpretation")
+        check(first.forecast.canShowList && first.forecast.hasForecastDetails && !first.forecast.canRetry,
+            "List access, specific details and retry have distinct capabilities")
+        let model = NotchPresentationModel()
+        model.updateResetNews(state, forecast: first.forecast, context: context)
+        var publications = 0
+        let observation = model.objectWillChange.sink { publications += 1 }
+        let sameOutputContext = PresentationContext(now: now.addingTimeInterval(1), language: .english, calendar: calendar)
+        model.updateResetNews(state, context: sameOutputContext)
+        check(publications == 0, "A newer instant with equal visible forecast content does not publish")
+        let popover = ResetNewsPopoverController()
+        popover.update(state, forecast: first.forecast, context: context)
+        var popupPublications = 0
+        let popupObservation = popover.model.objectWillChange.sink { popupPublications += 1 }
+        popover.update(state, forecast: first.forecast, context: sameOutputContext)
+        check(popupPublications == 0, "Popover retains latest time context without publishing equal presentation")
+        withExtendedLifetime((observation, popupObservation)) {}
+        let nextContext = PresentationContext(now: now.addingTimeInterval(86400), language: .english, calendar: calendar)
+        let next = ForecastPresentation(state, context: nextContext)
+        model.updateResetNews(state, forecast: next, context: nextContext)
+        check(model.forecast.headline?.day == .today && model.forecast.compactValue == "Today",
+            "Unchanged domain state refreshes notch on day-context changes")
+        check(model.page == .quota, "Forecast context refresh preserves the selected page")
+        let chinese = ForecastPresentation(state, context: PresentationContext(now: now, language: .chinese, calendar: calendar))
+        model.updateResetNews(state, forecast: chinese, context: context)
+        check(model.forecast.compactValue == "明天", "Unchanged domain state refreshes localized forecast presentation")
+        state.items = []
+        let empty = ForecastPresentation(state, context: context)
+        check(empty.canShowList && !empty.hasForecastDetails && empty.indicator.count == 0,
+            "Successful empty can open its list without pretending to have forecast details")
+        state.forecastAvailability = .cached; state.status = .failure
+        let cachedEmpty = ForecastPresentation(state, context: context)
+        check(cachedEmpty.indicator.count == nil && cachedEmpty.canRetry && !cachedEmpty.hasForecastDetails,
+            "Cached empty is unknown and retryable rather than a confirmed zero")
+    }
+
     static func main() throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let suite = "StatusMenuTests." + UUID().uuidString
         DisplayLanguage.defaults = UserDefaults(suiteName: suite)!
         defer { DisplayLanguage.defaults.removePersistentDomain(forName: suite) }
+        checkSharedPresentation()
         let now = Date()
         let quotaStart = RateLimitDisplayState.initial
         var base = quotaStart

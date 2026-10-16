@@ -93,11 +93,14 @@ enum PersistentTouchBarTests {
         controller.update(with: state)
         var openedMessages = 0
         controller.onOpenMessages = { openedMessages += 1 }
-        controller.updateMessages(forecastCount: 4, available: true)
+        controller.updateMessages(ForecastIndicatorPresentation(count: 4, available: true, cached: true))
         let item = controller.touchBar(bar, makeItemForIdentifier: bar.defaultItemIdentifiers[0]) as! NSCustomTouchBarItem
         check(labels(in: item.view).contains("77%"), "Latest data reaches a lazily created system bar")
         let messagesButton = buttons(in: item.view).first { $0.accessibilityIdentifier() == "touchbar.messages" }!
         check(messagesButton.title == "Reset forecasts 4", "Persistent Touch Bar receives cached forecast count at creation")
+        check(messagesButton.toolTip == "Last reset forecasts (4 upcoming)", "Lazy persistent creation retains cached freshness")
+        controller.updateMessages(ForecastIndicatorPresentation(count: 4, available: true))
+        check(messagesButton.toolTip == "Reset forecasts (4 upcoming)", "Same count persistent recovery updates freshness")
         check(messagesButton.image?.isTemplate == true && messagesButton.image?.size == NSSize(width: 18, height: 18),
               "Persistent Touch Bar uses the shared forecast indicator")
         messagesButton.performClick(nil)
@@ -143,6 +146,9 @@ enum PersistentTouchBarTests {
         hud.updateMessages(forecastCount: 3, available: true)
         check(hudMessages.title == "Reset forecasts 3", "HUD names forecasts instead of showing an ambiguous count")
         check(hudMessages.toolTip == "Reset forecasts (3 upcoming)", "HUD tooltip describes forecasts upcoming")
+        hud.updateMessages(ForecastIndicatorPresentation(count: 3, available: true, cached: true))
+        check(hudMessages.toolTip == "Last reset forecasts (3 upcoming)", "Floating HUD retains same-count cached freshness")
+        hud.updateMessages(ForecastIndicatorPresentation(count: 3, available: true))
         hudMessages.performClick(nil)
         check(openedMessages == 2, "HUD forecast entry forwards its local details callback")
         hud.updateMessages(forecastCount: 100, available: true)
