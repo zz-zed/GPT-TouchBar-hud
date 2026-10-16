@@ -17,7 +17,12 @@ enum ResetForecastTiming {
     private static let dayPattern = #"(?:later\s+today|tomorrow|tonight|today|next\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|\d{4}-\d{2}-\d{2}|明天|今晚|今天)"#
     private static let clockPattern = #"(?:\d{1,2}:\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm))"#
     private static let zonePattern = #"(?:UTC(?:[+-]\d{1,2}(?::?\d{2})?)?|GMT(?:[+-]\d{1,2}(?::?\d{2})?)?|PST|PDT|PT|ET|EST|EDT|CST|CDT|CET|CEST|(?:[A-Za-z_]+(?:/[A-Za-z0-9_+-]+)+)|(?-i:[A-Z]{2,5}))"#
-    private static let relativeDeadlinePattern = #"within\s+(?:the\s+next\s+)?(?:(\d+(?:\.\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(hours?|hrs?|minutes?|mins?)"#
+    private static let relativeAmountPattern = #"\d+(?:\.\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten"#
+    private static let relativeDeadlinePattern = "within\\s+(?:the\\s+next\\s+)?(?:(\(relativeAmountPattern))\\s+)?(hours?|hrs?|minutes?|mins?)(?:(?:\\s+and\\s*|,\\s*(?:and\\s*)?|\\s+)(\(relativeAmountPattern))\\s*(minutes?|mins?))?"
+    // Reject an unsupported adjacent duration instead of assigning an expiry to its prefix.
+    // Sentence punctuation ends this check; unrelated later prose does not invalidate a duration.
+    private static let continuationAmountPattern = #"(?:about\s+)?(?:[+-]?\d+(?:\.\d+)?(?:\s*[–-]\s*\d+(?:\.\d+)?)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|(?:a\s+)?few|several)"#
+    private static let durationContinuationPattern = "^\\s*(?:,?\\s*and\\s*|,\\s*|\\+\\s*|\\s+)(?:\(continuationAmountPattern))\\s*(?:hours?|hrs?|minutes?|mins?|seconds?|secs?|days?|weeks?)(?![a-z0-9])"
     // Keep a day qualifier with EOD; otherwise "EOD tomorrow" would silently become today.
     private static let endOfDayPattern = "(?:(\(dayPattern))\\s+)?(?:EOD|end\\s+of\\s+(?:the\\s+)?day)(?:\\s+(\(dayPattern)))?(?:\\s+(\(zonePattern)))?(?:\\s+time)?"
 
@@ -26,9 +31,13 @@ enum ResetForecastTiming {
         if let deadline = ResetNewsText.capture("(?<![A-Za-z0-9])(\(endOfDayPattern))(?![A-Za-z0-9])", in: text) {
             return deadline
         }
-        if let deadline = ResetNewsText.capture("(?<![A-Za-z0-9])(\(relativeDeadlinePattern))(?![A-Za-z0-9])", in: text),
-           relativeDuration(deadline) != nil {
-            return deadline
+        if let regex = try? NSRegularExpression(pattern: "(?<![A-Za-z0-9])\(relativeDeadlinePattern)(?![A-Za-z0-9])", options: [.caseInsensitive]),
+           let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+           let range = Range(match.range, in: text) {
+            let deadline = String(text[range])
+            let continuation = String(text[range.upperBound...])
+            guard !ResetNewsText.matches(durationContinuationPattern, in: continuation) else { return nil }
+            if relativeDuration(deadline) != nil { return deadline }
         }
         return ResetNewsText.capture("(?<![A-Za-z0-9])(\(dayPattern)(?:\\s+(?:at\\s+)?\(clockPattern)(?:\\s*\(zonePattern))?)?)(?![A-Za-z0-9])", in: text)
     }
@@ -116,10 +125,10 @@ enum ResetForecastTiming {
         let pattern = "^\(relativeDeadlinePattern)$"
         guard ResetNewsText.matches(pattern, in: text),
               let unit = ResetNewsText.capture(pattern, in: text, group: 2)?.lowercased() else { return nil }
+        let words: [String: Double] = ["a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
+                                     "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10]
         let amount: Double
         if let number = ResetNewsText.capture(pattern, in: text)?.lowercased() {
-            let words: [String: Double] = ["a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
-                                         "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10]
             guard let value = Double(number) ?? words[number] else { return nil }
             amount = value
         } else {
@@ -127,7 +136,12 @@ enum ResetForecastTiming {
                   ["hour", "hr", "minute", "min"].contains(unit) else { return nil }
             amount = 1
         }
-        let duration = amount * (unit.hasPrefix("h") ? 3600 : 60)
+        var duration = amount * (unit.hasPrefix("h") ? 3600 : 60)
+        if let minutes = ResetNewsText.capture(pattern, in: text, group: 3)?.lowercased() {
+            // Only hours followed by minutes are supported, never a partial multi-unit estimate.
+            guard unit.hasPrefix("h"), let value = Double(minutes) ?? words[minutes] else { return nil }
+            duration += value * 60
+        }
         return duration.isFinite && duration > 0 ? duration : nil
     }
 

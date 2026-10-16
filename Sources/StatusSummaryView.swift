@@ -98,6 +98,8 @@ final class StatusSummaryView: NSView {
         quotaMessage.font = .systemFont(ofSize: 12, weight: .medium)
         quotaHint.font = .systemFont(ofSize: 10); quotaHint.textColor = .secondaryLabelColor
         quotaNote.font = .systemFont(ofSize: 10); quotaNote.textColor = .systemOrange
+        quotaNote.lineBreakMode = .byWordWrapping
+        quotaNote.cell?.usesSingleLineMode = false; quotaNote.cell?.wraps = true
         quotaRetry.isBordered = false; quotaRetry.font = .systemFont(ofSize: 10)
         quotaRetry.contentTintColor = .controlAccentColor
         quotaRetry.target = self; quotaRetry.action = #selector(quotaRetryPressed)
@@ -171,13 +173,14 @@ final class StatusSummaryView: NSView {
         let quotaHint = firstLoad ? (state.errorMessage == nil
             ? context.text("重置次数与 Token 用量也在获取中", "Resets and token usage are loading")
             : context.text("请确认 Codex 已启动后重试", "Check that Codex is running, then retry")) : ""
-        let staleQuota = state.errorMessage != nil && hasQuota && state.lastUpdated != nil
-        let note = staleQuota ? context.text("上次数据 · ", "Last data · ") + date(state.lastUpdated)
-            + context.text(" · 额度暂无法更新", " · Quota unavailable") : ""
+        let staleAccount = state.errorMessage != nil && !firstLoad
+        let note = staleAccount ? context.text("上次数据 · ", "Last data · ") + date(state.lastUpdated)
+            + (hasQuota ? context.text(" · 额度暂无法更新", " · Quota unavailable")
+                : context.text(" · 账号数据暂无法更新", " · Account data unavailable")) : ""
         let status: String
         if firstLoad { status = "" }
         else if state.isRefreshing { status = context.text("正在刷新 · 保留上次数据", "Refreshing · Showing last data") }
-        else if staleQuota { status = "" }
+        else if staleAccount { status = "" }
         else if let lastUpdated = state.lastUpdated {
             status = context.text("账号数据 · ", "Account data · ") + context.date(lastUpdated, format: "HH:mm")
         }
@@ -209,7 +212,8 @@ final class StatusSummaryView: NSView {
         self.quotaMessage.stringValue = next.quotaMessage; self.quotaMessage.toolTip = state.errorMessage
         self.quotaHint.stringValue = next.quotaHint
         quotaNote.stringValue = next.quotaNote; quotaNote.toolTip = state.errorMessage
-        quotaRetry.title = next.quotaFailed ? "重新获取账号数据" : "重试"
+        quotaRetry.title = next.quotaFailed
+            ? context.text("重新获取账号数据", "Retry account data") : context.text("重试", "Retry")
         tokenHeading.stringValue = tokenUnknown
             ? context.text("Token 用量待获取", "Token usage pending")
             : context.text("Token 用量", "Token usage")
@@ -247,12 +251,6 @@ final class StatusSummaryView: NSView {
             }
             if !full { separators.append(NSRect(x: width / 2, y: y + 3, width: 0.5, height: 90)) }
             y += 95
-            if !presentation.quotaNote.isEmpty {
-                quotaNote.frame = NSRect(x: left, y: y + 3, width: 264, height: 28)
-                quotaRetry.frame = NSRect(x: 286, y: y + 5, width: 44, height: 20)
-                y += 32
-            }
-            separator(y: y, width: width, left: left)
         } else if !presentation.quotaMessage.isEmpty {
             quotaMessage.frame = NSRect(x: left, y: y + 7, width: width - 2 * left, height: 20)
             quotaHint.frame = NSRect(x: left, y: y + 28, width: width - 2 * left, height: 17)
@@ -260,6 +258,14 @@ final class StatusSummaryView: NSView {
                 quotaRetry.frame = NSRect(x: left, y: y + 49, width: 150, height: 20)
                 y += 73
             } else { y += 53 }
+            separator(y: y, width: width, left: left)
+        }
+        if !presentation.quotaNote.isEmpty {
+            quotaNote.frame = NSRect(x: left, y: y + 3, width: 264, height: 28)
+            quotaRetry.frame = NSRect(x: 286, y: y + 5, width: 44, height: 20)
+            y += 32
+        }
+        if presentation.quotaCount > 0 || !presentation.quotaNote.isEmpty {
             separator(y: y, width: width, left: left)
         }
         let credits = cards.first { $0.metricID == "reset" }
@@ -334,6 +340,7 @@ final class StatusSummaryView: NSView {
         frame.size = NSSize(width: width, height: y + 10)
         var accessibilityOrder: [NSView] = [heading, refresh]
         if !quotaMessage.isHidden { accessibilityOrder += [quotaMessage, quotaHint] }
+        if !quotaNote.isHidden { accessibilityOrder.append(quotaNote) }
         if !quotaRetry.isHidden { accessibilityOrder.append(quotaRetry) }
         accessibilityOrder += cards
         if showToken { accessibilityOrder.append(tokenHeading) }
