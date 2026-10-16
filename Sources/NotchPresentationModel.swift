@@ -4,12 +4,13 @@ import SwiftUI
 enum NotchPresentationState: String, CaseIterable { case compact, peek, expanded }
 enum NotchDetailPage: Int, CaseIterable {
     case quota, activity, usage, messages
-    var title: String {
+    var title: String { title(language: .current) }
+    func title(language: DisplayLanguage) -> String {
         switch self {
-        case .quota: return DisplayLanguage.text("额度", "Quota")
-        case .activity: return DisplayLanguage.text("活动", "Activity")
-        case .usage: return DisplayLanguage.text("用量", "Usage")
-        case .messages: return DisplayLanguage.text("重置预告", "Reset forecasts")
+        case .quota: return language.text("额度", "Quota")
+        case .activity: return language.text("活动", "Activity")
+        case .usage: return language.text("用量", "Usage")
+        case .messages: return language.text("重置预告", "Reset forecasts")
         }
     }
 }
@@ -83,11 +84,13 @@ final class NotchPresentationModel: ObservableObject {
         self.layout = layout
         size = layout.size(for: restingState)
     }
-    func update(_ state: RateLimitDisplayState, tasksEnabled: Bool) {
+    func update(_ state: RateLimitDisplayState, tasksEnabled: Bool, metrics: [HUDMetric]? = nil,
+                context: PresentationContext = PresentationContext()) {
+        presentationContext = context
         var observed = state
         observed.taskTrace.tasksEnabled = tasksEnabled
         // No geometry or transition writes: data refresh cannot erase interaction intent.
-        let next = NotchContentAdapter(state, tasksEnabled: tasksEnabled)
+        let next = NotchContentAdapter(state, tasksEnabled: tasksEnabled, metrics: metrics, context: context)
         let compact: DiagnosticTaskCompactRule = !tasksEnabled ? .hidden : (next.task.badge.contains("9+") ? .ninePlus : .exact)
         let presentation: DiagnosticTaskPresentation = next.task.appearance == .unknown ? .unknown : (state.taskStatus?.diagnosticPresentation ?? .unknown)
         taskTrace.record(observed, action: .received, compact: compact, presentation: presentation)

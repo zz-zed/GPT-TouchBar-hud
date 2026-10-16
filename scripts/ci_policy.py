@@ -11,11 +11,11 @@ HIGH_RISK_PREFIXES = (
     ".github/", "scripts/", "HookCore/", "HookHelper/", "ResetNewsCore/", "Resources/",
     "Sources/AppUpdate", "Sources/AppUpdater", "Sources/GitHubReleaseFetcher",
     "Sources/AppLifecycle", "Sources/AppDisplay", "Sources/StatusMenu", "Sources/PreferencesCoordinator",
-    "Sources/ForecastPresentation", "Sources/ResetForecast", "Sources/DiagnosticInstaller", "Sources/DiagnosticUpgrade", "Sources/AppDelegate",
+    "Sources/ForecastPresentation", "Sources/LimitModels.swift", "Sources/ResetForecast", "Sources/DiagnosticInstaller", "Sources/DiagnosticUpgrade", "Sources/AppDelegate",
     "Sources/AppIdentity", "Sources/main.swift", "Sources/Host", "Sources/SingleInstance",
     "Sources/TouchBar", "Sources/PersistentTouchBar", "Sources/SystemTouchBar",
     "Sources/Notch", "Sources/CompactHUD", "Sources/HUD",
-    "Tests/AppUpdate", "Tests/GitHubRelease", "Tests/DiagnosticUpgrade",
+    "Tests/AppLifecycle", "Tests/AppTermination", "Tests/AppUpdate", "Tests/GitHubRelease", "Tests/DiagnosticUpgrade",
     "Tests/Host", "Tests/SingleInstance", "Tests/TouchBar", "Tests/Notch", "Tests/HUD",
 )
 

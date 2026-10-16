@@ -44,12 +44,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
     private func connectCallbacks() {
         store.delegate = self
         lifecycle.taskStatusEnabled = { [weak self] in self?.display.taskStatusEnabled ?? false }
-        lifecycle.onStartPresentation = { [weak self] in self?.display.start() }
+        lifecycle.onStartPresentation = { [weak self] in self?.preferences.start(); self?.display.start() }
         lifecycle.onResetCompletion = { [weak self] in self?.display.resetCompletionFeedback() }
         lifecycle.onHostStarted = { [weak self] in self?.display.hostDidStart() }
         lifecycle.onHostAbsentAtLaunch = { [weak self] in self?.display.environmentChanged() }
         lifecycle.onSessionSuspended = { [weak self] in self?.display.setSessionSuspended($0) }
-        lifecycle.onStopPresentation = { [weak self] in self?.display.stop() }
+        lifecycle.onStopPresentation = { [weak self] in self?.display.stop(); self?.preferences.stop() }
         display.onRefreshQuota = { [weak self] in self?.lifecycle.refreshQuota() }
         display.onCheckResetNews = { [weak self] in self?.resetNewsMonitor.checkNow() }
         display.onMarkAllRead = { [weak self] in self?.resetNewsMonitor.markAllRead() }

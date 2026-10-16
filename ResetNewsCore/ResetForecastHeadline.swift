@@ -33,9 +33,6 @@ public struct ResetForecastHeadline: Equatable, Sendable {
             dateText = nil; zoneText = nil; basisText = nil; summary = headline; hasClock = false
             return
         }
-        if let start = fact.officialWindow?.startAt, let end = fact.officialWindow?.endAt {
-            spansMultipleDays = !calendar.isDate(start, inSameDayAs: end)
-        } else { spansMultipleDays = false }
         let displayCalendar = timing.dayCalendar ?? calendar
         let formatter = DateFormatter()
         formatter.locale = locale; formatter.calendar = displayCalendar; formatter.timeZone = displayCalendar.timeZone
@@ -97,12 +94,20 @@ public struct ResetForecastHeadline: Equatable, Sendable {
             summary = (chinese ? "预计" : "Expected ") + (relativeDay ?? detail.dateText)
                 + (chinese ? " · 时刻待公布" : " · Time not announced")
         }
+        if kind == .window, let start = fact.officialWindow?.startAt, let end = fact.officialWindow?.endAt,
+           start.timeIntervalSince1970.isFinite, end.timeIntervalSince1970.isFinite {
+            spansMultipleDays = !calendar.isDate(start, inSameDayAs: end)
+        } else { spansMultipleDays = false }
         // Compact and shoulder fields are derived from typed timing, never from localized labels.
         let dayFormatter = DateFormatter()
         dayFormatter.locale = locale; dayFormatter.calendar = calendar; dayFormatter.timeZone = calendar.timeZone
         dayFormatter.dateFormat = calendar.component(.year, from: timing.date) == calendar.component(.year, from: now) ? "MM/dd" : "yyyy/MM/dd"
         if kind == .window, let start = fact.officialWindow?.startAt, let end = fact.officialWindow?.endAt,
            !calendar.isDate(start, inSameDayAs: end) {
+            let currentYear = calendar.component(.year, from: now)
+            if calendar.component(.year, from: start) != currentYear || calendar.component(.year, from: end) != currentYear {
+                dayFormatter.dateFormat = "yyyy/MM/dd"
+            }
             func compactDay(_ date: Date) -> String {
                 if calendar.isDate(date, inSameDayAs: now) { return chinese ? "今天" : "Today" }
                 if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(date, inSameDayAs: tomorrow) {

@@ -16,11 +16,13 @@ final class TouchBarRateLimitsView: NSView {
     }
     private var renderedLayout: LayoutContent?
     private(set) var layoutUpdateCount = 0
-    static var contentWidth: CGFloat { DisplayLanguage.current == .english ? 460 : 600 }
+    static var contentWidth: CGFloat { contentWidth(for: .current) }
+    static func contentWidth(for language: DisplayLanguage) -> CGFloat { language == .english ? 460 : 600 }
     private let chatGPTIconView = NSImageView()
     private let taskBadge = NSTextField(labelWithString: "")
     private let messagesButton = TouchBarForecastButton(title: "", target: nil, action: nil)
     var onOpenMessages: (() -> Void)?
+    private var currentContext = PresentationContext()
     private var currentState = RateLimitDisplayState.initial
     private var forecastIndicator = ForecastIndicatorPresentation()
     private var messageForecastCount: Int? { forecastIndicator.count }
@@ -114,7 +116,9 @@ final class TouchBarRateLimitsView: NSView {
         layer.add(animation, forKey: Self.breathingAnimationKey)
     }
 
-    func update(with state: RateLimitDisplayState, language: DisplayLanguage = .current) {
+    func update(with state: RateLimitDisplayState, context: PresentationContext = PresentationContext()) {
+        currentContext = context
+        let language = context.language
         if forecastIndicator.language != language {
             forecastIndicator = ForecastIndicatorPresentation(count: forecastIndicator.count, available: forecastIndicator.available,
                 cached: forecastIndicator.cached, language: language)
@@ -127,42 +131,42 @@ final class TouchBarRateLimitsView: NSView {
         messagesButton.setAccessibilityLabel(forecastAccessibilityLabel)
         let status = state.displayedTaskStatus
         hasRunningTasks = status?.hasRunningTasks ?? false
-        chatGPTIconView.setAccessibilityLabel(status?.label ?? "ChatGPT")
-        chatGPTIconView.toolTip = status?.detail ?? "ChatGPT"
+        chatGPTIconView.setAccessibilityLabel(status?.label(language: language) ?? "ChatGPT")
+        chatGPTIconView.toolTip = status?.detail(language: language) ?? "ChatGPT"
         updateTaskAnimation()
 
         var rows: [(String, String, String, Double?)] = []
         func add(_ meter: LimitMeter, _ title: String) {
-            let date = meter.resetText.replacingOccurrences(of: " 重置", with: "")
+            let date = meter.resetText(context: context).replacingOccurrences(of: " 重置", with: "")
             rows.append((title, meter.remainingText + (state.errorMessage == nil ? "" : "*"), date, meter.remainingPercent))
         }
-        if let five = state.fiveHour { add(five, DisplayLanguage.text("5 小时", "5h")) }
+        if let five = state.fiveHour { add(five, context.text("5 小时", "5h")) }
         else if let credits = state.resetCredits, credits.availableCount > 0 {
-            rows.append((DisplayLanguage.text("重置卡", "Reset"), DisplayLanguage.text("\(credits.availableCount) 次", "\(credits.availableCount) left"), credits.expirationText.replacingOccurrences(of: " 到期", with: "").replacingOccurrences(of: "到期 ", with: ""), nil))
+            rows.append((context.text("重置卡", "Reset"), context.text("\(credits.availableCount) 次", "\(credits.availableCount) left"), credits.expirationText(context: context).replacingOccurrences(of: " 到期", with: "").replacingOccurrences(of: "到期 ", with: ""), nil))
         }
-        if let week = state.weekly { add(week, DisplayLanguage.text("周限额", "Week")) }
+        if let week = state.weekly { add(week, context.text("周限额", "Week")) }
         if rows.isEmpty && state.lastUpdated == nil {
-            rows = [("5h", "--", DisplayLanguage.text("重置 --", "Reset --"), 0), ("7d", "--", DisplayLanguage.text("重置 --", "Reset --"), 0)]
+            rows = [("5h", "--", context.text("重置 --", "Reset --"), 0), ("7d", "--", context.text("重置 --", "Reset --"), 0)]
         }
         let next = LayoutContent(badge: status?.badge, appearance: TaskStatusAppearance(status),
                                  rowText: rows.flatMap { [$0.0, $0.1, $0.2] }, percentages: rows.map { $0.3 },
-                                 usageText: [state.tokenUsage?.yesterdayText ?? DisplayLanguage.text("昨日 --", "Yday --"),
-                                             state.tokenUsage?.cumulativeText ?? DisplayLanguage.text("累计 --", "Total --")],
+                                 usageText: [state.tokenUsage?.yesterdayText(language: language) ?? context.text("昨日 --", "Yday --"),
+                                             state.tokenUsage?.cumulativeText(language: language) ?? context.text("累计 --", "Total --")],
                                  balance: state.creditBalance?.displayText,
                                  forecasts: messagesButton.isHidden ? nil : messageForecastCount,
                                  forecastVisible: !messagesButton.isHidden,
-                                 language: DisplayLanguage.current)
+                                 language: context.language)
         // Metadata can change without affecting text widths or bar geometry.
-        let statusText = state.statusText
+        let statusText = state.statusText(context: context)
         toolTip = statusText
-        usageLabels.forEach { $0.toolTip = state.tokenUsage?.toolTip }
+        usageLabels.forEach { $0.toolTip = state.tokenUsage?.toolTip(context: context) }
         for (index, row) in rowViews.enumerated() where index < rows.count {
             row.toolTip = statusText
             row.date.toolTip = index == 0 && state.fiveHour == nil
-                ? (state.resetCredits?.expirationText ?? rows[index].2) : rows[index].2
+                ? (state.resetCredits?.expirationText(context: context) ?? rows[index].2) : rows[index].2
         }
         defer {
-            setAccessibilityLabel(([status?.label].compactMap { $0 } + rows.map { "\($0.0) \($0.1) \($0.2)" } + usageLabels.map(\.stringValue) + (next.balance == nil ? [] : [balanceValue.stringValue]) + (messagesButton.isHidden ? [] : [messagesButton.title])).joined(separator: ", "))
+            setAccessibilityLabel(([status?.label(language: language)].compactMap { $0 } + rows.map { "\($0.0) \($0.1) \($0.2)" } + usageLabels.map(\.stringValue) + (next.balance == nil ? [] : [balanceValue.stringValue]) + (messagesButton.isHidden ? [] : [messagesButton.title])).joined(separator: ", "))
         }
         guard next != renderedLayout else {
             taskTrace.record(state, action: .skipped, reason: .sameValueSuppressed)
@@ -180,19 +184,19 @@ final class TouchBarRateLimitsView: NSView {
             row.isHidden = index >= rows.count
             if index < rows.count {
                 let data = rows[index]
-                row.update(title: data.0, value: data.1, date: data.2, percent: data.3)
-                row.toolTip = state.statusText
+                row.update(title: data.0, value: data.1, date: data.2, percent: data.3, language: language)
+                row.toolTip = state.statusText(context: context)
                 if index == 0, state.fiveHour == nil, let credits = state.resetCredits {
-                    row.date.toolTip = credits.expirationText
+                    row.date.toolTip = credits.expirationText(context: context)
                 } else {
                     row.date.toolTip = data.2
                 }
             }
         }
-        usageLabels[0].stringValue = state.tokenUsage?.yesterdayText ?? DisplayLanguage.text("昨日 --", "Yday --")
-        usageLabels[1].stringValue = state.tokenUsage?.cumulativeText ?? DisplayLanguage.text("累计 --", "Total --")
-        usageLabels.forEach { $0.toolTip = state.tokenUsage?.toolTip }
-        balanceTitle.stringValue = DisplayLanguage.text("点数", "Credits")
+        usageLabels[0].stringValue = state.tokenUsage?.yesterdayText(language: language) ?? context.text("昨日 --", "Yday --")
+        usageLabels[1].stringValue = state.tokenUsage?.cumulativeText(language: language) ?? context.text("累计 --", "Total --")
+        usageLabels.forEach { $0.toolTip = state.tokenUsage?.toolTip(context: context) }
+        balanceTitle.stringValue = context.text("点数", "Credits")
         balanceValue.stringValue = state.creditBalance?.displayText.replacingOccurrences(of: "还剩点数：", with: "") ?? ""
         let hasBalance = state.creditBalance != nil
         balanceTitle.isHidden = !hasBalance
@@ -229,11 +233,11 @@ final class TouchBarRateLimitsView: NSView {
             let count = ResetForecastIndicator.countText(messageForecastCount)
             messagesButton.title = forecastIndicator.title
             var width = max(46, ceil(messagesButton.fittingSize.width))
-            if total + 8 + width + 4 > Self.contentWidth {
+            if total + 8 + width + 4 > Self.contentWidth(for: context.language) {
                 messagesButton.title = forecastIndicator.shortTitle
                 width = max(46, ceil(messagesButton.fittingSize.width))
             }
-            if total + 8 + width + 4 > Self.contentWidth {
+            if total + 8 + width + 4 > Self.contentWidth(for: context.language) {
                 messagesButton.title = count
                 width = max(46, ceil(messagesButton.fittingSize.width))
             }
@@ -243,7 +247,7 @@ final class TouchBarRateLimitsView: NSView {
         // Borderless NSButton alignment can extend one point past its assigned
         // alignment rect on each side; keep that visible frame inside the item.
         widthConstraint.constant = ceil(total + 4)
-        toolTip = state.statusText
+        toolTip = state.statusText(context: context)
     }
 
     func updateMessages(_ presentation: ForecastIndicatorPresentation) {
@@ -254,7 +258,7 @@ final class TouchBarRateLimitsView: NSView {
         messagesButton.contentTintColor = presentation.hasForecasts ? DesignTokens.accent : NSColor(white: 0.55, alpha: 1)
         messagesButton.toolTip = presentation.toolTip
         messagesButton.setAccessibilityLabel(presentation.accessibilityLabel)
-        update(with: currentState, language: presentation.language)
+        update(with: currentState, context: PresentationContext(now: currentContext.now, language: presentation.language, calendar: currentContext.calendar))
     }
     func updateMessages(forecastCount: Int?, available: Bool) {
         updateMessages(ForecastIndicatorPresentation(count: forecastCount, available: available))
@@ -421,14 +425,14 @@ private final class BalancedRowView: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func update(title: String, value: String, date: String, percent: Double?) {
+    func update(title: String, value: String, date: String, percent: Double?, language: DisplayLanguage = .current) {
         self.title.stringValue = title
         self.value.stringValue = value
         self.date.stringValue = date
         self.value.textColor = percent.map { $0 <= 20 ? .systemRed : .white } ?? .white
         progress.isHidden = percent == nil
         credit.isHidden = percent != nil
-        credit.stringValue = DisplayLanguage.text("可用", "Ready")
+        credit.stringValue = language.text("可用", "Ready")
         progress.percent = percent ?? 0
     }
 

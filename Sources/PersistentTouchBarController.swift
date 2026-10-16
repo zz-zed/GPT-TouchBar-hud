@@ -17,6 +17,7 @@ final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
     private var isSessionActive = true
     private var isScreenAwake = true
     private var hasPresented = false
+    private var currentContext = PresentationContext()
     private var currentState = RateLimitDisplayState.initial
     private var limitsView: TouchBarRateLimitsView?
     private var forecastIndicator = ForecastIndicatorPresentation()
@@ -115,14 +116,15 @@ final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
         return true
     }
 
-    func update(with state: RateLimitDisplayState) {
+    func update(with state: RateLimitDisplayState, context: PresentationContext = PresentationContext()) {
+        currentContext = context
         currentState = state
         if limitsView == nil {
             taskTrace.record(state, action: .skipped,
                 reason: !isEnabled ? .disabled : (!isAvailable ? .noInterface : (!isScreenAwake ? .sleeping : .notLoaded)))
         }
         if limitsView == nil { TaskPresentationTrace.record(state, surface: .touchBar, action: .notLoaded) }
-        limitsView?.update(with: state)
+        limitsView?.update(with: state, context: context)
     }
     func updateMessages(_ presentation: ForecastIndicatorPresentation) {
         forecastIndicator = presentation
@@ -135,7 +137,7 @@ final class PersistentTouchBarController: NSObject, NSTouchBarDelegate {
     func touchBar(_ touchBar: NSTouchBar, makeItemForIdentifier identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem? {
         guard identifier == Self.limitsIdentifier else { return nil }
         let view = TouchBarRateLimitsView(diagnostics: diagnostics, consumer: .touchBarPersistent)
-        view.update(with: currentState)
+        view.update(with: currentState, context: currentContext)
         view.onOpenMessages = onOpenMessages
         view.updateMessages(forecastIndicator)
         limitsView = view

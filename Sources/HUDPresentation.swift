@@ -58,22 +58,22 @@ struct HUDMetric: Equatable {
     var compact: String { "\(compactTitle) \(value)" }
     var reservedCompact: String { "\(compactTitle) \(percent == nil ? value : "100%")" }
 
-    static func rows(for state: RateLimitDisplayState) -> [Self] {
+    static func rows(for state: RateLimitDisplayState, context: PresentationContext = PresentationContext()) -> [Self] {
         var rows: [Self] = []
         if let meter = state.fiveHour {
-            rows.append(Self(title: DisplayLanguage.text("5 小时剩余", "5-hour remaining"), compactTitle: "5h", value: meter.remainingText, date: resetDate(meter), percent: meter.remainingPercent))
+            rows.append(Self(title: context.text("5 小时剩余", "5-hour remaining"), compactTitle: "5h", value: meter.remainingText, date: resetDate(meter, context: context), percent: meter.remainingPercent))
         } else if let credits = state.resetCredits, credits.availableCount > 0 {
-            let date = DisplayLanguage.current == .chinese ? credits.expirationText : (credits.earliestExpirationDate == nil ? "Expires --" : "Expires " + credits.expirationText)
-            rows.append(Self(title: DisplayLanguage.text("重置卡", "Reset credits"), compactTitle: DisplayLanguage.text("重置", "Reset"), value: DisplayLanguage.text("\(credits.availableCount) 张", "\(credits.availableCount)"), date: date, percent: nil))
+            let date = context.language == .chinese ? credits.expirationText(context: context) : (credits.earliestExpirationDate == nil ? "Expires --" : "Expires " + credits.expirationText(context: context))
+            rows.append(Self(title: context.text("重置卡", "Reset credits"), compactTitle: context.text("重置", "Reset"), value: context.text("\(credits.availableCount) 张", "\(credits.availableCount)"), date: date, percent: nil))
         }
         if let meter = state.weekly {
-            rows.append(Self(title: DisplayLanguage.text("周限额剩余", "Weekly remaining"), compactTitle: DisplayLanguage.text("周", "7d"), value: meter.remainingText, date: resetDate(meter), percent: meter.remainingPercent))
+            rows.append(Self(title: context.text("周限额剩余", "Weekly remaining"), compactTitle: context.text("周", "7d"), value: meter.remainingText, date: resetDate(meter, context: context), percent: meter.remainingPercent))
         }
         return rows
     }
-    private static func resetDate(_ meter: LimitMeter) -> String {
-        if DisplayLanguage.current == .chinese { return meter.resetText }
-        return meter.resetDate == nil ? "Resets —" : "Resets " + meter.resetText
+    private static func resetDate(_ meter: LimitMeter, context: PresentationContext) -> String {
+        if context.language == .chinese { return meter.resetText(context: context) }
+        return meter.resetDate == nil ? "Resets —" : "Resets " + meter.resetText(context: context)
     }
 }
 
@@ -83,11 +83,11 @@ struct MenuBarPresentation {
     let statusItemLength: CGFloat
     let hasUpdate: Bool
 
-    init(state: RateLimitDisplayState, mode: MenuBarDisplayMode, panelVisible: Bool, hasUpdate: Bool = false) {
+    init(state: RateLimitDisplayState, mode: MenuBarDisplayMode, panelVisible: Bool, hasUpdate: Bool = false, metrics: [HUDMetric]? = nil) {
         diagnosticState = state
         self.hasUpdate = hasUpdate
         let resolved = mode.resolved(panelVisible: panelVisible)
-        let all = HUDMetric.rows(for: state)
+        let all = metrics ?? HUDMetric.rows(for: state)
         let rows = resolved == .single ? Array(all.prefix(1)) : all
         if resolved == .icon {
             title = hasUpdate ? " ↑" : ""
@@ -210,15 +210,15 @@ struct NotchTaskPresentation: Equatable {
     let note: String?
     let appearance: TaskStatusAppearance
 
-    init(_ summary: TaskStatusSummary?, enabled: Bool = true) {
+    init(_ summary: TaskStatusSummary?, enabled: Bool = true, language: DisplayLanguage = .current) {
         guard enabled else {
             badge = ""
-            title = DisplayLanguage.text("额度概览", "Quota overview")
+            title = language.text("额度概览", "Quota overview")
             note = nil
             appearance = .idle
             return
         }
-        if let activity = summary?.activityPresentation {
+        if let activity = summary?.activityPresentation(language: language) {
             badge = activity.badge + (activity.hasRunningTasks && summary?.completionFeedbackVisible == true ? " ✓" : "")
             title = activity.label
             appearance = TaskStatusAppearance(summary)
@@ -229,8 +229,8 @@ struct NotchTaskPresentation: Equatable {
         }
         guard let summary else {
             badge = "—"
-            title = DisplayLanguage.text("任务状态不可用", "Task status unavailable")
-            note = DisplayLanguage.text("监测尚未就绪，任务数量未知。", "Monitoring is unavailable. Task count is unknown.")
+            title = language.text("任务状态不可用", "Task status unavailable")
+            note = language.text("监测尚未就绪，任务数量未知。", "Monitoring is unavailable. Task count is unknown.")
             appearance = .unknown
             return
         }
@@ -240,7 +240,7 @@ struct NotchTaskPresentation: Equatable {
         } else {
             badge = summary.legacyCompletionFeedbackVisible ? "✓" : "0"
         }
-        title = summary.label
+        title = summary.label(language: language)
         note = nil
     }
 }

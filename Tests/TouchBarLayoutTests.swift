@@ -104,6 +104,13 @@ enum TouchBarLayoutTests {
                 check(yesterday?.stringValue.contains(DisplayLanguage.text("2744.3", "27.4")) == true, "\(name): yesterday is visible")
             }
         }
+        func snapshot(_ name: String) throws {
+            try FileManager.default.createDirectory(atPath: "build/presentation-coordinators/final/screenshots", withIntermediateDirectories: true)
+            host.layoutSubtreeIfNeeded(); view.displayIfNeeded()
+            let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
+            view.cacheDisplay(in: view.bounds, to: bitmap)
+            try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: "build/presentation-coordinators/final/screenshots/" + name + ".png"))
+        }
         func verifyForecastTitle(_ count: String, _ name: String) {
             let button = buttons(view).first { $0.accessibilityIdentifier() == "touchbar.messages" }!
             let actual = button.title
@@ -205,11 +212,13 @@ enum TouchBarLayoutTests {
         view.updateMessages(forecastCount: 100, available: true)
         verify("English maximum two-quota forecast layout")
         verifyForecastTitle("99+", "English maximum two-quota forecast layout")
+        try snapshot("touchbar-99plus-en")
         check(messageButton.toolTip == "Reset forecasts (100 upcoming)",
               "Compact 99+ title retains the exact English accessibility count")
         DisplayLanguage.current = .chinese
         verify("Chinese maximum two-quota forecast layout")
         verifyForecastTitle("99+", "Chinese maximum two-quota forecast layout")
+        try snapshot("touchbar-99plus-zh")
         check(messageButton.toolTip == "重置预告（100 条）",
               "Compact 99+ title retains the exact Chinese accessibility count")
         DisplayLanguage.current = .english

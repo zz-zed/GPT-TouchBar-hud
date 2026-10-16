@@ -38,6 +38,7 @@ private struct MenuMetric: Equatable {
     var isCached = false
     var hasPendingTime = false
     var help = ""
+    var language: DisplayLanguage = .current
 }
 
 /// Native status menu summary. The rendering rules match the approved 28-scene preview.
@@ -111,46 +112,48 @@ final class StatusSummaryView: NSView {
         update(state)
     }
 
-    func update(_ state: RateLimitDisplayState, news: ResetNewsViewState? = nil, forecast presentation: ForecastPresentation? = nil) {
+    func update(_ state: RateLimitDisplayState, news: ResetNewsViewState? = nil, forecast presentation: ForecastPresentation? = nil,
+                context: PresentationContext = PresentationContext()) {
+        func date(_ value: Date?) -> String { value.map { context.date($0) } ?? "—" }
         if let news { self.news = news }
-        let forecast = presentation.map(MenuForecastPresentation.init) ?? MenuForecastPresentation(self.news)
+        let forecast = presentation.map(MenuForecastPresentation.init) ?? MenuForecastPresentation(ForecastPresentation(self.news, context: context))
         let hasQuota = state.fiveHour != nil || state.weekly != nil
         let firstLoad = !hasQuota && state.lastUpdated == nil && state.resetCredits == nil
         var metrics: [MenuMetric] = []
         func quota(_ meter: LimitMeter, id: String, title: String) -> MenuMetric {
             MenuMetric(id: id, title: title, symbol: "gauge.medium", value: meter.remainingText,
-                detail: (meter.remainingPercent == 0 ? DisplayLanguage.text("已耗尽 · ", "Exhausted · ") : "")
-                    + DisplayLanguage.text("重置 ", "Resets ") + Self.date(meter.resetDate),
+                detail: (meter.remainingPercent == 0 ? context.text("已耗尽 · ", "Exhausted · ") : "")
+                    + context.text("重置 ", "Resets ") + date(meter.resetDate),
                 style: .quota, progress: meter.remainingPercent)
         }
         if let five = state.fiveHour {
-            metrics.append(quota(five, id: "fiveHour", title: DisplayLanguage.text("5小时额度剩余", "5-hour remaining")))
+            metrics.append(quota(five, id: "fiveHour", title: context.text("5小时额度剩余", "5-hour remaining")))
         }
         if let weekly = state.weekly {
-            metrics.append(quota(weekly, id: "weekly", title: DisplayLanguage.text("周额度剩余", "Weekly remaining")))
+            metrics.append(quota(weekly, id: "weekly", title: context.text("周额度剩余", "Weekly remaining")))
         }
         let quotaCount = metrics.count
         if !firstLoad {
             if let credits = state.resetCredits {
                 let quiet = credits.availableCount == 0 && !forecast.canOpen
                 metrics.append(MenuMetric(id: "reset", title: quiet
-                    ? DisplayLanguage.text("可用重置", "Available resets")
-                    : DisplayLanguage.text("可用完整重置", "Full resets available"),
+                    ? context.text("可用重置", "Available resets")
+                    : context.text("可用完整重置", "Full resets available"),
                     symbol: "arrow.counterclockwise", value: "\(credits.availableCount)",
                     detail: credits.availableCount > 0
-                        ? DisplayLanguage.text("最早到期 ", "Expires ") + Self.date(credits.earliestExpirationDate) : "",
+                        ? context.text("最早到期 ", "Expires ") + date(credits.earliestExpirationDate) : "",
                     style: quiet ? .quietCredit : .credit,
-                    unit: DisplayLanguage.current == .chinese ? "次" : (quiet ? " left" : "")))
+                    unit: context.language == .chinese ? "次" : (quiet ? " left" : "")))
             } else {
-                metrics.append(MenuMetric(id: "reset", title: DisplayLanguage.text("重置", "Resets"),
-                    symbol: "arrow.counterclockwise", value: DisplayLanguage.text("次数待获取", "Count pending"),
+                metrics.append(MenuMetric(id: "reset", title: context.text("重置", "Resets"),
+                    symbol: "arrow.counterclockwise", value: context.text("次数待获取", "Count pending"),
                     detail: "", style: .quietCredit))
             }
         }
         if forecast.kind != .hidden {
             let active = forecast.canOpen
             let wide = active && (forecast.isWide || firstLoad)
-            metrics.append(MenuMetric(id: "forecast", title: DisplayLanguage.text("公开重置预告", "Public reset forecast"),
+            metrics.append(MenuMetric(id: "forecast", title: context.text("公开重置预告", "Public reset forecast"),
                 symbol: "calendar.badge.clock",
                 value: forecast.compactValue,
                 detail: active ? (forecast.kind == .cached ? forecast.detail : forecast.compactDetail) : "",
@@ -163,31 +166,32 @@ final class StatusSummaryView: NSView {
             (state.tokenUsage?.yesterdayTokens == nil && state.tokenUsage?.cumulativeTokens == nil)
         let usage = state.tokenUsage
         let quotaMessage = firstLoad ? (state.errorMessage == nil
-            ? DisplayLanguage.text("正在读取账号额度…", "Loading account quota…")
-            : DisplayLanguage.text("暂时无法读取账号数据", "Account data unavailable")) : ""
+            ? context.text("正在读取账号额度…", "Loading account quota…")
+            : context.text("暂时无法读取账号数据", "Account data unavailable")) : ""
         let quotaHint = firstLoad ? (state.errorMessage == nil
-            ? DisplayLanguage.text("重置次数与 Token 用量也在获取中", "Resets and token usage are loading")
-            : DisplayLanguage.text("请确认 Codex 已启动后重试", "Check that Codex is running, then retry")) : ""
+            ? context.text("重置次数与 Token 用量也在获取中", "Resets and token usage are loading")
+            : context.text("请确认 Codex 已启动后重试", "Check that Codex is running, then retry")) : ""
         let staleQuota = state.errorMessage != nil && hasQuota && state.lastUpdated != nil
-        let note = staleQuota ? DisplayLanguage.text("上次数据 · ", "Last data · ") + Self.date(state.lastUpdated)
-            + DisplayLanguage.text(" · 额度暂无法更新", " · Quota unavailable") : ""
+        let note = staleQuota ? context.text("上次数据 · ", "Last data · ") + date(state.lastUpdated)
+            + context.text(" · 额度暂无法更新", " · Quota unavailable") : ""
         let status: String
         if firstLoad { status = "" }
-        else if state.isRefreshing { status = DisplayLanguage.text("正在刷新 · 保留上次数据", "Refreshing · Showing last data") }
+        else if state.isRefreshing { status = context.text("正在刷新 · 保留上次数据", "Refreshing · Showing last data") }
         else if staleQuota { status = "" }
         else if let lastUpdated = state.lastUpdated {
-            status = DisplayLanguage.text("账号数据 · ", "Account data · ") + Self.time(lastUpdated)
+            status = context.text("账号数据 · ", "Account data · ") + context.date(lastUpdated, format: "HH:mm")
         }
         else { status = "" }
+        metrics = metrics.map { var metric = $0; metric.language = context.language; return metric }
         let next = Presentation(metrics: metrics, quotaCount: quotaCount, quotaMessage: quotaMessage,
             quotaHint: quotaHint, quotaNote: note, quotaFailed: firstLoad && state.errorMessage != nil,
-            task: state.displayedTaskStatus?.label,
+            task: state.displayedTaskStatus?.label(language: context.language),
             taskColor: state.displayedTaskStatus.map { TaskStatusAppearance($0).color ?? .secondaryLabelColor } ?? .secondaryLabelColor,
             balance: state.creditBalance?.displayText,
-            tokens: tokenUnknown ? "" : "\(usage?.yesterdayText ?? DisplayLanguage.text("昨日 --", "Yday --"))     \(usage?.cumulativeText ?? DisplayLanguage.text("累计 --", "Total --"))",
-            tokenHelp: usage?.toolTip ?? DisplayLanguage.text("账号 Token 统计尚未读取", "Account token usage not loaded"),
+            tokens: tokenUnknown ? "" : "\(usage?.yesterdayText(language: context.language) ?? context.text("昨日 --", "Yday --"))     \(usage?.cumulativeText(language: context.language) ?? context.text("累计 --", "Total --"))",
+            tokenHelp: usage?.toolTip(context: context) ?? context.text("账号 Token 统计尚未读取", "Account token usage not loaded"),
             tokenNote: usage?.isStale == true
-                ? DisplayLanguage.text("上次数据 · Token 暂无法更新", "Last data · Token update failed") : "",
+                ? context.text("上次数据 · Token 暂无法更新", "Last data · Token update failed") : "",
             tokenUnknown: tokenUnknown, status: status,
             refreshing: state.isRefreshing || self.news.status == .checking)
         guard lastPresentation != next else { return }
@@ -207,8 +211,8 @@ final class StatusSummaryView: NSView {
         quotaNote.stringValue = next.quotaNote; quotaNote.toolTip = state.errorMessage
         quotaRetry.title = next.quotaFailed ? "重新获取账号数据" : "重试"
         tokenHeading.stringValue = tokenUnknown
-            ? DisplayLanguage.text("Token 用量待获取", "Token usage pending")
-            : DisplayLanguage.text("Token 用量", "Token usage")
+            ? context.text("Token 用量待获取", "Token usage pending")
+            : context.text("Token 用量", "Token usage")
         tokens.stringValue = next.tokens; tokens.toolTip = next.tokenHelp
         tokenNote.stringValue = next.tokenNote
         updated.stringValue = next.status
@@ -354,16 +358,6 @@ final class StatusSummaryView: NSView {
         NSImage(systemSymbolName: name, accessibilityDescription: nil)
             ?? NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil)
     }
-    private static func date(_ value: Date?) -> String {
-        guard let value else { return "—" }
-        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "MM/dd HH:mm"; formatter.timeZone = .current
-        return formatter.string(from: value)
-    }
-    private static func time(_ value: Date) -> String {
-        let formatter = DateFormatter(); formatter.dateFormat = "HH:mm"; formatter.timeZone = .current
-        return formatter.string(from: value)
-    }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
 
@@ -407,7 +401,7 @@ private final class MenuMetricView: NSView {
         let displayValue: String
         if metric.style == .quietCredit {
             displayValue = metric.unit.isEmpty
-                ? DisplayLanguage.text("重置次数待获取", "Reset count pending")
+                ? metric.language.text("重置次数待获取", "Reset count pending")
                 : "\(metric.title) \(metric.value)\(metric.unit)"
         } else {
             displayValue = metric.value

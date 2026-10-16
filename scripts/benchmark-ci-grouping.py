@@ -54,8 +54,10 @@ def layout(text, regression_source=None):
                 raise ValueError("Unrecognized regression command: " + line)
             groups[suite].append(command[1])
     calls = [script for scripts in groups.values() for script in scripts]
-    if set(groups) != {"data", "interface"} or len(calls) != 29 or len(set(calls)) != 29:
-        raise ValueError("Expected all 29 regression scripts exactly once")
+    # Historical revisions have 29 entries; the architecture suite adds termination.
+    expected_count = 30 if "test-app-termination" in calls else 29
+    if set(groups) != {"data", "interface"} or len(calls) != expected_count or len(set(calls)) != expected_count:
+        raise ValueError(f"Expected all {expected_count} regression scripts exactly once")
     return groups
 
 

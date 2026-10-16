@@ -5,6 +5,7 @@ final class PreferencesCoordinator {
     private let appUpdater: AppUpdater
     private let resetNewsMonitor: ResetNewsMonitor
     private let quotaAlerts: QuotaAlertMonitor
+    private var isStopped = false
     private var preferences: PreferencesWindowController?
     private var hookPreferences: HookExperimentPreferencesController?
     private var connectionDiagnostics: ConnectionDiagnosticsWindowController?
@@ -29,6 +30,11 @@ final class PreferencesCoordinator {
         self.touchBarHardware = touchBarHardware; self.appUpdater = appUpdater
         self.resetNewsMonitor = resetNewsMonitor; self.quotaAlerts = quotaAlerts
     }
+    func start() { isStopped = false }
+    func stop() {
+        isStopped = true
+        preferences?.close(); hookPreferences?.close(); connectionDiagnostics?.close()
+    }
     func update(snapshot: AppDisplaySnapshot, appearance: HUDAppearance, taskEnabled: Bool,
                 persistentEnabled: Bool, persistentAvailable: Bool) {
         hudAppearance = appearance; latestResetNewsState = snapshot.news
@@ -39,59 +45,60 @@ final class PreferencesCoordinator {
         updateQuotaAlertPreferences()
     }
     func updateAppUpdate() { preferences?.updateAppUpdate(appUpdater.viewState); updateUpdateNotificationPreferences() }
-    func openResetNews() { openPreferences(nil); preferences?.showResetNewsTab() }
-    func openQuotaAlerts() { openPreferences(nil); preferences?.showQuotaAlertsTab() }
+    func openResetNews() { guard !isStopped else { return }; openPreferences(nil); preferences?.showResetNewsTab() }
+    func openQuotaAlerts() { guard !isStopped else { return }; openPreferences(nil); preferences?.showQuotaAlertsTab() }
     func openPreferences(_ sender: AnyObject?) {
+        guard !isStopped else { return }
         if preferences == nil {
             let controller = PreferencesWindowController(appearance: hudAppearance, touchBarHardware: touchBarHardware)
-            controller.onAppearance = { [weak self] appearance in
+            controller.onAppearance = { [weak self] appearance in guard self?.isStopped == false else { return };
                 self?.onAppearance?(appearance)
             }
-            controller.onQuit = { [weak self] in self?.onQuit?() }
-            controller.onDisplayMode = { [weak self] mode in self?.onDisplayMode?(mode) }
-            controller.onMenuMode = { [weak self] mode in self?.onMenuMode?(mode) }
-            controller.onAlwaysShowQuota = { [weak self] enabled in
+            controller.onQuit = { [weak self] in guard self?.isStopped == false else { return }; self?.onQuit?() }
+            controller.onDisplayMode = { [weak self] mode in guard self?.isStopped == false else { return }; self?.onDisplayMode?(mode) }
+            controller.onMenuMode = { [weak self] mode in guard self?.isStopped == false else { return }; self?.onMenuMode?(mode) }
+            controller.onAlwaysShowQuota = { [weak self] enabled in guard self?.isStopped == false else { return };
                 UserDefaults.standard.set(enabled, forKey: NotchPresentationModel.alwaysShowKey)
                 self?.onAlwaysShowQuota?(enabled)
             }
-            controller.onVisibility = { [weak self] visible in
+            controller.onVisibility = { [weak self] visible in guard self?.isStopped == false else { return };
                 self?.onVisibility?(visible)
             }
-            controller.onLanguage = { [weak self] language in
+            controller.onLanguage = { [weak self] language in guard self?.isStopped == false else { return };
                 DisplayLanguage.current = language
                 self?.onLanguage?()
             }
-            controller.onHookExperiment = { [weak self] in self?.openHookPreferences() }
-            controller.onTaskStatus = { [weak self] enabled in self?.onTaskStatus?(enabled) }
-            controller.onPersistent = { [weak self] enabled in
+            controller.onHookExperiment = { [weak self] in guard self?.isStopped == false else { return }; self?.openHookPreferences() }
+            controller.onTaskStatus = { [weak self] enabled in guard self?.isStopped == false else { return }; self?.onTaskStatus?(enabled) }
+            controller.onPersistent = { [weak self] enabled in guard self?.isStopped == false else { return };
                 self?.onPersistent?(enabled)
             }
-            controller.onAutomaticUpdates = { [weak self] enabled in
+            controller.onAutomaticUpdates = { [weak self] enabled in guard self?.isStopped == false else { return };
                 self?.appUpdater.setAutomaticChecksEnabled(enabled)
             }
-            controller.onUpdateNotifications = { [weak self] enabled in
+            controller.onUpdateNotifications = { [weak self] enabled in guard self?.isStopped == false else { return };
                 self?.appUpdater.setNotificationsEnabled(enabled, userInitiated: true)
             }
-            controller.onAuthorizeUpdateNotifications = { [weak self] in
+            controller.onAuthorizeUpdateNotifications = { [weak self] in guard self?.isStopped == false else { return };
                 self?.appUpdater.setNotificationsEnabled(true, userInitiated: true)
             }
-            controller.onCheckForUpdates = { [weak self] in self?.appUpdater.check() }
-            controller.onViewUpdate = { [weak self] in self?.appUpdater.presentAvailableUpdate() }
-            controller.onViewUpdateProgress = { [weak self] in self?.appUpdater.presentInstallationProgress() }
-            controller.onResetNewsEnabled = { [weak self] enabled in self?.resetNewsMonitor.setEnabled(enabled) }
-            controller.onResetNewsSound = { [weak self] enabled in
+            controller.onCheckForUpdates = { [weak self] in guard self?.isStopped == false else { return }; self?.appUpdater.check() }
+            controller.onViewUpdate = { [weak self] in guard self?.isStopped == false else { return }; self?.appUpdater.presentAvailableUpdate() }
+            controller.onViewUpdateProgress = { [weak self] in guard self?.isStopped == false else { return }; self?.appUpdater.presentInstallationProgress() }
+            controller.onResetNewsEnabled = { [weak self] enabled in guard self?.isStopped == false else { return }; self?.resetNewsMonitor.setEnabled(enabled) }
+            controller.onResetNewsSound = { [weak self] enabled in guard self?.isStopped == false else { return };
                 self?.resetNewsMonitor.setSoundEnabled(enabled)
                 self?.onNeedsDisplayRefresh?()
             }
-            controller.onCheckResetNews = { [weak self] in self?.resetNewsMonitor.checkNow() }
-            controller.onQuotaAlerts = { [weak self] configuration in
+            controller.onCheckResetNews = { [weak self] in guard self?.isStopped == false else { return }; self?.resetNewsMonitor.checkNow() }
+            controller.onQuotaAlerts = { [weak self] configuration in guard self?.isStopped == false else { return };
                 self?.quotaAlerts.configure(configuration)
                 self?.updateQuotaAlertPreferences()
             }
-            controller.onAutoLaunch = { [weak self] enabled in
+            controller.onAutoLaunch = { [weak self] enabled in guard self?.isStopped == false else { return };
                 self?.configureAutoLaunch(enabled: enabled)
             }
-            controller.onConnectionDiagnostics = { [weak self] in
+            controller.onConnectionDiagnostics = { [weak self] in guard self?.isStopped == false else { return };
                 guard let self else { return }
                 if self.connectionDiagnostics == nil { self.connectionDiagnostics = ConnectionDiagnosticsWindowController() }
                 self.connectionDiagnostics?.showAndCheck()
@@ -109,9 +116,10 @@ final class PreferencesCoordinator {
     }
 
     func openHookPreferences() {
+        guard !isStopped else { return }
         if hookPreferences == nil {
             let controller = HookExperimentPreferencesController()
-            controller.onModeChange = { [weak self] _ in
+            controller.onModeChange = { [weak self] _ in guard self?.isStopped == false else { return };
                 guard let self else { return }
                 self.onHookModeChanged?()
             }

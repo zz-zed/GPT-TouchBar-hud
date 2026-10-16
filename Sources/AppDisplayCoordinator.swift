@@ -141,18 +141,16 @@ final class AppDisplayCoordinator {
         let state = displaySnapshot.state
         mainTaskTrace.record(state, action: reason == .completionFeedbackExpired ? .presentationRevised : .received)
         menu.update(displaySnapshot)
-        hudController.update(with: state)
-        notchHUD.update(state, taskDisplayEnabled: taskStatusEnabled)
-        persistentTouchBar.update(with: state)
+        hudController.update(with: state, context: displaySnapshot.context)
+        notchHUD.update(state, taskDisplayEnabled: taskStatusEnabled, metrics: displaySnapshot.metrics, context: displaySnapshot.context)
+        persistentTouchBar.update(with: state, context: displaySnapshot.context)
         dispatchForecast()
         onSnapshot?(displaySnapshot)
     }
     func renderResetNews() {
-        guard !isStopped else { return }
-        displaySnapshot = makeSnapshot(reason: .layoutRefresh)
-        menu.update(displaySnapshot, statusTitle: false)
-        dispatchForecast()
-        onSnapshot?(displaySnapshot)
+        // News also publishes calendar/timezone changes. Keep quota dates on the
+        // same captured context while each renderer suppresses equal output.
+        renderDisplayState()
     }
     private func dispatchForecast() {
         let snapshot = displaySnapshot
@@ -179,7 +177,7 @@ final class AppDisplayCoordinator {
         renderDisplayState()
     }
     func frontApplicationChanged() { guard !isStopped else { return }; notchHUD.environmentChanged() }
-    func stop() { isStopped = true; resetCompletionFeedback(); hidePanels() }
+    func stop() { isStopped = true; menu.stop(); resetCompletionFeedback(); hidePanels() }
     func hidePanels() { notchHUD.hide(); hudWindow.orderOut(nil); resetNewsPopover.close() }
     func resetCompletionFeedback() { completionFeedback.reset() }
     func setAlwaysShowQuota(_ enabled: Bool) { notchHUD.setAlwaysShowQuota(enabled) }

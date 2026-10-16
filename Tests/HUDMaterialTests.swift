@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ResetNewsCore
 
 @main
 enum HUDMaterialTests {
@@ -25,6 +26,36 @@ enum HUDMaterialTests {
             rightArea: CGRect(x: width / 2 + 90, y: 568, width: width / 2 - 90, height: 32))!
     }
     static func notchMarkerChecks() {
+        let previousLanguage = DisplayLanguage.current
+        DisplayLanguage.current = .english
+        defer { DisplayLanguage.current = previousLanguage }
+        let context = PresentationContext(now: sample.lastUpdated!, language: .chinese)
+        let item = ResetNewsItem(id: "material-marker", sources: [.feed], originalText: "tomorrow",
+            facts: [.init(kind: .upcomingReset, timingText: "tomorrow")],
+            publishedAt: context.now, firstSeenAt: context.now)
+        let cases: [(String, ResetNewsViewState)] = [
+            ("absent", ResetNewsViewState()),
+            ("current", ResetNewsViewState(enabled: true, status: .success, items: [item], forecastAvailability: .current)),
+            ("cached", ResetNewsViewState(enabled: true, status: .failure, items: [item], forecastAvailability: .cached))
+        ]
+        func element(in root: Any) -> (any NSAccessibilityProtocol)? {
+            var visited = Set<ObjectIdentifier>()
+            func find(_ value: Any) -> (any NSAccessibilityProtocol)? {
+                guard let object = value as? NSObject, visited.insert(ObjectIdentifier(object)).inserted else { return nil }
+                if let node = object as? any NSAccessibilityProtocol {
+                    if node.accessibilityIdentifier() == "notch.resetForecast" { return node }
+                    for child in node.accessibilityChildren() ?? [] {
+                        if let match = find(child) { return match }
+                    }
+                }
+                if let view = object as? NSView {
+                    for child in view.subviews { if let match = find(child) { return match } }
+                }
+                return nil
+            }
+            return find(root)
+        }
+        var unavailableAXLabels = 0
         let model = NotchPresentationModel()
         model.animationsEnabled = false
         let host = NotchHostingView(model: model, bridge: NotchGeometryBridge())
@@ -36,30 +67,56 @@ enum HUDMaterialTests {
             panel.setFrame(CGRect(x: 100, y: 100, width: width, height: 360), display: false)
             model.configure(layout)
             model.setVisible(true)
-            model.update(sample, tasksEnabled: true)
+            model.update(sample, tasksEnabled: true, context: context)
             model.click()
             for material in HUDAppearance.Material.allCases {
                 model.setMaterial(material)
-                panel.orderFrontRegardless()
-                RunLoop.main.run(until: Date().addingTimeInterval(0.1))
-                host.layoutSubtreeIfNeeded()
-                let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
-                host.cacheDisplay(in: host.bounds, to: bitmap)
-                let scale = CGFloat(bitmap.pixelsWide) / width
-                for left in [true, false] {
-                    let x = Int(layout.markX(left: left) * scale)
-                    var visiblePixels = 0
-                    for px in (x - Int(18 * scale))..<(x + Int(18 * scale)) {
-                        for py in 0..<Int(layout.visualBarHeight * scale) {
-                            if let color = bitmap.colorAt(x: px, y: py)?.usingColorSpace(.deviceRGB),
-                               color.alphaComponent > 0.5, min(color.redComponent, color.greenComponent, color.blueComponent) > 0.35 {
-                                visiblePixels += 1
+                for (name, news) in cases {
+                    model.updateResetNews(news, context: context)
+                    panel.orderFrontRegardless()
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+                    host.layoutSubtreeIfNeeded()
+                    let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
+                    host.cacheDisplay(in: host.bounds, to: bitmap)
+                    let scale = CGFloat(bitmap.pixelsWide) / width
+                    func pixels(left: Bool, matches: (NSColor) -> Bool) -> Int {
+                        let x = Int(layout.markX(left: left) * scale)
+                        var count = 0
+                        for px in (x - Int(18 * scale))..<(x + Int(18 * scale)) {
+                            for py in 0..<Int(layout.visualBarHeight * scale) {
+                                if let color = bitmap.colorAt(x: px, y: py)?.usingColorSpace(.deviceRGB),
+                                   color.alphaComponent > 0.5, matches(color) { count += 1 }
                             }
                         }
+                        return count
                     }
-                    check(visiblePixels > 10, "Top icon remains visible after material/width changes: \(material), \(width), left=\(left), pixels=\(visiblePixels)")
+                    let white = pixels(left: true) { min($0.redComponent, $0.greenComponent, $0.blueComponent) > 0.35 }
+                    check(white > 10, "Left icon remains visible: \(material), \(width), \(name), pixels=\(white)")
+                    let button = element(in: host)
+                    if name == "absent" {
+                        let unexpected = pixels(left: false) { max($0.redComponent, $0.greenComponent, $0.blueComponent) > 0.3 }
+                        check(!model.showsForecastShoulder && unexpected == 0,
+                              "No forecast keeps the right entry absent: \(material), \(width), pixels=\(unexpected)")
+                    } else {
+                        let visible = pixels(left: false) { color in
+                            let r = color.redComponent, g = color.greenComponent, b = color.blueComponent
+                            if name == "cached" { return max(r, g, b) - min(r, g, b) < 0.08 && min(r, g, b) > 0.3 && max(r, g, b) < 0.85 }
+                            return b > 0.45 && g > 0.3 && b - r > 0.18
+                        }
+                        check(model.showsForecastShoulder && visible > 10, "Forecast entry remains visible in its freshness color: \(material), \(width), \(name), pixels=\(visible)")
+                        let expectedLabel = name == "cached" ? "上次重置预告（1 条）" : "重置预告（1 条）"
+                        check(model.forecast.indicator.accessibilityLabel == expectedLabel,
+                              "Shared forecast AX preserves captured Chinese and freshness with English globals")
+                        if let button {
+                            check(button.accessibilityLabel() == expectedLabel,
+                                  "Exposed native forecast AX consumes the shared label: \(material), \(width), \(name)")
+                        } else { unavailableAXLabels += 1 }
+                    }
                 }
             }
+        }
+        if unavailableAXLabels > 0 {
+            print("NOTE: SwiftUI did not expose \(unavailableAXLabels) forecast AX nodes; shared labels and native pixels checked, native AX label reads unavailable")
         }
     }
     static func main() {

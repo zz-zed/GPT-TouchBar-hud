@@ -24,6 +24,7 @@ REGRESSION_SUITES = {
         "test-diagnostic-upgrade-installer",
         "test-diagnostic-upgrade-recovery",
         "test-host-lifecycle",
+        "test-app-termination",
         "test-single-instance",
         "test-app-update",
         "test-app-update-progress",

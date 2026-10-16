@@ -30,7 +30,7 @@ struct NotchDetailPages: View {
             HStack(spacing: model.usesGroupedControls ? 2 : 8) {
                 ForEach(model.visiblePages, id: \.rawValue) { page in
                     Button { model.selectPage(page) } label: {
-                        Text(page.title + (page == .messages && model.resetNews.forecastCount > 0 ? " \(ResetForecastIndicator.countText(model.resetNews.forecastCount))" : "")).font(.system(size: 12, weight: .medium))
+                        Text(page.title(language: model.presentationContext.language) + (page == .messages && model.resetNews.forecastCount > 0 ? " \(ResetForecastIndicator.countText(model.resetNews.forecastCount))" : "")).font(.system(size: 12, weight: .medium))
                             .lineLimit(1).minimumScaleFactor(0.6)
                             .foregroundColor(model.page == page || model.increaseContrast ? .white : NotchStyle.secondary)
                             .padding(.horizontal, 6).padding(.vertical, 4)
@@ -56,11 +56,11 @@ struct NotchDetailPages: View {
             if layout.expandedSize.width >= 500 { updateLabel }
             Spacer(minLength: 4)
             HStack(spacing: model.usesGroupedControls ? 2 : 6) {
-                NotchAction(title: DisplayLanguage.text("刷新额度", "Refresh quota"), identifier: "notch.refresh", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onRefresh?() }
+                NotchAction(title: model.presentationContext.text("刷新额度", "Refresh quota"), identifier: "notch.refresh", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onRefresh?() }
                     .disabled(model.content.isRefreshing)
-                NotchAction(title: DisplayLanguage.text("设置", "Settings"), identifier: "notch.settings", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onSettings?() }
-                NotchAction(title: DisplayLanguage.text("隐藏", "Hide"), identifier: "notch.hide", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onHide?() }
-                NotchAction(title: DisplayLanguage.text("收起", "Collapse"), identifier: "notch.collapse", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.collapse() }
+                NotchAction(title: model.presentationContext.text("设置", "Settings"), identifier: "notch.settings", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onSettings?() }
+                NotchAction(title: model.presentationContext.text("隐藏", "Hide"), identifier: "notch.hide", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onHide?() }
+                NotchAction(title: model.presentationContext.text("收起", "Collapse"), identifier: "notch.collapse", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.collapse() }
             }
             .padding(model.usesGroupedControls ? 2 : 0)
             .modifier(NotchControlSurface(surface: model.controlSurface))
@@ -100,7 +100,7 @@ struct NotchDetailPages: View {
     private var quota: some View {
         VStack(alignment: .leading, spacing: 8) {
             if quotaMetrics.isEmpty {
-                Text(DisplayLanguage.text("暂无额度数据", "No quota data")).font(.system(size: 18, weight: .semibold))
+                Text(model.presentationContext.text("暂无额度数据", "No quota data")).font(.system(size: 18, weight: .semibold))
             } else {
                 HStack(alignment: .top, spacing: 18) {
                     ForEach(Array(quotaMetrics.enumerated()), id: \.offset) { _, metric in
@@ -134,10 +134,10 @@ struct NotchDetailPages: View {
             HStack(alignment: .top, spacing: 16) {
                 if let credits = model.content.state.resetCredits {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(DisplayLanguage.text(credits.availableCount > 0 ? "可用完整重置" : "可用重置", "Available resets"))
+                        Text(model.presentationContext.text(credits.availableCount > 0 ? "可用完整重置" : "可用重置", "Available resets"))
                             .font(.system(size: 10, weight: .medium)).foregroundColor(NotchStyle.secondary)
                         HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            Text(DisplayLanguage.text("\(credits.availableCount) 次", "\(credits.availableCount) left"))
+                            Text(model.presentationContext.text("\(credits.availableCount) 次", "\(credits.availableCount) left"))
                                 .font(.system(size: credits.availableCount > 0 ? 16 : 11,
                                               weight: credits.availableCount > 0 ? .semibold : .regular, design: .monospaced))
                                 .foregroundColor(credits.availableCount > 0 ? .white : NotchStyle.secondary)
@@ -161,24 +161,21 @@ struct NotchDetailPages: View {
                     .buttonStyle(PlainButtonStyle())
                     .accessibilityIdentifier("notch.forecastSummary")
                     .accessibilityLabel((model.resetNews.forecastAvailability == .cached
-                        ? DisplayLanguage.text("上次重置预告 · ", "Last reset forecast · ")
-                        : DisplayLanguage.text("公开重置预告 · ", "Public reset forecast · ")) + headline.summary)
+                        ? model.presentationContext.text("上次重置预告 · ", "Last reset forecast · ")
+                        : model.presentationContext.text("公开重置预告 · ", "Public reset forecast · ")) + headline.summary)
                 }
             }
         }
     }
     private func forecastLabel(_ headline: ResetForecastHeadline) -> String {
         let prefix = model.resetNews.forecastAvailability == .cached
-            ? DisplayLanguage.text("上次重置预告", "Last reset forecast")
-            : DisplayLanguage.text("公开重置预告", "Public reset forecast")
+            ? model.presentationContext.text("上次重置预告", "Last reset forecast")
+            : model.presentationContext.text("公开重置预告", "Public reset forecast")
         return prefix + (headline.shoulderQualifier.map { " · " + $0 } ?? "")
     }
 
     private func earliestExpiry(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MM/dd HH:mm"
-        formatter.timeZone = .current
-        return DisplayLanguage.text("最早到期 ", "Expires ") + formatter.string(from: date)
+        model.presentationContext.text("最早到期 ", "Expires ") + model.presentationContext.date(date)
     }
     private var activity: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -194,15 +191,15 @@ struct NotchDetailPages: View {
     private var usage: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let usage = model.content.state.tokenUsage {
-                Text(usage.yesterdayText + "  ·  " + usage.cumulativeText)
+                Text(usage.yesterdayText(language: model.presentationContext.language) + "  ·  " + usage.cumulativeText(language: model.presentationContext.language))
                     .font(.system(size: 18, weight: .semibold, design: .monospaced)).fixedSize(horizontal: false, vertical: true)
-                if usage.isStale { Text(DisplayLanguage.text("* 为上次统计，当前数据尚未更新。", "* Last known totals; current data is not available.")).foregroundColor(.orange) }
+                if usage.isStale { Text(model.presentationContext.text("* 为上次统计，当前数据尚未更新。", "* Last known totals; current data is not available.")).foregroundColor(.orange) }
                 if let status = usage.status { Text(status).foregroundColor(NotchStyle.secondary) }
-            } else { Text(DisplayLanguage.text("Token 用量暂无数据", "Token usage unavailable")) }
+            } else { Text(model.presentationContext.text("Token 用量暂无数据", "Token usage unavailable")) }
             Text(model.content.state.creditBalance.map {
-                DisplayLanguage.current == .chinese ? $0.displayText : $0.displayText.replacingOccurrences(of: "还剩点数：", with: "Credits: ")
-            } ?? DisplayLanguage.text("点数余额暂无数据", "Credit balance unavailable"))
-            Text(DisplayLanguage.text("当前数据未提供历史用量曲线。", "Historical usage charts are not available from this snapshot."))
+                model.presentationContext.language == .chinese ? $0.displayText : $0.displayText.replacingOccurrences(of: "还剩点数：", with: "Credits: ")
+            } ?? model.presentationContext.text("点数余额暂无数据", "Credit balance unavailable"))
+            Text(model.presentationContext.text("当前数据未提供历史用量曲线。", "Historical usage charts are not available from this snapshot."))
                 .foregroundColor(NotchStyle.secondary)
         }.font(.system(size: 11, weight: .medium))
     }

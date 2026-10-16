@@ -67,6 +67,18 @@ struct StatusMenuTests {
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
         let menu = StatusMenuController(touchBarHardware: .absent, appUpdater: AppUpdater())
         let touchBar = PersistentTouchBarController()
+        let preferencesSuite = "StoppedPreferences." + UUID().uuidString
+        let preferencesDefaults = UserDefaults(suiteName: preferencesSuite)!
+        preferencesDefaults.set(false, forKey: ResetNewsMonitor.enabledPreferenceKey)
+        preferencesDefaults.set(false, forKey: QuotaAlertMonitor.enabledPreferenceKey)
+        defer { preferencesDefaults.removePersistentDomain(forName: preferencesSuite) }
+        let preferences = PreferencesCoordinator(touchBarHardware: .absent, appUpdater: AppUpdater(),
+            resetNewsMonitor: ResetNewsMonitor(repository: ResetNewsRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(preferencesSuite)),
+                defaults: preferencesDefaults), quotaAlerts: QuotaAlertMonitor(defaults: preferencesDefaults))
+        var preferenceRefreshes = 0
+        preferences.onNeedsDisplayRefresh = { preferenceRefreshes += 1 }
+        preferences.stop(); preferences.openPreferences(nil)
+        check(preferenceRefreshes == 0, "Stopped preferences reject late window-open requests")
         let display = AppDisplayCoordinator(menu: menu, persistentTouchBar: touchBar,
             contextProvider: { PresentationContext(now: now, language: .chinese, calendar: calendar) })
         menu.configureStatusItem()
@@ -79,6 +91,17 @@ struct StatusMenuTests {
         display.onSnapshot = { _ in submissions += 1 }
         display.receiveNews(news)
         check(summary.layoutUpdateCount == closedLayouts, "Closed menu retains its summary geometry during news dispatch")
+        var quota = RateLimitDisplayState.initial
+        quota.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: .init(usedPercent: 30,
+            windowDurationMins: 300, resetsAt: now.timeIntervalSince1970))
+        display.receiveQuota(quota)
+        let identifier = NSTouchBarItem.Identifier("io.github.zz-zed.GPTTouchBarHUD.persistent.limits")
+        let retainedItem = touchBar.touchBar(NSTouchBar(), makeItemForIdentifier: identifier) as! NSCustomTouchBarItem
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        display.receiveNews(news)
+        check(text(retainedItem.view).contains("10月15日 04:00") && summary.layoutUpdateCount == closedLayouts,
+            "News-only timezone changes reach quota surfaces without laying out the closed menu")
+        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
         display.receiveTask(TaskStatusSummary(runningCount: 1))
         let previousSubmissions = submissions
         let reference = DiagnosticTaskSnapshotReference(domain: UUID(), monitoringGeneration: 2, batch: 17,
@@ -92,12 +115,83 @@ struct StatusMenuTests {
             "The next actual refresh retains the newest diagnostic snapshot")
         check(display.displaySnapshot.forecast.headline == display.displaySnapshot.forecast.cards[item.id]?.first,
             "One dispatch supplies consistent headline and card dates")
-        menu.menuDidClose(menu.statusItem.menu!)
+        let oldMenu = menu.statusItem.menu!
+        let settings = oldMenu.items.compactMap(\.submenu).flatMap(\.items).first { $0.action == NSSelectorFromString("openPreferences:") }!
+        var preferencesOpens = 0
+        display.onOpenPreferences = { preferencesOpens += 1 }
+        menu.menuDidClose(oldMenu)
         display.stop()
+        NSApp.sendAction(settings.action!, to: settings.target, from: settings)
+        menu.menuWillOpen(oldMenu)
+        check(preferencesOpens == 0 && menu.statusItem.menu == nil && !menu.validateMenuItem(settings),
+            "Stopped display rejects queued menu settings actions and closes menu tracking")
         let stoppedSubmissions = submissions
         display.receiveNews(news); display.receiveTask(nil); display.renderDisplayState()
         check(submissions == stoppedSubmissions, "A stopped display ignores late domain and timer refreshes")
         NSStatusBar.system.removeStatusItem(menu.statusItem)
+    }
+
+    static func checkCapturedContext() {
+        let previousLanguage = DisplayLanguage.current
+        let previousZone = NSTimeZone.default
+        DisplayLanguage.current = .english
+        NSTimeZone.default = TimeZone(secondsFromGMT: 0)!
+        defer { DisplayLanguage.current = previousLanguage; NSTimeZone.default = previousZone }
+        let now = ISO8601DateFormatter().date(from: "2026-10-15T04:00:00Z")!
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let context = PresentationContext(now: now, language: .chinese, calendar: calendar)
+        var state = RateLimitDisplayState.initial
+        state.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: .init(usedPercent: 30,
+            windowDurationMins: 300, resetsAt: now.timeIntervalSince1970))
+        state.weekly = LimitMeter(title: "7d", shortTitle: "7d", window: .init(usedPercent: 10,
+            windowDurationMins: 10080, resetsAt: now.timeIntervalSince1970))
+        state.taskStatus = TaskStatusSummary(runningCount: 1)
+        state.tokenUsage = TokenUsageSummary(yesterdayTokens: 12000, cumulativeTokens: 30000)
+        state.lastUpdated = now
+        let item = ResetNewsItem(id: "context", sources: [.feed], originalText: "tomorrow",
+            facts: [.init(kind: .upcomingReset, timingText: "tomorrow")], publishedAt: now, firstSeenAt: now)
+        let news = ResetNewsViewState(enabled: true, status: .success, items: [item], forecastAvailability: .current)
+        let snapshot = AppDisplaySnapshot(state: state, news: news, context: context)
+        check(snapshot.metrics[0].date == "10月15日 12:00 重置" && snapshot.metrics[0].title == "5 小时剩余",
+            "Quota builder uses the captured language and timezone rather than English/UTC globals")
+        let summary = StatusSummaryView(state: state)
+        summary.update(state, news: news, forecast: snapshot.forecast, context: context)
+        check(text(summary).contains("5小时额度剩余") && text(summary).contains("10/15 12:00") && text(summary).contains("明天"),
+            "Native menu quota and forecast use one captured context")
+        let touch = TouchBarRateLimitsView()
+        touch.update(with: state, context: context); touch.updateMessages(snapshot.forecast.indicator)
+        check(text(touch).contains("10月15日 12:00") && text(touch).contains("昨日 1.20 万"),
+            "Touch Bar date and token labels ignore mismatched process globals: " + text(touch))
+        check(touch.toolTip == "上次更新 12:00:00", "Touch Bar refresh metadata uses the captured timezone")
+        let content = NotchContentAdapter(state, tasksEnabled: true, metrics: snapshot.metrics, context: context)
+        check(content.metrics == snapshot.metrics && content.peek(left: false).detail == "10/15 12:00"
+            && content.taskTitle == "执行中 1", "Notch reuses captured quota rows and task language")
+        let sameOutput = NotchContentAdapter(state, tasksEnabled: true, context:
+            PresentationContext(now: now.addingTimeInterval(1), language: .chinese, calendar: calendar))
+        check(content.hasSamePresentation(as: sameOutput), "New time context with unchanged visible values preserves notch suppression")
+        let persistent = PersistentTouchBarController()
+        persistent.update(with: state, context: context); persistent.updateMessages(snapshot.forecast.indicator)
+        let identifier = NSTouchBarItem.Identifier("io.github.zz-zed.GPTTouchBarHUD.persistent.limits")
+        let itemView = persistent.touchBar(NSTouchBar(), makeItemForIdentifier: identifier) as! NSCustomTouchBarItem
+        check(text(itemView.view).contains("10月15日 12:00") && text(itemView.view).contains("昨日 1.20 万"),
+            "Lazily created persistent Touch Bar keeps the original context")
+        let floating = CompactHUDViewController(initialAppearance: .load(), onRefresh: {}, onClose: {},
+            onPresentTouchBar: { false }, contextMenuProvider: { NSMenu() })
+        floating.update(with: state, context: context); floating.updateMessages(snapshot.forecast.indicator)
+        check(text(floating.view).contains("执行中 1"), "Deferred floating HUD keeps captured task language")
+        let bar = floating.makeQuotaTouchBar()
+        let focused = floating.touchBar(bar, makeItemForIdentifier: bar.defaultItemIdentifiers[0]) as! NSCustomTouchBarItem
+        check(text(focused.view).contains("10月15日 12:00") && text(focused.view).contains("昨日 1.20 万"),
+            "Deferred responder Touch Bar keeps its parent's original context")
+        let legacy = NotchHUDView(frame: NSRect(x: 0, y: 0, width: 460, height: 360))
+        legacy.update(state, expanded: true, context: context)
+        check(text(legacy).contains("上次 12:00") && descendants(legacy).contains { $0.toolTip == state.taskStatus?.detail(language: .chinese) },
+            "Legacy notch tooltip and update time use captured language and timezone")
+        let model = NotchPresentationModel()
+        model.update(state, tasksEnabled: true, metrics: snapshot.metrics, context: context)
+        model.updateResetNews(news, forecast: snapshot.forecast, context: context)
+        check(model.content.context == context && model.forecast.compactValue == "明天",
+            "Notch content and forecast retain the same captured context")
     }
 
     static func main() throws {
@@ -108,6 +202,7 @@ struct StatusMenuTests {
         defer { DisplayLanguage.defaults.removePersistentDomain(forName: suite) }
         checkSharedPresentation()
         checkDisplayDispatch()
+        checkCapturedContext()
         AppLifecycleCoordinatorChecks.run { check($0, $1) }
         let now = Date()
         let quotaStart = RateLimitDisplayState.initial

@@ -1,25 +1,6 @@
 import Foundation
 import ResetNewsCore
 
-/// Capture once per dispatch so relative dates and language agree across surfaces.
-struct PresentationContext: Equatable {
-    let now: Date
-    let language: DisplayLanguage
-    let calendar: Calendar
-    var locale: Locale { Locale(identifier: language == .chinese ? "zh_CN" : "en_US") }
-
-    init(now: Date = Date(), language: DisplayLanguage = .current, calendar: Calendar = .current) {
-        self.now = now; self.language = language; self.calendar = calendar
-    }
-    func text(_ chinese: String, _ english: String) -> String { language == .chinese ? chinese : english }
-    func date(_ date: Date, format: String = "MM/dd HH:mm") -> String {
-        let formatter = DateFormatter()
-        formatter.locale = locale; formatter.calendar = calendar; formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = format
-        return formatter.string(from: date)
-    }
-}
-
 /// Public forecasts remain independent of the account's quota and refresh state.
 struct ForecastPresentation: Equatable {
     enum Kind: Equatable { case hidden, currentEmpty, checking, paused, unavailable, announced, cached }
@@ -117,9 +98,11 @@ struct AppDisplaySnapshot {
     let news: ResetNewsViewState
     let context: PresentationContext
     let forecast: ForecastPresentation
+    let metrics: [HUDMetric]
 
     init(state: RateLimitDisplayState, news: ResetNewsViewState, context: PresentationContext = PresentationContext()) {
         self.state = state; self.news = news; self.context = context
         forecast = ForecastPresentation(news, context: context)
+        metrics = HUDMetric.rows(for: state, context: context)
     }
 }

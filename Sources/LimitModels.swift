@@ -8,8 +8,26 @@ enum DisplayLanguage: String, CaseIterable {
         get { DisplayLanguage(rawValue: defaults.string(forKey: "displayLanguage") ?? "zh") ?? .chinese }
         set { defaults.set(newValue.rawValue, forKey: "displayLanguage") }
     }
-    static func text(_ chinese: String, _ english: String) -> String {
-        current == .chinese ? chinese : english
+    static func text(_ chinese: String, _ english: String) -> String { current.text(chinese, english) }
+    func text(_ chinese: String, _ english: String) -> String { self == .chinese ? chinese : english }
+}
+
+/// Capture once per dispatch so relative dates and language agree across surfaces.
+struct PresentationContext: Equatable {
+    let now: Date
+    let language: DisplayLanguage
+    let calendar: Calendar
+    var locale: Locale { Locale(identifier: language == .chinese ? "zh_CN" : "en_US") }
+
+    init(now: Date = Date(), language: DisplayLanguage = .current, calendar: Calendar = .current) {
+        self.now = now; self.language = language; self.calendar = calendar
+    }
+    func text(_ chinese: String, _ english: String) -> String { language == .chinese ? chinese : english }
+    func date(_ date: Date, format: String = "MM/dd HH:mm") -> String {
+        let formatter = DateFormatter()
+        formatter.locale = locale; formatter.calendar = calendar; formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = format
+        return formatter.string(from: date)
     }
 }
 
@@ -61,18 +79,10 @@ struct LimitMeter: Equatable {
         "\(Int(remainingPercent.rounded()))%"
     }
 
-    var resetText: String {
-        guard let resetDate else {
-            return DisplayLanguage.text("重置 --", "Reset --")
-        }
-
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.timeZone = .current
-
-        formatter.dateFormat = DisplayLanguage.text("MM月dd日 HH:mm", "MM/dd HH:mm")
-
-        return formatter.string(from: resetDate) + DisplayLanguage.text(" 重置", "")
+    var resetText: String { resetText(context: PresentationContext()) }
+    func resetText(context: PresentationContext) -> String {
+        guard let resetDate else { return context.text("重置 --", "Reset --") }
+        return context.date(resetDate, format: context.text("MM月dd日 HH:mm", "MM/dd HH:mm")) + context.text(" 重置", "")
     }
 
     init(title: String, shortTitle: String, window: RateLimitWindow) {
@@ -121,7 +131,8 @@ struct RateLimitDisplayState: Equatable {
         errorMessage: nil
     )
 
-    var statusText: String {
+    var statusText: String { statusText(context: PresentationContext()) }
+    func statusText(context: PresentationContext) -> String {
         if let errorMessage {
             return errorMessage
         }
@@ -135,6 +146,7 @@ struct RateLimitDisplayState: Equatable {
         }
 
         let formatter = DateFormatter()
+        formatter.calendar = context.calendar; formatter.timeZone = context.calendar.timeZone
         formatter.dateFormat = "HH:mm:ss"
         return "上次更新 \(formatter.string(from: lastUpdated))"
     }
@@ -185,8 +197,9 @@ struct TaskStatusSummary: Equatable {
     var activity: TaskActivitySnapshot? = nil
     // Nil preserves legacy/source-only callers; the app always supplies a bounded feedback decision.
     var completionFeedbackVisible: Bool? = nil
-    var activityPresentation: HookTaskDisplayAdapter? {
-        activity.map { HookTaskDisplayAdapter($0, english: DisplayLanguage.current == .english, showsCompletionFeedback: completionFeedbackVisible ?? true) }
+    var activityPresentation: HookTaskDisplayAdapter? { activityPresentation(language: .current) }
+    func activityPresentation(language: DisplayLanguage) -> HookTaskDisplayAdapter? {
+        activity.map { HookTaskDisplayAdapter($0, english: language == .english, showsCompletionFeedback: completionFeedbackVisible ?? true) }
     }
     var hasRunningTasks: Bool { activityPresentation?.hasRunningTasks ?? (runningCount > 0) }
     var runningCount: Int = 0
@@ -218,11 +231,12 @@ struct TaskStatusSummary: Equatable {
         return runningCount == 0 && !legacyCompletionFeedbackVisible
     }
 
-    var label: String {
-        if let activityPresentation { return activityPresentation.label }
-        if runningCount > 0 { return DisplayLanguage.text("执行中 \(runningCount)", "Run \(runningCount)") }
-        if legacyCompletionFeedbackVisible { return DisplayLanguage.text("本轮完成", "Done") }
-        return DisplayLanguage.text("当前未检测到执行中任务", "No running tasks detected")
+    var label: String { label(language: .current) }
+    func label(language: DisplayLanguage) -> String {
+        if let activityPresentation = activityPresentation(language: language) { return activityPresentation.label }
+        if runningCount > 0 { return language.text("执行中 \(runningCount)", "Run \(runningCount)") }
+        if legacyCompletionFeedbackVisible { return language.text("本轮完成", "Done") }
+        return language.text("当前未检测到执行中任务", "No running tasks detected")
     }
 
     var badge: String {
@@ -234,17 +248,18 @@ struct TaskStatusSummary: Equatable {
         return legacyCompletionFeedbackVisible ? "✓" : ""
     }
 
-    var detail: String {
-        if let activityPresentation { return activityPresentation.detail }
+    var detail: String { detail(language: .current) }
+    func detail(language: DisplayLanguage) -> String {
+        if let activityPresentation = activityPresentation(language: language) { return activityPresentation.detail }
         let facts: String
         if runningCount > 0 {
-            facts = DisplayLanguage.text("本机近期任务：已确认执行中 \(runningCount)。", "Recent local tasks: \(runningCount) confirmed running.")
+            facts = language.text("本机近期任务：已确认执行中 \(runningCount)。", "Recent local tasks: \(runningCount) confirmed running.")
         } else if legacyCompletionFeedbackVisible {
-            facts = DisplayLanguage.text("刚刚确认本轮完成。", "The current turn was just confirmed complete.")
+            facts = language.text("刚刚确认本轮完成。", "The current turn was just confirmed complete.")
         } else {
-            facts = DisplayLanguage.text("当前未检测到执行中任务。", "No running tasks are currently detected.")
+            facts = language.text("当前未检测到执行中任务。", "No running tasks are currently detected.")
         }
-        let boundary = DisplayLanguage.text(
+        let boundary = language.text(
             "仅显示本机日志可确认的执行状态；不代表整个目标完成。",
             "Only execution states confirmed by local logs are shown; this does not mean the overall goal is complete."
         )
@@ -303,24 +318,17 @@ struct ResetCreditSummary: Equatable {
     let availableCount: Int
     let earliestExpirationDate: Date?
 
-    var compactText: String {
-        DisplayLanguage.text("重置 \(availableCount)次", "Reset \(availableCount)")
-    }
+    var compactText: String { compactText(language: .current) }
+    func compactText(language: DisplayLanguage) -> String { language.text("重置 \(availableCount)次", "Reset \(availableCount)") }
 
     var availableText: String {
         DisplayLanguage.text("可用 \(availableCount) 次", "\(availableCount) left")
     }
 
-    var expirationText: String {
-        guard let earliestExpirationDate else {
-            return DisplayLanguage.text("到期 --", "Exp --")
-        }
-
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.timeZone = .current
-        formatter.dateFormat = DisplayLanguage.text("MM月dd日 HH:mm", "MM/dd HH:mm")
-        return formatter.string(from: earliestExpirationDate) + DisplayLanguage.text(" 到期", "")
+    var expirationText: String { expirationText(context: PresentationContext()) }
+    func expirationText(context: PresentationContext) -> String {
+        guard let earliestExpirationDate else { return context.text("到期 --", "Exp --") }
+        return context.date(earliestExpirationDate, format: context.text("MM月dd日 HH:mm", "MM/dd HH:mm")) + context.text(" 到期", "")
     }
 
     init(response: RateLimitResetCreditsResponse) {
@@ -345,25 +353,30 @@ struct TokenUsageSummary: Equatable {
     var status: String? = nil
     var updatedAt: Date? = nil
 
-    var yesterdayText: String {
-        DisplayLanguage.text("昨日 ", "Yday ") + (yesterdayTokens.map(Self.formatDaily) ?? "--") + (isStale && yesterdayTokens != nil ? "*" : "")
+    var yesterdayText: String { yesterdayText(language: .current) }
+    func yesterdayText(language: DisplayLanguage) -> String {
+        language.text("昨日 ", "Yday ") + (yesterdayTokens.map { Self.formatDaily($0, language: language) } ?? "--") + (isStale && yesterdayTokens != nil ? "*" : "")
     }
 
-    var cumulativeText: String {
-        DisplayLanguage.text("累计 ", "Total ") + (cumulativeTokens.map { DisplayLanguage.current == .english ? Self.formatCompactTokens($0) : "\(Self.formatted(Double($0) / 100_000_000)) 亿" } ?? "--") + (isStale && cumulativeTokens != nil ? "*" : "")
+    var cumulativeText: String { cumulativeText(language: .current) }
+    func cumulativeText(language: DisplayLanguage) -> String {
+        language.text("累计 ", "Total ") + (cumulativeTokens.map { language == .english ? Self.formatCompactTokens($0) : "\(Self.formatted(Double($0) / 100_000_000)) 亿" } ?? "--") + (isStale && cumulativeTokens != nil ? "*" : "")
     }
 
-    var toolTip: String {
+    var toolTip: String { toolTip(context: PresentationContext()) }
+    func toolTip(context: PresentationContext) -> String {
         var text = "GPT 账号 Token 统计；缺失项显示 --，* 表示旧数据。"
         if let updatedAt {
-            text += "\n上次更新：" + DateFormatter.localizedString(from: updatedAt, dateStyle: .short, timeStyle: .medium)
+            let formatter = DateFormatter(); formatter.dateStyle = .short; formatter.timeStyle = .medium
+            formatter.calendar = context.calendar; formatter.timeZone = context.calendar.timeZone
+            text += "\n上次更新：" + formatter.string(from: updatedAt)
         }
         if let status { text += "\n" + status }
         return text
     }
 
-    private static func formatDaily(_ tokens: Int) -> String {
-        if DisplayLanguage.current == .english { return formatCompactTokens(tokens) }
+    private static func formatDaily(_ tokens: Int, language: DisplayLanguage) -> String {
+        if language == .english { return formatCompactTokens(tokens) }
         if tokens < 10_000 { return "\(tokens) 个" }
         if tokens >= 99_999_500 { return "\(formatted(Double(tokens) / 100_000_000)) 亿" }
         return "\(formatted(Double(tokens) / 10_000)) 万"
