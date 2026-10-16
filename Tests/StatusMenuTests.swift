@@ -62,6 +62,44 @@ struct StatusMenuTests {
             "Cached empty is unknown and retryable rather than a confirmed zero")
     }
 
+    static func checkDisplayDispatch() {
+        var now = ISO8601DateFormatter().date(from: "2026-10-15T04:00:00Z")!
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let menu = StatusMenuController(touchBarHardware: .absent, appUpdater: AppUpdater())
+        let touchBar = PersistentTouchBarController()
+        let display = AppDisplayCoordinator(menu: menu, persistentTouchBar: touchBar,
+            contextProvider: { PresentationContext(now: now, language: .chinese, calendar: calendar) })
+        menu.configureStatusItem()
+        let summary = menu.statusItem.menu!.items[0].view as! StatusSummaryView
+        let closedLayouts = summary.layoutUpdateCount
+        let item = ResetNewsItem(id: "dispatch", sources: [.feed], originalText: "tomorrow",
+            facts: [.init(kind: .upcomingReset, timingText: "tomorrow")], publishedAt: now, firstSeenAt: now)
+        let news = ResetNewsViewState(enabled: true, status: .success, items: [item], forecastAvailability: .current)
+        var submissions = 0
+        display.onSnapshot = { _ in submissions += 1 }
+        display.receiveNews(news)
+        check(summary.layoutUpdateCount == closedLayouts, "Closed menu retains its summary geometry during news dispatch")
+        display.receiveTask(TaskStatusSummary(runningCount: 1))
+        let previousSubmissions = submissions
+        let reference = DiagnosticTaskSnapshotReference(domain: UUID(), monitoringGeneration: 2, batch: 17,
+            snapshotID: UUID(), runningCount: 1, unknownCount: 0, memberCount: 1, memberPageCount: 1, membershipComplete: true)
+        display.receiveDiagnosticSnapshot(reference)
+        check(submissions == previousSubmissions, "Diagnostic-only references do not trigger display dispatch")
+        now = now.addingTimeInterval(86400)
+        menu.menuWillOpen(menu.statusItem.menu!)
+        check(display.displaySnapshot.forecast.compactValue == "今天", "Opening the menu refreshes the shared day context")
+        check(display.displaySnapshot.state.taskStatus?.diagnosticSnapshot == reference,
+            "The next actual refresh retains the newest diagnostic snapshot")
+        check(display.displaySnapshot.forecast.headline == display.displaySnapshot.forecast.cards[item.id]?.first,
+            "One dispatch supplies consistent headline and card dates")
+        menu.menuDidClose(menu.statusItem.menu!)
+        display.stop()
+        let stoppedSubmissions = submissions
+        display.receiveNews(news); display.receiveTask(nil); display.renderDisplayState()
+        check(submissions == stoppedSubmissions, "A stopped display ignores late domain and timer refreshes")
+        NSStatusBar.system.removeStatusItem(menu.statusItem)
+    }
+
     static func main() throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
@@ -69,6 +107,7 @@ struct StatusMenuTests {
         DisplayLanguage.defaults = UserDefaults(suiteName: suite)!
         defer { DisplayLanguage.defaults.removePersistentDomain(forName: suite) }
         checkSharedPresentation()
+        checkDisplayDispatch()
         let now = Date()
         let quotaStart = RateLimitDisplayState.initial
         var base = quotaStart

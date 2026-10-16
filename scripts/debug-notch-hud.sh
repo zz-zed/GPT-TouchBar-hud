@@ -5,7 +5,7 @@ mkdir -p .build/notch-debug build
 sources=()
 for source in Sources/*.swift; do
     case "$source" in
-        Sources/main.swift|Sources/AppDelegate.swift|Sources/AppUpdater.swift) ;;
+        Sources/main.swift|Sources/AppDelegate.swift|Sources/AppUpdater.swift|Sources/AppDisplayCoordinator.swift|Sources/AppLifecycleCoordinator.swift|Sources/StatusMenuController.swift|Sources/PreferencesCoordinator.swift) ;;
         *) sources+=("$source") ;;
     esac
 done
