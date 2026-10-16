@@ -249,6 +249,10 @@ final class ResetNewsMonitor {
                 } else {
                     // Consume even stale signals so a later fresh copy cannot replay an old alert.
                     let unseen = snapshot.notificationKey.map { !previous.notifiedKeys.contains($0) } ?? false
+                    // Parser refinements can change a persisted key. An unchanged cached signal
+                    // is already known; consume its refined key without repeating the announcement.
+                    let unchangedSignal = snapshot.notificationKey != nil
+                        && snapshot.notificationKey == previous.forecast?.notificationKey
                     if let key = snapshot.notificationKey, unseen {
                         next.notified.append(.init(key: key, recordedAt: date))
                     }
@@ -264,7 +268,7 @@ final class ResetNewsMonitor {
                                 url: signal.sourceURL, body: signal.originalText, publishedAt: signal.publishedAt,
                                 structuredFacts: evidence.facts))
                         }
-                        if previous.forecastBaselineEstablished == true, unseen { reminder = snapshot }
+                        if previous.forecastBaselineEstablished == true, unseen, !unchangedSignal { reminder = snapshot }
                     }
                 }
             } else if !result.failures.contains(where: { $0.source == .forecast }) {
@@ -291,7 +295,8 @@ final class ResetNewsMonitor {
                let item = snapshot.item(now: date, calendar: calendar()) {
                 if previous.forecastBaselineEstablished != true {
                     next.readIDs.insert(item.id)
-                } else if let key = snapshot.notificationKey, !previous.notifiedKeys.contains(key) {
+                } else if let key = snapshot.notificationKey, !previous.notifiedKeys.contains(key),
+                          key != previous.forecast?.notificationKey {
                     next.readIDs.remove(item.id)
                 } else if previous.readIDs.contains(item.id) {
                     next.readIDs.insert(item.id)

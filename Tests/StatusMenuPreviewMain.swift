@@ -22,7 +22,7 @@ private final class StatusMenuPreviewDelegate: NSObject, NSApplicationDelegate, 
     private let menu = NSMenu()
     private let popover = ResetNewsPopoverController()
     private var quota = RateLimitDisplayState.initial
-    private var news = ResetNewsViewState(enabled: true, status: .success)
+    private var news = ResetNewsViewState(enabled: true, status: .success, forecastAvailability: .current)
     private var summary: StatusSummaryView!
     private var forecastShortcut: NSMenuItem!
     private var refreshCount = 0
@@ -57,10 +57,12 @@ private final class StatusMenuPreviewDelegate: NSObject, NSApplicationDelegate, 
         summary.update(quota, news: news)
         summary.onRefresh = { [weak self] in self?.simulateRefresh() }
         summary.onForecast = { [weak self] in self?.openForecast() }
+        summary.onForecastRetry = { [weak self] in self?.feedback.stringValue = "已点击预告重试（模拟，未发起请求）。" }
+        summary.onQuotaRetry = { [weak self] in self?.simulateRefresh() }
         let summaryItem = NSMenuItem(); summaryItem.view = summary
         menu.delegate = self
         menu.addItem(summaryItem); menu.addItem(.separator())
-        let shortcut = item("刷新额度", action: #selector(refreshShortcut), key: "r")
+        let shortcut = item("刷新数据", action: #selector(refreshShortcut), key: "r")
         shortcut.isHidden = true; shortcut.allowsKeyEquivalentWhenHidden = true
         menu.addItem(shortcut)
         forecastShortcut = item("查看重置预告", action: #selector(forecastFromShortcut), key: "p")

@@ -1,9 +1,13 @@
 import SwiftUI
 import ResetNewsCore
 
+// Resolve the macOS 11 property wrapper explicitly; newer SDKs also export a State macro.
+private typealias ForecastLocalState<Value> = SwiftUI.State<Value>
+
 /// Shared by the notch page and the native popover. A row is read only after it
 /// intersects the visible scroll viewport; LazyVStack prefetch alone is not enough.
 struct ResetNewsListView: View {
+    enum Density { case regular, notch }
     let state: ResetNewsViewState
     let isVisible: Bool
     var focusedItemID: String? = nil
@@ -12,38 +16,41 @@ struct ResetNewsListView: View {
     let onSettings: () -> Void
     let onPageVisibility: (Bool) -> Void
     let onVisibleItem: (String) -> Void
+    var onPreferredHeightChange: ((CGFloat) -> Void)? = nil
+    var density: Density = .regular
+    @ForecastLocalState<Date?> private var shownDeadline = nil
+    @ForecastLocalState<Bool> private var expiredWhileOpen = false
     private let coordinateSpace = "resetNewsListViewport"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(state.statusText).font(.system(size: 11)).foregroundColor(.secondary)
-                .lineLimit(2).fixedSize(horizontal: false, vertical: true).help(state.statusText)
-            HStack(spacing: 12) {
-                Button(DisplayLanguage.text("检查预告", "Check forecasts"), action: onCheck)
-                    .disabled(!state.enabled || state.status == .checking || state.status == .codexNotRunning || state.status == .idle)
-                    .accessibilityIdentifier("resetNews.check")
-                Button(DisplayLanguage.text("预告设置", "Forecast settings"), action: onSettings).accessibilityIdentifier("resetNews.settings")
-            }.font(.system(size: 11))
-            Text(DisplayLanguage.text("仅显示当前重置预告；本账号数据以额度区域为准", "Current reset forecasts only; see quota for your account data"))
-                .font(.system(size: 10)).foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            if state.forecastAvailability == .cached {
-                Text(DisplayLanguage.text("缓存预告", "Cached forecast") + (state.forecastCheckedAt.map {
-                    DisplayLanguage.text(" · 更新于 ", " · Updated ") + Self.date($0)
-                } ?? ""))
-                    .font(.system(size: 10)).foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("resetNews.cached")
-            }
+        VStack(alignment: .leading, spacing: density == .notch ? 6 : 12) {
             GeometryReader { viewport in
                 ScrollViewReader { reader in
                     ScrollView(.vertical) {
-                        LazyVStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: density == .notch ? 10 : 18) {
                             if state.items.isEmpty {
-                                Text(ResetNewsListPresentation.emptyText(state))
-                                    .font(.system(size: 12)).foregroundColor(.secondary).padding(.vertical, 16)
+                                if density == .notch {
+                                    Text(expiredWhileOpen ? DisplayLanguage.text("已到预计截止时间，预告已收起", "The announced window has ended")
+                                        : ResetNewsListPresentation.emptyText(state))
+                                        .font(.system(size: 12)).foregroundColor(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                } else {
+                                    VStack(alignment: .leading, spacing: 18) {
+                                        Label(ResetNewsListPresentation.heading(state), systemImage: "calendar.badge.clock")
+                                            .font(.system(size: 13, weight: .medium))
+                                        Text(expiredWhileOpen ? DisplayLanguage.text("已到预计截止时间，预告已收起", "The announced window has ended")
+                                            : ResetNewsListPresentation.emptyText(state))
+                                            .font(.system(size: 18, weight: .semibold))
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        Text(DisplayLanguage.text("实际额度以账号数据为准", "See quota for your account's actual status"))
+                                            .font(.system(size: 12)).foregroundColor(.secondary)
+                                    }.padding(.vertical, 8)
+                                }
                             }
                             ForEach(state.items) { item in
-                                ResetNewsCard(item: item, unread: !state.readIDs.contains(item.id))
+                                ResetNewsCard(item: item, unread: !state.readIDs.contains(item.id),
+                                    compactForNotch: density == .notch,
+                                    cached: state.forecastAvailability == .cached)
                                     .id(item.id)
                                     .background(GeometryReader { row in
                                         Color.clear.preference(key: ResetNewsCardFrames.self,
@@ -52,7 +59,16 @@ struct ResetNewsListView: View {
                                                 materialRevision: item.materialRevision)])
                                     })
                             }
-                        }.padding(.vertical, 4).id(isVisible)
+                            if density == .notch, let notice = ResetNewsListPresentation.notice(state), !state.items.isEmpty {
+                                Text(notice).font(.system(size: 10)).foregroundColor(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .accessibilityIdentifier("resetNews.cached")
+                            }
+                        }.padding(.vertical, density == .notch ? 0 : 4).id(isVisible)
+                            .background(GeometryReader { geometry in
+                                Color.clear.preference(key: ResetNewsNaturalHeight.self,
+                                    value: .init(content: geometry.size.height))
+                            })
                     }
                     .coordinateSpace(name: coordinateSpace)
                     .onPreferenceChange(ResetNewsCardFrames.self) { measurements in
@@ -69,40 +85,96 @@ struct ResetNewsListView: View {
                     .onChange(of: focusedItemID) { id in if let id { reader.scrollTo(id, anchor: .top) } }
                 }
             }
+            VStack(alignment: .leading, spacing: 9) {
+                if density == .regular, let notice = ResetNewsListPresentation.notice(state), !state.items.isEmpty {
+                    Text(notice).font(.system(size: 12)).foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("resetNews.cached")
+                }
+                Divider()
+                HStack(spacing: 12) {
+                    Text(ResetNewsListPresentation.checkedText(state))
+                        .font(.system(size: 11)).foregroundColor(.secondary)
+                    Spacer(minLength: 4)
+                    Button(DisplayLanguage.text("刷新预告", "Refresh forecast"), action: onCheck)
+                        .disabled(!state.enabled || [.checking, .codexNotRunning, .idle].contains(state.status))
+                        .accessibilityIdentifier("resetNews.check")
+                    Button(DisplayLanguage.text("设置", "Settings"), action: onSettings)
+                        .accessibilityIdentifier("resetNews.settings")
+                }.font(.system(size: 11)).buttonStyle(PlainButtonStyle()).foregroundColor(.accentColor)
+            }.help(state.statusText)
+                .background(GeometryReader { geometry in
+                    Color.clear.preference(key: ResetNewsNaturalHeight.self, value: .init(footer: geometry.size.height))
+                })
         }
-        .onAppear { onPageVisibility(isVisible) }
-        .onChange(of: isVisible) { onPageVisibility($0) }
+        .onPreferenceChange(ResetNewsNaturalHeight.self) { size in
+            guard size.content > 0, size.footer > 0 else { return }
+            onPreferredHeightChange?(size.content + size.footer + 12)
+        }
+        .onAppear { onPageVisibility(isVisible); rememberDeadline(state.items) }
+        .onChange(of: state.items) { items in
+            expiredWhileOpen = isVisible && items.isEmpty && shownDeadline.map { $0 <= Date() } == true
+            rememberDeadline(items)
+        }
+        .onChange(of: isVisible) { visible in
+            onPageVisibility(visible)
+            if !visible { expiredWhileOpen = false }
+        }
         .onDisappear { onPageVisibility(false) }
         .accessibilityIdentifier("resetNews.list")
     }
 
-    private static func date(_ value: Date) -> String {
-        DateFormatter.localizedString(from: value, dateStyle: .medium, timeStyle: .short)
+    private func rememberDeadline(_ items: [ResetNewsItem]) {
+        guard let item = items.first, let fact = item.facts.first(where: { $0.kind == .upcomingReset }),
+              ResetForecastHeadline(fact: fact, publishedAt: item.publishedAt).hasClock else {
+            shownDeadline = nil; return
+        }
+        shownDeadline = ResetForecastPolicy().scheduledDate(for: fact, publishedAt: item.publishedAt)
+    }
+}
+
+private struct ResetNewsNaturalSize: Equatable {
+    var content: CGFloat = 0
+    var footer: CGFloat = 0
+}
+private enum ResetNewsNaturalHeight: PreferenceKey {
+    static var defaultValue = ResetNewsNaturalSize()
+    static func reduce(value: inout ResetNewsNaturalSize, nextValue: () -> ResetNewsNaturalSize) {
+        let next = nextValue()
+        value.content = max(value.content, next.content)
+        value.footer = max(value.footer, next.footer)
     }
 }
 
 enum ResetNewsListPresentation {
     static func emptyText(_ state: ResetNewsViewState) -> String {
-        guard state.enabled else {
-            return DisplayLanguage.text("开启后可查看 Codex 重置预告", "Enable Codex reset forecasts")
+        guard state.enabled else { return DisplayLanguage.text("开启后可查看公开重置预告", "Enable public reset forecasts") }
+        if state.forecastAvailability == .current { return DisplayLanguage.text("当前暂无公开重置预告", "No current public reset forecast") }
+        if state.forecastAvailability == .cached || [.failure, .partial, .stale].contains(state.status) {
+            return DisplayLanguage.text("暂时无法获取预告，请稍后重试", "Forecast unavailable. Try again later.")
         }
-        switch state.forecastAvailability {
-        case .current: return DisplayLanguage.text("暂无新预告", "No new forecasts")
-        case .cached: return DisplayLanguage.text("预告暂无法更新，正在显示上次获取的内容", "Forecast unavailable; showing the last fetched content")
-        case .unknown:
-            if [.failure, .partial, .stale].contains(state.status) {
-                return DisplayLanguage.text("预告暂无法更新", "Forecast unavailable")
-            }
-            return DisplayLanguage.text("尚未获取预告", "Forecast not fetched yet")
+        switch state.status {
+        case .checking: return DisplayLanguage.text("正在获取预告", "Fetching forecast")
+        case .codexNotRunning: return DisplayLanguage.text("检查已暂停，Codex 启动后继续", "Checks resume when Codex starts")
+        case .idle: return DisplayLanguage.text("检查已暂停", "Forecast checks paused")
+        default: return DisplayLanguage.text("尚未获取预告", "Forecast not fetched yet")
         }
     }
-
     static func heading(_ state: ResetNewsViewState) -> String {
-        if state.forecastAvailability == .unknown || (state.forecastAvailability == .cached && state.items.isEmpty) {
-            return DisplayLanguage.text("重置预告", "Reset forecasts")
+        DisplayLanguage.text("公开重置预告", "Public reset forecast")
+    }
+    static func checkedText(_ state: ResetNewsViewState) -> String {
+        if state.status == .checking { return DisplayLanguage.text("正在更新…", "Updating…") }
+        guard let date = state.forecastCheckedAt else { return DisplayLanguage.text("尚未检查", "Not checked yet") }
+        let formatter = DateFormatter(); formatter.dateFormat = "HH:mm"; formatter.timeZone = .current
+        return DisplayLanguage.text("最近检查 ", "Checked ") + formatter.string(from: date)
+    }
+    static func notice(_ state: ResetNewsViewState) -> String? {
+        if state.forecastAvailability == .cached {
+            return DisplayLanguage.text("暂时无法更新，正在显示上次获取的预告", "Unable to update; showing the last fetched forecast")
         }
-        return ResetForecastIndicator.accessibilityLabel(state.forecastCount)
-            + (state.forecastAvailability == .cached ? DisplayLanguage.text(" · 缓存", " · Cached") : "")
+        if [.failure, .partial, .stale].contains(state.status) { return state.statusText }
+        return nil
     }
 }
 
@@ -136,117 +208,104 @@ private struct ResetNewsCardFrames: PreferenceKey {
 struct ResetNewsCard: View {
     let item: ResetNewsItem
     let unread: Bool
-    private let forecastFacts: [ResetNewsFact]
-    private let forecastDates: [ResetForecastDatePresentation]
-    private let forecastHasDate: [Bool]
+    let compactForNotch: Bool
+    let cached: Bool
+    private let forecasts: [ResetForecastHeadline]
 
-    init(item: ResetNewsItem, unread: Bool, now: Date = Date(), calendar: Calendar = .current) {
-        self.item = item
-        self.unread = unread
-        let forecasts = item.facts.filter { $0.kind == .upcomingReset }
-        forecastFacts = forecasts
-        forecastDates = forecasts.map { ResetForecastDatePresentation(fact: $0, publishedAt: item.publishedAt, now: now, calendar: calendar) }
-        forecastHasDate = forecasts.map { ResetForecastPolicy(calendar: calendar).scheduledDate(for: $0, publishedAt: item.publishedAt) != nil }
+    init(item: ResetNewsItem, unread: Bool, compactForNotch: Bool = false, cached: Bool = false,
+         now: Date = Date(), calendar: Calendar = .current) {
+        self.item = item; self.unread = unread; self.compactForNotch = compactForNotch; self.cached = cached
+        forecasts = item.facts.filter { $0.kind == .upcomingReset }.map {
+            ResetForecastHeadline(fact: $0, publishedAt: item.publishedAt, now: now, calendar: calendar,
+                locale: Locale(identifier: DisplayLanguage.current == .chinese ? "zh_CN" : "en_US"))
+        }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                if unread { Circle().fill(Color.accentColor).frame(width: 6, height: 6).accessibilityLabel(DisplayLanguage.text("待查看预告", "Forecast to review")) }
-                Text(forecastFacts.isEmpty ? item.facts.map { Self.kind($0.kind) }.uniqued.joined(separator: " · ") : "重置预告")
-                    .font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
-                Spacer(minLength: 2)
-                Text(Self.status(item.status)).font(.system(size: 10)).foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            ForEach(Array(forecastFacts.enumerated()), id: \.offset) { index, fact in
-                forecast(fact, date: forecastDates[index], hasDate: forecastHasDate[index])
-            }
-            if forecastFacts.isEmpty {
-                Text(ResetNewsDisplayText.hidingAddresses(in: item.summaryZH)).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
-            }
-            ForEach(Array(item.facts.filter { $0.kind != .upcomingReset }.enumerated()), id: \.offset) { _, fact in
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("范围：" + ResetNewsDisplayText.hidingAddresses(in: fact.scope.map(ResetNewsSummary.scopeLabel) ?? "未说明"))
-                    if fact.kind == .extraResetCredits {
-                        Text("次数：\(fact.count.map { "\($0) 次" } ?? "未说明")")
-                    }
-                    if fact.kind == .upcomingReset || fact.effectiveAt != nil || fact.timingText != nil {
-                        Text("生效时间：" + ResetNewsDisplayText.hidingAddresses(in: fact.effectiveAt.map { Self.date($0) } ?? fact.timingText ?? "未说明"))
-                    }
-                    Text("有效期：" + ResetNewsDisplayText.hidingAddresses(in: fact.expiresAt.map { Self.date($0) } ?? fact.validityText ?? "未说明"))
-                    if fact.confidence == .tentative { Text("公告措辞尚未确定").foregroundColor(.orange) }
-                }.font(.system(size: 10)).foregroundColor(.secondary)
-            }
-            if let publishedAt = item.publishedAt {
-                Text("发布于 " + Self.date(publishedAt)).font(.system(size: 10)).foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if !item.originalText.isEmpty {
-                DisclosureGroup(DisplayLanguage.text("查看原文", "View original")) {
-                    Text(ResetNewsDisplayText.hidingAddresses(in: item.originalText)).font(.system(size: 10)).foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }.font(.system(size: 10))
-            }
+        Group {
+            if compactForNotch { notchBody }
+            else { fullBody }
         }
-        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.06)).cornerRadius(8)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("resetNews.item.\(item.id)")
     }
 
-    private func forecast(_ fact: ResetNewsFact, date: ResetForecastDatePresentation, hasDate: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(hasDate ? date.dateText : DisplayLanguage.text("时间待定", "Time not announced")).font(.system(size: 20, weight: .semibold))
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("resetNews.forecastDate")
-            if hasDate {
-                Text(date.timeText == "具体时刻未公布" ? DisplayLanguage.text("时间待定", "Time not announced") : date.timeText)
-                    .font(.system(size: 11, weight: date.isExactTime ? .medium : .regular))
-                    .foregroundColor(date.isExactTime ? .primary : .secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+    private var notchBody: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(forecasts.enumerated()), id: \.offset) { _, date in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text((cached ? DisplayLanguage.text("上次预告 · ", "Last forecast · ") : "")
+                            + (date.lead ?? DisplayLanguage.text("公开重置预告", "Public reset forecast")))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(NotchStyle.secondary)
+                        if unread {
+                            Circle().fill(NotchStyle.accent).frame(width: 5, height: 5)
+                                .accessibilityLabel(DisplayLanguage.text("新预告", "New forecast"))
+                        }
+                        Spacer(minLength: 4)
+                    }
+                    Text(date.headline).font(.system(size: date.hasClock ? 27 : 21, weight: .semibold).monospacedDigit())
+                        .foregroundColor(cached ? NotchStyle.secondary : .white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("resetNews.forecastTime")
+                    if let day = date.dateText {
+                        Text(day + (date.zoneText.map { " · " + $0 } ?? ""))
+                            .font(.system(size: 10)).foregroundColor(NotchStyle.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("resetNews.forecastDate")
+                    }
+                }
             }
-            if let basis = date.basisText {
-                Text(basis).font(.system(size: 10)).foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            if forecasts.isEmpty {
+                Text(ResetNewsDisplayText.hidingAddresses(in: item.summaryZH))
+                    .font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
             }
-            if fact.confidence == .tentative {
-                Text("公告措辞尚未确定").font(.system(size: 10)).foregroundColor(.orange)
-            }
-            if let scope = fact.scope, !scope.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text("适用范围：" + ResetNewsDisplayText.hidingAddresses(in: ResetNewsSummary.scopeLabel(scope))).font(.system(size: 10)).foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let validity = fact.expiresAt.map({ Self.date($0) }) ?? fact.validityText, !validity.isEmpty {
-                Text("有效期：" + ResetNewsDisplayText.hidingAddresses(in: validity)).font(.system(size: 10)).foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
+            Text(DisplayLanguage.text("实际额度以账号数据为准", "See quota for your account's actual status"))
+                .font(.system(size: 10)).foregroundColor(NotchStyle.secondary)
+        }.frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private static func kind(_ kind: ResetNewsFactKind) -> String {
-        switch kind {
-        case .upcomingReset: return "即将重置"
-        case .resetAnnouncement: return "重置公告"
-        case .extraResetCredits: return "额外重置次数"
-        }
-    }
-    private static func status(_ status: ResetNewsStatus) -> String {
-        switch status {
-        case .active: return "有效"
-        case .cancelled: return "已取消"
-        case .expired: return "已过期"
-        case .superseded: return "已被替代"
-        }
-    }
-    private static func date(_ date: Date?) -> String {
-        date.map { DateFormatter.localizedString(from: $0, dateStyle: .short, timeStyle: .short) } ?? "未提供"
-    }
-}
+    private var fullBody: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 7) {
+                Image(systemName: "calendar.badge.clock").foregroundColor(.secondary)
+                Text(DisplayLanguage.text("公开重置预告", "Public reset forecast"))
+                    .font(.system(size: 13, weight: .medium))
+                if unread {
+                    Circle().fill(Color.accentColor).frame(width: 5, height: 5)
+                        .accessibilityLabel(DisplayLanguage.text("新预告", "New forecast"))
+                }
+                Spacer(minLength: 4)
+                Text(item.facts.contains { $0.confidence == .tentative }
+                    ? DisplayLanguage.text("措辞待确认", "Tentative") : DisplayLanguage.text("已有预告", "Announced"))
+                    .font(.system(size: 11)).foregroundColor(.secondary)
+            }
+            ForEach(Array(forecasts.enumerated()), id: \.offset) { _, date in
+                VStack(alignment: .leading, spacing: 7) {
+                    if let lead = date.lead { Text(lead).font(.system(size: 14, weight: .medium)) }
+                    Text(date.headline).font(.system(size: date.hasClock ? 30 : 22, weight: .semibold).monospacedDigit())
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("resetNews.forecastTime")
+                    if date.hasClock, let day = date.dateText {
+                        Text(day + (date.zoneText.map { " · " + $0 } ?? ""))
+                            .font(.system(size: 12)).foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("resetNews.forecastDate")
+                    } else if let zone = date.zoneText {
+                        Text(zone).font(.system(size: 12)).foregroundColor(.secondary)
+                    }
+                }
+            }
+            if forecasts.isEmpty {
+                Text(ResetNewsDisplayText.hidingAddresses(in: item.summaryZH)).font(.system(size: 14))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Divider()
+            Text(DisplayLanguage.text("实际额度以账号数据为准", "See quota for your account's actual status"))
+                .font(.system(size: 12)).foregroundColor(.secondary)
 
-private extension Array where Element == String {
-    var uniqued: [String] {
-        var seen = Set<String>()
-        return filter { seen.insert($0).inserted }
+        }
+        .padding(.vertical, 4).frame(maxWidth: .infinity, alignment: .leading)
     }
 }

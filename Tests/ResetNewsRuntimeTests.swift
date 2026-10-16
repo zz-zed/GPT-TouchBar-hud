@@ -192,6 +192,7 @@ private final class RuntimeHarness {
         try authorityNullCannotPromoteHistoricalCandidates()
         try authorityFailureAndMissingFieldsKeepCache()
         try authorityExpiryIsLocalAndDoesNotClaimCompletion()
+        try relativeDeadlineProjectsLocallyAndSurvivesParserUpgrade()
         try latestResetDoesNotRetireAnIndependentFutureSignal()
         try authorityRestartAndReturnDoNotReplay()
         try reverseResponsesAndSnapshotRollback()
@@ -348,7 +349,7 @@ private final class RuntimeHarness {
         expect(h.monitor.state.forecastCount == 1 && h.monitor.state.items.count == 1 && h.repository.state.items.count == 2,
                "Stored historical candidates never appear as additional current forecast cards")
         expect(h.channel.payloads[0].identifier.hasPrefix("reset-news:"), "Notification identifier is namespaced")
-        expect(h.channel.payloads[0].title == "Codex 重置预告（1 条新预告）", "Notification count never means available account resets")
+        expect(h.channel.payloads[0].title.hasPrefix("重置预告：") && !h.channel.payloads[0].title.contains("条新预告"), "Notification highlights the arrangement rather than a message count")
         expect(!h.channel.payloads[0].sound, "Default notification sound is off")
         h.monitor.markRead(["not-present"])
         expect(h.monitor.state.unreadCount == 1, "Opening unrelated content does not clear unread")
@@ -532,6 +533,7 @@ private final class RuntimeHarness {
         h.notificationCenter.post(name: .NSCalendarDayChanged, object: nil)
         expect(h.monitor.state.forecastCount == 0 && h.repository.state.readIDs.isEmpty, "Day change prunes disabled cached forecasts locally")
         expect(h.client.callbacks.count == requests && h.channel.payloads.isEmpty, "Local day cleanup neither fetches nor notifies")
+        h.flush() // Pruning queues an asynchronous write; inspect disk only after that write finishes.
         let disk = try JSONDecoder().decode(ResetNewsStoredState.self, from: Data(contentsOf: h.repository.fileURL))
         expect(disk.items.isEmpty && disk.readIDs.isEmpty && !disk.notified.isEmpty, "Day cleanup reaches disk and preserves notification ledger")
 
@@ -1012,6 +1014,47 @@ private final class RuntimeHarness {
                "HTTP validity expiry marks a still-future signal cached instead of inventing no forecast")
         expect(ttl.client.callbacks.count == ttlRequests && ttl.channel.payloads.isEmpty,
                "HTTP validity projection also stays local and silent")
+    }
+
+    static func relativeDeadlineProjectsLocallyAndSurvivesParserUpgrade() throws {
+        let h = try RuntimeHarness()
+        let publication = ISO8601DateFormatter().date(from: "2026-10-15T04:56:07Z")!
+        let deadline = publication.addingTimeInterval(7200)
+        h.clock.date = publication.addingTimeInterval(1200)
+        h.clock.calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let signal = ResetForecastSignal(sourceID: "2110595554036400151",
+            sourceURL: URL(string: "https://x.com/thsottiaux/status/2110595554036400151")!,
+            originalText: "Landing within the next 2 hours", publishedAt: publication)
+        let snapshot = ResetForecastSnapshot(updatedAt: h.clock.date, lastResetAt: nil, officialSignal: signal)
+        let id = "post:\(signal.sourceID)"
+        var cached = h.repository.state
+        cached.forecast = snapshot
+        cached.forecastBaselineEstablished = true
+        cached.readIDs = [id]
+        // An older parser consumed the announcement under an opaque, undated notification key.
+        cached.notified = [.init(key: "forecast:post:\(signal.sourceID):previous-parser-key", recordedAt: publication)]
+        h.repository.replace(cached, now: h.clock.date) { saved in
+            expect(saved, "The previous-parser cache fixture is persisted before activation")
+        }
+        h.flush()
+        h.activate()
+        h.client.complete(h.result([], expires: deadline.addingTimeInterval(3600), forecast: snapshot))
+        expect(h.monitor.state.forecastCount == 1, "A cached null-window signal remains visible with a relative deadline")
+        let item = h.monitor.state.items[0]
+        let display = ResetForecastDatePresentation(fact: item.facts[0], publishedAt: item.publishedAt,
+            now: h.clock.date, calendar: h.clock.calendar)
+        expect(display.timeText == "预计在 14:56 前（本地 UTC+08:00）", "Runtime cards project the original publication-relative deadline")
+        expect(h.channel.payloads.isEmpty && h.monitor.state.readIDs.contains(id),
+            "A parser upgrade cannot replay a cached announcement or mark a read card unread")
+        expect(h.repository.state.notifiedKeys.contains(snapshot.notificationKey!), "The refined notification identity is durably consumed")
+        let requests = h.client.callbacks.count
+        let expiry = h.scheduler.entries.last { abs($0.delay - deadline.timeIntervalSince(h.clock.date)) < 0.01 }
+        expect(expiry != nil, "A relative deadline schedules its own local presentation expiry")
+        h.clock.date = deadline
+        expiry?.action()
+        expect(h.monitor.state.forecastCount == 0 && h.repository.state.forecast?.lastResetAt == nil,
+            "A relative preview expires without claiming that the quota reset was completed")
+        expect(h.client.callbacks.count == requests && h.channel.payloads.isEmpty, "Deadline projection does not fetch or notify")
     }
 
     static func latestResetDoesNotRetireAnIndependentFutureSignal() throws {

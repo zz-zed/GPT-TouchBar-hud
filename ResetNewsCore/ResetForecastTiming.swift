@@ -17,12 +17,17 @@ enum ResetForecastTiming {
     private static let dayPattern = #"(?:later\s+today|tomorrow|tonight|today|next\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|\d{4}-\d{2}-\d{2}|明天|今晚|今天)"#
     private static let clockPattern = #"(?:\d{1,2}:\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm))"#
     private static let zonePattern = #"(?:UTC(?:[+-]\d{1,2}(?::?\d{2})?)?|GMT(?:[+-]\d{1,2}(?::?\d{2})?)?|PST|PDT|PT|ET|EST|EDT|CST|CDT|CET|CEST|(?:[A-Za-z_]+(?:/[A-Za-z0-9_+-]+)+)|(?-i:[A-Z]{2,5}))"#
+    private static let relativeDeadlinePattern = #"within\s+(?:the\s+next\s+)?(?:(\d+(?:\.\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(hours?|hrs?|minutes?|mins?)"#
     // Keep a day qualifier with EOD; otherwise "EOD tomorrow" would silently become today.
     private static let endOfDayPattern = "(?:(\(dayPattern))\\s+)?(?:EOD|end\\s+of\\s+(?:the\\s+)?day)(?:\\s+(\(dayPattern)))?(?:\\s+(\(zonePattern)))?(?:\\s+time)?"
 
     /// Keeps the clock and its timezone with a relative date rather than truncating it to "tomorrow".
     static func timingText(in text: String) -> String? {
         if let deadline = ResetNewsText.capture("(?<![A-Za-z0-9])(\(endOfDayPattern))(?![A-Za-z0-9])", in: text) {
+            return deadline
+        }
+        if let deadline = ResetNewsText.capture("(?<![A-Za-z0-9])(\(relativeDeadlinePattern))(?![A-Za-z0-9])", in: text),
+           relativeDuration(deadline) != nil {
             return deadline
         }
         return ResetNewsText.capture("(?<![A-Za-z0-9])(\(dayPattern)(?:\\s+(?:at\\s+)?\(clockPattern)(?:\\s*\(zonePattern))?)?)(?![A-Za-z0-9])", in: text)
@@ -61,6 +66,13 @@ enum ResetForecastTiming {
             return Resolved(date: date, precision: precision, sourceZone: fact.sourceTimeZone ?? window?.timeZone)
         }
         guard let text = fact.timingText?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        if let duration = relativeDuration(text) {
+            // Elapsed hours/minutes start at the original announcement, never at a fetch or refresh.
+            guard let publishedAt, publishedAt.timeIntervalSince1970.isFinite else { return nil }
+            let deadline = publishedAt.addingTimeInterval(duration)
+            guard deadline.timeIntervalSince1970.isFinite else { return nil }
+            return Resolved(date: deadline, precision: .deadline, inferredFromPublication: true)
+        }
         if let endOfDay = endOfDayDetails(text) {
             // Never anchor an unspecified/ambiguous source zone to the viewer's local day.
             guard let label = endOfDay.zone ?? fact.sourceTimeZone ?? window?.timeZone,
@@ -98,6 +110,25 @@ enum ResetForecastTiming {
         return Resolved(date: sourceDay, precision: nil, dayCalendar: zone == nil ? nil : sourceCalendar,
                         dayEnd: dayEnd, sourceZone: declaredZone, inferredFromPublication: inferred,
                         assumedTimeZone: zone == nil && inferred, unresolvedClock: clockText != nil)
+    }
+
+    private static func relativeDuration(_ text: String) -> TimeInterval? {
+        let pattern = "^\(relativeDeadlinePattern)$"
+        guard ResetNewsText.matches(pattern, in: text),
+              let unit = ResetNewsText.capture(pattern, in: text, group: 2)?.lowercased() else { return nil }
+        let amount: Double
+        if let number = ResetNewsText.capture(pattern, in: text)?.lowercased() {
+            let words: [String: Double] = ["a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
+                                         "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10]
+            guard let value = Double(number) ?? words[number] else { return nil }
+            amount = value
+        } else {
+            guard ResetNewsText.matches(#"^within\s+the\s+next\s+"#, in: text),
+                  ["hour", "hr", "minute", "min"].contains(unit) else { return nil }
+            amount = 1
+        }
+        let duration = amount * (unit.hasPrefix("h") ? 3600 : 60)
+        return duration.isFinite && duration > 0 ? duration : nil
     }
 
     private static func endOfDayDetails(_ text: String) -> (day: String, zone: String?)? {

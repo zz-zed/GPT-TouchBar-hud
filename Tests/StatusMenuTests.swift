@@ -11,95 +11,201 @@ struct StatusMenuTests {
     static func find(_ id: String, in view: NSView) -> NSView? {
         descendants(view).first { $0.accessibilityIdentifier() == id }
     }
+    static func text(_ view: NSView) -> String {
+        guard !view.isHidden else { return "" }
+        return ([((view as? NSTextField)?.stringValue ?? "")] + view.subviews.map(text))
+            .filter { !$0.isEmpty }.joined(separator: " ")
+    }
     static func main() throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let suite = "StatusMenuTests." + UUID().uuidString
         DisplayLanguage.defaults = UserDefaults(suiteName: suite)!
         defer { DisplayLanguage.defaults.removePersistentDomain(forName: suite) }
-        let date = Date(timeIntervalSince1970: 1_790_490_000)
-        var quota = RateLimitDisplayState.initial
-        quota.fiveHour = LimitMeter(title: "5小时", shortTitle: "5h", window: .init(usedPercent: 38, windowDurationMins: 300, resetsAt: date.timeIntervalSince1970))
-        quota.weekly = LimitMeter(title: "周", shortTitle: "7d", window: .init(usedPercent: 3, windowDurationMins: 10080, resetsAt: date.addingTimeInterval(3600).timeIntervalSince1970))
-        quota.resetCredits = ResetCreditSummary(response: .init(availableCount: 2, credits: [.init(status: "available", expiresAt: date.timeIntervalSince1970)]))
-        quota.tokenUsage = TokenUsageSummary(yesterdayTokens: 1_488_000, cumulativeTokens: 3_470_000_000)
-        quota.lastUpdated = date
-        var news = ResetNewsViewState(enabled: true, status: .success, forecastAvailability: .current)
-        let summary = StatusSummaryView(state: quota)
-        summary.update(quota, news: news)
-        let host = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 600), styleMask: [.titled], backing: .buffered, defer: false)
-        host.contentView?.addSubview(summary)
-        let five = find("menu.fiveHour", in: summary)!
-        let weekly = find("menu.weekly", in: summary)!
-        let reset = find("menu.reset", in: summary)!
-        check(five.frame.minX < weekly.frame.minX && five.frame.minY == weekly.frame.minY, "5-hour quota precedes week")
-        check(reset.frame.minY > five.frame.minY, "Complete resets follow both quotas")
-        let readable = (summary.accessibilityChildren() ?? []).compactMap { ($0 as? NSView)?.accessibilityIdentifier() }
-        check(readable.filter { ["menu.fiveHour", "menu.weekly", "menu.reset", "menu.forecast"].contains($0) }
-              == ["menu.fiveHour", "menu.weekly", "menu.reset", "menu.forecast"], "Accessibility follows visual metric order")
-        check(find("menu.forecast.open", in: summary) == nil, "Confirmed zero has no button")
-        let empty = find("menu.forecast", in: summary)!
-        check(empty.accessibilityLabel()?.contains("0条") == true, "Confirmed zero is readable")
-        let emptyFrame = empty.frame
-        let emptyHeight = summary.frame.height
-        try snapshot(summary, name: "zero")
-        for status in [ResetNewsCheckStatus.disabled, .idle, .checking, .failure, .partial, .stale, .codexNotRunning] {
-            news.status = status; news.forecastAvailability = .unknown; summary.update(quota, news: news)
-            check(MenuForecastPresentation(news).value == "—", "Unknown or unavailable never invents zero")
-            check(find("menu.forecast.open", in: summary) == nil, "Unavailable empty state is read-only")
+        let now = Date()
+        let quotaStart = RateLimitDisplayState.initial
+        var base = quotaStart
+        base.fiveHour = LimitMeter(title: "5小时", shortTitle: "5h", window: .init(usedPercent: 38, windowDurationMins: 300,
+            resetsAt: now.addingTimeInterval(3600).timeIntervalSince1970))
+        base.weekly = LimitMeter(title: "周", shortTitle: "7d", window: .init(usedPercent: 2, windowDurationMins: 10080,
+            resetsAt: now.addingTimeInterval(7 * 86400).timeIntervalSince1970))
+        base.resetCredits = ResetCreditSummary(response: .init(availableCount: 3,
+            credits: [.init(status: "available", expiresAt: now.addingTimeInterval(8 * 86400).timeIntervalSince1970)]))
+        base.tokenUsage = TokenUsageSummary(yesterdayTokens: 144_000_000, cumulativeTokens: 5_570_000_000)
+        base.lastUpdated = now
+        func item(_ id: String, _ fact: ResetNewsFact) -> ResetNewsItem {
+            ResetNewsItem(id: id, sources: [.feed], originalText: "测试预告",
+                facts: [fact], publishedAt: now, firstSeenAt: now)
         }
-        news.status = .success
-        check(MenuForecastPresentation(news).value == "—" && MenuForecastPresentation(news).detail == "尚未获取预告",
-            "Other source success alone does not confirm an empty forecast")
-        news.forecastAvailability = .current
-        news.items = [ResetNewsItem(id: "fixture", sources: [.feed], originalText: "仅用于测试的预告",
-            facts: [.init(kind: .upcomingReset, scope: "test", effectiveAt: date)], publishedAt: date, firstSeenAt: date)]
-        summary.update(quota, news: news)
-        check(empty.frame == emptyFrame && summary.frame.height == emptyHeight, "Positive and zero states retain geometry")
-        var opens = 0
-        summary.onForecast = { opens += 1 }
-        let button = find("menu.forecast.open", in: summary) as! NSButton
-        button.performClick(nil)
-        check(opens == 1, "Positive forecast activates details")
-        news.status = .failure; news.forecastAvailability = .cached; news.forecastCheckedAt = date
-        summary.update(quota, news: news)
-        check(MenuForecastPresentation(news).canOpen && MenuForecastPresentation(news).detail.contains("缓存"), "Cached forecasts remain readable after failure")
-        check(MenuForecastPresentation(news).help.contains("预告数据更新于"), "Cached forecast exposes its data timestamp")
-        news.status = .success; news.forecastAvailability = .current; summary.update(quota, news: news)
-        try snapshot(summary, name: "positive")
+        let announced = item("exact", .init(kind: .upcomingReset, effectiveAt: now.addingTimeInterval(7200),
+            effectiveAtPrecision: .deadline))
+        let dateOnly = item("date", .init(kind: .upcomingReset, timingText: "tomorrow"))
+        let pending = item("pending", .init(kind: .upcomingReset))
+        var calendar = Calendar.current
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
+        let start = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: now)!
+        let end = calendar.date(bySettingHour: 1, minute: 0, second: 0, of: tomorrow)!
+        let crossing = item("window", .init(kind: .upcomingReset, effectiveAt: end,
+            effectiveAtPrecision: .windowBoundary, officialWindow: .init(startAt: start, endAt: end)))
+        let active = ResetNewsViewState(enabled: true, status: .success, items: [announced],
+            forecastAvailability: .current, forecastCheckedAt: now)
+        var empty = active; empty.items = []
+        var disabled = ResetNewsViewState()
+        disabled.enabled = false
+        let loading = ResetNewsViewState(enabled: true, status: .checking)
+        let failed = ResetNewsViewState(enabled: true, status: .failure)
+        var cached = active; cached.status = .failure; cached.forecastAvailability = .cached
+        cached.forecastCheckedAt = now.addingTimeInterval(-3600)
+        var cachedEmpty = cached; cachedEmpty.items = []
+        let paused = ResetNewsViewState(enabled: true, status: .idle)
+        var weeklyOnly = base; weeklyOnly.fiveHour = nil
+        var fiveOnly = base; fiveOnly.weekly = nil
+        var noCredit = base; noCredit.resetCredits = ResetCreditSummary(response: .init(availableCount: 0, credits: []))
+        var unknownCredit = base; unknownCredit.resetCredits = nil
+        var firstLoad = quotaStart; firstLoad.isRefreshing = true
+        var firstFail = quotaStart; firstFail.errorMessage = "无法连接 Codex"
+        var staleQuota = base; staleQuota.errorMessage = "无法连接 Codex"
+        var exhausted = noCredit; exhausted.fiveHour = LimitMeter(title: "5小时", shortTitle: "5h",
+            window: .init(usedPercent: 100, windowDurationMins: 300, resetsAt: now.addingTimeInterval(3600).timeIntervalSince1970))
+        var tokenUnknown = base; tokenUnknown.tokenUsage = nil
+        var extras = base; extras.taskStatus = TaskStatusSummary(runningCount: 2)
+        extras.creditBalance = CreditBalanceSummary(response: .init(hasCredits: true, unlimited: false, balance: "12.34"))
+        extras.tokenUsage?.isStale = true; extras.tokenUsage?.updatedAt = now.addingTimeInterval(-3600)
+        var refreshing = base; refreshing.isRefreshing = true
+        var withPending = active; withPending.items = [pending]
+        var withDate = active; withDate.items = [dateOnly]
+        var withWindow = active; withWindow.items = [crossing]
+        let summary = StatusSummaryView(state: base)
+        let host = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 740), styleMask: [.titled], backing: .buffered, defer: false)
+        host.contentView?.addSubview(summary)
+        func scene(_ number: Int, _ q: RateLimitDisplayState, _ n: ResetNewsViewState) throws {
+            summary.update(q, news: n)
+            try snapshot(summary, name: String(format: "scene-%02d", number))
+            check(summary.frame.width == 344 && summary.frame.height < 500, "Scene \(number) stays within menu width and height")
+        }
+        try scene(1, base, active)
+        let initialForecast = find("menu.forecast", in: summary)!
+        let initialReset = find("menu.reset", in: summary)!
+        check(initialForecast.frame.minY == initialReset.frame.minY && initialForecast.frame.minX > initialReset.frame.minX,
+            "Active forecast and reset credits share a row")
+        check(find("menu.forecast.open", in: summary) != nil, "A valid forecast is actionable")
+        var opens = 0, retries = 0, refreshes = 0, quotaRetries = 0
+        summary.onForecast = { opens += 1 }; summary.onForecastRetry = { retries += 1 }
+        summary.onRefresh = { refreshes += 1 }; summary.onQuotaRetry = { quotaRetries += 1 }
+        (find("menu.forecast.open", in: summary) as! NSButton).performClick(nil)
+        check(opens == 1, "Forecast opens details")
+        try scene(2, weeklyOnly, active)
+        check(find("menu.forecast", in: summary)!.frame.minY == find("menu.reset", in: summary)!.frame.minY,
+            "Weekly-only does not change reset/forecast arrangement")
+        try scene(3, fiveOnly, active)
+        check(find("menu.forecast", in: summary)!.frame.minY == find("menu.reset", in: summary)!.frame.minY,
+            "Five-hour-only does not change reset/forecast arrangement")
+        try scene(4, base, empty)
+        check(find("menu.forecast.open", in: summary) == nil && text(summary).contains("预告 · 暂无"),
+            "Confirmed empty is quiet and read-only")
+        let emptyHeight = summary.frame.height
+        try scene(5, weeklyOnly, empty)
+        check(summary.frame.height == emptyHeight, "One quota does not expand a quiet reset row")
+        try scene(6, noCredit, empty)
+        check(find("menu.reset", in: summary)!.frame.height < 40 && text(summary).contains("可用重置 0次"),
+            "No credits and no forecast collapse to one labeled line")
+        try scene(7, unknownCredit, empty)
+        check(text(summary).contains("次数待获取") && !text(summary).contains("最早到期 —"),
+            "Unknown count never invents a unit or expiry")
+        try scene(8, base, disabled)
+        check(find("menu.forecast", in: summary) == nil, "Disabled forecast has no menu area")
+        try scene(9, weeklyOnly, disabled)
+        check(find("menu.forecast", in: summary) == nil, "Disabled weekly-only remains hidden")
+        try scene(10, base, loading)
+        check(text(summary).contains("正在获取预告") && find("menu.forecast.open", in: summary) == nil,
+            "Loading has a short nonactionable status")
+        try scene(11, base, paused)
+        check(text(summary).contains("预告检查已暂停") && find("menu.forecast.retry", in: summary) == nil,
+            "A gated pause has no misleading retry button")
+        try scene(12, base, failed)
+        check(find("menu.forecast.retry", in: summary) != nil && find("menu.forecast.open", in: summary) == nil,
+            "Failure with no cache offers retry but not details")
+        (find("menu.forecast.retry", in: summary) as! NSButton).performClick(nil)
+        check(retries == 1 && opens == 1, "Retry and details are distinct actions")
+        try scene(13, base, cached)
+        check(find("menu.forecast.open", in: summary) != nil && find("menu.forecast.retry", in: summary) != nil,
+            "Cached forecast keeps details and retry")
+        (find("menu.forecast.retry", in: summary) as! NSButton).performClick(nil)
+        check(retries == 2 && opens == 1, "Cached retry does not open the details")
+        try scene(14, base, cachedEmpty)
+        check(!text(summary).contains("预告 · 暂无"), "Old empty cache is not confirmed current empty")
+        try scene(15, firstLoad, loading)
+        check(find("menu.weekly", in: summary) == nil && text(summary).contains("正在读取账号额度")
+            && !(find("menu.reset", in: summary) != nil) && !text(summary).contains("Token 用量待获取"),
+            "First load does not invent a weekly window or duplicate unknown placeholders")
+        try scene(16, firstFail, failed)
+        check(find("menu.quota.retry", in: summary) != nil && find("menu.forecast.retry", in: summary) != nil,
+            "Independent account and forecast errors have independent retry routes")
+        (find("menu.quota.retry", in: summary) as! NSButton).performClick(nil)
+        check(quotaRetries == 1, "Account retry callback is routed")
+        try scene(17, staleQuota, active)
+        check(text(summary).contains("上次数据") && text(summary).contains("额度暂无法更新"),
+            "Stale account quota is labeled beside quotas")
+        try scene(18, exhausted, active)
+        check(text(summary).contains("已耗尽") && find("menu.forecast.open", in: summary) != nil,
+            "Zero quota and public forecast remain independent")
+        try scene(19, base, withPending)
+        check(text(summary).contains("时间待定") && find("menu.forecast.open", in: summary) != nil,
+            "Unknown forecast time keeps detail access without inventing a clock")
+        try scene(20, base, withDate)
+        check(text(summary).contains("明天") && text(summary).contains("时刻未公布"),
+            "Known date leads, unknown clock supports it")
+        try scene(21, base, withWindow)
+        let windowFrame = find("menu.forecast", in: summary)!.frame
+        check(windowFrame.width > 300 && text(summary).contains("今天") && text(summary).contains("明天"),
+            "Cross-day window spans full width with both day boundaries")
+        try scene(22, extras, active)
+        check(text(summary).contains("执行中 2") && text(summary).contains("12.34") && text(summary).contains("Token 暂无法更新"),
+            "Task, balance and stale token retain distinct messages")
+        try scene(23, refreshing, empty)
+        check((find("menu.refresh", in: summary) as! NSButton).isEnabled == false,
+            "Menu refresh prevents duplicate quota requests")
+        try scene(24, base, active) // app-update items are native menu rows, outside this custom summary.
+        try scene(25, base, active)
+        try scene(26, noCredit, active)
+        check(find("menu.forecast.open", in: summary) != nil, "No reset credits do not hide a valid forecast")
+        try scene(27, tokenUnknown, empty)
+        check(text(summary).contains("Token 用量待获取") && !text(summary).contains("昨日 —"),
+            "Unknown token usage occupies only one line")
+        try scene(28, noCredit, disabled)
+        check(find("menu.forecast", in: summary) == nil && find("menu.reset", in: summary)!.frame.height < 40
+            && text(summary).contains("可用重置 0次"),
+            "Disabled forecast and zero credits remain compact")
         summary.appearance = NSAppearance(named: .darkAqua)
-        try snapshot(summary, name: "dark")
+        try snapshot(summary, name: "scene-28-dark")
+        summary.update(base, news: active)
+        try snapshot(summary, name: "scene-01-dark")
+        summary.update(base, news: withWindow)
+        try snapshot(summary, name: "scene-21-dark")
         summary.appearance = NSAppearance(named: .aqua)
-        news.items = []; summary.update(quota, news: news)
-        check(find("menu.forecast.open", in: summary) == nil, "Positive-to-zero removes the action")
-        news.forecastAvailability = .cached; summary.update(quota, news: news)
-        check(MenuForecastPresentation(news).value == "—" && !MenuForecastPresentation(news).detail.contains("暂无"),
-            "A cached empty result is not presented as a fresh no-forecast result")
-        try snapshot(summary, name: "cached-empty")
-        news.forecastAvailability = .current; summary.update(quota, news: news)
-        var refreshes = 0; summary.onRefresh = { refreshes += 1 }
+        summary.update(base, news: active)
+        let baseline = summary.layoutUpdateCount
+        var withDiagnostics = base
+        withDiagnostics.taskStatus = TaskStatusSummary(runningCount: 1)
+        summary.update(withDiagnostics)
+        let afterTask = summary.layoutUpdateCount
+        withDiagnostics.taskStatus?.legacyDiagnostics = LegacyTaskDiagnostics(lastSuccessfulCheck: now)
+        summary.update(withDiagnostics)
+        check(summary.layoutUpdateCount == afterTask && afterTask > baseline,
+            "Invisible diagnostics do not rebuild the menu")
         (find("menu.refresh", in: summary) as! NSButton).performClick(nil)
-        check(refreshes == 1, "Refresh activates the callback")
-        quota.isRefreshing = true; summary.update(quota)
-        check((find("menu.refresh", in: summary) as! NSButton).isEnabled == false, "Duplicate refresh is disabled")
-        quota.fiveHour = nil; quota.isRefreshing = false; summary.update(quota)
-        check(find("menu.fiveHour", in: summary) == nil, "Weekly-only does not invent a 5-hour window")
-        check(find("menu.weekly", in: summary)!.frame.minX < find("menu.reset", in: summary)!.frame.minX, "Weekly-only retains order")
-        try snapshot(summary, name: "weekly")
-        quota.taskStatus = TaskStatusSummary(runningCount: 2)
-        quota.creditBalance = CreditBalanceSummary(response: .init(hasCredits: true, unlimited: false, balance: "12.34"))
-        quota.tokenUsage?.isStale = true
-        summary.update(quota)
-        let text = descendants(summary).compactMap { ($0 as? NSTextField)?.stringValue }.joined(separator: " ")
-        check(text.contains("执行中 2") && text.contains("12.34") && text.contains("*"), "Conditional task, balance and stale token are preserved")
-        let layouts = summary.layoutUpdateCount
-        quota.taskStatus?.legacyDiagnostics = LegacyTaskDiagnostics(lastSuccessfulCheck: date)
-        summary.update(quota)
-        check(summary.layoutUpdateCount == layouts, "Invisible diagnostics do not rebuild the view")
-        summary.update(.initial, news: ResetNewsViewState())
-        try snapshot(summary, name: "missing")
-        check(summary.frame.width == 344 && summary.frame.height < 360, "Summary keeps a compact width and height")
-        print("PASS: \(checks) status menu checks")
+        check(refreshes == 1, "Combined refresh callback is wired")
+        let publication = ISO8601DateFormatter().date(from: "2026-10-15T04:56:07Z")!
+        let signal = ResetForecastSignal(sourceID: "2110595554036400151",
+            sourceURL: URL(string: "https://x.com/thsottiaux/status/2110595554036400151")!,
+            originalText: "Landing within the next 2 hours", publishedAt: publication)
+        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let relative = ResetNewsViewState(enabled: true, status: .success,
+            items: [signal.evidenceItem(calendar: calendar)], forecastAvailability: .current)
+        let presentation = MenuForecastPresentation(relative, now: publication, calendar: calendar)
+        check(presentation.value == "预计今天 14:56 前" && presentation.compactValue == "14:56 前",
+            "Publication-relative deadline keeps its qualified time")
+        print("PASS: \(checks) status menu checks; 28 native scene snapshots")
     }
     static func snapshot(_ view: NSView, name: String) throws {
         view.wantsLayer = true

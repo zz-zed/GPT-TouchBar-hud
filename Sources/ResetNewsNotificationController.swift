@@ -168,7 +168,7 @@ final class ResetNewsNotificationController {
     func deliver(_ candidates: [ResetNewsItem], recovery: Bool = false, now: Date = Date(), calendar: Calendar = .current) {
         let policy = ResetForecastPolicy(calendar: calendar)
         let items = policy.retaining(candidates.compactMap { policy.reminder(for: $0, now: now) }, now: now)
-        send(items, recovery: recovery)
+        send(items, recovery: recovery, now: now, calendar: calendar)
     }
 
     /// The current signal supplies eligibility, including explicit promises with
@@ -177,13 +177,15 @@ final class ResetNewsNotificationController {
                  now: Date = Date(), calendar: Calendar = .current) {
         guard let item = snapshot.item(now: now, calendar: calendar),
               item.facts.contains(where: { $0.kind == .upcomingReset && $0.confidence == .explicit }) else { return }
-        send([item], recovery: recovery, notificationKey: snapshot.notificationKey)
+        send([item], recovery: recovery, notificationKey: snapshot.notificationKey, now: now, calendar: calendar)
     }
 
-    private func send(_ items: [ResetNewsItem], recovery: Bool, notificationKey: String? = nil) {
+    private func send(_ items: [ResetNewsItem], recovery: Bool, notificationKey: String? = nil, now: Date, calendar: Calendar) {
         guard active, permission == .allowed, let first = items.first else { return }
         let requestGeneration = generation
-        let title = "Codex 重置预告（\(items.count) 条新预告）"
+        let title = first.facts.first(where: { $0.kind == .upcomingReset }).map {
+            "重置预告：" + ResetForecastHeadline(fact: $0, publishedAt: first.publishedAt, now: now, calendar: calendar).summary
+        } ?? "Codex 重置预告"
         let payload = ResetNewsNotificationPayload(
             identifier: Self.identifierPrefix + (recovery ? "summary:" : "") + (notificationKey ?? first.notificationKey),
             itemIDs: items.map(\.id), title: title,
