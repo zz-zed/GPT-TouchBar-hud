@@ -13,3 +13,5 @@ swiftc -module-cache-path "$SWIFT_MODULE_CACHE" \
     Sources/HostLifecycleMonitor.swift Tests/HostLifecycleMonitorTests.swift \
     -o "$TEST_DIR/HostLifecycleMonitorTests"
 "$TEST_DIR/HostLifecycleMonitorTests"
+
+bash scripts/test-app-lifecycle-state.sh
