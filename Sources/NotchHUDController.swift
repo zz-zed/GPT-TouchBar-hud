@@ -51,7 +51,10 @@ final class NotchHUDController {
     func environmentChanged() { island?.environmentChanged(); legacy?.environmentChanged() }
     func setAlwaysShowQuota(_ enabled: Bool) { island?.model.setAlwaysShowQuota(enabled) }
     func updateAppearance(_ appearance: HUDAppearance) { island?.model.setMaterial(appearance.material) }
-    func updateResetNews(_ state: ResetNewsViewState) { island?.model.updateResetNews(state) }
+    func updateResetNews(_ state: ResetNewsViewState, forecast: ForecastPresentation? = nil,
+                         context: PresentationContext = PresentationContext()) {
+        island?.model.updateResetNews(state, forecast: forecast, context: context)
+    }
 }
 
 final class NotchIslandController: NSObject, NSMenuDelegate {

@@ -18,6 +18,9 @@ struct ResetNewsListView: View {
     let onVisibleItem: (String) -> Void
     var onPreferredHeightChange: ((CGFloat) -> Void)? = nil
     var density: Density = .regular
+    var presentation: ForecastPresentation? = nil
+    var context = PresentationContext()
+    private var forecast: ForecastPresentation { presentation ?? ForecastPresentation(state, context: context) }
     @ForecastLocalState<Date?> private var shownDeadline = nil
     @ForecastLocalState<Bool> private var expiredWhileOpen = false
     private let coordinateSpace = "resetNewsListViewport"
@@ -50,7 +53,8 @@ struct ResetNewsListView: View {
                             ForEach(state.items) { item in
                                 ResetNewsCard(item: item, unread: !state.readIDs.contains(item.id),
                                     compactForNotch: density == .notch,
-                                    cached: state.forecastAvailability == .cached)
+                                    cached: state.forecastAvailability == .cached,
+                                    context: context, forecasts: forecast.cards[item.id])
                                     .id(item.id)
                                     .background(GeometryReader { row in
                                         Color.clear.preference(key: ResetNewsCardFrames.self,
@@ -93,7 +97,7 @@ struct ResetNewsListView: View {
                 }
                 Divider()
                 HStack(spacing: 12) {
-                    Text(ResetNewsListPresentation.checkedText(state))
+                    Text(ResetNewsListPresentation.checkedText(state, context: context))
                         .font(.system(size: 11)).foregroundColor(.secondary)
                     Spacer(minLength: 4)
                     Button(DisplayLanguage.text("刷新预告", "Refresh forecast"), action: onCheck)
@@ -113,7 +117,7 @@ struct ResetNewsListView: View {
         }
         .onAppear { onPageVisibility(isVisible); rememberDeadline(state.items) }
         .onChange(of: state.items) { items in
-            expiredWhileOpen = isVisible && items.isEmpty && shownDeadline.map { $0 <= Date() } == true
+            expiredWhileOpen = isVisible && items.isEmpty && shownDeadline.map { $0 <= context.now } == true
             rememberDeadline(items)
         }
         .onChange(of: isVisible) { visible in
@@ -126,10 +130,10 @@ struct ResetNewsListView: View {
 
     private func rememberDeadline(_ items: [ResetNewsItem]) {
         guard let item = items.first, let fact = item.facts.first(where: { $0.kind == .upcomingReset }),
-              ResetForecastHeadline(fact: fact, publishedAt: item.publishedAt).hasClock else {
+              forecast.headline?.hasClock == true else {
             shownDeadline = nil; return
         }
-        shownDeadline = ResetForecastPolicy().scheduledDate(for: fact, publishedAt: item.publishedAt)
+        shownDeadline = ResetForecastPolicy(calendar: context.calendar).scheduledDate(for: fact, publishedAt: item.publishedAt)
     }
 }
 
@@ -163,11 +167,10 @@ enum ResetNewsListPresentation {
     static func heading(_ state: ResetNewsViewState) -> String {
         DisplayLanguage.text("公开重置预告", "Public reset forecast")
     }
-    static func checkedText(_ state: ResetNewsViewState) -> String {
+    static func checkedText(_ state: ResetNewsViewState, context: PresentationContext = PresentationContext()) -> String {
         if state.status == .checking { return DisplayLanguage.text("正在更新…", "Updating…") }
         guard let date = state.forecastCheckedAt else { return DisplayLanguage.text("尚未检查", "Not checked yet") }
-        let formatter = DateFormatter(); formatter.dateFormat = "HH:mm"; formatter.timeZone = .current
-        return DisplayLanguage.text("最近检查 ", "Checked ") + formatter.string(from: date)
+        return context.text("最近检查 ", "Checked ") + context.date(date, format: "HH:mm")
     }
     static func notice(_ state: ResetNewsViewState) -> String? {
         if state.forecastAvailability == .cached {
@@ -213,11 +216,12 @@ struct ResetNewsCard: View {
     private let forecasts: [ResetForecastHeadline]
 
     init(item: ResetNewsItem, unread: Bool, compactForNotch: Bool = false, cached: Bool = false,
-         now: Date = Date(), calendar: Calendar = .current) {
+         now: Date = Date(), calendar: Calendar = .current,
+         context: PresentationContext? = nil, forecasts: [ResetForecastHeadline]? = nil) {
         self.item = item; self.unread = unread; self.compactForNotch = compactForNotch; self.cached = cached
-        forecasts = item.facts.filter { $0.kind == .upcomingReset }.map {
-            ResetForecastHeadline(fact: $0, publishedAt: item.publishedAt, now: now, calendar: calendar,
-                locale: Locale(identifier: DisplayLanguage.current == .chinese ? "zh_CN" : "en_US"))
+        let context = context ?? PresentationContext(now: now, calendar: calendar)
+        self.forecasts = forecasts ?? item.facts.filter { $0.kind == .upcomingReset }.map {
+            ResetForecastHeadline(fact: $0, publishedAt: item.publishedAt, now: context.now, calendar: context.calendar, locale: context.locale)
         }
     }
 

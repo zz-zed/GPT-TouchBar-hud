@@ -1,5 +1,27 @@
 import AppKit
 
+/// A complete value crosses lazy view boundaries; freshness is not inferred from its count.
+struct ForecastIndicatorPresentation: Equatable {
+    let count: Int?
+    let available: Bool
+    let cached: Bool
+    let language: DisplayLanguage
+    var countText: String { ResetForecastIndicator.countText(count) }
+    var title: String { language == .chinese ? "重置预告 \(countText)" : "Reset forecasts \(countText)" }
+    var shortTitle: String { language == .chinese ? "预告 \(countText)" : "Forecast \(countText)" }
+    var hasForecasts: Bool { (count ?? 0) > 0 }
+    var accessibilityLabel: String {
+        guard let count else { return language == .chinese ? "重置预告（待更新）" : "Reset forecasts (awaiting update)" }
+        if cached { return language == .chinese ? "上次重置预告（\(count) 条）" : "Last reset forecasts (\(count) upcoming)" }
+        return language == .chinese ? "重置预告（\(count) 条）" : "Reset forecasts (\(count) upcoming)"
+    }
+    var toolTip: String { accessibilityLabel }
+    init(count: Int? = nil, available: Bool = false, cached: Bool = false, language: DisplayLanguage = .current) {
+        self.count = count.map { max(0, $0) }; self.available = available
+        self.cached = cached; self.language = language
+    }
+}
+
 enum ResetForecastIndicator {
     static func image(size: CGFloat = 18) -> NSImage {
         let side = max(1, size)
@@ -74,16 +96,6 @@ enum ResetForecastIndicator {
     }
 
     static func accessibilityLabel(_ forecastCount: Int?, cached: Bool = false) -> String {
-        guard let forecastCount else {
-            return DisplayLanguage.text("重置预告（待更新）", "Reset forecasts (awaiting update)")
-        }
-        let count = max(0, forecastCount)
-        if cached {
-            return DisplayLanguage.text("上次重置预告（\(count) 条）", "Last reset forecasts (\(count) upcoming)")
-        }
-        return DisplayLanguage.text(
-            "重置预告（\(count) 条）",
-            "Reset forecasts (\(count) upcoming)"
-        )
+        ForecastIndicatorPresentation(count: forecastCount, cached: cached).accessibilityLabel
     }
 }

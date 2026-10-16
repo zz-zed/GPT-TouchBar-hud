@@ -20,8 +20,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     var onOpenTouchBarMessages: (() -> Void)? {
         didSet { touchBarView.onOpenMessages = onOpenTouchBarMessages ?? onOpenMessages }
     }
-    private var messageForecastCount: Int?
-    private var messagesAvailable = false
+    private var forecastIndicator = ForecastIndicatorPresentation()
     var messageAnchorView: NSView { hudView.messageAnchorView }
 
     init(
@@ -56,7 +55,7 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
         view = hudView
         view.frame = NSRect(x: 0, y: 0, width: 250, height: DesignTokens.hudHeight)
         update(with: currentState)
-        updateMessages(forecastCount: messageForecastCount, available: messagesAvailable)
+        updateMessages(forecastIndicator)
     }
 
     override func makeTouchBar() -> NSTouchBar? {
@@ -110,19 +109,19 @@ final class CompactHUDViewController: NSViewController, NSTouchBarDelegate {
     func prepareToShow() {
         _ = view
         hudView.update(with: currentState)
-        hudView.updateMessages(forecastCount: messageForecastCount, available: messagesAvailable)
+        hudView.updateMessages(forecastIndicator)
     }
 
     func updateAppearance(_ appearance: HUDAppearance) {
         hudView.updateAppearance(appearance)
     }
+    func updateMessages(_ presentation: ForecastIndicatorPresentation) {
+        forecastIndicator = presentation
+        if hudView.window?.isVisible != false { hudView.updateMessages(presentation) }
+        touchBarView.updateMessages(presentation)
+    }
     func updateMessages(forecastCount: Int?, available: Bool) {
-        messageForecastCount = forecastCount
-        messagesAvailable = available
-        if hudView.window?.isVisible != false {
-            hudView.updateMessages(forecastCount: forecastCount, available: available)
-        }
-        touchBarView.updateMessages(forecastCount: forecastCount, available: available)
+        updateMessages(ForecastIndicatorPresentation(count: forecastCount, available: available))
     }
 
     @objc private func closeClicked() {
@@ -143,7 +142,6 @@ final class CompactQuotaHUDView: NSView {
         let language: DisplayLanguage
     }
     private var renderedContent: Content?
-    private var forecastLanguage: DisplayLanguage?
     private(set) var layoutUpdateCount = 0
     weak var touchBarProvider: CompactHUDViewController?
 
@@ -152,7 +150,8 @@ final class CompactQuotaHUDView: NSView {
     private let messagesButton = CompactHUDActionButton(title: "", target: nil, action: nil)
     var messageAnchorView: NSView { messagesButton }
     var onOpenMessages: (() -> Void)?
-    private var forecastCount: Int?
+    private var forecastIndicator = ForecastIndicatorPresentation()
+    private var forecastCount: Int? { forecastIndicator.count }
     private var metricCount = 2
     private let secondItem = CompactQuotaItemView()
     private let refreshButton = CompactIconButton(
@@ -394,26 +393,24 @@ final class CompactQuotaHUDView: NSView {
         taskLabel.textColor = surface == .classic ? (renderedContent?.appearance.color ?? .lightGray) : .labelColor
     }
 
-    func updateMessages(forecastCount: Int?, available: Bool) {
-        let count = forecastCount.map { max(0, $0) }
-        guard self.forecastCount != count || messagesButton.isHidden != !available ||
-                forecastLanguage != DisplayLanguage.current else { return }
-        self.forecastCount = count
-        forecastLanguage = DisplayLanguage.current
-        messagesButton.isHidden = !available
+    func updateMessages(_ presentation: ForecastIndicatorPresentation) {
+        guard forecastIndicator != presentation else { return }
+        forecastIndicator = presentation
+        messagesButton.isHidden = !presentation.available
         updateForecastPresentation()
         setMetricCount(metricCount)
     }
+    func updateMessages(forecastCount: Int?, available: Bool) {
+        updateMessages(ForecastIndicatorPresentation(count: forecastCount, available: available))
+    }
 
     private func updateForecastPresentation() {
-        let count = ResetForecastIndicator.countText(forecastCount)
-        messagesButton.title = DisplayLanguage.text("重置预告 \(count)", "Reset forecasts \(count)")
+        messagesButton.title = forecastIndicator.title
         messagesButton.contentTintColor = surface == .classic
-            ? ((forecastCount ?? 0) > 0 ? DesignTokens.accent : NSColor.white.withAlphaComponent(0.84))
+            ? (forecastIndicator.hasForecasts ? DesignTokens.accent : NSColor.white.withAlphaComponent(0.84))
             : .labelColor
-        let accessibilityLabel = ResetForecastIndicator.accessibilityLabel(forecastCount)
-        messagesButton.toolTip = accessibilityLabel
-        messagesButton.setAccessibilityLabel(accessibilityLabel)
+        messagesButton.toolTip = forecastIndicator.toolTip
+        messagesButton.setAccessibilityLabel(forecastIndicator.accessibilityLabel)
     }
 
     private func configure() {

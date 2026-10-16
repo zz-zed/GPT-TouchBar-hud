@@ -22,7 +22,8 @@ final class TouchBarRateLimitsView: NSView {
     private let messagesButton = TouchBarForecastButton(title: "", target: nil, action: nil)
     var onOpenMessages: (() -> Void)?
     private var currentState = RateLimitDisplayState.initial
-    private var messageForecastCount: Int?
+    private var forecastIndicator = ForecastIndicatorPresentation()
+    private var messageForecastCount: Int? { forecastIndicator.count }
     private var hasRunningTasks = false
     private var itemVisibility: Bool?
     private var itemVisibilityObservation: NSKeyValueObservation?
@@ -113,11 +114,15 @@ final class TouchBarRateLimitsView: NSView {
         layer.add(animation, forKey: Self.breathingAnimationKey)
     }
 
-    func update(with state: RateLimitDisplayState) {
+    func update(with state: RateLimitDisplayState, language: DisplayLanguage = .current) {
+        if forecastIndicator.language != language {
+            forecastIndicator = ForecastIndicatorPresentation(count: forecastIndicator.count, available: forecastIndicator.available,
+                cached: forecastIndicator.cached, language: language)
+        }
         taskTrace.record(state, action: .received)
         currentState = state
         TaskPresentationTrace.record(state, surface: .touchBar, action: .renderRequested)
-        let forecastAccessibilityLabel = ResetForecastIndicator.accessibilityLabel(messageForecastCount)
+        let forecastAccessibilityLabel = forecastIndicator.accessibilityLabel
         messagesButton.toolTip = forecastAccessibilityLabel
         messagesButton.setAccessibilityLabel(forecastAccessibilityLabel)
         let status = state.displayedTaskStatus
@@ -222,10 +227,10 @@ final class TouchBarRateLimitsView: NSView {
         }
         if !messagesButton.isHidden {
             let count = ResetForecastIndicator.countText(messageForecastCount)
-            messagesButton.title = DisplayLanguage.text("重置预告 \(count)", "Reset forecasts \(count)")
+            messagesButton.title = forecastIndicator.title
             var width = max(46, ceil(messagesButton.fittingSize.width))
             if total + 8 + width + 4 > Self.contentWidth {
-                messagesButton.title = DisplayLanguage.text("预告 \(count)", "Forecast \(count)")
+                messagesButton.title = forecastIndicator.shortTitle
                 width = max(46, ceil(messagesButton.fittingSize.width))
             }
             if total + 8 + width + 4 > Self.contentWidth {
@@ -241,18 +246,18 @@ final class TouchBarRateLimitsView: NSView {
         toolTip = state.statusText
     }
 
+    func updateMessages(_ presentation: ForecastIndicatorPresentation) {
+        guard forecastIndicator != presentation else { return }
+        forecastIndicator = presentation
+        messagesButton.isHidden = !presentation.available
+        messagesButton.hasForecasts = presentation.hasForecasts
+        messagesButton.contentTintColor = presentation.hasForecasts ? DesignTokens.accent : NSColor(white: 0.55, alpha: 1)
+        messagesButton.toolTip = presentation.toolTip
+        messagesButton.setAccessibilityLabel(presentation.accessibilityLabel)
+        update(with: currentState, language: presentation.language)
+    }
     func updateMessages(forecastCount: Int?, available: Bool) {
-        let count = forecastCount.map { max(0, $0) }
-        guard messageForecastCount != count || messagesButton.isHidden != !available else { return }
-        messageForecastCount = count
-        messagesButton.isHidden = !available
-        let hasForecasts = (count ?? 0) > 0
-        messagesButton.hasForecasts = hasForecasts
-        messagesButton.contentTintColor = hasForecasts ? DesignTokens.accent : NSColor(white: 0.55, alpha: 1)
-        let accessibilityLabel = ResetForecastIndicator.accessibilityLabel(forecastCount)
-        messagesButton.toolTip = accessibilityLabel
-        messagesButton.setAccessibilityLabel(accessibilityLabel)
-        update(with: currentState)
+        updateMessages(ForecastIndicatorPresentation(count: forecastCount, available: available))
     }
 
     @objc private func messagesClicked() { onOpenMessages?() }

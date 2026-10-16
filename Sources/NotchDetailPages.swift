@@ -90,7 +90,8 @@ struct NotchDetailPages: View {
         ResetNewsListView(state: model.resetNews, isVisible: model.messagesVisible,
             onCheck: { model.onCheckMessages?() }, onMarkAllRead: { model.onMarkAllMessagesRead?() },
             onSettings: { model.onMessageSettings?() }, onPageVisibility: model.resetNewsPageVisibilityChanged,
-            onVisibleItem: model.resetNewsCardVisible, density: .notch)
+            onVisibleItem: model.resetNewsCardVisible, density: .notch,
+            presentation: model.forecast, context: model.presentationContext)
             .padding(.vertical, 4)
             .accessibilityHidden(!model.messagesVisible)
             .allowsHitTesting(model.messagesVisible)
@@ -126,11 +127,7 @@ struct NotchDetailPages: View {
     }
     private var quotaMetrics: [HUDMetric] { model.content.metrics.filter { $0.percent != nil } }
     private var forecastHeadline: ResetForecastHeadline? {
-        guard model.showsForecastShoulder,
-              let item = model.resetNews.items.first(where: { $0.facts.contains(where: { $0.kind == .upcomingReset }) }),
-              let fact = item.facts.first(where: { $0.kind == .upcomingReset }) else { return nil }
-        return ResetForecastHeadline(fact: fact, publishedAt: item.publishedAt,
-            locale: Locale(identifier: DisplayLanguage.current == .chinese ? "zh_CN" : "en_US"))
+        model.showsForecastShoulder ? model.forecast.headline : nil
     }
     @ViewBuilder private var resetAndForecast: some View {
         if model.content.state.resetCredits != nil || forecastHeadline != nil {
@@ -174,19 +171,9 @@ struct NotchDetailPages: View {
         let prefix = model.resetNews.forecastAvailability == .cached
             ? DisplayLanguage.text("上次重置预告", "Last reset forecast")
             : DisplayLanguage.text("公开重置预告", "Public reset forecast")
-        if let window = model.resetNews.items.first(where: { $0.facts.contains(where: { $0.kind == .upcomingReset }) })?
-            .facts.first(where: { $0.kind == .upcomingReset })?.officialWindow,
-           let start = window.startAt, let end = window.endAt,
-           !Calendar.current.isDate(start, inSameDayAs: end) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MM/dd"
-            formatter.timeZone = .current
-            return prefix + " · " + formatter.string(from: start) + "–" + formatter.string(from: end)
-        }
-        guard let lead = headline.lead else { return prefix }
-        if lead == "预计" || lead == "Expected" { return prefix + " · " + (headline.dateText ?? lead) }
-        return prefix + " · " + lead
+        return prefix + (headline.shoulderQualifier.map { " · " + $0 } ?? "")
     }
+
     private func earliestExpiry(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM/dd HH:mm"
