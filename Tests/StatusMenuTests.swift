@@ -16,6 +16,75 @@ struct StatusMenuTests {
         return ([((view as? NSTextField)?.stringValue ?? "")] + view.subviews.map(text))
             .filter { !$0.isEmpty }.joined(separator: " ")
     }
+    static func checkAccountRefreshFailures() throws {
+        let now = ISO8601DateFormatter().date(from: "2026-10-15T04:00:00Z")!
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        for language in [DisplayLanguage.chinese, .english] {
+            let context = PresentationContext(now: now, language: language, calendar: calendar)
+            let notePrefix = context.text("上次数据", "Last data")
+            let failureText = context.text("账号数据暂无法更新", "Account data unavailable")
+            for credits in [nil, 0, 3] as [Int?] {
+                let view = StatusSummaryView(state: .initial)
+                var state = RateLimitDisplayState.initial
+                state.lastUpdated = now
+                state.resetCredits = credits.map { ResetCreditSummary(response: .init(availableCount: $0, credits: [])) }
+                view.update(state, context: context)
+                let retry = find("menu.quota.retry", in: view) as! NSButton
+                check(retry.isHidden, "Successful account data without quota windows has no retry")
+                state.errorMessage = "fixture failure"
+                var retries = 0
+                view.onQuotaRetry = { retries += 1 }
+                view.update(state, context: context)
+                let note = view.subviews.compactMap { $0 as? NSTextField }.first { !$0.isHidden && $0.stringValue.hasPrefix(notePrefix) }
+                check(note?.stringValue.contains(failureText) == true,
+                    "Credits-only and timestamp-only account data expose a localized refresh failure")
+                check(!retry.isHidden && retry.title == context.text("重试", "Retry"), "Account failure exposes the localized retry")
+                let noteFrame = note!.frame
+                check(noteFrame.width > 0 && noteFrame.height > 0 && view.bounds.contains(noteFrame), "Account failure note has nonzero contained geometry")
+                check(retry.frame.width > 0 && retry.frame.height > 0 && view.bounds.contains(retry.frame), "Account retry has nonzero contained geometry")
+                check(!noteFrame.intersects(retry.frame), "Account note and retry do not overlap")
+                check(note!.cell!.cellSize(forBounds: NSRect(x: 0, y: 0, width: noteFrame.width, height: 1000)).height <= noteFrame.height,
+                    "The complete localized failure note fits its row without truncation")
+                for sibling in view.subviews where sibling !== note! && sibling !== retry && !sibling.isHidden {
+                    check(!sibling.frame.intersects(noteFrame) && !sibling.frame.intersects(retry.frame),
+                        "Account failure row does not overlap other menu content")
+                }
+                check(!text(view).contains(context.text("账号数据 · ", "Account data · ")), "Failure does not claim an ordinary successful update")
+                if credits == 3 {
+                    try snapshot(view, name: "credits-only-failure-" + (language == .chinese ? "zh" : "en"))
+                }
+                retry.performClick(nil)
+                check(retries == 1, "Credits-only and timestamp-only retry reaches the account callback")
+                state.isRefreshing = true
+                view.update(state, context: context)
+                check(text(view).contains(context.text("正在刷新 · 保留上次数据", "Refreshing · Showing last data")), "Refreshing preserves the previous account data")
+                state.errorMessage = nil; state.isRefreshing = false
+                view.update(state, context: context)
+                check(retry.isHidden && !text(view).contains(notePrefix), "Successful recovery removes failure and retry")
+                check(text(view).contains(context.text("账号数据 · 04:00", "Account data · 04:00")), "Successful recovery restores the account timestamp")
+                state.errorMessage = "failed again"
+                view.update(state, context: context)
+                check(!retry.isHidden && view.bounds.contains(retry.frame), "Reentering failure relays out the retry row")
+            }
+            let view = StatusSummaryView(state: .initial)
+            var state = RateLimitDisplayState.initial
+            state.errorMessage = "first load failure"
+            var retries = 0; view.onQuotaRetry = { retries += 1 }
+            view.update(state, context: context)
+            let retry = find("menu.quota.retry", in: view) as! NSButton
+            check(!retry.isHidden && retry.frame.width > 0 && view.bounds.contains(retry.frame), "First-load failure keeps its account retry geometry")
+            check(text(view).contains(context.text("暂时无法读取账号数据", "Account data unavailable")), "First-load error keeps the initial account failure message")
+            retry.performClick(nil); check(retries == 1, "First-load account retry still routes correctly")
+            state.errorMessage = nil; state.isRefreshing = true
+            view.update(state, context: context)
+            check(retry.isHidden && text(view).contains(context.text("正在读取账号额度", "Loading account quota")), "First-load refresh returns to loading")
+            state.isRefreshing = false; state.lastUpdated = now; state.errorMessage = "quota failure"
+            state.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: .init(usedPercent: 30, windowDurationMins: 300, resetsAt: now.timeIntervalSince1970))
+            view.update(state, context: context)
+            check(text(view).contains(context.text("额度暂无法更新", "Quota unavailable")), "Existing quota failure wording remains unchanged")
+        }
+    }
+
     static func checkSharedPresentation() {
         let now = ISO8601DateFormatter().date(from: "2026-12-31T04:00:00Z")!
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
@@ -200,6 +269,7 @@ struct StatusMenuTests {
         let suite = "StatusMenuTests." + UUID().uuidString
         DisplayLanguage.defaults = UserDefaults(suiteName: suite)!
         defer { DisplayLanguage.defaults.removePersistentDomain(forName: suite) }
+        try checkAccountRefreshFailures()
         checkSharedPresentation()
         checkDisplayDispatch()
         checkCapturedContext()

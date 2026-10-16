@@ -55,6 +55,49 @@ struct ResetForecastRelativeDeadlineTests {
         #expect(ResetForecastTiming.resolve(fact, publishedAt: date("2026-10-15T04:56:07Z"), calendar: calendar()) == nil)
     }
 
+    @Test(arguments: ["within 1 hour and 30 minutes", "within 1 hour 30 minutes",
+        "within 1 hour, 30 minutes", "within 1 hour, and 30 minutes", "within 1 hour and30minutes"])
+    func compoundDurationSurvivesTheFullSignalChain(_ text: String) throws {
+        let publication = date("2026-10-15T04:00:00Z")
+        let signal = ResetForecastSignal(sourceID: "123", sourceURL: URL(string: "https://x.com/thsottiaux/status/123")!,
+            originalText: "Landing \(text).", publishedAt: publication)
+        let fact = try #require(signal.evidenceItem(calendar: calendar()).facts.first)
+        #expect(fact.timingText == text)
+        let resolved = try #require(ResetForecastTiming.resolve(fact, publishedAt: publication, calendar: calendar()))
+        #expect(resolved.precision == .deadline && resolved.date == publication.addingTimeInterval(5400))
+        #expect(signal.expiresAt(calendar: calendar()) == publication.addingTimeInterval(5400))
+        let snapshot = ResetForecastSnapshot(updatedAt: publication, lastResetAt: nil, officialSignal: signal)
+        #expect(snapshot.item(now: publication.addingTimeInterval(75 * 60), calendar: calendar()) != nil)
+        #expect(snapshot.item(now: publication.addingTimeInterval(90 * 60 - 1), calendar: calendar()) != nil)
+        #expect(snapshot.item(now: publication.addingTimeInterval(90 * 60), calendar: calendar()) == nil)
+    }
+
+    @Test(arguments: ["within 1 hour and thirty minutes", "within 1 hour thirty minutes",
+        "within 1 hour, thirty minutes", "within 1 hour and 30 seconds",
+        "within 1 hour and 30–40 minutes", "within 1 hour and about 30 minutes"])
+    func unsupportedDurationContinuationCannotExpireAPrefix(_ text: String) throws {
+        let publication = date("2026-10-15T04:00:00Z")
+        let signal = ResetForecastSignal(sourceID: "123", sourceURL: URL(string: "https://x.com/thsottiaux/status/123")!,
+            originalText: "Landing \(text).", publishedAt: publication)
+        let fact = try #require(signal.evidenceItem(calendar: calendar()).facts.first)
+        #expect(ResetForecastTiming.resolve(fact, publishedAt: publication, calendar: calendar()) == nil)
+        #expect(signal.expiresAt(calendar: calendar()) == nil)
+        let snapshot = ResetForecastSnapshot(updatedAt: publication, lastResetAt: nil, officialSignal: signal)
+        #expect(snapshot.item(now: publication.addingTimeInterval(75 * 60), calendar: calendar()) != nil)
+        #expect(snapshot.item(now: publication.addingTimeInterval(90 * 60), calendar: calendar()) != nil)
+    }
+
+    @Test(arguments: ["Landing within an hour. Thirty minutes later we will post details.",
+        "Landing within an hour, compared with several days last time."])
+    func unrelatedFollowingProseDoesNotInvalidateSingleDuration(_ originalText: String) throws {
+        let publication = date("2026-10-15T04:00:00Z")
+        let signal = ResetForecastSignal(sourceID: "123", sourceURL: URL(string: "https://x.com/thsottiaux/status/123")!,
+            originalText: originalText, publishedAt: publication)
+        let fact = try #require(signal.evidenceItem(calendar: calendar()).facts.first)
+        #expect(fact.timingText == "within an hour")
+        #expect(signal.expiresAt(calendar: calendar()) == publication.addingTimeInterval(3600))
+    }
+
     @Test func missingPublicationCannotBorrowTheCurrentClock() {
         let fact = ResetNewsFact(kind: .upcomingReset, timingText: "within the next 2 hours")
         #expect(ResetForecastTiming.resolve(fact, publishedAt: nil, calendar: calendar()) == nil)
