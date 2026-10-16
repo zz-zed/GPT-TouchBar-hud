@@ -43,7 +43,7 @@ struct NotchRootView: View {
             }
             // The shoulder stays above mounted details so Expanded cannot
             // intercept its click with the details' transparent top padding.
-            resetForecastButton(layout)
+            if model.showsForecastShoulder { resetForecastButton(layout) }
         }.frame(width: layout.windowFrame.width, height: layout.windowFrame.height, alignment: .top)
     }
     private func marks(_ layout: NotchLayout) -> some View {
@@ -56,6 +56,8 @@ struct NotchRootView: View {
     }
     private func resetForecastButton(_ layout: NotchLayout) -> some View {
         let count = model.resetNews.indicatorCount
+        let cached = model.resetNews.forecastAvailability == .cached
+        let label = ResetForecastIndicator.accessibilityLabel(count, cached: cached)
         return Button(action: model.openResetForecasts) {
             HStack(spacing: 1) {
                 Image(nsImage: ResetForecastIndicator.image(size: 16)).renderingMode(.template)
@@ -63,15 +65,15 @@ struct NotchRootView: View {
                 Text(ResetForecastIndicator.countText(count))
                     .font(.system(size: 9, weight: .semibold, design: .monospaced)).fixedSize()
             }
-            .foregroundColor((count ?? 0) > 0 ? NotchStyle.accent : Color.white.opacity(0.6))
+            .foregroundColor(cached ? Color.white.opacity(0.6) : NotchStyle.accent)
             .frame(width: 38, height: layout.visualBarHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
         .position(x: layout.markX(left: false), y: layout.visualBarHeight / 2)
-        .accessibilityLabel(ResetForecastIndicator.accessibilityLabel(count))
+        .accessibilityLabel(label)
         .accessibilityIdentifier("notch.resetForecast")
-        .help(ResetForecastIndicator.accessibilityLabel(count))
+        .help(label)
     }
     private func peek(_ layout: NotchLayout) -> some View {
         ZStack(alignment: .topLeading) {

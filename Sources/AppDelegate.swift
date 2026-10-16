@@ -72,7 +72,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private var hudVisibilityMenuItem: NSMenuItem?
     private var persistentTouchBarMenuItem: NSMenuItem?
     private var availableUpdateMenuItem: NSMenuItem?
-    private var updateMenuSeparator: NSMenuItem?
     private var checkUpdatesMenuItem: NSMenuItem?
     private var updateProgressMenuItem: NSMenuItem?
     private var menuTaskAppearance: TaskStatusAppearance = .idle
@@ -394,21 +393,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         state.taskStatus = taskStatusEnabled ? completionFeedback.applying(to: latestTaskStatus) : nil
         let summaryView = StatusSummaryView(state: state)
         summaryView.update(state, news: latestResetNewsState)
-        summaryView.onRefresh = { [weak self] in self?.refreshQuotaNow() }
+        summaryView.onRefresh = { [weak self] in self?.refreshMenuDataNow() }
         summaryView.onForecast = { [weak self] in self?.openMenuForecast() }
+        summaryView.onForecastRetry = { [weak self] in self?.resetNewsMonitor.checkNow() }
+        summaryView.onQuotaRetry = { [weak self] in self?.refreshQuotaNow() }
         summary.view = summaryView
         summaryState = state
         summaryMenuItem = summary
         menu.addItem(summary)
         menu.addItem(.separator())
-        let available = menuAction("", #selector(viewAvailableAppUpdate(_:)))
-        availableUpdateMenuItem = available
-        menu.addItem(available)
-        let updateSeparator = NSMenuItem.separator()
-        updateMenuSeparator = updateSeparator
-        menu.addItem(updateSeparator)
         // The visible refresh control lives in the summary; keep the menu shortcut available.
-        let refresh = menuAction("刷新额度", #selector(refreshQuotaFromMenu(_:)), key: "r")
+        let refresh = menuAction("刷新数据", #selector(refreshDataFromMenu(_:)), key: "r")
         refresh.isHidden = true
         refresh.allowsKeyEquivalentWhenHidden = true
         menu.addItem(refresh)
@@ -582,9 +577,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             menuItem.isHidden = !notchHUD.isExpanded
             return notchHUD.isExpanded
         }
-        if menuItem.action == #selector(refreshQuotaFromMenu(_:)) {
-            menuItem.title = latestQuotaState.isRefreshing ? "正在刷新…" : "刷新额度"
-            return !latestQuotaState.isRefreshing
+        if menuItem.action == #selector(refreshDataFromMenu(_:)) {
+            menuItem.title = latestQuotaState.isRefreshing || latestResetNewsState.status == .checking
+                ? "正在刷新…" : "刷新数据"
+            return !latestQuotaState.isRefreshing && latestResetNewsState.status != .checking
         }
         if menuItem.action == #selector(checkForAppUpdates(_:)) {
             updateUpdateMenuItems()
@@ -604,6 +600,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     }
 
     private func addUpdateMenuItems(to menu: NSMenu) {
+        menu.addItem(.separator())
+        let available = menuAction("", #selector(viewAvailableAppUpdate(_:)))
+        availableUpdateMenuItem = available
+        menu.addItem(available)
         let progress = NSMenuItem(title: "查看更新进度…", action: #selector(viewAppUpdateProgress(_:)), keyEquivalent: "")
         progress.target = self
         updateProgressMenuItem = progress
@@ -775,6 +775,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         store.start()
     }
 
+    private func refreshMenuDataNow() {
+        refreshQuotaNow()
+        if latestResetNewsState.enabled { resetNewsMonitor.checkNow() }
+    }
+
     private func restartTaskMonitoring() {
         completionFeedback.reset()
         if lifecycleMonitor.hostIsRunningNow() { taskMonitor.start(displayEnabled: taskStatusEnabled) }
@@ -798,6 +803,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     @objc private func refreshQuotaFromMenu(_ sender: AnyObject?) {
         refreshQuotaNow()
+    }
+
+    @objc private func refreshDataFromMenu(_ sender: AnyObject?) {
+        refreshMenuDataNow()
     }
 
     @objc private func hideHUDFromContextMenu(_ sender: AnyObject?) {
@@ -837,7 +846,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
     private func updateUpdateMenuItems() {
         let state = appUpdater.viewState
         availableUpdateMenuItem?.isHidden = state.availableVersion == nil
-        updateMenuSeparator?.isHidden = state.availableVersion == nil
         if let version = state.availableVersion {
             AppUpdateMenuPresentation.apply(to: availableUpdateMenuItem, version: version, enabled: !state.isInstalling)
         }

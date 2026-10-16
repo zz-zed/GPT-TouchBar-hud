@@ -89,8 +89,10 @@ final class NotchIslandController: NSObject, NSMenuDelegate {
         model.onSettings = { [weak self] in self?.model.collapse(animated: false); self?.onSettings?() }
         host.contextMenuProvider = { [weak self] in self?.makeMenu() ?? NSMenu() }
         host.onPage = { [weak self] delta in
-            guard let self, let page = NotchDetailPage(rawValue: self.model.page.rawValue + delta) else { return }
-            self.model.selectPage(page)
+            guard let self else { return }
+            let pages = self.model.visiblePages
+            guard let index = pages.firstIndex(of: self.model.page), pages.indices.contains(index + delta) else { return }
+            self.model.selectPage(pages[index + delta])
         }
         NotificationCenter.default.addObserver(self, selector: #selector(refreshVisibility), name: NSWindow.didChangeOcclusionStateNotification, object: panel)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(updateAccessibility), name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
@@ -164,7 +166,7 @@ final class NotchIslandController: NSObject, NSMenuDelegate {
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
         menu.delegate = self
-        for page in NotchDetailPage.allCases {
+        for page in model.visiblePages {
             let item = NSMenuItem(title: page.title, action: #selector(menuPage(_:)), keyEquivalent: "")
             item.tag = page.rawValue; item.target = self
             menu.addItem(item)

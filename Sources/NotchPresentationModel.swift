@@ -42,6 +42,10 @@ final class NotchPresentationModel: ObservableObject {
     @Published private(set) var sweepFeedbackVisible = false
     @Published private(set) var content = NotchContentAdapter(.initial, tasksEnabled: true)
     @Published private(set) var resetNews = ResetNewsViewState()
+    var visiblePages: [NotchDetailPage] {
+        resetNews.enabled ? NotchDetailPage.allCases : [.quota, .activity, .usage]
+    }
+    var showsForecastShoulder: Bool { resetNews.enabled && (resetNews.indicatorCount ?? 0) > 0 }
     private(set) var resetNewsPageVisible = false
     var messagesVisible: Bool { visible && state == .expanded && detailsVisible && page == .messages }
     private(set) var alwaysShowQuota: Bool
@@ -95,7 +99,9 @@ final class NotchPresentationModel: ObservableObject {
         if shouldSignal { showSweepFeedback() }
     }
     func updateResetNews(_ state: ResetNewsViewState) {
-        if resetNews != state { resetNews = state }
+        guard resetNews != state else { return }
+        resetNews = state
+        if !state.enabled && page == .messages { page = .quota }
     }
     func resetNewsPageVisibilityChanged(_ visible: Bool) { resetNewsPageVisible = visible && messagesVisible }
     func resetNewsCardVisible(_ id: String) {
@@ -156,7 +162,7 @@ final class NotchPresentationModel: ObservableObject {
         showSweepFeedback()
     }
     func openResetForecasts() {
-        guard visible else { return }
+        guard visible, showsForecastShoulder else { return }
         // Only this explicit shoulder action selects the forecast page. Neither
         // data updates nor the general expansion gesture changes the page.
         click()
@@ -174,7 +180,7 @@ final class NotchPresentationModel: ObservableObject {
         if menuDepth == 0 && !hovering && !pointerCaptured { collapse() }
     }
     func selectPage(_ page: NotchDetailPage) {
-        guard state == .expanded, self.page != page else { return }
+        guard state == .expanded, visiblePages.contains(page), self.page != page else { return }
         animate(NotchMotion.page) { self.page = page }
         showSweepFeedback()
     }

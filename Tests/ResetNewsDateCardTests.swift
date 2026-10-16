@@ -50,6 +50,40 @@ enum ResetNewsDateCardTests {
         print("\(name): \(view.bounds.size) pt / \(bitmap.pixelsWide)×\(bitmap.pixelsHigh) px")
     }
 
+    private static func accessibilityElement(in root: Any, identifier: String) -> (any NSAccessibilityProtocol)? {
+        var visited = Set<ObjectIdentifier>()
+        func find(_ value: Any) -> (any NSAccessibilityProtocol)? {
+            guard let object = value as? NSObject, visited.insert(ObjectIdentifier(object)).inserted else { return nil }
+            if let element = object as? any NSAccessibilityProtocol {
+                if element.accessibilityIdentifier() == identifier { return element }
+                for child in element.accessibilityChildren() ?? [] { if let found = find(child) { return found } }
+            }
+            if let view = object as? NSView {
+                for child in view.subviews { if let found = find(child) { return found } }
+            }
+            return nil
+        }
+        return find(root)
+    }
+
+    /// Coordinates are from this fixed 420-point native fixture, not the user's installed app.
+    private static func press(_ window: NSWindow, x: CGFloat, top: CGFloat) {
+        let content = window.contentView!
+        let point = CGPoint(x: x, y: content.isFlipped ? top : content.bounds.height - top)
+        check(content.bounds.contains(point), "Fixture click remains within its actual content")
+        let location = content.convert(point, to: nil)
+        func event(_ type: NSEvent.EventType) -> NSEvent {
+            NSEvent.mouseEvent(with: type, location: location, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 1, clickCount: 1, pressure: 1)!
+        }
+        NSApp.postEvent(event(.leftMouseUp), atStart: false)
+        window.sendEvent(event(.leftMouseDown))
+        while let release = NSApp.nextEvent(matching: [.leftMouseUp], until: Date(), inMode: .default, dequeue: true) {
+            window.sendEvent(release)
+        }
+    }
+
     private static func listSnapshot(item: ResetNewsItem, appearance: NSAppearance, dark: Bool, name: String) throws {
         let state = ResetNewsViewState(enabled: true, status: .success, items: [item], readIDs: [item.id],
             forecastAvailability: .current)
@@ -63,8 +97,9 @@ enum ResetNewsDateCardTests {
         window.orderOut(nil)
     }
 
-    private static func cardSnapshot(item: ResetNewsItem, appearance: NSAppearance, dark: Bool, name: String) throws {
-        let view = NSHostingView(rootView: ResetNewsCard(item: item, unread: false)
+    private static func cardSnapshot(item: ResetNewsItem, appearance: NSAppearance, dark: Bool, name: String,
+                                     now: Date = Date(), calendar: Calendar = .current) throws {
+        let view = NSHostingView(rootView: ResetNewsCard(item: item, unread: false, now: now, calendar: calendar)
             .padding(12).frame(width: 340).environment(\.colorScheme, dark ? .dark : .light))
         view.frame = CGRect(x: 0, y: 0, width: 340, height: 400)
         view.layoutSubtreeIfNeeded()
@@ -88,12 +123,29 @@ enum ResetNewsDateCardTests {
             y: screen.visibleFrame.maxY - 40))
         let controller = ResetNewsPopoverController()
         controller.update(state)
-        controller.show(relativeTo: anchor)
+        var backs = 0
+        controller.show(relativeTo: anchor, onBack: { backs += 1 })
         pump()
         let popup = controller.presentedWindow!
-        check(controller.model.contentSize == CGSize(width: 420, height: 480), "Actual popup retains its production content dimensions")
+        check(controller.model.contentSize.width == 420 && controller.model.contentSize.height <= 480 && controller.model.contentSize.height >= 180, "Popup fits its content within the production screen budget")
         check(screen.visibleFrame.contains(popup.frame), "Actual date popup remains within its source display")
         try save(popup.contentView!, name: name)
+        if name.hasPrefix("relative-deadline-popup") {
+            let collapsed = controller.model.contentSize.height
+            check(collapsed < 480, "A single announcement has no fixed-height blank area")
+            check(collapsed < 350, "Details stay compact after removing the announcement/source section")
+            var refreshes = 0
+            controller.model.onCheck = { refreshes += 1 }
+            if let refresh = accessibilityElement(in: popup.contentView!, identifier: "resetNews.check") {
+                check(refresh.accessibilityPerformPress(), "Footer refresh supports accessibility press")
+            } else { press(popup, x: 350, top: controller.model.contentSize.height - 23) }
+            check(refreshes == 1, "Forecast refresh routes only to the forecast callback")
+            if let back = accessibilityElement(in: popup.contentView!, identifier: "resetNews.backToMenu") {
+                check(back.accessibilityPerformPress(), "Back to quota supports accessibility press")
+            } else { press(popup, x: 70, top: 24) }
+            pump()
+            check(backs == 1 && controller.presentedWindow == nil, "Back closes details and returns to the quota entry")
+        }
         controller.close()
         anchorWindow.orderOut(nil)
     }
@@ -130,15 +182,26 @@ enum ResetNewsDateCardTests {
             forecastAvailability: .current, forecastCheckedAt: publishedAt)
         check(noCurrent.forecastCount == 0 && noCurrent.unreadCount == 0 && !noCurrent.canOpenDetails,
             "An empty current forecast has no unread count or details action")
-        check(ResetNewsListPresentation.emptyText(noCurrent) == "暂无新预告", "Fresh null forecast has an explicit empty state")
+        check(ResetNewsListPresentation.emptyText(noCurrent) == "当前暂无公开重置预告", "Fresh null forecast has an explicit empty state")
         let unknown = ResetNewsViewState(enabled: true, status: .success)
         check(ResetNewsListPresentation.emptyText(unknown) == "尚未获取预告", "Feed success cannot establish forecast availability")
         check(!ResetNewsListPresentation.heading(unknown).contains("0"), "Unknown forecast does not display a confirmed-zero heading")
         var cached = noCurrent; cached.status = .failure; cached.forecastAvailability = .cached
-        check(ResetNewsListPresentation.emptyText(cached).contains("上次获取") && !ResetNewsListPresentation.heading(cached).contains("0"),
+        check(ResetNewsListPresentation.emptyText(cached).contains("稍后重试") && !ResetNewsListPresentation.heading(cached).contains("0"),
             "A cached empty forecast describes its fetch limitation instead of declaring no new forecast")
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let relativePublication = ISO8601DateFormatter().date(from: "2026-10-15T04:56:07Z")!
+        let relativeSignal = ResetForecastSignal(sourceID: "2110595554036400151",
+            sourceURL: URL(string: "https://x.com/thsottiaux/status/2110595554036400151")!,
+            originalText: "Landing within the next 2 hours", publishedAt: relativePublication)
+        let relative = relativeSignal.evidenceItem(calendar: calendar)
+        let relativeDate = ResetForecastDatePresentation(fact: relative.facts[0], publishedAt: relativePublication,
+            now: relativePublication, calendar: calendar)
+        check(relativeDate.dateText == "10月15日（周四）" && relativeDate.timeText == "预计在 14:56 前（本地 UTC+08:00）",
+            "A null-window announcement displays a deadline derived from its original publication time")
+        check(!relativeDate.isExactTime && relativeDate.basisText?.contains("公告发布时间") == true,
+            "A relative duration explains its basis without promising an exact reset instant")
         let day = ResetForecastDatePresentation(fact: dateOnly.facts[0], publishedAt: publishedAt, now: publishedAt, calendar: calendar)
         check(day.dateText == "9月22日（周二）", "Weekday presentation resolves to a concrete month and day")
         check(!day.isExactTime && day.timeText == "具体时刻未公布", "Date-only presentation never invents midnight precision")
@@ -166,6 +229,9 @@ enum ResetNewsDateCardTests {
             try cardSnapshot(item: longDate, appearance: appearance, dark: dark, name: "long-date-340-\(mode)")
             try listSnapshot(item: deadline, appearance: appearance, dark: dark, name: "deadline-340-\(mode)")
             try cardSnapshot(item: endOfDay, appearance: appearance, dark: dark, name: "end-of-day-340-\(mode)")
+            try cardSnapshot(item: relative, appearance: appearance, dark: dark, name: "relative-deadline-340-\(mode)",
+                now: relativePublication, calendar: calendar)
+            try popoverSnapshot(item: relative, appearance: appearance, name: "relative-deadline-popup-\(mode)")
             try listSnapshot(item: pending, appearance: appearance, dark: dark, name: "time-pending-340-\(mode)")
             try popoverSnapshot(state: noCurrent, appearance: appearance, name: "no-current-\(mode)")
             try popoverSnapshot(state: cached, appearance: appearance, name: "cached-no-current-\(mode)")

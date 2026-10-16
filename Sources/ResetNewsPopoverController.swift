@@ -5,7 +5,7 @@ final class ResetNewsPopoverModel: ObservableObject {
     @Published var state = ResetNewsViewState()
     @Published var isVisible = false
     @Published var focusedItemID: String?
-    @Published var contentSize = CGSize(width: 420, height: 480)
+    @Published var contentSize = CGSize(width: 420, height: 360)
     var onBack: (() -> Void)?
     var onCheck: (() -> Void)?
     var onMarkAllRead: (() -> Void)?
@@ -23,21 +23,22 @@ final class ResetNewsPopoverModel: ObservableObject {
 private struct ResetNewsPopoverContent: View {
     @ObservedObject var model: ResetNewsPopoverModel
     let isCurrentPresentation: () -> Bool
+    let onPreferredHeight: (CGFloat) -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if model.onBack != nil {
-                Button("返回菜单") { if isCurrentPresentation() { model.onBack?() } }
-                    .font(.system(size: 11)).accessibilityIdentifier("resetNews.backToMenu")
+                Button(action: { if isCurrentPresentation() { model.onBack?() } }) {
+                    Label(DisplayLanguage.text("返回额度", "Back to quota"), systemImage: "chevron.left")
+                }.buttonStyle(PlainButtonStyle()).foregroundColor(.secondary)
+                    .font(.system(size: 12)).accessibilityIdentifier("resetNews.backToMenu")
             }
-            Text(ResetNewsListPresentation.heading(model.state)).font(.system(size: 16, weight: .semibold))
-                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("resetNews.heading")
             ResetNewsListView(state: model.state, isVisible: model.isVisible && isCurrentPresentation(), focusedItemID: model.focusedItemID,
                 onCheck: { if isCurrentPresentation() { model.onCheck?() } },
                 onMarkAllRead: { if isCurrentPresentation() { model.onMarkAllRead?() } },
                 onSettings: { if isCurrentPresentation() { model.onSettings?() } },
                 onPageVisibility: { if isCurrentPresentation() { model.pageVisibilityChanged($0) } },
-                onVisibleItem: { if isCurrentPresentation() { model.cardVisible($0) } })
+                onVisibleItem: { if isCurrentPresentation() { model.cardVisible($0) } },
+                onPreferredHeightChange: { if isCurrentPresentation() { onPreferredHeight($0) } })
         }.padding(16).frame(width: model.contentSize.width, height: model.contentSize.height, alignment: .topLeading)
     }
 }
@@ -86,6 +87,11 @@ final class ResetNewsPopoverController: NSObject, NSPopoverDelegate {
             isCurrentPresentation: { [weak self, weak popover] in
                 guard let popover else { return false }
                 return self?.popover === popover
+            }, onPreferredHeight: { [weak self, weak popover] height in
+                // Layout preferences are delivered during SwiftUI layout. Resize on the next turn.
+                DispatchQueue.main.async { [weak self, weak popover] in
+                    self?.resize(popover, preferredListHeight: height)
+                }
             }))
         host.frame = container.bounds
         host.autoresizingMask = [.width, .height]
@@ -96,6 +102,28 @@ final class ResetNewsPopoverController: NSObject, NSPopoverDelegate {
         popover.contentViewController = contentController
         popover.contentSize = model.contentSize
         return popover
+    }
+    private func resize(_ presentation: NSPopover?, preferredListHeight: CGFloat) {
+        guard let presentation, presentation === popover, let placement else { return }
+        let chrome: CGFloat = model.onBack == nil ? 32 : 60
+        let height = min(placement.contentSize.height, max(180, ceil(preferredListHeight + chrome)))
+        let size = CGSize(width: placement.contentSize.width, height: height)
+        guard model.contentSize != size else { return }
+        // The native window must resize before its autoresizing content subtree.
+        // Resizing the container first would apply the height delta a second time.
+        if let window = presentedWindow {
+            let old = window.frame
+            let frame = CGRect(x: old.minX, y: old.maxY - height - 26,
+                width: size.width + 26, height: height + 26)
+            window.setFrame(placement.containedFrame(frame), display: false)
+        }
+        presentation.contentViewController?.preferredContentSize = size
+        presentation.contentSize = size
+        model.contentSize = size
+        containWindow(for: presentation)
+        DispatchQueue.main.async { [weak self, weak presentation] in
+            self?.containWindow(for: presentation)
+        }
     }
     func update(_ state: ResetNewsViewState) { model.state = state }
     func show(relativeTo anchor: NSView, itemIDs: [String] = [], onBack: (() -> Void)? = nil) {
@@ -113,7 +141,7 @@ final class ResetNewsPopoverController: NSObject, NSPopoverDelegate {
         self.placement = placement
         let localIDs = Set(model.state.items.map(\.id))
         model.focusedItemID = itemIDs.first { localIDs.contains($0) }
-        model.contentSize = placement.contentSize
+        model.contentSize = CGSize(width: placement.contentSize.width, height: min(360, placement.contentSize.height))
         let presentation = makePopover()
         popover = presentation
         presentation.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: placement.preferredEdge)

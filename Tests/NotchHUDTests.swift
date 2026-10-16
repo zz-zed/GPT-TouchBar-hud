@@ -294,7 +294,7 @@ enum NotchHUDTests {
         check(NotchDetailPage.messages.title == "重置预告", "Forecast tab uses the dedicated product name")
         let forecastLayout = NotchLayout(geometry: sample)
         let forecastCases: [(Int?, ResetForecastAvailability)] = [(0, .current), (3, .current), (120, .current),
-            (nil, .unknown), (nil, .cached)]
+            (3, .cached), (nil, .unknown), (nil, .cached)]
         for (count, availability) in forecastCases {
             var forecastState = messages
             forecastState.forecastAvailability = availability
@@ -313,6 +313,9 @@ enum NotchHUDTests {
                 quotaState.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: RateLimitWindow(usedPercent: 28, windowDurationMins: 300, resetsAt: nil))
                 forecastModel.update(quotaState, tasksEnabled: true)
                 forecastModel.updateResetNews(forecastState)
+                let shouldShowShoulder = (count ?? 0) > 0
+                check(forecastModel.showsForecastShoulder == shouldShowShoulder,
+                    "Only a nonempty forecast has a persistent notch shoulder")
                 switch initialState {
                 case .compact: break
                 case .peek: forecastModel.hover(true)
@@ -331,19 +334,28 @@ enum NotchHUDTests {
                 var quotaRefreshes = 0, forecastChecks = 0
                 forecastModel.onRefresh = { quotaRefreshes += 1 }
                 forecastModel.onCheckMessages = { forecastChecks += 1 }
-                if let entry = accessibilityElement(in: nativeHost, identifier: "notch.resetForecast") {
-                    check(entry.accessibilityLabel() == ResetForecastIndicator.accessibilityLabel(count), "Shoulder announces forecasts to review rather than account reset credits")
-                    check(entry.accessibilityFrame().width <= 38.5, "Forecast entry stays inside the unchanged 38 point shoulder")
-                    check(entry.accessibilityPerformPress(), "Native forecast shoulder supports press from \(initialState)")
-                } else {
-                    if count == 0 && initialState == .compact {
-                        print("SwiftUI AX tree unavailable; exercising fixture-window local mouse events instead.")
-                        fflush(stdout)
+                let entry = accessibilityElement(in: nativeHost, identifier: "notch.resetForecast")
+                if shouldShowShoulder {
+                    if let entry {
+                        check(entry.accessibilityLabel() == ResetForecastIndicator.accessibilityLabel(count, cached: availability == .cached),
+                            "Shoulder identifies current and cached forecasts without implying account credits")
+                        check(entry.accessibilityFrame().width <= 38.5, "Forecast entry stays inside the unchanged 38 point shoulder")
+                        check(entry.accessibilityPerformPress(), "Native forecast shoulder supports press from \(initialState)")
+                    } else {
+                        pressShoulder(in: nativeWindow, host: nativeHost, layout: forecastLayout)
                     }
-                    pressShoulder(in: nativeWindow, host: nativeHost, layout: forecastLayout)
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+                    check(forecastModel.state == .expanded && forecastModel.page == .messages,
+                        "Native shoulder press opens forecasts directly from \(initialState)")
+                } else {
+                    check(entry == nil, "Empty and unknown forecasts do not expose a persistent shoulder")
+                    forecastModel.openResetForecasts()
+                    check(forecastModel.state == initialState && forecastModel.page == previousPage,
+                        "Hidden forecast shortcut cannot open an empty page")
+                    forecastModel.click()
+                    forecastModel.selectPage(.messages)
+                    check(forecastModel.page == .messages, "Enabled empty or unavailable forecasts remain manually accessible")
                 }
-                RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-                check(forecastModel.state == .expanded && forecastModel.page == .messages, "Native shoulder press opens forecasts directly from \(initialState)")
                 check(forecastModel.content.state.fiveHour?.remainingPercent == 72 && quotaRefreshes == 0 && forecastChecks == 0,
                     "Opening forecasts neither changes account quota nor requests a refresh")
                 check(forecastModel.layout == forecastLayout && forecastModel.size == forecastLayout.expandedSize, "Forecast entry preserves existing geometry")
@@ -356,6 +368,23 @@ enum NotchHUDTests {
                 nativeWindow.orderOut(nil)
             }
         }
+        let pageController = NotchIslandController(automaticallyTracksMouse: false)
+        pageController.model.animationsEnabled = false
+        pageController.model.configure(forecastLayout)
+        pageController.model.setVisible(true)
+        pageController.model.click()
+        pageController.model.selectPage(.usage)
+        pageController.host.onPage?(1)
+        check(pageController.model.page == .usage && pageController.host.contextMenuProvider?().items.count == 3,
+            "Disabled forecasts are absent from swipe and context-menu navigation")
+        pageController.model.updateResetNews(messages)
+        pageController.host.onPage?(1)
+        check(pageController.model.page == .messages && pageController.host.contextMenuProvider?().items.count == 4,
+            "Enabled forecasts join both navigation surfaces")
+        pageController.model.updateResetNews(ResetNewsViewState())
+        check(pageController.model.page == .quota && pageController.model.visiblePages.count == 3,
+            "Disabling forecasts closes a now-hidden page")
+        pageController.hide()
         let newsModel = NotchPresentationModel(alwaysShowQuota: false)
         newsModel.animationsEnabled = false
         newsModel.configure(NotchLayout(geometry: sample))

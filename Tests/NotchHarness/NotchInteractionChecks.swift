@@ -47,6 +47,8 @@ extension NotchHarness {
         pump(0.45)
         controller.interaction.stop()
         model.click(); pump(0.7)
+        model.updateResetNews(ResetNewsViewState(enabled: true, status: .success,
+            forecastAvailability: .current))
         for page in NotchDetailPage.allCases {
             let oldSize = controller.bridge.snapshot!.size
             model.selectPage(page); pump(0.40)

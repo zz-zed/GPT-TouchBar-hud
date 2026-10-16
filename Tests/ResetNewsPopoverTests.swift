@@ -22,9 +22,9 @@ enum ResetNewsPopoverTests {
     static func save(_ bitmap: NSBitmapImageRep, _ name: String) throws {
         try bitmap.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent(name + ".png"))
     }
-    static func headerPixels(_ bitmap: NSBitmapImageRep) -> [UInt8] {
-        let height = min(bitmap.pixelsHigh, Int(100 * CGFloat(bitmap.pixelsHigh) / bitmap.size.height))
-        return Array(UnsafeBufferPointer(start: bitmap.bitmapData!, count: height * bitmap.bytesPerRow))
+    static func footerPixels(_ bitmap: NSBitmapImageRep) -> [UInt8] {
+        let height = min(bitmap.pixelsHigh, Int(45 * CGFloat(bitmap.pixelsHigh) / bitmap.size.height))
+        return Array(UnsafeBufferPointer(start: bitmap.bitmapData! + (bitmap.pixelsHigh - height) * bitmap.bytesPerRow, count: height * bitmap.bytesPerRow))
     }
     static func crossEntryChecks() {
         let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -146,6 +146,8 @@ enum ResetNewsPopoverTests {
                     preconditionFailure("Missing \(screenIndex)-\(name) popover; anchor=\(anchor.frame), window=\(String(describing: anchor.window?.frame))")
                 }
                 let content = popover.contentView!
+                print("\(screenIndex)-\(name) placement: popup=\(popover.frame), content=\(content.bounds), desired=\(controller.model.contentSize), visible=\(visible)")
+                fflush(stdout)
                 check(visible.insetBy(dx: 7, dy: 7).contains(popover.frame), "Actual \(name) popover, including native chrome, remains on the anchor screen")
                 check(state.unreadCount == 0 && state.forecastCount == sampleItems.count, "Reading does not reduce today's/upcoming forecast count")
                 check(content.bounds.size == controller.model.contentSize, "Native content stays fixed instead of growing with its long list")
@@ -167,7 +169,7 @@ enum ResetNewsPopoverTests {
                     scroll.reflectScrolledClipView(scroll.contentView); pump()
                     check(scroll.contentView.bounds.minY > previousOffset, "The native card viewport actually scrolled")
                     let after = image(content)
-                    check(headerPixels(before) == headerPixels(after), "Title and actions remain pixel-identical while only the card list scrolls")
+                    check(footerPixels(before) == footerPixels(after), "Footer actions remain pixel-identical while only the forecast content scrolls")
                     try save(after, "\(screenIndex)-\(name)-scrolled")
                     check(popover.isVisible, "Scrolling inside details does not dismiss the popup")
                 }
