@@ -265,7 +265,7 @@ final class AppUpdateInstallation {
                 try Self.run("/usr/bin/hdiutil", ["attach", archive.path, "-readonly", "-nobrowse", "-noautoopen", "-mountpoint", mount.path])
                 defer { try? Self.run("/usr/bin/hdiutil", ["detach", mount.path]) }
                 report(.verifying, .validating)
-                let source = mount.appendingPathComponent("GPT TouchBar HUD.app")
+                let source = mount.appendingPathComponent(AppIdentity.installedBundleFileName)
                 guard source.resolvingSymlinksInPath() == source,
                       let bundle = Bundle(url: source), bundle.bundleIdentifier == AppIdentity.bundleIdentifier,
                       let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,

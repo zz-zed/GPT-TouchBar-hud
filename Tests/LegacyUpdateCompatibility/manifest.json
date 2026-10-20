@@ -1,0 +1,17 @@
+{
+  "tag": "v0.1.38",
+  "tagObject": "093cd4d159ad5db443860e01e7ed49c2aac86cf2",
+  "commit": "382f49390ec2cb7b50beceea44307530a862806d",
+  "sourceVersion": "0.1.38",
+  "files": {
+    "Sources/AppUpdateModels.swift": "aa040008943c84aec5640ff3c14d0ef1f7055ade912e99493e25f551a4cf80b1",
+    "Sources/AppUpdateScheduler.swift": "91d1cc25657a81619146405be023e4dffb764d8b46e003900e9116d0b5938300",
+    "Sources/AppIdentity.swift": "b8776507575a9d999467208fe94c3e7cd2ef04fc45dbc4c9347a4b0514a5e05f",
+    "Sources/AppUpdateDownload.swift": "c8d7137b4a3a7f13d804473b4203a8fa328ebf4141647bd88261a9e8458d9e15",
+    "Sources/AppUpdateInstallation.swift": "64c7ec5e51180de694ba57fb592b28452d1b0b232be6198182f5c4c9e2f758da",
+    "Sources/AppUpdateProgressChannel.swift": "d952310ee806b40f754cfcf5e4e6d17574c986b2d6a2e8fc3f1d2e3734981743",
+    "Sources/AppUpdateProgressWindowController.swift": "9fa3e82bd6694bb301b443b5ebd47d7f92f88fc4fce36f710fa20d7494acef0c",
+    "Resources/install-update.sh": "62609ac39064e90bbc930565d62516510e45ba1fff107ed7546c15dd77cf93e5",
+    "Sources/AppUpdateProgressHelper.swift": "6b4739d165ebb17d10ae035e59f5cddc16565577b4337baab5ee0b89edb1ac3e"
+  }
+}
