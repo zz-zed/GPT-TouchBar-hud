@@ -137,21 +137,24 @@ class DualPackageTests(unittest.TestCase):
         with self.assertRaises(release.ReleaseError):
             self.verify()
 
-    def test_validation_workflow_six_jobs_are_independent(self):
+    def test_validation_workflow_native_integration_and_packages_are_independent(self):
         workflow = (ROOT / '.github/workflows/validate-gpt-hud-phase2.yml').read_text()
         regression, package = workflow.split('\n  regression:\n', 1)[1].split('\n  package:\n', 1)
-        self.assertEqual(regression.count('- arch:'), 4)
+        self.assertEqual(regression.count('- arch:'), 2)
         self.assertEqual(package.count('- arch:'), 2)
-        self.assertEqual(regression.count('suite: data'), 2)
-        self.assertEqual(regression.count('suite: interface'), 2)
+        self.assertEqual(regression.count('suite: migration'), 2)
+        for script in ('test-installation-maintenance', 'test-installation-migration',
+                       'test-host-auto-launcher', 'test-app-update-progress',
+                       'test-migration-process-integration.sh', 'test-launch-entry-integration.sh --run'):
+            self.assertIn(script, regression)
         for job in (regression, package):
             self.assertNotIn('needs:', job)
             self.assertIn('test "$(git rev-parse HEAD)" = "$GITHUB_SHA"', job)
             self.assertIn('test "$GITHUB_REF" = refs/heads/validation/gpt-hud-phase2-20261020', job)
         self.assertNotIn('package-dmg.sh', regression)
         self.assertNotIn('ci_regression.py', package)
-        self.assertIn('Upload regression timings only', regression)
-        self.assertEqual(workflow.count('run: bash scripts/test-release-workflows.sh'), 1)
+        self.assertIn('Upload isolated integration evidence', regression)
+        self.assertEqual(workflow.count('--label offline-release-policy -- bash scripts/test-release-workflows.sh'), 1)
 
     def test_validation_workflow_cannot_publish_or_run_other_refs(self):
         workflow = (ROOT / '.github/workflows/validate-gpt-hud-phase2.yml').read_text()

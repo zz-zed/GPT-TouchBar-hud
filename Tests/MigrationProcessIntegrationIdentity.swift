@@ -37,12 +37,12 @@ enum MigrationProcessIntegrationConfiguration {
                                       journalDirectory: journalDirectory, bootOverride: boot)
     }
     #endif
-    static func event(_ name: String, additional: [String: Any] = [:]) {
+    static func event(_ name: String, additional: [String: Any] = [:], includeLaunchIdentity: Bool = true) {
         var value = additional
         value["event"] = name; value["pid"] = getpid()
         value["bundle"] = Bundle.main.bundleURL.standardizedFileURL.path
         value["time"] = Date().timeIntervalSince1970
-        if let launch = NSRunningApplication.current.launchDate { value["launchDate"] = launch.timeIntervalSince1970 }
+        if includeLaunchIdentity, let launch = NSRunningApplication.current.launchDate { value["launchDate"] = launch.timeIntervalSince1970 }
         let directory = root.appendingPathComponent("events")
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

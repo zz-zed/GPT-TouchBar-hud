@@ -8,6 +8,7 @@ from pathlib import Path
 import platform
 import plistlib
 import re
+import shutil
 import signal
 import subprocess
 import time
@@ -172,7 +173,7 @@ def make_case(output, name, binary):
     run(["/usr/bin/ditto", binary, macos / EXECUTABLE])
     info = {"CFBundleIdentifier": identity, "CFBundleExecutable": EXECUTABLE, "CFBundlePackageType": "APPL",
             "CFBundleName": "Isolated migration process integration", "CFBundleShortVersionString": "0.1.46",
-            "CFBundleVersion": "integration", "LSUIElement": True, "LSMinimumSystemVersion": "11.0"}
+            "CFBundleVersion": "49", "LSUIElement": True, "LSMinimumSystemVersion": "11.0"}
     (app / "Contents/Info.plist").write_bytes(plistlib.dumps(info))
     config = {"root": str(root), "bundleID": identity, "launchAgentLabel": identity + ".launcher",
               "supportDirectoryName": identity, "bootFile": str(root / "boot.txt"), "autoLaunchEnabled": "false"}
@@ -183,7 +184,52 @@ def make_case(output, name, binary):
 
 
 def launch(app, log):
-    run(["/usr/bin/open", "-n", app], log=log)
+    stdout = log.with_suffix(".app-stdout.log")
+    stderr = log.with_suffix(".app-stderr.log")
+    stdout.touch(); stderr.touch()
+    run(["/usr/bin/open", "-n", "--stdout", stdout, "--stderr", stderr, app], log=log)
+
+
+def failure_diagnostics(root, app, identity, since):
+    """Capture this fixture only; diagnostic LS retry never changes case outcome."""
+    evidence = {"errors": [], "ownedProcessesBeforeRetry": owned_processes(root), "diagnosticReports": []}
+    candidates = [app, *root.rglob("*.app")]
+    probe = next((candidate / "Contents/MacOS" / EXECUTABLE for candidate in candidates
+                  if (candidate / "Contents/MacOS" / EXECUTABLE).is_file()), None)
+    if probe:
+        try:
+            result = run([probe, "--diagnose-workspace-launch", app], timeout=22, check=False)
+            evidence["workspaceDiagnosticRetry"] = {"exit": result.returncode, "stdout": result.stdout, "stderr": result.stderr,
+                                                     "countsAsSuccessfulTest": False}
+        except Exception as error:
+            evidence["errors"].append(str(error))
+    evidence["ownedProcessesAfterRetry"] = owned_processes(root)
+    reports = root / "failure-diagnostic-reports"
+    reports.mkdir(exist_ok=True)
+    for directory in [Path.home() / "Library/Logs/DiagnosticReports", Path("/Library/Logs/DiagnosticReports")]:
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.glob("MigrationProcess*"), key=lambda p: p.stat().st_mtime, reverse=True)[:12]:
+            try:
+                if not path.is_file() or path.stat().st_mtime < since or path.stat().st_size > 2_000_000:
+                    continue
+                content = path.read_text(errors="replace")
+                if str(root) not in content and identity not in content:
+                    continue
+                destination = reports / path.name
+                shutil.copyfile(path, destination)
+                evidence["diagnosticReports"].append(str(destination))
+            except Exception as error:
+                evidence["errors"].append(str(error))
+    try:
+        predicate = 'eventMessage CONTAINS ' + json.dumps(str(root)) + ' OR eventMessage CONTAINS ' + json.dumps(identity)
+        result = run(["/usr/bin/log", "show", "--last", "3m", "--style", "compact", "--predicate", predicate],
+                     timeout=20, check=False)
+        (root / "failure-system-log.txt").write_text(result.stdout + result.stderr)
+        evidence["systemLogExit"] = result.returncode
+    except Exception as error:
+        evidence["errors"].append(str(error))
+    (root / "failure-diagnostics.json").write_text(json.dumps(evidence, indent=2) + "\n")
 
 
 def pending(root, app):
@@ -227,6 +273,7 @@ def run_case(output, name, binary):
     root, app, identity, original_boot = make_case(output, name, binary)
     result = {"name": name, "identity": identity, "root": str(root), "bootTransitionIsSimulated": True}
     recovery = None
+    case_started = time.time()
     try:
         journal, initial = pending(root, app)
         started = time.time()
@@ -323,6 +370,13 @@ def run_case(output, name, binary):
             require(command(fresh["pid"]).startswith(transaction["target"] + "/"), "Forwarded target is not live")
             result["archiveForwardedWithoutArchivedCore"] = True
         result["passed"] = True
+    except Exception as error:
+        result["error"] = str(error)
+        try:
+            failure_diagnostics(root, app, identity, case_started)
+        except Exception as diagnostic_error:
+            result["diagnosticError"] = str(diagnostic_error)
+        raise
     finally:
         try:
             cleanup(root, identity)

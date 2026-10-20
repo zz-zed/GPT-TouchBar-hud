@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: gpt-hud-phase2-${{ github.ref }}
+  group: gpt-hud-migration-integration-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -51,7 +51,7 @@ jobs:
         run: python3 scripts/ci_timing.py init
       - name: Offline release policy (once)
         if: matrix.arch == 'arm64'
-        run: bash scripts/test-release-workflows.sh
+        run: python3 scripts/ci_timing.py run --phase policy --label offline-release-policy -- bash scripts/test-release-workflows.sh
       - name: Run migration and startup regression checks
         run: |
           for script in test-installation-maintenance test-installation-migration test-host-auto-launcher test-app-update-progress; do
@@ -60,6 +60,7 @@ jobs:
       - name: Exercise real isolated application migration
         run: python3 scripts/ci_timing.py run --phase integration --label migration-process -- bash scripts/test-migration-process-integration.sh
       - name: Exercise real isolated startup entries
+        if: ${{ !cancelled() }}
         run: python3 scripts/ci_timing.py run --phase integration --label launch-entry -- bash scripts/test-launch-entry-integration.sh --run
       - name: Summarize regression timings
         if: always()
@@ -79,7 +80,10 @@ jobs:
           retention-days: 14
 
   package:
-    if: github.ref == 'refs/heads/validation/gpt-hud-phase2-20261020' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    # A reviewed test-only follow-up reuses the last production-source payload.
+    # This exception exists only in nonrelease validation; formal build-dmg and
+    # release provenance checks do not accept this workflow or its artifacts.
+    if: github.ref == 'refs/heads/validation/gpt-hud-phase2-20261020' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !contains(github.event.head_commit.message, '[integration-only]')
     name: Package (${{ matrix.arch }})
     strategy:
       fail-fast: false
