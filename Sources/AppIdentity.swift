@@ -2,11 +2,16 @@ import AppKit
 
 enum AppIdentity {
     static let productName = "GPT HUD"
-    // Keep installation and persisted identifiers stable across the display-name change.
+    // Display branding may change independently of the installation/update contract.
+    static let installedBundleFileName = "GPT TouchBar HUD.app"
+    static let executableName = "GPTTouchBarHUD"
+
+    // Persisted identities stay stable; changing productName must not migrate them.
     static let bundleIdentifier = "io.github.zz-zed.GPTTouchBarHUD"
     static let launchAgentLabel = "io.github.zz-zed.GPTTouchBarHUD.CodexLauncher"
     static let appSupportDirectoryName = "GPT TouchBar HUD"
 
+    // Legacy means the original TouchBarCodexToken identity, not the former display name.
     static let legacyBundleIdentifier = "com.jackchen.TouchBarCodexToken"
     static let legacyLaunchAgentLabel = "com.jackchen.TouchBarCodexToken.CodexLauncher"
     static let legacyAppSupportDirectoryName = "TouchBarCodexToken"

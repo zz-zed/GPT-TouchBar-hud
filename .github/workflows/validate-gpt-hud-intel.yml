@@ -25,6 +25,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Verify immutable validation source and Intel toolchain
@@ -84,6 +85,27 @@ jobs:
           (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
           print(json.dumps(report, indent=2))
           PY
+
+      - name: Verify permanent updater compatibility checks
+        run: |
+          python3 Tests/UpdateCompatibilityContractTests.py
+          python3 scripts/check-update-compatibility.py \
+            --dmg build/intel-validation/GPT-TouchBar-HUD-0.1.45-x86_64.dmg --arch x86_64 \
+            --checksums build/intel-validation/SHA256SUMS.txt --output build/compatibility/x86_64/contract.json
+          python3 scripts/test-earliest-update-contract.py --version 0.1.45 --arch x86_64 \
+            --checksums build/intel-validation/SHA256SUMS.txt --output build/compatibility/x86_64/earliest
+          python3 scripts/test-legacy-update-compatibility.py \
+            --dmg build/intel-validation/GPT-TouchBar-HUD-0.1.45-x86_64.dmg --arch x86_64 \
+            --output build/compatibility/x86_64/launch-receipt
+
+      - name: Upload updater compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpt-hud-update-compatibility-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/compatibility
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Upload validation evidence only
         uses: actions/upload-artifact@v7
