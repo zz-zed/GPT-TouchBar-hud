@@ -1,8 +1,8 @@
-# GPT TouchBar HUD
+# GPT HUD
 
-![GPT TouchBar HUD：在菜单栏、刘海面板、桌面浮窗和 Touch Bar 查看 ChatGPT / Codex 额度与用量](Marketing/readme-hero-v5.png)
+![GPT HUD：在菜单栏、刘海面板、桌面浮窗和 Touch Bar 查看 ChatGPT / Codex 额度与用量](Marketing/readme-hero-v5.png)
 
-> 主图为基于原生界面制作的展示示意，使用演示数据；刘海场景另附电脑效果模拟，具体排版与交互以原生截图和说明为准。
+> 主图为基于原生界面制作的展示示意，使用演示数据；刘海场景另附电脑效果模拟，具体排版与交互以原生截图和说明为准。主图仍保留更名前的 GPT TouchBar HUD 字样，现产品名为 GPT HUD。
 
 **[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
@@ -72,7 +72,7 @@ Hooks 默认关闭，连接正常也不代表覆盖全部任务。配置与限�
 
 ## 这是什么
 
-**GPT TouchBar HUD 是一个 Mac 上的 ChatGPT / Codex 账号额度与用量工具，无需 Touch Bar。**
+**GPT HUD 是一个 Mac 上的 ChatGPT / Codex 账号额度与用量工具，无需 Touch Bar。**
 
 不用反复切回账户页面，就能在菜单栏、刘海面板或桌面浮窗中查看剩余额度、重置时间与用量；配备 Touch Bar 的机型还可以在键盘上方显示信息。应用在菜单栏运行，不在 Dock 常驻，也不需要一直打开主窗口。
 
@@ -108,6 +108,8 @@ Hooks 默认关闭，连接正常也不代表覆盖全部任务。配置与限�
 | --- | --- |
 | Apple 芯片 | `GPT-TouchBar-HUD-<版本号>-arm64.dmg` |
 | Intel 处理器 | `GPT-TouchBar-HUD-<版本号>-x86_64.dmg` |
+
+产品对外名称为 **GPT HUD**。为兼容旧版自动更新，下载文件仍使用 `GPT-TouchBar-HUD-<版本号>-<架构>.dmg`，DMG 内的应用文件仍为 `GPT TouchBar HUD.app`；安装时请保留这个文件名。
 
 ### 安装步骤
 

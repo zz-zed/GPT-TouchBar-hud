@@ -35,7 +35,7 @@ enum TaskStatusAppearance: Equatable {
         case .idle, .running: symbol = "bolt.horizontal.circle.fill"
         }
         guard let source = NSImage(systemSymbolName: symbol,
-                                   accessibilityDescription: "GPT TouchBar HUD") else { return nil }
+                                   accessibilityDescription: AppIdentity.productName) else { return nil }
         guard let color else {
             source.isTemplate = true
             return source

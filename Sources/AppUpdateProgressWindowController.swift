@@ -30,13 +30,13 @@ final class AppUpdateProgressWindowController: NSWindowController, NSWindowDeleg
     init(sourceVersion: String, targetVersion: String) {
         let window = AppUpdateProgressWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 334),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "软件更新 · GPT TouchBar HUD"
+        window.title = "软件更新 · \(AppIdentity.productName)"
         window.isReleasedWhenClosed = false
         super.init(window: window)
         window.delegate = self
         window.onHide = { [weak self] in self?.hide() }
         window.center()
-        version.stringValue = "GPT TouchBar HUD · \(sourceVersion) → \(targetVersion)"
+        version.stringValue = "\(AppIdentity.productName) · \(sourceVersion) → \(targetVersion)"
         configure()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

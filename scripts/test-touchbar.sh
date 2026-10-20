@@ -14,7 +14,7 @@ SWIFT_MODULE_CACHE="$(swift_module_cache_path "$(uname -m)-apple-macosx11.0" "$S
 swiftc "${HOOK_CORE_SWIFT_FLAGS[@]}" -swift-version 5 -sdk "$SDK_PATH" -target "$(uname -m)-apple-macosx11.0" \
     -module-cache-path "$SWIFT_MODULE_CACHE" \
     Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/SystemTouchBarPresenter.swift Sources/PersistentTouchBarController.swift \
-    Sources/DesignTokens.swift Sources/ResetForecastIndicator.swift Sources/TouchBarRateLimitsView.swift Sources/TaskStatusAppearance.swift Sources/SegmentedBatteryBar.swift \
+    Sources/DesignTokens.swift Sources/ResetForecastIndicator.swift Sources/TouchBarRateLimitsView.swift Sources/AppIdentity.swift Sources/TaskStatusAppearance.swift Sources/SegmentedBatteryBar.swift \
     Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/LocalTokenUsageReader.swift Sources/TokenUsageScanner.swift \
     Sources/CompactHUDPanel.swift Sources/CompactHUDViewController.swift Sources/HUDAppearance.swift \
     Tests/PersistentTouchBarTests.swift \

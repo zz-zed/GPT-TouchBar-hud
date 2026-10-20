@@ -8,7 +8,7 @@ SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
 swiftc -module-cache-path "$SWIFT_MODULE_CACHE" \
   Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/DiagnosticStore.swift Sources/DiagnosticRecorder.swift \
   Sources/DiagnosticProcessStore.swift Sources/DiagnosticInstallerBridge.swift \
-  Sources/AppUpdateModels.swift Sources/AppUpdateProgressChannel.swift \
+  Sources/AppIdentity.swift Sources/AppUpdateModels.swift Sources/AppUpdateProgressChannel.swift \
   Tests/DiagnosticUpgradeInstallerTests.swift -o "$TEST_BUILD/DiagnosticUpgradeInstallerTests"
 "$TEST_BUILD/DiagnosticUpgradeInstallerTests"
 zsh -n Resources/install-update.sh

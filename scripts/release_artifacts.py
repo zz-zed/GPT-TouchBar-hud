@@ -475,7 +475,7 @@ def publish_release(api, directory, tag, source_sha, version, build):
         # The existing tag is authoritative. target_commitish is ignored for an
         # existing tag and is not immutable release provenance (it may be "main").
         existing = api.request("POST", f"{api.prefix}/releases", {
-            "tag_name": tag, "name": f"GPT TouchBar HUD {tag}",
+            "tag_name": tag, "name": f"GPT HUD {tag}",
             "body": notes, "draft": True, "prerelease": False})
     require(existing.get("body") == notes, "Draft notes conflict; manual review required")
     release_id = existing["id"]

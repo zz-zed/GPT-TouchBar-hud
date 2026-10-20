@@ -334,7 +334,7 @@ final class CodexAppServerClient: AccountUsageClient {
         let params: JSONDictionary = [
             "clientInfo": [
                 "name": "gpt-touchbar-hud",
-                "title": "GPT TouchBar HUD",
+                "title": AppIdentity.productName,
                 "version": clientVersion
             ],
             "capabilities": capabilities

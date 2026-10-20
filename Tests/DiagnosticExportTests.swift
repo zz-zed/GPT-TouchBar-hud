@@ -109,7 +109,7 @@ enum DiagnosticExportTests {
             check(member["size"] as? Int == target.data.count && member["sha256"] as? String == hash, "Manifest size and SHA256 match frozen bytes")
         }
         check(try json(file(snapshot, "checks.json"))["status"] as? String == "finished", "Explicit checks are frozen with status and times")
-        check(snapshot.suggestedFileName.hasPrefix("GPT-TouchBar-HUD-diagnostics-") && !snapshot.suggestedFileName.contains("private"), "Generated name contains no person or device identifier")
+        check(snapshot.suggestedFileName.hasPrefix("GPT-HUD-diagnostics-") && !snapshot.suggestedFileName.contains("private"), "Generated name contains no person or device identifier")
         let frozenBytes = snapshot.files.map(\.data)
         clock.advance(60)
         recorder.record(.task(stage: .aggregate, batch: 777, runningCount: 42))

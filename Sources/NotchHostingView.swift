@@ -13,7 +13,7 @@ final class NotchIslandPanel: NSPanel {
         level = .statusBar
         collectionBehavior = [.canJoinAllSpaces, .fullScreenPrimary, .fullScreenDisallowsTiling, .stationary, .ignoresCycle]
         appearance = NSAppearance(named: .darkAqua)
-        title = "GPT HUD · Island"
+        title = "\(AppIdentity.productName) · Island"
     }
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }

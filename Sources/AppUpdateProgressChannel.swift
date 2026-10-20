@@ -40,7 +40,7 @@ struct AppUpdateProgressChannel {
             sourceVersion: sourceVersion, targetVersion: targetVersion, ownerPID: getpid()))
         try channel.write(channel.context, name: "context.json")
         let note = """
-        GPT TouchBar HUD 更新与恢复
+        \(AppIdentity.productName) 更新与恢复
 
         本次更新：\(sourceVersion) → \(targetVersion)
         安装位置：\(target.path)

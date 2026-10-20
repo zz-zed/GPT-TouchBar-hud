@@ -1,7 +1,8 @@
 import AppKit
 
 enum AppIdentity {
-    static let productName = "GPT TouchBar HUD"
+    static let productName = "GPT HUD"
+    // Keep installation and persisted identifiers stable across the display-name change.
     static let bundleIdentifier = "io.github.zz-zed.GPTTouchBarHUD"
     static let launchAgentLabel = "io.github.zz-zed.GPTTouchBarHUD.CodexLauncher"
     static let appSupportDirectoryName = "GPT TouchBar HUD"

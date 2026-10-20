@@ -13,9 +13,9 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>GPT TouchBar HUD</string>
+	<string>GPT HUD</string>
 	<key>CFBundleDisplayName</key>
-	<string>GPT TouchBar HUD</string>
+	<string>GPT HUD</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

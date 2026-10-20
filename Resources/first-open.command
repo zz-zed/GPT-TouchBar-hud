@@ -28,7 +28,7 @@ validate() {
 }
 
 [[ $# -eq 0 ]] || fail '本助手不接受参数。'
-printf '%s\n' 'GPT TouchBar HUD · 首次打开助手' "仅处理：$APP"
+printf '%s\n' 'GPT HUD · 首次打开助手' "仅处理：$APP"
 validate
 printf '\n%s\n' \
     '确认后仅解除本应用的下载隔离并打开，不开启「任何来源」。' \

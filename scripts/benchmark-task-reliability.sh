@@ -49,7 +49,7 @@ uname -m > "$EVIDENCE_DIR/architecture.txt"
 cp "$PROJECT_DIR/build/task-reliability/baseline/baseline-revision.txt" "$EVIDENCE_DIR/baseline-revision.txt"
 # Record every Swift input, both linked static modules, and the compilation scripts.
 shasum -a 256 HookCore/*.swift Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/HUDPresentation.swift \
-  Sources/TaskStatusAppearance.swift Sources/TaskStatusMonitor.swift Tests/TaskReliabilityBenchmark.swift \
+  Sources/AppIdentity.swift Sources/TaskStatusAppearance.swift Sources/TaskStatusMonitor.swift Tests/TaskReliabilityBenchmark.swift \
   scripts/benchmark-task-reliability.sh scripts/hook-core-build.sh scripts/swift-module-cache.sh \
   "$BASELINE_DIR/Sources/LimitModels.swift" "$BASELINE_DIR/Sources/HUDPresentation.swift" \
   "$BASELINE_DIR/Sources/TaskStatusAppearance.swift" "$BASELINE_DIR/Sources/TaskStatusMonitor.swift" \
@@ -64,7 +64,7 @@ swiftc -O -target "$(uname -m)-apple-macosx11.0" -module-cache-path "$CURRENT_CA
 benchmark_stage="compile-current"
 swiftc -O -D CURRENT_ENGINE -target "$(uname -m)-apple-macosx11.0" -module-cache-path "$CURRENT_CACHE" \
   "${CURRENT_CORE_FLAGS[@]}" Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/HUDPresentation.swift \
-  Sources/TaskStatusAppearance.swift Sources/TaskStatusMonitor.swift Tests/TaskReliabilityBenchmark.swift \
+  Sources/AppIdentity.swift Sources/TaskStatusAppearance.swift Sources/TaskStatusMonitor.swift Tests/TaskReliabilityBenchmark.swift \
   -o "$EVIDENCE_DIR/current-benchmark"
 shasum -a 256 "$EVIDENCE_DIR/baseline-benchmark" "$EVIDENCE_DIR/current-benchmark" > "$EVIDENCE_DIR/binary-sha256.txt"
 benchmark_stage="measure-baseline"

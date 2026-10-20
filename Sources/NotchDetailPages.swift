@@ -24,7 +24,7 @@ struct NotchDetailPages: View {
     private var header: some View {
         HStack(spacing: 8) {
             if layout.expandedSize.width >= 500 {
-                Text("GPT HUD").font(.system(size: 13, weight: .semibold))
+                Text(AppIdentity.productName).font(.system(size: 13, weight: .semibold))
                 Spacer(minLength: 4)
             }
             HStack(spacing: model.usesGroupedControls ? 2 : 8) {

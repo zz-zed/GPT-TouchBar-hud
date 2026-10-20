@@ -34,7 +34,7 @@
 
 ## 支持的安装位置
 
-自动检查仅在应用标识正确，且位于下列正式安装路径时运行：
+GPT HUD 为兼容旧版自动更新，DMG 资产名仍为 `GPT-TouchBar-HUD-<版本号>-<架构>.dmg`，包内应用仍为 `GPT TouchBar HUD.app`。请保留应用文件名；自动检查仅在应用标识正确，且位于下列正式安装路径时运行：
 
 ```text
 /Applications/GPT TouchBar HUD.app

@@ -2,7 +2,7 @@
 
 [返回项目说明](../README.md)
 
-本文适用于 GPT TouchBar HUD **v0.1.36 / Build 39**，介绍安装后的日常操作、各显示界面和设置项。额度、任务状态的数据口径见[数据与隐私](DATA-AND-PRIVACY.md)，更新行为见[更新与恢复](UPDATING.md)。
+产品现名为 GPT HUD；本文的功能说明以 **v0.1.36 / Build 39** 为基准，介绍安装后的日常操作、各显示界面和设置项。额度、任务状态的数据口径见[数据与隐私](DATA-AND-PRIVACY.md)，更新行为见[更新与恢复](UPDATING.md)。
 
 ## 开始使用
 
@@ -13,7 +13,7 @@
 | Apple Silicon | 文件名以 `arm64.dmg` 结尾 |
 | Intel | 文件名以 `x86_64.dmg` 结尾 |
 
-打开 DMG，将 `GPT TouchBar HUD.app` 拖入 `Applications`。如果首次打开时系统提示“无法验证开发者”，可以运行 DMG 内的 `首次打开助手.command`，输入 `OPEN` 后按回车；也可以先尝试打开应用，再到“系统设置 → 隐私与安全性”选择“仍要打开”。应用目前使用 ad-hoc 签名且未经 Apple 公证，只应打开从本项目 Release 下载且由你信任的安装包。
+为兼容旧版自动更新，安装包与应用文件继续使用旧名；请保留 `GPT TouchBar HUD.app` 文件名。打开 DMG，将 `GPT TouchBar HUD.app` 拖入 `Applications`。如果首次打开时系统提示“无法验证开发者”，可以运行 DMG 内的 `首次打开助手.command`，输入 `OPEN` 后按回车；也可以先尝试打开应用，再到“系统设置 → 隐私与安全性”选择“仍要打开”。应用目前使用 ad-hoc 签名且未经 Apple 公证，只应打开从本项目 Release 下载且由你信任的安装包。
 
 应用作为菜单栏配件运行，不在 Dock 常驻。首次运行会在菜单栏显示状态，并注册当前用户的 LaunchAgent：
 

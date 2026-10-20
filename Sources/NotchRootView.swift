@@ -20,7 +20,7 @@ struct NotchRootView: View {
         }
         .environment(\.colorScheme, .dark)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("GPT HUD")
+        .accessibilityLabel(AppIdentity.productName)
     }
 
     private func content(_ layout: NotchLayout) -> some View {

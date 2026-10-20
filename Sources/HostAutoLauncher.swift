@@ -304,7 +304,7 @@ enum HostAutoLaunchError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notAnApplication:
-            return "请从已安装的 GPT TouchBar HUD 应用中更改随客户端启动设置。"
+            return "请从已安装的 \(AppIdentity.productName) 应用中更改随客户端启动设置。"
         case .missingLauncher:
             return "应用中的自动启动脚本缺失，请重新安装应用后重试。"
         case .unrecognizedRegistration(let path):
