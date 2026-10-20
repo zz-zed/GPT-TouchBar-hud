@@ -58,6 +58,15 @@ enum AppMigrationRuntime {
             try withExtendedLifetime(lock) {
                 _ = try AppInstallationMigration(driver: driver, enabled: true).resume()
             }
+            if transaction.phase == .committed {
+                // A bookmark may have followed the archived source inode. Its
+                // process must release the application lock before forwarding.
+                guard try driver.ownsPublishedTarget(transaction) else { throw AppMigrationError.invalidState }
+                let task = Process(); task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                task.arguments = ["-n", transaction.target]; task.standardInput = FileHandle.nullDevice
+                task.standardOutput = FileHandle.nullDevice; task.standardError = FileHandle.nullDevice
+                try task.run(); task.waitUntilExit()
+            }
         } catch AppInstallationMaintenanceLock.LockError.busy {
             // Another validated helper/installer owns maintenance; do not alter
             // its journal or interfere with an already running candidate.
@@ -100,14 +109,7 @@ enum AppMigrationRuntime {
             let path = Bundle.main.bundleURL.standardizedFileURL.path
             if path == transaction.stage + "/migration-helper.app" { return true }
             if path == transaction.stage + "/previous.app" {
-                try driver.validate(transaction)
-                guard try driver.fileID(path) == transaction.sourceFileID,
-                      try driver.ownsPublishedTarget(transaction) else { return true }
-                let task = Process(); task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-                task.arguments = ["-n", transaction.target]; task.standardInput = FileHandle.nullDevice
-                task.standardOutput = FileHandle.nullDevice; task.standardError = FileHandle.nullDevice
-                try task.run(); task.waitUntilExit()
-                return true
+                return prepareArchivedHandoff(transaction, driver: driver)
             }
             guard transaction.phase != .committed, transaction.source == path,
                   transaction.deferredBoot != (try driver.bootIdentity),
@@ -119,16 +121,36 @@ enum AppMigrationRuntime {
                   try driver.inspect(transaction.source) == transaction.identity else { return false }
             driver.ignoredSourcePID = getpid()
             try driver.safeToMigrate(transaction)
-            let helper = try driver.preparePrivateHelper(transaction)
-            let handoff = Handoff(id: transaction.id, pid: getpid(), launchedAt: launchedAt, boot: try driver.bootIdentity)
-            try driver.atomic(JSONEncoder().encode(handoff), at: URL(fileURLWithPath: transaction.stage + "/handoff.json"))
-            let process = Process(); process.executableURL = helper
-            process.arguments = [helperArgument, transaction.id]
-            process.standardInput = FileHandle.nullDevice
-            process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
-            try process.run()
+            try startHelper(transaction, driver: driver, launchedAt: launchedAt)
             return true
         } catch { return false }
+    }
+    /// Once recognized as an archive, every outcome suppresses its services.
+    static func prepareArchivedHandoff(_ transaction: AppMigrationTransaction, driver initial: AppMigrationMacOSDriver,
+                                      start: (AppMigrationTransaction, AppMigrationMacOSDriver) throws -> Void = {
+                                          try startHelper($0, driver: $1)
+                                      }) -> Bool {
+        var driver = initial
+        do {
+            try driver.validate(transaction)
+            guard try driver.fileID(transaction.stage + "/previous.app") == transaction.sourceFileID,
+                  try driver.ownsPublishedTarget(transaction) else { return true }
+            driver.helperSourceBundle = URL(fileURLWithPath: transaction.target)
+            try start(transaction, driver)
+        } catch { /* Keep the canonical target; never initialize archived services. */ }
+        return true
+    }
+    private static func startHelper(_ transaction: AppMigrationTransaction, driver: AppMigrationMacOSDriver,
+                                    launchedAt: Date? = NSRunningApplication.current.launchDate) throws {
+        guard let launchedAt else { throw AppMigrationError.deferred("ownerIdentityUnavailable") }
+        let helper = try driver.preparePrivateHelper(transaction)
+        let handoff = Handoff(id: transaction.id, pid: getpid(), launchedAt: launchedAt, boot: try driver.bootIdentity)
+        try driver.atomic(JSONEncoder().encode(handoff), at: URL(fileURLWithPath: transaction.stage + "/handoff.json"))
+        let process = Process(); process.executableURL = helper
+        process.arguments = [helperArgument, transaction.id]
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
+        try process.run()
     }
     /// Called after the same core initialization that emits an update receipt.
     static func didFinishCoreStartup() {

@@ -138,6 +138,15 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: validation-gpt-hud-phase2-${{ matrix.arch }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/validation/${{ matrix.arch }}
+          # Keep the signed payload and reproducible evidence, not copied
+          # fixture apps, compilers' caches or deliberately tampered DMGs.
+          path: |
+            build/validation/${{ matrix.arch }}/payload/
+            build/validation/${{ matrix.arch }}/dual-packages.json
+            build/validation/${{ matrix.arch }}/contract.json
+            build/validation/${{ matrix.arch }}/earliest/evidence.json
+            build/validation/${{ matrix.arch }}/launch-receipt/**/*.json
+            build/validation/${{ matrix.arch }}/launch-receipt/**/*.log
+            build/validation/${{ matrix.arch }}/timings/
           if-no-files-found: ignore
           retention-days: 14

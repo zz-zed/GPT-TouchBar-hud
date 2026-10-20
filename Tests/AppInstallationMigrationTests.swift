@@ -212,6 +212,22 @@ import Foundation
             try check(try driver.inspect(transaction.stage + "/migration-helper.app") == transaction.identity, "Copied helper signature/identity mismatch")
             try check(try driver.preparePrivateHelper(transaction) == helper, "Helper copy not idempotent")
         }
+        try withFixture("archived-forward-helper") { _, driver, source in
+            try AppInstallationMigration(driver: driver, enabled: true).recordPending(source: source)
+            driver.bootOverride = "22222222-2222-2222-2222-222222222222"
+            let transaction = try AppInstallationMigration(driver: driver, enabled: true).resume()!
+            driver.helperSourceBundle = URL(fileURLWithPath: transaction.target)
+            let helper = try driver.preparePrivateHelper(transaction)
+            try check(helper.path.hasSuffix("/migration-helper.app/Contents/MacOS/" + AppIdentity.executableName), "Archived forwarding helper path wrong")
+            try check(try driver.inspect(transaction.stage + "/migration-helper.app") == transaction.identity, "Archived forwarding helper identity wrong")
+            var starts = 0
+            let start: (AppMigrationTransaction, AppMigrationMacOSDriver) throws -> Void = { _, _ in starts += 1 }
+            try check(AppMigrationRuntime.prepareArchivedHandoff(transaction, driver: driver, start: start), "Archive initialized services")
+            try check(starts == 1, "Valid archived entry skipped helper handoff")
+            try FileManager.default.removeItem(atPath: transaction.target)
+            try check(AppMigrationRuntime.prepareArchivedHandoff(transaction, driver: driver, start: start), "Failed archive validation initialized services")
+            try check(starts == 1, "Invalid target reached helper start")
+        }
         print("PASS: \(checks) dormant migration / real filesystem, signature, interruption and recovery checks")
         print("BOUNDARY: launch/readiness/launchd are injected fixtures; real LaunchServices handoff and real boot transition are not exercised.")
     }
