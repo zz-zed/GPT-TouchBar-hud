@@ -119,7 +119,14 @@ struct AppMigrationMacOSDriver: AppMigrationDriving {
         try task.run()
         // Commands here produce bounded metadata. Drain before wait to avoid a full pipe.
         let data = output.fileHandleForReading.readDataToEndOfFile(); task.waitUntilExit()
-        guard task.terminationStatus == 0 else { throw AppMigrationError.deferred("platformOperationFailed") }
+        guard task.terminationStatus == 0 else {
+            #if MIGRATION_PROCESS_INTEGRATION
+            MigrationProcessIntegrationConfiguration.event("driver-command-failed", additional: [
+                "command": command, "arguments": arguments, "exit": task.terminationStatus,
+                "output": String(decoding: data, as: UTF8.self)])
+            #endif
+            throw AppMigrationError.deferred("platformOperationFailed")
+        }
         return String(decoding: data, as: UTF8.self)
     }
     func inspect(_ path: String) throws -> AppMigrationIdentity {
@@ -203,27 +210,46 @@ struct AppMigrationMacOSDriver: AppMigrationDriving {
         let id = String(decoding: try secureData(publishedID(transaction)), as: UTF8.self)
         return try fileID(transaction.target) == id && inspect(transaction.target) == transaction.identity
     }
-    func confirmCandidate(_ transaction: AppMigrationTransaction) throws {
+    /// Used for both reconciliation and launch confirmation; never trusts a
+    /// durable ready file without the same live LaunchServices process.
+    func candidateReadinessIsCurrent(_ transaction: AppMigrationTransaction) throws -> Bool {
         guard try ownsTarget(transaction) else { throw AppMigrationError.invalidState }
         let receipt = stage(transaction).appendingPathComponent("ready.json")
-        func confirmed() throws -> Bool {
-            guard exists(receipt.path) else { return false }
-            if let receiptValidator { try receiptValidator(receipt, transaction); return true }
-            let value = try JSONDecoder().decode(AppMigrationRuntime.Readiness.self, from: secureData(receipt))
-            guard value.id == transaction.id, value.target == transaction.target, value.identity == transaction.identity else {
-                throw AppMigrationError.invalidState
-            }
-            guard let process = NSRunningApplication(processIdentifier: value.pid),
-                  process.bundleURL?.standardizedFileURL.path == transaction.target,
-                  process.launchDate == value.launchedAt else { return false }
-            return true
+        guard exists(receipt.path) else { return false }
+        if let receiptValidator { try receiptValidator(receipt, transaction); return true }
+        let value = try JSONDecoder().decode(AppMigrationRuntime.Readiness.self, from: secureData(receipt))
+        guard value.id == transaction.id, value.target == transaction.target, value.identity == transaction.identity else {
+            throw AppMigrationError.invalidState
         }
-        if try confirmed() { return } // Reconcile without disturbing a live candidate.
+        // PID/launchDate alone do not establish that a durable receipt was
+        // written in this boot. A stale receipt must trigger a fresh launch.
+        guard let boot = value.boot else { return false } // Pre-boot-identity receipt: relaunch.
+        guard UUID(uuidString: boot) != nil else { throw AppMigrationError.invalidState }
+        guard boot == (try bootIdentity) else { return false }
+        let observed = NSRunningApplication(processIdentifier: value.pid)
+        #if MIGRATION_PROCESS_INTEGRATION
+        if observed?.bundleURL?.standardizedFileURL.path != transaction.target || observed?.launchDate != value.launchedAt {
+            MigrationProcessIntegrationConfiguration.event("ready-process-mismatch", additional: [
+                "receiptPID": value.pid, "expectedTarget": transaction.target,
+                "expectedLaunchDate": value.launchedAt.timeIntervalSince1970,
+                "observedBundleURL": observed?.bundleURL?.path ?? "nil",
+                "observedExecutableURL": observed?.executableURL?.path ?? "nil",
+                "observedLaunchDate": observed?.launchDate?.timeIntervalSince1970 ?? -1])
+        }
+        #endif
+        guard let process = observed,
+              process.bundleURL?.standardizedFileURL.path == transaction.target,
+              process.launchDate == value.launchedAt else { return false }
+        return true
+    }
+    func confirmCandidate(_ transaction: AppMigrationTransaction) throws {
+        guard try ownsTarget(transaction) else { throw AppMigrationError.invalidState }
+        if try candidateReadinessIsCurrent(transaction) { return } // Reconcile without disturbing a live candidate.
         if let launchCandidate { try launchCandidate(transaction) }
         else { _ = try run("/usr/bin/open", ["-n", transaction.target, "--args", AppMigrationRuntime.candidateArgument, transaction.id]) }
         let deadline = Date(timeIntervalSinceNow: 30)
         repeat {
-            if try confirmed() { return }
+            if try candidateReadinessIsCurrent(transaction) { return }
             Thread.sleep(forTimeInterval: 0.05)
         } while Date() < deadline
         throw AppMigrationError.deferred("candidateNotConfirmed")

@@ -16,23 +16,17 @@ concurrency:
 jobs:
   regression:
     if: github.ref == 'refs/heads/validation/gpt-hud-phase2-20261020' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    name: Regression (${{ matrix.arch }}, ${{ matrix.suite }})
+    name: Migration integration (${{ matrix.arch }})
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: arm64
             runner: macos-15
-            suite: data
-          - arch: arm64
-            runner: macos-15
-            suite: interface
+            suite: migration
           - arch: x86_64
             runner: macos-15-intel
-            suite: data
-          - arch: x86_64
-            runner: macos-15-intel
-            suite: interface
+            suite: migration
     runs-on: ${{ matrix.runner }}
     env:
       CI_TIMING_DIR: ${{ github.workspace }}/build/validation/regression/${{ matrix.arch }}-${{ matrix.suite }}
@@ -56,21 +50,31 @@ jobs:
       - name: Initialize regression timing metadata
         run: python3 scripts/ci_timing.py init
       - name: Offline release policy (once)
-        if: matrix.arch == 'arm64' && matrix.suite == 'data'
+        if: matrix.arch == 'arm64'
         run: bash scripts/test-release-workflows.sh
-      - name: Run regression suite
-        env:
-          CI_SUITE: ${{ matrix.suite }}
-        run: python3 scripts/ci_regression.py --suite "$CI_SUITE"
+      - name: Run migration and startup regression checks
+        run: |
+          for script in test-installation-maintenance test-installation-migration test-host-auto-launcher test-app-update-progress; do
+            python3 scripts/ci_timing.py run --phase suite --label "$script" -- bash "scripts/$script.sh"
+          done
+      - name: Exercise real isolated application migration
+        run: python3 scripts/ci_timing.py run --phase integration --label migration-process -- bash scripts/test-migration-process-integration.sh
+      - name: Exercise real isolated startup entries
+        run: python3 scripts/ci_timing.py run --phase integration --label launch-entry -- bash scripts/test-launch-entry-integration.sh --run
       - name: Summarize regression timings
         if: always()
         run: python3 scripts/ci_timing.py report
-      - name: Upload regression timings only
+      - name: Upload isolated integration evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: validation-gpt-hud-regression-${{ matrix.arch }}-${{ matrix.suite }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.CI_TIMING_DIR }}
+          path: |
+            ${{ env.CI_TIMING_DIR }}
+            build/migration-integration/${{ matrix.arch }}/**/*.json
+            build/migration-integration/${{ matrix.arch }}/**/*.log
+            build/launch-entry-integration/${{ matrix.arch }}/**/*.json
+            build/launch-entry-integration/${{ matrix.arch }}/**/*.log
           if-no-files-found: ignore
           retention-days: 14
 

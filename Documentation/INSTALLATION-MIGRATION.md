@@ -44,4 +44,32 @@ bash scripts/test-app-update-progress.sh
 
 前两项和原更新回归纳入正常及验证 CI。维护锁测试使用真实隔离进程，包含父退出、孤儿同步后代、原FD的CLOEXEC、成功/回滚释放及启动 stdin 隔离。迁移测试使用真实生产文件 driver、签名包、排他文件操作、原子日志、每阶段中断与恢复，以及碰撞/抢占/链接/更新阻塞；启动、就绪和 launchd 操作在本地测试中明确注入替身，不代表真实 LaunchServices、完整应用交接或真实系统重启通过。权限拒绝分支也有注入测试，仍需真实系统 ACL/权限矩阵验收。
 
-历史 v0.1.22 仅有原模型/资产契约证据；v0.1.38 有真实 DMG 准备与隔离安装/回滚证据，其启动/回执使用替身。没有据此承诺所有历史版本完整安装链或真实用户自动升级。实际 macOS 11、实体硬件、Dock/alias、真实跨 boot 和启动交接未验收；保持默认关闭，不能把编译与夹具通过当作自动迁移上线许可。
+历史 v0.1.22 仅有原模型/资产契约证据；v0.1.38 有真实 DMG 准备与隔离安装/回滚证据，其启动/回执使用替身。没有据此承诺所有历史版本完整安装链或真实用户自动升级。保持默认关闭，不能把编译与夹具通过当作自动迁移上线许可。
+
+## 独立身份的真实系统集成入口
+
+```sh
+# 本机只编译、签名和检查测试包，不注册或启动它们。
+bash scripts/test-migration-process-integration.sh --compile-only
+bash scripts/test-launch-entry-integration.sh --compile-only
+
+# 仅一次性 GitHub-hosted macOS GUI runner 可以实际执行。
+bash scripts/test-migration-process-integration.sh --execute-disposable-ci
+bash scripts/test-launch-entry-integration.sh --run
+```
+
+这两个入口单独编译 `Tests/MigrationProcessIntegrationIdentity.swift`，使用每次随机的测试 Bundle ID、LaunchAgent label、目录和偏好域；正式 `AppIdentity.swift` 不参与测试应用编译。`MIGRATION_PROCESS_INTEGRATION` 只在测试编译命令中启用，正式构建不含该定义，也没有运行时环境开关。正式 `automaticMigrationEnabled` 始终为 `false`，路径白名单不变。
+
+进程集成复用实际 runtime、文件 driver、签名助手、单实例锁、维护锁、`open` 和真实应用写出的就绪回执。测试核心是独立的最小 NSApplication，调用正式 `didFinishCoreStartup`；它不运行完整 HUD/AppDelegate。矩阵覆盖正常交接、七个持久阶段杀死真实助手再恢复、候选进程中断、维护锁竞争和归档入口转发。对真实就绪消息的 PID、启动时间、目标、nonce 和 boot 变异只用于拒绝测试，不制造成功 ACK，也不声称强制触发过内核 PID 复用。就绪回执须同时满足当前 boot、实际 PID/启动时间、精确路径和事务身份。
+
+启动入口集成使用真实 HostAutoLaunchManager、launchctl、pgrep、defaults 和 open。测试只精确渲染启动脚本的身份/路径常量及临时 HOME；逆变换必须还原原脚本全文，并记录源摘要。验证 RunAtLoad、宿主启动/退出、更新注册路径、退出标记、关闭自启动和显式 URL 启动；退出标记是测试文件，不代表完整菜单退出流程。[测试入口说明](../Tests/LaunchEntryIntegrationREADME.md) 列出隔离与清理范围。
+
+实际结果以对应 source commit 的 CI 和 `build/migration-integration/<arch>/`、`build/launch-entry-integration/<arch>/` 下 JSON/日志为准。`compile-only` 不算真实系统验证；运行失败不得用已有文件夹或编译成功替代。清理仅处理当前 nonce 的进程、偏好域、label 和注册 URL，并保留检查记录。
+
+### boot 与外部入口的证据边界
+
+生产 boot 身份来自 `kern.bootsessionuuid`。Apple 公开 XNU 的 [kern_sysctl.c](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/kern/kern_sysctl.c#L2735) 将其定义为只读字符串；[IOPMrootDomain.cpp](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/iokit/Kernel/IOPMrootDomain.cpp#L3847) 在系统启动时生成该 UUID。这支持 boot 身份来源的设计依据，不是所有未来系统都提供它的 API 承诺；读取失败或格式不明继续延期。
+
+集成测试改变的是测试 bundle 资源指向的模拟 boot UUID，真实的是进程退出、锁释放、重新启动及文件恢复，**没有重启 macOS**。CI 不能据此证明自然系统重启、登录时序或真实跨 boot 恢复。实际 macOS 11、系统 ACL/权限矩阵和完整产品生命周期仍需验收。
+
+Apple 的 [LSRegisterURL](https://developer.apple.com/documentation/coreservices/1446350-lsregisterurl) 只注册应用及其声明，[NSWorkspace 显式 URL 启动](https://developer.apple.com/documentation/appkit/nsworkspace/openapplication(at:configuration:completionhandler:)) 返回所启动的运行实例；集成测试核对实际进程路径。二者不保证 Finder alias/bookmark、Dock 或第三方启动器跟随改名。这里不修改 Dock 私有偏好、不创建普遍旧名 symlink；这些入口的真实迁移仍是启用前的独立验收项。

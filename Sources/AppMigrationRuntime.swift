@@ -3,6 +3,22 @@ import Darwin
 
 /// Dormant production wiring. No flag or preference can bypass the policy gate.
 enum AppMigrationRuntime {
+    // This seam is compiled only into the isolated integration application.
+    // Shipping binaries retain the source policy gate and production driver.
+    private static var enabled: Bool {
+        #if MIGRATION_PROCESS_INTEGRATION
+        return true
+        #else
+        return AppInstallationMigrationPolicy.automaticMigrationEnabled
+        #endif
+    }
+    private static func makeDriver() -> AppMigrationMacOSDriver {
+        #if MIGRATION_PROCESS_INTEGRATION
+        return MigrationProcessIntegrationConfiguration.makeDriver()
+        #else
+        return AppMigrationMacOSDriver.production()
+        #endif
+    }
     static let helperArgument = "--hud-private-migration-helper"
     static let candidateArgument = "--hud-migration-candidate"
     struct Readiness: Codable {
@@ -11,6 +27,7 @@ enum AppMigrationRuntime {
         let identity: AppMigrationIdentity
         let pid: Int32
         let launchedAt: Date
+        let boot: String?
     }
     private struct Handoff: Codable {
         let id: String
@@ -19,19 +36,19 @@ enum AppMigrationRuntime {
         let boot: String
     }
     static var isCandidate: Bool {
-        guard AppInstallationMigrationPolicy.automaticMigrationEnabled else { return false }
-        let driver = AppMigrationMacOSDriver.production()
+        guard enabled else { return false }
+        let driver = makeDriver()
         guard let transaction = try? driver.load(), transaction.phase != .committed,
               transaction.target == Bundle.main.bundleURL.standardizedFileURL.path,
               (try? driver.ownsPublishedTarget(transaction)) == true else { return false }
         return true
     }
     static func runHelperIfRequested() -> Bool {
-        guard AppInstallationMigrationPolicy.automaticMigrationEnabled else { return false }
+        guard enabled else { return false }
         let args = ProcessInfo.processInfo.arguments
         guard args.count == 3, args[1] == helperArgument else { return false }
         do {
-            var driver = AppMigrationMacOSDriver.production()
+            var driver = makeDriver()
             guard let transaction = try driver.load(), transaction.id == args[2],
                   Bundle.main.executableURL?.standardizedFileURL.path == transaction.stage + "/migration-helper.app/Contents/MacOS/" + AppIdentity.executableName else {
                 throw AppMigrationError.invalidState
@@ -56,7 +73,14 @@ enum AppMigrationRuntime {
             driver.ignoredSourcePID = getpid() // The private signed helper shares the bundle ID.
             let lock = try AppInstallationMaintenanceLock(directory: URL(fileURLWithPath: transaction.source).deletingLastPathComponent(), purpose: .migration)
             try withExtendedLifetime(lock) {
-                _ = try AppInstallationMigration(driver: driver, enabled: true).resume()
+                var migration = AppInstallationMigration(driver: driver, enabled: true)
+                #if MIGRATION_PROCESS_INTEGRATION
+                try MigrationProcessIntegrationConfiguration.checkpoint("helper-lock-acquired", transaction: transaction)
+                migration.checkpoint = { phase in
+                    try MigrationProcessIntegrationConfiguration.checkpoint(phase.rawValue, transaction: transaction)
+                }
+                #endif
+                _ = try migration.resume()
             }
             if transaction.phase == .committed {
                 // A bookmark may have followed the archived source inode. Its
@@ -68,13 +92,19 @@ enum AppMigrationRuntime {
                 try task.run(); task.waitUntilExit()
             }
         } catch AppInstallationMaintenanceLock.LockError.busy {
+            #if MIGRATION_PROCESS_INTEGRATION
+            MigrationProcessIntegrationConfiguration.event("helper-maintenance-busy")
+            #endif
             // Another validated helper/installer owns maintenance; do not alter
             // its journal or interfere with an already running candidate.
             exit(EXIT_FAILURE)
         } catch {
+            #if MIGRATION_PROCESS_INTEGRATION
+            MigrationProcessIntegrationConfiguration.event("helper-failed", additional: ["error": String(describing: error)])
+            #endif
             // A helper failure must not turn each old-path launch into an exit
             // loop. Defer this boot and keep or reopen the verified usable copy.
-            let driver = AppMigrationMacOSDriver.production()
+            let driver = makeDriver()
             if var transaction = try? driver.load(), let boot = try? driver.bootIdentity {
                 transaction.deferredBoot = boot
                 try? driver.save(transaction)
@@ -101,10 +131,10 @@ enum AppMigrationRuntime {
     /// Runs inside the existing application lock, before UI/services are created.
     /// A successful handoff lets main return naturally and release that lock.
     static func prepareStartupHandoff() -> Bool {
-        guard AppInstallationMigrationPolicy.automaticMigrationEnabled else { return false }
+        guard enabled else { return false }
         guard !isCandidate, !ProcessInfo.processInfo.arguments.contains(AppUpdateProgressChannel.argument) else { return false }
         do {
-            var driver = AppMigrationMacOSDriver.production()
+            var driver = makeDriver()
             guard let transaction = try driver.load() else { return false }
             let path = Bundle.main.bundleURL.standardizedFileURL.path
             if path == transaction.stage + "/migration-helper.app" { return true }
@@ -123,7 +153,12 @@ enum AppMigrationRuntime {
             try driver.safeToMigrate(transaction)
             try startHelper(transaction, driver: driver, launchedAt: launchedAt)
             return true
-        } catch { return false }
+        } catch {
+            #if MIGRATION_PROCESS_INTEGRATION
+            MigrationProcessIntegrationConfiguration.event("startup-handoff-failed", additional: ["error": String(describing: error)])
+            #endif
+            return false
+        }
     }
     /// Once recognized as an archive, every outcome suppresses its services.
     static func prepareArchivedHandoff(_ transaction: AppMigrationTransaction, driver initial: AppMigrationMacOSDriver,
@@ -154,8 +189,8 @@ enum AppMigrationRuntime {
     }
     /// Called after the same core initialization that emits an update receipt.
     static func didFinishCoreStartup() {
-        guard AppInstallationMigrationPolicy.automaticMigrationEnabled else { return }
-        let driver = AppMigrationMacOSDriver.production()
+        guard enabled else { return }
+        let driver = makeDriver()
         do {
             if isCandidate {
                 let args = ProcessInfo.processInfo.arguments
@@ -166,7 +201,7 @@ enum AppMigrationRuntime {
                       try driver.inspect(transaction.target) == transaction.identity,
                       let date = NSRunningApplication.current.launchDate else { return }
                 let ready = Readiness(id: transaction.id, target: transaction.target, identity: transaction.identity,
-                                      pid: getpid(), launchedAt: date)
+                                      pid: getpid(), launchedAt: date, boot: try driver.bootIdentity)
                 try driver.atomic(JSONEncoder().encode(ready), at: URL(fileURLWithPath: transaction.stage + "/ready.json"))
                 // A prior helper may have crashed. Its validated handoff still
                 // names the exited source; a competing helper simply fails the
@@ -180,6 +215,11 @@ enum AppMigrationRuntime {
             } else {
                 try AppInstallationMigration(driver: driver, enabled: true).recordPending(source: Bundle.main.bundleURL)
             }
-        } catch { /* Deferred migration does not turn a functional upgrade into failure. */ }
+        } catch {
+            #if MIGRATION_PROCESS_INTEGRATION
+            MigrationProcessIntegrationConfiguration.event("core-migration-failed", additional: ["error": String(describing: error)])
+            #endif
+            /* Deferred migration does not turn a functional upgrade into failure. */
+        }
     }
 }
