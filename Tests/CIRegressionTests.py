@@ -20,10 +20,12 @@ class CIRegressionTests(unittest.TestCase):
         # adds the real coordinator shutdown fence immediately after lifecycle checks.
         expected = frozen["suites"]
         expected["data"].insert(expected["data"].index("test-host-lifecycle") + 1, "test-app-termination")
+        index = expected["data"].index("test-single-instance") + 1
+        expected["data"][index:index] = ["test-installation-maintenance", "test-installation-migration"]
         self.assertEqual(regression.REGRESSION_SUITES, expected)
         scripts = sum(regression.REGRESSION_SUITES.values(), [])
-        self.assertEqual(len(scripts), 30)
-        self.assertEqual(len(set(scripts)), 30)
+        self.assertEqual(len(scripts), 32)
+        self.assertEqual(len(set(scripts)), 32)
 
     def test_every_script_has_its_own_timing_and_bash_invocation(self):
         for suite, scripts in regression.REGRESSION_SUITES.items():

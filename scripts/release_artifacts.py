@@ -19,7 +19,10 @@ import zipfile
 from ci_policy import PolicyError, required_jobs, validate_jobs
 
 ARCHES = ("arm64", "x86_64")
+PACKAGE_KINDS = {"primary": ("GPT-HUD", "GPT HUD.app"),
+                 "compatibility": ("GPT-TouchBar-HUD", "GPT TouchBar HUD.app")}
 WORKFLOW_PATH = ".github/workflows/build-dmg.yml"
+VALIDATION_WORKFLOW_PATH = ".github/workflows/validate-gpt-hud-phase2.yml"
 SHA_RE = re.compile(r"[0-9a-f]{40}")
 HASH_RE = re.compile(r"[0-9a-f]{64}")
 
@@ -192,6 +195,34 @@ def local_tag_commit(tag):
     return sha(git("rev-parse", reference + "^{commit}"))
 
 
+def package_names(version, arch, schema=2):
+    require(schema in (1, 2) and arch in ARCHES, "Unsupported package schema or architecture")
+    kinds = ("compatibility",) if schema == 1 else tuple(PACKAGE_KINDS)
+    return {f"{PACKAGE_KINDS[kind][0]}-{version}-{arch}.dmg": kind for kind in kinds}
+
+
+def source_package_schema(source):
+    # Recovery uses the immutable source's packaging contract, never today's version number.
+    script = Path(source) / "scripts/package-dmg.sh"
+    return 2 if script.is_file() and "DUAL_PACKAGE_SCHEMA=2" in script.read_text() else 1
+
+
+def validate_package_records(manifest, version, arch):
+    schema = manifest.get("schema_version")
+    names = package_names(version, arch, schema)
+    require(set(manifest.get("files", {})) == set(names) | {"SHA256SUMS.txt"}, "Unexpected manifest files")
+    checksum = manifest["files"]["SHA256SUMS.txt"]
+    require(isinstance(checksum, dict) and set(checksum) == {"sha256", "size"}, "Invalid checksum record fields")
+    for name, kind in names.items():
+        record = manifest["files"][name]
+        expected_keys = {"sha256", "size"} | ({"kind", "architecture"} if schema == 2 else set())
+        require(isinstance(record, dict) and set(record) == expected_keys, "Invalid package record fields")
+        if schema == 2:
+            require(record["kind"] == kind and record["architecture"] == arch,
+                    "Package kind or architecture mismatch")
+    return names
+
+
 def verify_download(directory, selection, version, build, tag):
     validate_tag(tag, version)
     require(isinstance(build, str) and build.isdigit(), "Invalid build number")
@@ -200,24 +231,27 @@ def verify_download(directory, selection, version, build, tag):
     for arch in ARCHES:
         folder = directory / arch
         require(folder.is_dir() and not folder.is_symlink(), f"Missing architecture directory: {arch}")
-        dmg = f"GPT-TouchBar-HUD-{version}-{arch}.dmg"
-        require({entry.name for entry in folder.iterdir()} == {dmg, "SHA256SUMS.txt", "manifest.json"},
-                f"Unexpected or missing files in {arch} artifact")
         file_record(folder / "manifest.json")
         manifest = read_json(folder / "manifest.json")
-        expected = {"schema_version": 1, "repository": selection["repository"],
+        names = validate_package_records(manifest, version, arch)
+        require({entry.name for entry in folder.iterdir()} == set(names) | {"SHA256SUMS.txt", "manifest.json"},
+                f"Unexpected or missing files in {arch} artifact")
+        expected = {"repository": selection["repository"],
                     "source_sha": selection["source_sha"], "workflow_sha": selection["workflow_sha"],
                     "run_id": selection["run_id"], "run_attempt": selection["run_attempt"],
                     "event": selection["event"], "ref": "refs/heads/main", "workflow_path": WORKFLOW_PATH,
                     "version": version, "build": build, "architecture": arch}
         for key, value in expected.items():
             require(manifest.get(key) == value, f"{arch} manifest mismatch: {key}")
-        require(set(manifest.get("files", {})) == {dmg, "SHA256SUMS.txt"}, "Unexpected manifest files")
-        for name in (dmg, "SHA256SUMS.txt"):
-            require(file_record(folder / name) == manifest["files"][name], f"Hash/size mismatch: {arch}/{name}")
+        for name in (*names, "SHA256SUMS.txt"):
+            record = manifest["files"][name]
+            require(file_record(folder / name) == {key: record.get(key) for key in ("sha256", "size")},
+                    f"Hash/size mismatch: {arch}/{name}")
         checksum = (folder / "SHA256SUMS.txt").read_text(encoding="utf-8")
-        require(checksum == f"{manifest['files'][dmg]['sha256']}  {dmg}\n", "Invalid checksum file")
+        require(checksum == "".join(f"{manifest['files'][name]['sha256']}  {name}\n" for name in names),
+                "Invalid checksum file")
         manifests[arch] = manifest
+    require(len({item["schema_version"] for item in manifests.values()}) == 1, "Mixed package schemas")
     return {"source_sha": selection["source_sha"], "version": version, "build": build,
             "tag": tag, "selection": selection, "manifests": manifests}
 
@@ -243,20 +277,28 @@ def git(*args, cwd=None):
     return result.stdout.strip()
 
 
-def create_manifest(source, output, arch, repository, run_id, run_attempt, event, ref, workflow_sha):
+def create_manifest(source, output, arch, repository, run_id, run_attempt, event, ref, workflow_sha,
+                    workflow_path=WORKFLOW_PATH):
+    require(workflow_path in (WORKFLOW_PATH, VALIDATION_WORKFLOW_PATH), "Unknown manifest workflow")
     source, output = Path(source), Path(output)
     info = plistlib.loads((source / "Resources/Info.plist").read_bytes())
     version, build = info["CFBundleShortVersionString"], info["CFBundleVersion"]
     source_sha = sha(git("rev-parse", "HEAD", cwd=source))
     sha(workflow_sha)
-    name = f"GPT-TouchBar-HUD-{version}-{arch}.dmg"
+    schema = source_package_schema(source)
     require(arch in ARCHES and output.is_dir(), "Invalid output directory or architecture")
-    digest = file_record(output / name)
-    (output / "SHA256SUMS.txt").write_text(f"{digest['sha256']}  {name}\n", encoding="utf-8")
-    result = dict(schema_version=1, repository=repository, source_sha=source_sha, workflow_sha=workflow_sha,
+    names = package_names(version, arch, schema)
+    require({entry.name for entry in output.iterdir()} == set(names), "Unexpected or missing package output")
+    records = {name: file_record(output / name) for name in names}
+    (output / "SHA256SUMS.txt").write_text(
+        "".join(f"{records[name]['sha256']}  {name}\n" for name in names), encoding="utf-8")
+    if schema == 2:
+        for name, kind in names.items():
+            records[name].update(kind=kind, architecture=arch)
+    records["SHA256SUMS.txt"] = file_record(output / "SHA256SUMS.txt")
+    result = dict(schema_version=schema, repository=repository, source_sha=source_sha, workflow_sha=workflow_sha,
                   version=version, build=build, architecture=arch, run_id=int(run_id), run_attempt=int(run_attempt),
-                  event=event, ref=ref, workflow_path=WORKFLOW_PATH,
-                  files={name: digest, "SHA256SUMS.txt": file_record(output / "SHA256SUMS.txt")})
+                  event=event, ref=ref, workflow_path=workflow_path, files=records)
     write_json(output / "manifest.json", result)
     return result
 
@@ -342,7 +384,7 @@ def safe_unpack(data, destination, expected_names):
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         entries = archive.infolist()
         require(len(entries) == len(expected_names) and {item.filename for item in entries} == set(expected_names),
-                "Artifact ZIP must contain exactly the expected three root files")
+                "Artifact ZIP must contain exactly the expected root files")
         require(sum(item.file_size for item in entries) <= 2 * 1024 ** 3, "Artifact ZIP is too large")
         for item in entries:
             mode = (item.external_attr >> 16) & 0o170000
@@ -406,7 +448,8 @@ def prepare_release(api, tag, source_sha, source, output):
         require(data is not None, "Selected artifact vanished; rebuild the same SHA, never use another run")
         if artifact.get("digest") is not None:
             require(artifact["digest"] == "sha256:" + hashlib.sha256(data).hexdigest(), "Artifact archive digest mismatch")
-        safe_unpack(data, output / arch, {f"GPT-TouchBar-HUD-{version}-{arch}.dmg", "SHA256SUMS.txt", "manifest.json"})
+        safe_unpack(data, output / arch, set(package_names(version, arch, source_package_schema(source)))
+                    | {"SHA256SUMS.txt", "manifest.json"})
     report = verify_download(output, selection, version, build, tag)
     write_json(output / "selection.json", selection)
     shutil.copyfile(Path(source) / "RELEASE_NOTES.md", output / "RELEASE_NOTES.md")
@@ -414,9 +457,9 @@ def prepare_release(api, tag, source_sha, source, output):
     write_json(output / "build-manifest.json", report)
     checksums = []
     for arch in ARCHES:
-        name = f"GPT-TouchBar-HUD-{version}-{arch}.dmg"
-        shutil.copyfile(output / arch / name, output / name)
-        checksums.append(f"{file_record(output / name)['sha256']}  {name}\n")
+        for name in package_names(version, arch, report["manifests"][arch]["schema_version"]):
+            shutil.copyfile(output / arch / name, output / name)
+            checksums.append(f"{file_record(output / name)['sha256']}  {name}\n")
     (output / "SHA256SUMS.txt").write_text("".join(checksums), encoding="utf-8")
     return report
 
@@ -461,11 +504,15 @@ def publish_release(api, directory, tag, source_sha, version, build):
     notes = base64.b64decode(content["content"]).decode("utf-8")
     validate_release_notes(notes)
     require((directory / "RELEASE_NOTES.md").read_text(encoding="utf-8") == notes, "Notes must come from tag commit")
-    names = [f"GPT-TouchBar-HUD-{version}-{arch}.dmg" for arch in ARCHES] + ["SHA256SUMS.txt", "build-manifest.json"]
+    dmgs = [name for arch in ARCHES
+            for name in package_names(version, arch, report["manifests"][arch]["schema_version"])]
+    names = dmgs + ["SHA256SUMS.txt", "build-manifest.json"]
     for arch in ARCHES:
-        name = f"GPT-TouchBar-HUD-{version}-{arch}.dmg"
-        require(file_record(directory / name) == report["manifests"][arch]["files"][name], "Public DMG copy mismatch")
-    sums = "".join(f"{file_record(directory / name)['sha256']}  {name}\n" for name in names[:2])
+        for name in package_names(version, arch, report["manifests"][arch]["schema_version"]):
+            record = report["manifests"][arch]["files"][name]
+            require(file_record(directory / name) == {key: record[key] for key in ("sha256", "size")},
+                    "Public DMG copy mismatch")
+    sums = "".join(f"{file_record(directory / name)['sha256']}  {name}\n" for name in dmgs)
     require((directory / "SHA256SUMS.txt").read_text(encoding="utf-8") == sums, "Combined checksum mismatch")
     expected = {name: file_record(directory / name)["sha256"] for name in names}
     existing = find_existing_release(api, tag)
@@ -501,6 +548,7 @@ def main():
     tag_parser.add_argument("--tag", required=True)
     tag_parser.add_argument("--github-output")
     create = commands.add_parser("create-manifest")
+    create.add_argument("--workflow-path", choices=(WORKFLOW_PATH, VALIDATION_WORKFLOW_PATH), default=WORKFLOW_PATH)
     for name in ("source", "output", "arch", "repository", "workflow-sha"):
         create.add_argument("--" + name, required=True)
     for name, env in (("run-id", "GITHUB_RUN_ID"), ("run-attempt", "GITHUB_RUN_ATTEMPT"),
@@ -543,7 +591,7 @@ def main():
                     output.write(f"{key}={value}\n")
     elif args.command == "create-manifest":
         result = create_manifest(args.source, args.output, args.arch, args.repository, args.run_id,
-                                 args.run_attempt, args.event, args.ref, args.workflow_sha)
+                                 args.run_attempt, args.event, args.ref, args.workflow_sha, args.workflow_path)
     else:
         api = GitHub(args.repository, os.environ.get("GH_TOKEN"))
         if args.command == "prepare-release":

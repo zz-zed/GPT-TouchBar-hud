@@ -2,11 +2,16 @@
 # Invoked only after archive, bundle identity, version and signature verification.
 set -eu
 
+hud_install_target_allowed() {
+    [[ "$1" == /Applications/'GPT TouchBar HUD.app' || "$1" == /Applications/'GPT HUD.app' ||
+       "$1" == "$HOME/Applications/GPT TouchBar HUD.app" || "$1" == "$HOME/Applications/GPT HUD.app" ]]
+}
+
 hud_install_validate() {
     [[ $# == 4 ]] || return 2
     local hud_pid="$1" hud_target="$2" hud_stage="$3" hud_session="$4"
     [[ "$hud_pid" == <-> && "$hud_pid" -gt 0 ]] || return 2
-    [[ "$hud_target" == /Applications/'GPT TouchBar HUD.app' || "$hud_target" == "$HOME/Applications/GPT TouchBar HUD.app" ]] || return 2
+    hud_install_target_allowed "$hud_target" || return 2
     [[ "$hud_session" =~ '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$' ]] || return 2
     [[ "$hud_stage" == "${hud_target:h}/.GPTTouchBarHUD-update-$hud_session" && -d "$hud_stage/new.app" ]] || return 2
     [[ ! -L "$hud_stage" && ! -L "$hud_stage/new.app" && ! -L "$hud_target" && ! -e "$hud_stage/previous.app" ]] || return 2
@@ -22,7 +27,7 @@ hud_install_validate() {
 hud_install_alive() { /bin/kill -0 "$1" 2>/dev/null; }
 hud_install_pause() { /bin/sleep 1; }
 hud_install_move() { /bin/mv "$1" "$2"; }
-hud_install_open() { /usr/bin/open -n "$1" --args --hud-update-session "$2" "$3"; }
+hud_install_open() { /usr/bin/open -n "$1" --args --hud-update-session "$2" "$3" </dev/null; }
 # A diagnostic subprocess is optional and has a hard deadline. Never feed command
 # output into diagnostics, and never let its status select an installation branch.
 hud_install_diagnostic_watchdog() {

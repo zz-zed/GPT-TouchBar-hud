@@ -18,6 +18,8 @@ class GroupingTests(unittest.TestCase):
         frozen = json.loads((ROOT / "Tests/Fixtures/ci-regression-layout-v1.json").read_text())["suites"]
         current = {suite: list(scripts) for suite, scripts in frozen.items()}
         current["data"].insert(current["data"].index("test-host-lifecycle") + 1, "test-app-termination")
+        index = current["data"].index("test-single-instance") + 1
+        current["data"][index:index] = ["test-installation-maintenance", "test-installation-migration"]
         self.assertEqual(grouping.layout(workflow, source), current)
         with self.assertRaises(ValueError):
             grouping.layout(workflow, source.replace('"test-hooks"', '"test-task-status"'))

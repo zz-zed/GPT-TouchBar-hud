@@ -2,7 +2,9 @@
 set -euo pipefail
 
 # Packaging pins this helper to the app in the same DMG. Never accept a target argument.
-APP='/Applications/GPT TouchBar HUD.app'
+APP='/Applications/__PACKAGED_APP_NAME__'
+SYSTEM_APP="$APP"
+USER_APP="$HOME/Applications/__PACKAGED_APP_NAME__"
 EXPECTED_CDHASH='__PACKAGED_CDHASH__'
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 
@@ -15,8 +17,23 @@ fail() {
     printf '\n%s\n' "$1"
     finish '请查看安装包中的「首次打开说明.txt」。可信来源的应用可尝试：系统设置 → 隐私与安全性 → 仍要打开。若提示恶意软件或应用损坏，请停止操作并重新下载或联系维护者。' 1
 }
+select_target() {
+    local system_exists=0 user_exists=0
+    if [[ -e "$SYSTEM_APP" || -L "$SYSTEM_APP" ]]; then system_exists=1; fi
+    if [[ -e "$USER_APP" || -L "$USER_APP" ]]; then user_exists=1; fi
+    [[ "$system_exists$user_exists" != 11 ]] || fail '系统与用户 Applications 中都存在本包同名应用，请先确认要使用的副本；本助手不会代选。'
+    APP="$SYSTEM_APP"
+    if [[ "$user_exists" == 1 ]]; then APP="$USER_APP"; fi
+}
 validate() {
-    [[ -d "$APP" && ! -L "$APP" && ! -L /Applications ]] || fail '请先将应用拖入 Applications；不处理符号链接。'
+    case "$APP" in
+        '/Applications/GPT HUD.app'|'/Applications/GPT TouchBar HUD.app')
+            [[ ! -L /Applications ]] || fail 'Applications 目录不能是符号链接。' ;;
+        "$USER_APP")
+            [[ ! -L "$HOME" && ! -L "$HOME/Applications" ]] || fail '用户 Applications 目录不能是符号链接。' ;;
+        *) fail '安装目标不在允许列表中。' ;;
+    esac
+    [[ -d "$APP" && ! -L "$APP" ]] || fail '请先将应用拖入 Applications；不处理符号链接。'
     local links identifier actual
     links="$(/usr/bin/find "$APP" -type l -print)" || fail '无法检查应用目录。'
     [[ -z "$links" ]] || fail '应用包含非预期符号链接，已停止。'
@@ -28,8 +45,10 @@ validate() {
 }
 
 [[ $# -eq 0 ]] || fail '本助手不接受参数。'
+select_target
 printf '%s\n' 'GPT HUD · 首次打开助手' "仅处理：$APP"
 validate
+CONFIRMED_APP="$APP"
 printf '\n%s\n' \
     '确认后仅解除本应用的下载隔离并打开，不开启「任何来源」。' \
     '应用未经 Apple 公证，仅在信任安装包时继续；若提示恶意软件或损坏，请取消。'
@@ -37,6 +56,8 @@ answer=''
 read -r -p '输入 OPEN 并回车继续；其他输入取消：' answer || finish '已取消，未修改应用。' 0
 [[ "$answer" == OPEN ]] || finish '已取消，未修改应用。' 0
 # Recheck after the user prompt; never elevate privileges or clear unrelated attributes.
+select_target
+[[ "$APP" == "$CONFIRMED_APP" ]] || fail '确认期间应用位置发生变化，请重新运行助手。'
 validate
 paths=()
 while IFS= read -r -d '' entry; do paths+=("$entry"); done < <(/usr/bin/find "$APP" -print0)

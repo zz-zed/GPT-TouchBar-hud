@@ -51,7 +51,7 @@ struct AppUpdateProgressChannel {
 
         进入替换阶段后，previous.app 是保留的旧版；failed.app（如有）是无法打开的新版。
         “尚未确认新版启动”不等于新版已崩溃，请先尝试打开安装位置中的应用。
-        仅在需要手动恢复时：退出本工具，保留异常版本与日志，将 previous.app 复制回上述安装位置，命名为 \(AppIdentity.installedBundleFileName) 后打开。
+        仅在需要手动恢复时：退出本工具，保留异常版本与日志，将 previous.app 复制回上述安装位置，命名为 \(target.lastPathComponent) 后打开。
         若没有 previous.app，先确认当前应用位置与日志，再从仓库 Release 重新下载。
 
         安装仍在进行时，不要移动应用或清理此目录。确认新版本正常运行、无需回滚后，可在 Finder 中逐一审阅并移除此目录。
@@ -75,10 +75,13 @@ struct AppUpdateProgressChannel {
               (attributes[.posixPermissions] as? NSNumber)?.intValue == 0o700 else { throw ChannelError.invalid }
         let file = directory.appendingPathComponent("context.json")
         let context: Context = try read(file)
+        let target = URL(fileURLWithPath: context.targetPath).standardizedFileURL
         guard context.sessionID == sessionID, context.ownerPID > 0,
               AppVersion(context.sourceVersion) != nil, AppVersion(context.targetVersion) != nil,
-              URL(fileURLWithPath: context.targetPath).standardizedFileURL ==
-                directory.deletingLastPathComponent().appendingPathComponent(AppIdentity.installedBundleFileName) else {
+              target.path == context.targetPath,
+              AppInstallationPaths.bundleFileNames.contains(target.lastPathComponent),
+              target.deletingLastPathComponent() == directory.deletingLastPathComponent(),
+              AppInstallationPaths.isDirectPath(target) else {
             throw ChannelError.invalid
         }
         return Self(directory: directory, context: context)

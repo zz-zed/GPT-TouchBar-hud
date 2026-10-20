@@ -6,6 +6,7 @@ _ = DiagnosticProcessIdentity.current
 // The temporary update window has no HUD services, and must survive
 // the owning HUD process. Only the private copied executable accepts this mode.
 if AppUpdateProgressHelper.runIfRequested() { exit(EXIT_SUCCESS) }
+if AppMigrationRuntime.runHelperIfRequested() { exit(EXIT_SUCCESS) }
 
 do {
     // Acquire before AppDelegate's stored properties create the status item or
@@ -14,6 +15,7 @@ do {
         exit(EXIT_SUCCESS)
     }
     withExtendedLifetime(instanceLock) {
+        if AppMigrationRuntime.prepareStartupHandoff() { return }
         LegacyAppMigration.migratePreferences()
 
         let app = NSApplication.shared

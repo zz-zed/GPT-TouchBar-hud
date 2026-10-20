@@ -152,11 +152,6 @@ enum AppUpdateRuntime {
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
     ) -> Bool {
         guard bundleIdentifier == "io.github.zz-zed.GPTTouchBarHUD" else { return false }
-        let target = bundleURL.standardizedFileURL
-        let allowed = [
-            URL(fileURLWithPath: "/Applications/GPT TouchBar HUD.app").standardizedFileURL,
-            homeDirectory.appendingPathComponent("Applications/GPT TouchBar HUD.app").standardizedFileURL
-        ]
-        return allowed.contains(target) && target.pathExtension == "app"
+        return AppInstallationPaths.contains(bundleURL, homeDirectory: homeDirectory)
     }
 }

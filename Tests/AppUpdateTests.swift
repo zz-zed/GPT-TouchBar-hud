@@ -245,6 +245,42 @@ final class FakeReleaseFetcher: AppReleaseFetching {
 
     static func testRuntimeIsolation() {
         let home = URL(fileURLWithPath: "/Users/tester")
+        let formalPaths = [
+            "/Applications/GPT TouchBar HUD.app", "/Applications/GPT HUD.app",
+            "/Users/tester/Applications/GPT TouchBar HUD.app", "/Users/tester/Applications/GPT HUD.app"
+        ]
+        check(Set(AppInstallationPaths.allowedTargets(homeDirectory: home).map(\.path)) == Set(formalPaths),
+              "Installation policy contains exactly the four supported paths")
+        for path in formalPaths {
+            check(AppUpdateRuntime.allowsAutomaticChecks(bundleURL: URL(fileURLWithPath: path),
+                bundleIdentifier: AppIdentity.bundleIdentifier, homeDirectory: home), "Supported installed path: \(path)")
+        }
+        for path in ["/Applications/Other.app", "/Applications/GPT HUD copy.app", "/Volumes/Installer/GPT HUD.app",
+                     "/Users/other/Applications/GPT HUD.app", "/Users/tester/Desktop/GPT HUD.app",
+                     "/Users/tester/Applications/nested/GPT HUD.app"] {
+            check(!AppUpdateRuntime.allowsAutomaticChecks(bundleURL: URL(fileURLWithPath: path),
+                bundleIdentifier: AppIdentity.bundleIdentifier, homeDirectory: home), "Reject unsupported path: \(path)")
+        }
+        let fixture = FileManager.default.temporaryDirectory.appendingPathComponent("hud-path-policy-" + UUID().uuidString)
+            .resolvingSymlinksInPath()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        do {
+            let applications = fixture.appendingPathComponent("Applications")
+            try FileManager.default.createDirectory(at: applications, withIntermediateDirectories: true)
+            let actual = fixture.appendingPathComponent("actual.app")
+            try FileManager.default.createDirectory(at: actual, withIntermediateDirectories: false)
+            for name in AppInstallationPaths.bundleFileNames {
+                let linked = applications.appendingPathComponent(name)
+                try FileManager.default.createSymbolicLink(at: linked, withDestinationURL: actual)
+                check(!AppUpdateRuntime.allowsAutomaticChecks(bundleURL: linked,
+                    bundleIdentifier: AppIdentity.bundleIdentifier, homeDirectory: fixture), "Linked installed target is rejected")
+            }
+            try FileManager.default.removeItem(at: actual)
+            for name in AppInstallationPaths.bundleFileNames {
+                check(!AppUpdateRuntime.allowsAutomaticChecks(bundleURL: applications.appendingPathComponent(name),
+                    bundleIdentifier: AppIdentity.bundleIdentifier, homeDirectory: fixture), "Dangling installed target is rejected")
+            }
+        } catch { preconditionFailure("Cannot create isolated installation path fixture: \(error)") }
         check(AppUpdateRuntime.allowsAutomaticChecks(
             bundleURL: URL(fileURLWithPath: "/Applications/GPT TouchBar HUD.app"),
             bundleIdentifier: "io.github.zz-zed.GPTTouchBarHUD",

@@ -8,6 +8,6 @@ SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
 swiftc -module-cache-path "$SWIFT_MODULE_CACHE" \
     Sources/DiagnosticEvent.swift Sources/DiagnosticTaskTrace.swift Sources/DiagnosticProcessStore.swift Sources/DiagnosticStore.swift Sources/DiagnosticRecorder.swift Sources/AppUpdateModels.swift Sources/AppIdentity.swift Sources/AppUpdateDownload.swift \
     Sources/DiagnosticInstallerBridge.swift Sources/AppUpdateProgressChannel.swift Sources/AppUpdateProgressWindowController.swift \
-    Sources/AppUpdateProgressHelper.swift Sources/AppUpdateInstallation.swift \
+    Sources/AppUpdateProgressHelper.swift Sources/AppInstallationMaintenance.swift Sources/AppUpdateInstallation.swift \
     Tests/AppUpdateProgressTests.swift -o "$TEST_BUILD/AppUpdateProgressTests"
 ci_time execute app-update-progress-server python3 Tests/app_update_download_server.py "$TEST_BUILD/AppUpdateProgressTests"

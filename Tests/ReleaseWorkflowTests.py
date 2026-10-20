@@ -859,6 +859,37 @@ class ReleaseOrchestrationTests(OfflineCase):
         self.assertTrue(any(path.endswith("RELEASE_NOTES.md?ref=" + SOURCE_SHA) for _, path, _ in self.api.requests))
         self.assertFalse(any("ref=main" in path for _, path, _ in self.api.requests))
 
+    def test_dual_schema_prepare_and_publish_exactly_four_dmgs_and_two_metadata_files(self):
+        (self.source / "scripts").mkdir()
+        (self.source / "scripts/package-dmg.sh").write_text("DUAL_PACKAGE_SCHEMA=2")
+        for arch, artifact in zip(ARCHES, self.api.artifacts):
+            with zipfile.ZipFile(io.BytesIO(self.api.archives[artifact["id"]])) as archive:
+                manifest = json.loads(archive.read("manifest.json"))
+                compatibility = f"GPT-TouchBar-HUD-{VERSION}-{arch}.dmg"
+                payloads = {compatibility: archive.read(compatibility),
+                            f"GPT-HUD-{VERSION}-{arch}.dmg": b"primary inert fixture " + arch.encode()}
+            names = release.package_names(VERSION, arch)
+            records = {name: {"sha256": digest(payloads[name]), "size": len(payloads[name]),
+                              "kind": kind, "architecture": arch} for name, kind in names.items()}
+            sums = "".join(f"{records[name]['sha256']}  {name}\n" for name in names).encode()
+            records["SHA256SUMS.txt"] = {"sha256": digest(sums), "size": len(sums)}
+            manifest.update(schema_version=2, files=records)
+            payloads.update({"SHA256SUMS.txt": sums, "manifest.json": json.dumps(manifest).encode()})
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w") as archive:
+                for name, data in payloads.items():
+                    archive.writestr(name, data)
+            self.api.archives[artifact["id"]] = buffer.getvalue()
+            artifact["digest"] = "sha256:" + digest(buffer.getvalue())
+        report = self.prepare()
+        self.assertEqual({item["schema_version"] for item in report["manifests"].values()}, {2})
+        result = self.publish()
+        expected = {name for arch in ARCHES for name in release.package_names(VERSION, arch)}
+        expected.update({"SHA256SUMS.txt", "build-manifest.json"})
+        self.assertFalse(result["draft"])
+        self.assertEqual({item["name"] for item in result["assets"]}, expected)
+        self.assertEqual(len([item for item in self.api.writes if item[0] == "upload"]), 6)
+
     def test_title_warning_preserves_immutable_body_through_prepare_and_publish(self):
         notes = "# GPT TouchBar HUD " + TAG + "\n\n## Changes\n\nFixture.\n"
         self.api.notes = notes

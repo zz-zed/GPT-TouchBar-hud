@@ -254,9 +254,7 @@ final class AppUpdater: NSObject {
             return
         }
         let target = Bundle.main.bundleURL.standardizedFileURL
-        let allowed = [URL(fileURLWithPath: "/Applications/GPT TouchBar HUD.app"),
-                       FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/GPT TouchBar HUD.app")]
-        guard allowed.contains(target), target.resolvingSymlinksInPath() == target,
+        guard AppInstallationPaths.contains(target),
               FileManager.default.isWritableFile(atPath: target.deletingLastPathComponent().path) else {
             let alert = NSAlert()
             alert.messageText = "发现新版本 \(release.tag_name)"

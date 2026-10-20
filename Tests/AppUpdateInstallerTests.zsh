@@ -15,6 +15,7 @@ hud_check() {
 hud_install_pause() { :; }
 hud_install_alive() { [[ "$hud_case" == owner-alive ]]; }
 hud_install_open() {
+    [[ "$1" == "$hud_target" ]] || { print -u2 'FAIL: launch did not use the exact session target'; return 1; }
     if [[ "$hud_case" == launch-failure && ! -d "$hud_stage/failed.app" ]]; then return 1; fi
     return 0
 }
@@ -30,12 +31,26 @@ hud_install_move() {
     /bin/mv "$1" "$2"
 }
 
+# Validate all four production paths without creating or changing any of them.
+for hud_formal in /Applications/'GPT TouchBar HUD.app' /Applications/'GPT HUD.app' \
+    "$HOME/Applications/GPT TouchBar HUD.app" "$HOME/Applications/GPT HUD.app"; do
+    hud_check 'hud_install_target_allowed "$hud_formal"' "Supported formal path: $hud_formal"
+done
+for hud_formal in /Applications/'GPT HUD copy.app' /Applications/nested/'GPT HUD.app' \
+    /Volumes/Installer/'GPT HUD.app' "$hud_test_root/GPT HUD.app" "$HOME/Desktop/GPT HUD.app"; do
+    hud_check '! hud_install_target_allowed "$hud_formal"' "Unsupported formal path: $hud_formal"
+done
+
+for hud_scope in system user; do
+for hud_name in 'GPT TouchBar HUD.app' 'GPT HUD.app'; do
 for hud_case in success owner-alive backup-failure replace-failure launch-failure launch-timeout restore-failure restore-unconfirmed; do
-    hud_dir="$hud_test_root/$hud_case"
-    hud_target="$hud_dir/GPT TouchBar HUD.app"
+    hud_dir="$hud_test_root/$hud_scope/$hud_name/$hud_case/Applications"
+    hud_target="$hud_dir/$hud_name"
+    hud_sibling="$hud_dir/$([[ "$hud_name" == 'GPT HUD.app' ]] && print 'GPT TouchBar HUD.app' || print 'GPT HUD.app')"
     hud_session="$(/usr/bin/uuidgen)"
     hud_stage="$hud_dir/.GPTTouchBarHUD-update-$hud_session"
-    /bin/mkdir -p "$hud_target" "$hud_stage/new.app"
+    /bin/mkdir -p "$hud_target" "$hud_stage/new.app" "$hud_sibling"
+    print -n sibling > "$hud_sibling/marker"
     print -n old > "$hud_target/marker"
     print -n new > "$hud_stage/new.app/marker"
     printf '{"sourceVersion":"0.1.37","targetVersion":"0.1.38"}\n' > "$hud_stage/context.json"
@@ -79,5 +94,8 @@ for hud_case in success owner-alive backup-failure replace-failure launch-failur
     # Production script refuses these same non-installation paths before mutation.
     if /bin/zsh Resources/install-update.sh 999999 "$hud_target" "$hud_stage" "$hud_session"; then hud_guard=0; else hud_guard=$?; fi
     hud_check '[[ "$hud_guard" == 2 ]]' "$hud_case: production target boundary preserved"
+    hud_check '[[ "$(<"$hud_sibling/marker")" == sibling ]]' "$hud_case: other installed name remains untouched"
+done
+done
 done
 print "PASS: $hud_checks isolated installer checks"

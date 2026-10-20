@@ -1,0 +1,85 @@
+name: Validate GPT HUD phase 2
+run-name: Validate GPT HUD phase 2 ${{ github.sha }}
+
+on:
+  push:
+    branches: [validation/gpt-hud-phase2-20261020]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gpt-hud-phase2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/validation/gpt-hud-phase2-20261020' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    name: Validate (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    env:
+      CI_TIMING_DIR: ${{ github.workspace }}/build/validation/${{ matrix.arch }}/timings
+      HUD_SHARED_UI_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify branch, source and architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/validation/gpt-hud-phase2-20261020
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(uname -m)" = "$EXPECTED_ARCH"
+      - name: Select Xcode with Liquid Glass SDK
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" -ge 26
+      - name: Offline release policy and regression suites
+        run: |
+          python3 scripts/ci_timing.py init
+          bash scripts/test-release-workflows.sh
+          python3 scripts/ci_regression.py --suite data
+          python3 scripts/ci_regression.py --suite interface
+      - name: Build both packages from one signed build
+        run: bash scripts/package-dmg.sh
+      - name: Verify isolated first-open helper and both packages
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          bash scripts/test-first-open.sh
+          python3 scripts/verify-dual-packages.py --directory dist --arch "$ARCH" --output "build/validation/$ARCH/dual-packages.json"
+          mkdir -p "build/validation/$ARCH/payload"
+          cp dist/*-$ARCH.dmg "build/validation/$ARCH/payload/"
+          python3 scripts/release_artifacts.py create-manifest --source . --output "build/validation/$ARCH/payload" \
+            --arch "$ARCH" --repository "$GITHUB_REPOSITORY" --workflow-sha "$GITHUB_SHA" \
+            --workflow-path .github/workflows/validate-gpt-hud-phase2.yml
+      - name: Verify real historical clients against compatibility payload
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)"
+          OUTPUT="build/validation/$ARCH"
+          SUMS="$OUTPUT/payload/SHA256SUMS.txt"
+          DMG="dist/GPT-TouchBar-HUD-$VERSION-$ARCH.dmg"
+          python3 scripts/check-update-compatibility.py --dmg "$DMG" --arch "$ARCH" --checksums "$SUMS" --output "$OUTPUT/contract.json"
+          python3 scripts/test-earliest-update-contract.py --version "$VERSION" --arch "$ARCH" --checksums "$SUMS" --output "$OUTPUT/earliest"
+          python3 scripts/test-legacy-update-compatibility.py --dmg "$DMG" --arch "$ARCH" --output "$OUTPUT/launch-receipt"
+      - name: Upload validation evidence only
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: validation-gpt-hud-phase2-${{ matrix.arch }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/validation/${{ matrix.arch }}
+          if-no-files-found: ignore
+          retention-days: 14

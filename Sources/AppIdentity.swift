@@ -2,8 +2,9 @@ import AppKit
 
 enum AppIdentity {
     static let productName = "GPT HUD"
-    // Display branding may change independently of the installation/update contract.
+    // The archived payload keeps its historical name for existing release clients.
     static let installedBundleFileName = "GPT TouchBar HUD.app"
+    static let primaryInstalledBundleFileName = "GPT HUD.app"
     static let executableName = "GPTTouchBarHUD"
 
     // Persisted identities stay stable; changing productName must not migrate them.
@@ -15,6 +16,26 @@ enum AppIdentity {
     static let legacyBundleIdentifier = "com.jackchen.TouchBarCodexToken"
     static let legacyLaunchAgentLabel = "com.jackchen.TouchBarCodexToken.CodexLauncher"
     static let legacyAppSupportDirectoryName = "TouchBarCodexToken"
+}
+
+/// The only supported installed names, in the system or current user's Applications folder.
+enum AppInstallationPaths {
+    static let bundleFileNames = [AppIdentity.installedBundleFileName, AppIdentity.primaryInstalledBundleFileName]
+
+    static func allowedTargets(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) -> [URL] {
+        [URL(fileURLWithPath: "/Applications"), homeDirectory.appendingPathComponent("Applications")]
+            .flatMap { directory in bundleFileNames.map { directory.appendingPathComponent($0).standardizedFileURL } }
+    }
+
+    static func contains(_ target: URL, homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) -> Bool {
+        let target = target.standardizedFileURL
+        return allowedTargets(homeDirectory: homeDirectory).contains(target) && isDirectPath(target)
+    }
+
+    static func isDirectPath(_ target: URL) -> Bool {
+        let type = (try? FileManager.default.attributesOfItem(atPath: target.path))?[.type] as? FileAttributeType
+        return type != .typeSymbolicLink && target.resolvingSymlinksInPath() == target.standardizedFileURL
+    }
 }
 
 enum LegacyAppMigration {

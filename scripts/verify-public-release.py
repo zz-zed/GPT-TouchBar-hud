@@ -17,11 +17,10 @@ import subprocess
 import tempfile
 
 from release_artifacts import (ARCHES, WORKFLOW_PATH, ReleaseError, annotated_tag_commit,
-                               require, sha, validate_tag)
+                               require, sha, validate_tag, package_names, PACKAGE_KINDS)
 
 
 REPOSITORY = "zz-zed/GPT-TouchBar-hud"
-APP_NAME = "GPT TouchBar HUD.app"
 BUNDLE_ID = "io.github.zz-zed.GPTTouchBarHUD"
 EXPECTED_MIN_OS = "11.0"
 
@@ -58,10 +57,11 @@ def validate_release_metadata(release, latest, tag, allow_not_latest=False):
     is_latest = latest.get("tag_name") == tag
     require(is_latest or allow_not_latest, "Release is not Latest")
     version = tag[1:]
-    expected = {f"GPT-TouchBar-HUD-{version}-{arch}.dmg" for arch in ARCHES}
-    expected.update({"SHA256SUMS.txt", "build-manifest.json"})
     assets = release.get("assets", [])
-    require({entry.get("name") for entry in assets} == expected and len(assets) == len(expected),
+    actual = {entry.get("name") for entry in assets}
+    expected_sets = [{name for arch in ARCHES for name in package_names(version, arch, schema)}
+                     | {"SHA256SUMS.txt", "build-manifest.json"} for schema in (1, 2)]
+    require(actual in expected_sets and len(assets) == len(actual),
             "Public release attachments are missing, duplicate, or unexpected")
     for entry in assets:
         require(entry.get("state") == "uploaded", f"Asset is not uploaded: {entry.get('name')}")
@@ -100,21 +100,43 @@ def verify_public_files(directory, release, version, tag, source_sha, repository
     require(set(manifest.get("manifests", {})) == set(ARCHES), "Public manifest architectures mismatch")
 
     expected_sums = []
+    schemas = {item.get("schema_version") for item in manifest["manifests"].values()}
+    require(len(schemas) == 1 and schemas.issubset({1, 2}), "Unsupported or mixed public package schemas")
+    expected_dmgs = set()
     for arch in ARCHES:
-        name = f"GPT-TouchBar-HUD-{version}-{arch}.dmg"
-        record = records[name]
-        expected_sums.append(f"{record['sha256']}  {name}\n")
         item = manifest["manifests"][arch]
-        require(item.get("schema_version") == 1 and item.get("architecture") == arch
+        schema = item["schema_version"]
+        names = package_names(version, arch, schema)
+        expected_dmgs.update(names)
+        require(item.get("architecture") == arch
                 and item.get("version") == version and item.get("build") == build
                 and item.get("repository") == repository and item.get("source_sha") == source_sha
                 and item.get("workflow_sha") == workflow_sha and item.get("run_id") == run_id
                 and item.get("run_attempt") == attempt and item.get("event") == selection["event"]
                 and item.get("ref") == "refs/heads/main" and item.get("workflow_path") == WORKFLOW_PATH,
                 f"Public manifest provenance mismatch: {arch}")
-        dmg_entry = item.get("files", {}).get(name, {})
-        require(dmg_entry == {"sha256": record["sha256"], "size": record["bytes"]},
-                f"Public manifest DMG record mismatch: {arch}")
+        files = item.get("files", {})
+        # Historical schema 1 fixtures may omit the per-architecture checksum record.
+        require(set(files) in (set(names), set(names) | {"SHA256SUMS.txt"})
+                and (schema == 1 or set(files) == set(names) | {"SHA256SUMS.txt"}),
+                "Unexpected public manifest files")
+        local_sums = []
+        for name, kind in names.items():
+            require(name in records, f"Missing public DMG: {name}")
+            record = records[name]
+            line = f"{record['sha256']}  {name}\n"
+            local_sums.append(line)
+            expected_sums.append(line)
+            expected = {"sha256": record["sha256"], "size": record["bytes"]}
+            if schema == 2:
+                expected.update(kind=kind, architecture=arch)
+            require(files.get(name) == expected, f"Public manifest DMG record mismatch: {arch}/{kind}")
+        if "SHA256SUMS.txt" in files:
+            data = "".join(local_sums).encode()
+            require(files["SHA256SUMS.txt"] == {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)},
+                    "Public architecture checksum record mismatch")
+    require(set(records) == expected_dmgs | {"SHA256SUMS.txt", "build-manifest.json"},
+            "Public attachments differ from manifest schema")
     require((directory / "SHA256SUMS.txt").read_text(encoding="utf-8") == "".join(expected_sums),
             "Combined public checksums mismatch")
     return manifest, records
@@ -130,7 +152,9 @@ def verify_build_run(repository, selection):
     return run.get("html_url")
 
 
-def verify_dmg(path, arch, version, build, product_name=None):
+def verify_dmg(path, arch, version, build, product_name=None, kind="compatibility", require_user_target=False):
+    require(kind in PACKAGE_KINDS, "Unsupported package kind")
+    app_name = PACKAGE_KINDS[kind][1]
     command("hdiutil", "verify", str(path))
     with tempfile.TemporaryDirectory(prefix="hud-public-mount-") as temporary:
         mount = Path(temporary) / "mount"
@@ -140,7 +164,10 @@ def verify_dmg(path, arch, version, build, product_name=None):
             disk = plistlib.loads(command("diskutil", "info", "-plist", str(mount)))
             require(disk.get("WritableVolume") is False or disk.get("ReadOnlyVolume") is True,
                     f"DMG is not mounted read-only: {arch}")
-            app = mount / APP_NAME
+            require({entry.name for entry in mount.iterdir() if entry.name.endswith(".app")} == {app_name},
+                    f"DMG must contain exactly its {kind} app")
+            app = mount / app_name
+            require(app.is_dir() and not app.is_symlink(), "Packaged app must be a real directory")
             helper = app / "Contents/Helpers/HookEmitter"
             executable = app / "Contents/MacOS/GPTTouchBarHUD"
             info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
@@ -170,11 +197,15 @@ def verify_dmg(path, arch, version, build, product_name=None):
             match = re.search(r"^CDHash=([0-9a-f]{40})$", signature, re.MULTILINE)
             require(match is not None, f"App CDHash is missing: {arch}")
             first_open = mount / "首次打开助手.command"
-            require(first_open.is_file() and match.group(1) in first_open.read_text(encoding="utf-8"),
+            require(first_open.is_file() and not first_open.is_symlink() and match.group(1) in first_open.read_text(encoding="utf-8")
+                    and f"APP='/Applications/{app_name}'" in first_open.read_text(encoding="utf-8"),
                     f"First-open helper CDHash mismatch: {arch}")
+            if require_user_target:
+                require(f'USER_APP="$HOME/Applications/{app_name}"' in first_open.read_text(encoding="utf-8"),
+                        "First-open helper user installation target mismatch")
             command("bash", "-n", str(first_open))
             return {"architecture": arch, "cdhash": match.group(1), "readOnlyMount": True,
-                    "minimumSystem": EXPECTED_MIN_OS, "appFileName": APP_NAME,
+                    "minimumSystem": EXPECTED_MIN_OS, "appFileName": app_name, "kind": kind,
                     "bundleName": info.get("CFBundleName"), "displayName": info.get("CFBundleDisplayName"),
                     "bundleIdentifier": info.get("CFBundleIdentifier"),
                     "executable": info.get("CFBundleExecutable"), "version": version, "build": build}
@@ -215,8 +246,13 @@ def main():
         command("gh", "release", "download", args.tag, "--repo", args.repo, "--dir", str(output))
     manifest, records = verify_public_files(output, release, version, args.tag, source_sha, args.repo)
     run_url = verify_build_run(args.repo, manifest["selection"])
-    checks = [verify_dmg(output / f"GPT-TouchBar-HUD-{version}-{arch}.dmg", arch, version,
-                         manifest["build"]) for arch in ARCHES]
+    checks = [verify_dmg(output / name, arch, version, manifest["build"], kind=kind,
+                         require_user_target=manifest["manifests"][arch]["schema_version"] == 2)
+              for arch in ARCHES
+              for name, kind in package_names(version, arch, manifest["manifests"][arch]["schema_version"]).items()]
+    for arch in ARCHES:
+        hashes = {item["cdhash"] for item in checks if item["architecture"] == arch}
+        require(len(hashes) == 1, "Primary and compatibility app signatures differ")
     report = {
         "tag": args.tag, "version": version, "build": manifest["build"],
         "sourceCommit": source_sha, "releaseURL": release.get("html_url"),

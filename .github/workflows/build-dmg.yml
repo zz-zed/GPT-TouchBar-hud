@@ -210,7 +210,9 @@ jobs:
           ARCH="${{ steps.metadata.outputs.arch }}"
           SOURCE_PATH="dist/GPT-TouchBar-HUD-$VERSION.dmg"
           ASSET_PATH="dist/GPT-TouchBar-HUD-$VERSION-$ARCH.dmg"
-          mv "$SOURCE_PATH" "$ASSET_PATH"
+          # Historical immutable sources still produce the original single file.
+          if [[ -f "$SOURCE_PATH" ]]; then mv "$SOURCE_PATH" "$ASSET_PATH"; fi
+          test -f "$ASSET_PATH"
           echo "dmg=$ASSET_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Test first-open helper with isolated app copy
@@ -229,9 +231,13 @@ jobs:
         if: matrix.kind == 'DMG'
         env:
           DMG_PATH: ${{ steps.package.outputs.dmg }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+          ARCH: ${{ steps.metadata.outputs.arch }}
         run: |
           test -f "$DMG_PATH"
-          hdiutil verify "$DMG_PATH"
+          for path in dist/*-"$VERSION"-"$ARCH".dmg; do
+            hdiutil verify "$path"
+          done
 
       - name: Record immutable build provenance
         if: matrix.kind == 'DMG'
@@ -240,11 +246,12 @@ jobs:
           SOURCE_SHA: ${{ needs.source.outputs.sha }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
           ARCH: ${{ matrix.arch }}
+          VERSION: ${{ steps.metadata.outputs.version }}
           DMG_PATH: ${{ steps.package.outputs.dmg }}
         run: |
           OUTPUT="build/release-upload/$ARCH"
           mkdir -p "$OUTPUT"
-          cp "$DMG_PATH" "$OUTPUT/"
+          cp dist/*-"$VERSION"-"$ARCH".dmg "$OUTPUT/"
           python3 .release-tools/scripts/release_artifacts.py create-manifest \
             --source . --output "$OUTPUT" --arch "$ARCH" \
             --repository "$GITHUB_REPOSITORY" --workflow-sha "$WORKFLOW_SHA"
@@ -264,6 +271,10 @@ jobs:
             SUMS="build/release-upload/$ARCH/SHA256SUMS.txt"
             python3 scripts/check-update-compatibility.py --dmg "$DMG_PATH" --arch "$ARCH" \
               --checksums "$SUMS" --output "$EVIDENCE/contract.json"
+            if [[ -f "dist/GPT-HUD-$VERSION-$ARCH.dmg" ]]; then
+              python3 scripts/verify-dual-packages.py --directory dist --arch "$ARCH" \
+                --output "$EVIDENCE/dual-packages.json"
+            fi
             python3 scripts/test-earliest-update-contract.py --version "$VERSION" --arch "$ARCH" \
               --checksums "$SUMS" --output "$EVIDENCE/earliest"
             python3 scripts/test-legacy-update-compatibility.py --dmg "$DMG_PATH" --arch "$ARCH" \

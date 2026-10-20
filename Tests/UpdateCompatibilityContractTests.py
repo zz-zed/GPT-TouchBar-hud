@@ -38,10 +38,10 @@ class UpdateCompatibilityContractTests(unittest.TestCase):
 
     def test_wire_identity_and_asset_changes_fail(self):
         for key in ['installedBundleFileName', 'bundleIdentifier', 'appSupportDirectoryName',
-                    'launchAgentLabel', 'executableName', 'installerAssetPrefix', 'checksumFileName', 'repository']:
+                    'launchAgentLabel', 'executableName', 'primaryInstalledBundleFileName', 'installerAssetPrefix', 'checksumFileName', 'repository']:
             with self.subTest(key=key):
                 filename = 'Sources/AppIdentity.swift' if key in ['installedBundleFileName', 'bundleIdentifier',
-                           'appSupportDirectoryName', 'launchAgentLabel', 'executableName'] else 'Sources/AppUpdateModels.swift'
+                           'appSupportDirectoryName', 'launchAgentLabel', 'executableName', 'primaryInstalledBundleFileName'] else 'Sources/AppUpdateModels.swift'
                 path = self.root / filename
                 original = path.read_text()
                 path.write_text(original.replace(f'{key} = "{contract.CONTRACT[key]}"', f'{key} = "changed"'))
@@ -57,9 +57,22 @@ class UpdateCompatibilityContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             contract.check_source(self.root)
 
+    def test_checksum_contract_accepts_single_dual_and_full_exact_sets(self):
+        version, digest = '0.1.46', 'a' * 64
+        single = [f'GPT-TouchBar-HUD-{version}-arm64.dmg']
+        dual = single + [f'GPT-HUD-{version}-arm64.dmg']
+        full = dual + [f'GPT-TouchBar-HUD-{version}-x86_64.dmg', f'GPT-HUD-{version}-x86_64.dmg']
+        for names in (single, dual, full):
+            contract.validate_checksums(''.join(f'{digest}  {name}\n' for name in names), version, 'arm64', digest)
+        for names in (dual + dual[:1], full[:-1], single + ['unknown.dmg']):
+            with self.subTest(names=names), self.assertRaises(ValueError):
+                contract.validate_checksums(''.join(f'{digest}  {name}\n' for name in names), version, 'arm64', digest)
+        with self.assertRaises(ValueError):
+            contract.validate_checksums(f'{digest}  {single[0]}', version, 'arm64', digest)
+
     def test_packaged_bundle_cannot_follow_display_name(self):
         path = self.root / 'scripts/package-dmg.sh'
-        path.write_text(path.read_text().replace('$STAGING_DIR/GPT TouchBar HUD.app', '$STAGING_DIR/GPT HUD.app'))
+        path.write_text(path.read_text().replace("APP_NAME='GPT TouchBar HUD.app'", "APP_NAME='GPT HUD.app'"))
         with self.assertRaises(ValueError):
             contract.check_source(self.root)
 

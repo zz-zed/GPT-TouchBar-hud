@@ -26,6 +26,8 @@ REGRESSION_SUITES = {
         "test-host-lifecycle",
         "test-app-termination",
         "test-single-instance",
+        "test-installation-maintenance",
+        "test-installation-migration",
         "test-app-update",
         "test-app-update-progress",
         "test-github-release-fallback",

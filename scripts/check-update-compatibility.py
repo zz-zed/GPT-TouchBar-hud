@@ -14,6 +14,7 @@ CONTRACT = {'installedBundleFileName': 'GPT TouchBar HUD.app', 'executableName':
             'bundleIdentifier': 'io.github.zz-zed.GPTTouchBarHUD',
             'launchAgentLabel': 'io.github.zz-zed.GPTTouchBarHUD.CodexLauncher',
             'appSupportDirectoryName': 'GPT TouchBar HUD',
+            'primaryInstalledBundleFileName': 'GPT HUD.app',
             'installerAssetPrefix': 'GPT-TouchBar-HUD', 'checksumFileName': 'SHA256SUMS.txt',
             'repository': 'zz-zed/GPT-TouchBar-hud'}
 
@@ -37,10 +38,28 @@ def check_source(root):
             and 'https://api.github.com/repos/\\(repository)/releases/latest' in release, 'Update entry points changed')
     # Shell scripts retain literal wire paths; no extra cross-language configuration is needed.
     require('GPT TouchBar HUD.app' in (root / 'scripts/build-app.sh').read_text(), 'Build app filename changed')
-    require('"$STAGING_DIR/GPT TouchBar HUD.app"' in (root / 'scripts/package-dmg.sh').read_text(), 'DMG app filename changed')
-    require('GPT-TouchBar-HUD-${VERSION}.dmg' in (root / 'scripts/package-dmg.sh').read_text(), 'DMG wire prefix changed')
+    packaging = (root / 'scripts/package-dmg.sh').read_text()
+    require("APP_NAME='GPT TouchBar HUD.app'" in packaging and "PREFIX='GPT-TouchBar-HUD'" in packaging,
+            'Compatibility DMG contract changed')
+    require("APP_NAME='GPT HUD.app'" in packaging and "PREFIX='GPT-HUD'" in packaging,
+            'Primary DMG contract changed')
     return {'displayName': values['productName'], 'version': info['CFBundleShortVersionString'],
             'build': str(info['CFBundleVersion']), 'contract': CONTRACT}
+
+
+def validate_checksums(text, version, arch, digest):
+    compatibility = f"GPT-TouchBar-HUD-{version}-{arch}.dmg"
+    names = {f"{prefix}-{version}-{candidate}.dmg" for prefix in ('GPT-HUD', 'GPT-TouchBar-HUD')
+             for candidate in ('arm64', 'x86_64')}
+    local = {f"{prefix}-{version}-{arch}.dmg" for prefix in ('GPT-HUD', 'GPT-TouchBar-HUD')}
+    lines = text.splitlines()
+    require(text == ''.join(line + '\n' for line in lines), 'Checksum file must use newline-terminated records')
+    records = [re.fullmatch(r'([0-9a-f]{64})  ([^/]+\.dmg)', line) for line in lines]
+    require(all(records), 'Malformed checksum record')
+    actual = [record[2] for record in records]
+    require(len(actual) == len(set(actual)) and set(actual) in ({compatibility}, local, names),
+            'Unexpected or duplicate checksum asset set')
+    require(lines.count(f'{digest}  {compatibility}') == 1, 'Checksum file does not bind this exact asset')
 
 
 def main():
@@ -57,7 +76,7 @@ def main():
         expected_name = f"{CONTRACT['installerAssetPrefix']}-{report['version']}-{args.arch}.dmg"
         require(args.dmg.name == expected_name, 'DMG asset filename changed')
         digest = hashlib.sha256(args.dmg.read_bytes()).hexdigest()
-        require(args.checksums.read_text() == f'{digest}  {expected_name}\n', 'Checksum file does not bind this exact asset')
+        validate_checksums(args.checksums.read_text(), report['version'], args.arch, digest)
         spec = importlib.util.spec_from_file_location('package_verify', ROOT / 'scripts/verify-public-release.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)

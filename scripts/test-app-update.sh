@@ -5,7 +5,7 @@ cd "$PROJECT_DIR"
 mkdir -p .build/update-tests
 source scripts/swift-module-cache.sh
 SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
-swiftc -module-cache-path "$SWIFT_MODULE_CACHE" Sources/AppUpdateModels.swift Sources/AppUpdateScheduler.swift Sources/AppUpdateReleaseNotes.swift Sources/GitHubReleaseFetcher.swift Tests/AppUpdateTests.swift -o .build/update-tests/AppUpdateTests
+swiftc -module-cache-path "$SWIFT_MODULE_CACHE" Sources/AppIdentity.swift Sources/AppUpdateModels.swift Sources/AppUpdateScheduler.swift Sources/AppUpdateReleaseNotes.swift Sources/GitHubReleaseFetcher.swift Tests/AppUpdateTests.swift -o .build/update-tests/AppUpdateTests
 .build/update-tests/AppUpdateTests
 zsh Tests/AppUpdateInstallerTests.zsh
 zsh -n Resources/install-update.sh

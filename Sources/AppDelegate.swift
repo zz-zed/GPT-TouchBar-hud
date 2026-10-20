@@ -34,12 +34,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         LegacyAppMigration.terminateLegacyApplications()
         connectCallbacks()
         observeSession()
-        preferences.configureAutoLaunch()
-        HostAutoLauncher.clearManualQuitLock()
+        if !AppMigrationRuntime.isCandidate {
+            preferences.configureAutoLaunch()
+            HostAutoLauncher.clearManualQuitLock()
+        }
         lifecycle.start()
         display.receiveNews(resetNewsMonitor.state)
         AppUpdateProgressChannel.acknowledgeLaunch(arguments: ProcessInfo.processInfo.arguments,
             bundleURL: Bundle.main.bundleURL, bundleIdentifier: Bundle.main.bundleIdentifier, version: AppUpdater.version)
+        AppMigrationRuntime.didFinishCoreStartup()
     }
     private func connectCallbacks() {
         store.delegate = self

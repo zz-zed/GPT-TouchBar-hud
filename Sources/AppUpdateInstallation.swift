@@ -18,6 +18,7 @@ final class AppUpdateInstallation {
     private var request: URLSessionDataTask?
     private var download: AppUpdateDownload?
     private var helper: Process?
+    private var maintenanceLock: AppInstallationMaintenanceLock?
     private var commands: Timer?
     var isPollingCommands: Bool { commands?.isValid == true }
     private var lastCommandID: String?
@@ -35,9 +36,15 @@ final class AppUpdateInstallation {
     }
 
     func start() throws {
-        try channel.write(progress, name: "progress.json")
-        try launchHelper()
-        beginAttempt()
+        try acquireMaintenanceLock()
+        do {
+            try channel.write(progress, name: "progress.json")
+            try launchHelper()
+            beginAttempt()
+        } catch {
+            maintenanceLock = nil
+            throw error
+        }
     }
 
     deinit { commands?.invalidate() }
@@ -62,6 +69,7 @@ final class AppUpdateInstallation {
             progress.message = "更新已中断，原应用尚未替换。"
             publish(phaseChanged: true)
         }
+        maintenanceLock = nil
     }
 
     func dismiss() {
@@ -130,6 +138,8 @@ final class AppUpdateInstallation {
     }
 
     private func beginAttempt() {
+        do { try acquireMaintenanceLock() }
+        catch { fail(error.localizedDescription); return }
         attemptID = UUID()
         let id = attemptID
         request?.cancel(); download?.cancel(); download = nil
@@ -231,6 +241,19 @@ final class AppUpdateInstallation {
             onPresentationFailure?(progress.message!)
         }
         onChange?(phaseChanged || progress.phase == .failed)
+        if !progress.isActive && !handedOff { maintenanceLock = nil }
+    }
+
+    private func acquireMaintenanceLock() throws {
+        guard maintenanceLock == nil else { return }
+        do {
+            maintenanceLock = try AppInstallationMaintenanceLock(
+                directory: URL(fileURLWithPath: channel.context.targetPath).deletingLastPathComponent())
+        } catch AppInstallationMaintenanceLock.LockError.busy {
+            throw failure("另一个安装或名称迁移正在进行，请完成后重试更新。")
+        } catch {
+            throw failure("无法安全获取安装维护锁，原应用尚未替换。")
+        }
     }
 
     private func fail(_ message: String) {
@@ -342,6 +365,7 @@ final class AppUpdateInstallation {
 
     private func handoff() throws {
         guard helper?.isRunning == true else { throw Self.failure("更新进度助手已退出，原应用尚未替换。") }
+        guard let maintenanceLock else { throw Self.failure("安装维护锁已失效，原应用尚未替换。") }
         progress.phase = .installing; progress.step = .waitingForExit
         publish(phaseChanged: true)
         guard progress.isActive else { return }
@@ -349,6 +373,7 @@ final class AppUpdateInstallation {
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
         process.arguments = [channel.directory.appendingPathComponent("install-update.sh").path,
             String(getpid()), channel.context.targetPath, channel.directory.path, channel.context.sessionID]
+        process.standardInput = maintenanceLock.handoffInput
         let log = channel.directory.appendingPathComponent("install.log")
         FileManager.default.createFile(atPath: log.path, contents: nil)
         let output = try FileHandle(forWritingTo: log)
@@ -359,6 +384,7 @@ final class AppUpdateInstallation {
                 version: channel.context.sourceVersion, pid: process.processIdentifier), name: "installer-process.json")
         } catch { process.terminate(); throw error }
         handedOff = true
+        self.maintenanceLock = nil
         stopCommandPolling()
         onInstall?()
     }

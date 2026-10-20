@@ -28,7 +28,9 @@ private final class DownloadObservation {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         testModel()
-        try testChannel(in: root.appendingPathComponent("channel"))
+        for (index, name) in AppInstallationPaths.bundleFileNames.enumerated() {
+            try testChannel(in: root.appendingPathComponent("channel-\(index)"), targetName: name)
+        }
         try testDownloads(in: root.appendingPathComponent("downloads"))
         try testWindow()
         try testHelperLifetime(in: root.appendingPathComponent("lifetime"))
@@ -67,16 +69,18 @@ private final class DownloadObservation {
         check(value.heading != "更新完成", "Unconfirmed launch is not success")
     }
 
-    static func testChannel(in directory: URL) throws {
+    static func testChannel(in directory: URL, targetName: String) throws {
         let manager = FileManager.default
         try manager.createDirectory(at: directory, withIntermediateDirectories: true)
-        let target = directory.appendingPathComponent("GPT TouchBar HUD.app")
+        let target = directory.appendingPathComponent(targetName)
         let channel = try AppUpdateProgressChannel.create(target: target, sourceVersion: "0.1.37", targetVersion: "v0.1.38")
         check(try AppUpdateProgressChannel.load(directory: channel.directory, sessionID: channel.context.sessionID).context == channel.context,
               "Private session context round-trips")
         let attributes = try manager.attributesOfItem(atPath: channel.directory.path)
         check((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o700, "Session directory is private")
         check(manager.fileExists(atPath: channel.directory.appendingPathComponent("RECOVERY.txt").path), "Recovery instructions accompany the session")
+        let recovery = try String(contentsOf: channel.directory.appendingPathComponent("RECOVERY.txt"), encoding: .utf8)
+        check(recovery.contains("命名为 \(targetName) 后打开"), "Recovery preserves this session's target name")
         var progress = AppUpdateProgress(sessionID: channel.context.sessionID, phase: .downloading, step: .download, bytesReceived: 40, totalBytes: 100)
         try channel.write(progress, name: "progress.json")
         check(channel.progress() == progress, "Download state is readable by the helper")
@@ -105,6 +109,7 @@ private final class DownloadObservation {
         for (bundle, identifier, version, arguments) in [
             (target, "unrelated.app", "0.1.38", args),
             (directory.appendingPathComponent("Other.app"), "io.github.zz-zed.GPTTouchBarHUD", "0.1.38", args),
+            (directory.appendingPathComponent(targetName == "GPT HUD.app" ? "GPT TouchBar HUD.app" : "GPT HUD.app"), "io.github.zz-zed.GPTTouchBarHUD", "0.1.38", args),
             (target, "io.github.zz-zed.GPTTouchBarHUD", "0.1.37", args),
             (target, "io.github.zz-zed.GPTTouchBarHUD", "0.1.38", args + ["extra"])
         ] {
@@ -133,6 +138,16 @@ private final class DownloadObservation {
         try channel.write(progress, name: "install.json")
         AppUpdateProgressChannel.acknowledgeLaunch(arguments: args, bundleURL: target, bundleIdentifier: "io.github.zz-zed.GPTTouchBarHUD", version: "0.1.37")
         check(channel.progress()?.phase == .failed && channel.progress()?.recovery == .restored, "Old-version launch confirms recovery rather than success")
+
+        let actual = directory.appendingPathComponent("actual.app")
+        try manager.createDirectory(at: actual, withIntermediateDirectories: false)
+        try manager.createSymbolicLink(at: target, withDestinationURL: actual)
+        check((try? AppUpdateProgressChannel.load(directory: channel.directory, sessionID: channel.context.sessionID)) == nil,
+              "Linked target cannot load a receipt session")
+        try manager.removeItem(at: actual)
+        check((try? AppUpdateProgressChannel.load(directory: channel.directory, sessionID: channel.context.sessionID)) == nil,
+              "Dangling linked target cannot load a receipt session")
+        try manager.removeItem(at: target)
 
         try manager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: channel.directory.path)
         check((try? AppUpdateProgressChannel.load(directory: channel.directory, sessionID: channel.context.sessionID)) == nil, "Public session directory is rejected")
@@ -303,8 +318,16 @@ private final class DownloadObservation {
             if changed && job?.progress.phase == .preparing && job?.progress.bytesReceived == 0 { sawReset = true }
         }
         job.onInstall = { preconditionFailure("Fixture download must never install an application") }
+        var blocker: AppInstallationMaintenanceLock? = try AppInstallationMaintenanceLock(directory: directory)
+        do { try job.start(); check(false, "A competing maintenance operation must block updater startup") }
+        catch { check(!job.isPollingCommands && !job.handedOff, "Maintenance conflict fails before launching a helper or installer") }
+        withExtendedLifetime(blocker) {}
+        blocker = nil
         try job.start()
+        do { _ = try AppInstallationMaintenanceLock(directory: directory); check(false, "An active update must retain maintenance ownership") }
+        catch AppInstallationMaintenanceLock.LockError.busy { check(true, "Active update excludes a concurrent rename") }
         check(wait { job.progress.phase == .failed }, "First HTTP error is a retryable download failure")
+        try checkMaintenanceReleased(in: directory, message: "Download failure releases maintenance ownership")
         check(job.progress.canRetry && !job.handedOff, "Download failure has not handed off an installer")
         check(job.isPollingCommands, "A visible failure result retains the retry command channel")
         try channel.send(.dismiss, toHelper: true)
@@ -322,6 +345,7 @@ private final class DownloadObservation {
         check(job.progress.phase == .downloading, "Another session cannot cancel the active download")
         try channel.send(.cancel)
         check(wait { job.progress.phase == .canceled }, "Native helper command cancels the active attempt")
+        try checkMaintenanceReleased(in: directory, message: "Cancellation releases maintenance ownership")
         spin(for: 0.4)
         check(job.progress.phase == .canceled && !job.handedOff, "A stale task callback cannot overwrite the canceled state")
         check(try String(contentsOf: target.appendingPathComponent("marker"), encoding: .utf8) == "original", "Download retry and cancellation never touch the installed application")
@@ -352,6 +376,7 @@ private final class DownloadObservation {
         job.onInstall = { preconditionFailure("Invalid fixture must never reach application replacement") }
         try job.start()
         check(wait { job.progress.phase == .failed }, "A real downloaded archive fails the injected checksum")
+        try checkMaintenanceReleased(in: directory, message: "Verification failure releases maintenance ownership")
         check(job.progress.step == .checksum && !job.progress.canRetry && !job.handedOff,
               "Preparation failure cannot retry in the same session or skip verification")
         try channel.send(.retry); spin(for: 0.4)
@@ -367,6 +392,10 @@ private final class DownloadObservation {
         let deadline = Date().addingTimeInterval(6)
         while !condition() && Date() < deadline { spin(for: 0.01) }
         return condition()
+    }
+    static func checkMaintenanceReleased(in directory: URL, message: String) throws {
+        let lock = try AppInstallationMaintenanceLock(directory: directory)
+        withExtendedLifetime(lock) { check(true, message) }
     }
     static func spin(for seconds: TimeInterval) {
         let deadline = Date().addingTimeInterval(seconds)
