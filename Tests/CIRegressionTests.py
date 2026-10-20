@@ -64,6 +64,9 @@ class CIRegressionTests(unittest.TestCase):
             shutil.copy(ROOT / "scripts/ci_timing.py", root / "scripts/ci_timing.py")
             for name in sum(regression.REGRESSION_SUITES.values(), []):
                 (root / "scripts" / (name + ".sh")).write_text("exit 7\n")
+            (root / "Sources").mkdir()
+            for name in ("AppInstallationMaintenance.swift", "AppInstallationMigration.swift", "AppMigrationMacOSDriver.swift", "AppMigrationRuntime.swift"):
+                (root / "Sources" / name).write_text("")
             result = regression.run_suite("data", root, "scripts/ci_timing.py",
                                           {"CI_TIMING_DIR": str(root / "timings")})
             self.assertEqual(result, 7)
@@ -71,6 +74,28 @@ class CIRegressionTests(unittest.TestCase):
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0]["label"], "test-task-status")
             self.assertEqual(records[0]["exitCode"], 7)
+
+    def test_immutable_historical_source_skips_only_wholly_absent_capability(self):
+        additions = ("test-installation-maintenance", "test-installation-migration")
+        modules = ("AppInstallationMaintenance.swift", "AppInstallationMigration.swift",
+                   "AppMigrationMacOSDriver.swift", "AppMigrationRuntime.swift")
+        expected = [name for name in regression.REGRESSION_SUITES["data"] if name not in additions]
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(regression.subprocess, "run", return_value=mock.Mock(returncode=0)) as run, mock.patch("builtins.print"):
+            root = Path(temporary); (root / "scripts").mkdir(); (root / "Sources").mkdir()
+            (root / "timer.py").write_text("")
+            for name in expected:
+                (root / "scripts" / (name + ".sh")).write_text("")
+            self.assertEqual(regression.run_suite("data", root, "timer.py", {}), 0)
+            self.assertEqual([call.args[0][-1] for call in run.call_args_list], ["scripts/" + name + ".sh" for name in expected])
+            # Neither an orphan test script nor an orphan production module can
+            # turn a damaged current checkout into the historical exemption.
+            (root / "scripts" / (additions[0] + ".sh")).write_text("")
+            with self.assertRaisesRegex(ValueError, "Incomplete"):
+                regression.run_suite("data", root, "timer.py", {})
+            (root / "scripts" / (additions[0] + ".sh")).unlink()
+            (root / "Sources" / modules[0]).write_text("")
+            with self.assertRaisesRegex(ValueError, "Incomplete"):
+                regression.run_suite("data", root, "timer.py", {})
 
 
 if __name__ == "__main__":

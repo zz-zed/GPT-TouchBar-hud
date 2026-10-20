@@ -14,20 +14,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
+  regression:
     if: github.ref == 'refs/heads/validation/gpt-hud-phase2-20261020' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    name: Validate (${{ matrix.arch }})
+    name: Regression (${{ matrix.arch }}, ${{ matrix.suite }})
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: arm64
             runner: macos-15
+            suite: data
+          - arch: arm64
+            runner: macos-15
+            suite: interface
           - arch: x86_64
             runner: macos-15-intel
+            suite: data
+          - arch: x86_64
+            runner: macos-15-intel
+            suite: interface
     runs-on: ${{ matrix.runner }}
     env:
-      CI_TIMING_DIR: ${{ github.workspace }}/build/validation/${{ matrix.arch }}/timings
+      CI_TIMING_DIR: ${{ github.workspace }}/build/validation/regression/${{ matrix.arch }}-${{ matrix.suite }}
       HUD_SHARED_UI_TESTS: '1'
     steps:
       - uses: actions/checkout@v7
@@ -45,14 +53,61 @@ jobs:
         run: |
           sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
           test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" -ge 26
-      - name: Offline release policy and regression suites
+      - name: Initialize regression timing metadata
+        run: python3 scripts/ci_timing.py init
+      - name: Offline release policy (once)
+        if: matrix.arch == 'arm64' && matrix.suite == 'data'
+        run: bash scripts/test-release-workflows.sh
+      - name: Run regression suite
+        env:
+          CI_SUITE: ${{ matrix.suite }}
+        run: python3 scripts/ci_regression.py --suite "$CI_SUITE"
+      - name: Summarize regression timings
+        if: always()
+        run: python3 scripts/ci_timing.py report
+      - name: Upload regression timings only
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: validation-gpt-hud-regression-${{ matrix.arch }}-${{ matrix.suite }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.CI_TIMING_DIR }}
+          if-no-files-found: ignore
+          retention-days: 14
+
+  package:
+    if: github.ref == 'refs/heads/validation/gpt-hud-phase2-20261020' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    name: Package (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    env:
+      CI_TIMING_DIR: ${{ github.workspace }}/build/validation/${{ matrix.arch }}/timings
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify branch, source and architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
-          python3 scripts/ci_timing.py init
-          bash scripts/test-release-workflows.sh
-          python3 scripts/ci_regression.py --suite data
-          python3 scripts/ci_regression.py --suite interface
+          test "$GITHUB_REF" = refs/heads/validation/gpt-hud-phase2-20261020
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(uname -m)" = "$EXPECTED_ARCH"
+      - name: Select Xcode with Liquid Glass SDK
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" -ge 26
+      - name: Initialize package timing metadata
+        run: python3 scripts/ci_timing.py init
       - name: Build both packages from one signed build
-        run: bash scripts/package-dmg.sh
+        run: python3 scripts/ci_timing.py run --phase package --label package-dmg -- bash scripts/package-dmg.sh
       - name: Verify isolated first-open helper and both packages
         env:
           ARCH: ${{ matrix.arch }}
@@ -75,6 +130,9 @@ jobs:
           python3 scripts/check-update-compatibility.py --dmg "$DMG" --arch "$ARCH" --checksums "$SUMS" --output "$OUTPUT/contract.json"
           python3 scripts/test-earliest-update-contract.py --version "$VERSION" --arch "$ARCH" --checksums "$SUMS" --output "$OUTPUT/earliest"
           python3 scripts/test-legacy-update-compatibility.py --dmg "$DMG" --arch "$ARCH" --output "$OUTPUT/launch-receipt"
+      - name: Summarize package timings
+        if: always()
+        run: python3 scripts/ci_timing.py report
       - name: Upload validation evidence only
         if: always()
         uses: actions/upload-artifact@v7

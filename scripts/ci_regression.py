@@ -49,8 +49,21 @@ REGRESSION_SUITES = {
 
 
 def run_suite(suite, root, timing_script, environment=None):
-    scripts = REGRESSION_SUITES[suite]
+    scripts = list(REGRESSION_SUITES[suite])
     root = Path(root)
+    if suite == "data":
+        additions = ("test-installation-maintenance", "test-installation-migration")
+        modules = ("AppInstallationMaintenance.swift", "AppInstallationMigration.swift",
+                   "AppMigrationMacOSDriver.swift", "AppMigrationRuntime.swift")
+        script_presence = [(root / "scripts" / (name + ".sh")).is_file() for name in additions]
+        source_presence = [(root / "Sources" / name).is_file() for name in modules]
+        if not any(script_presence + source_presence):
+            # The normal recovery workflow checks out immutable historical source
+            # with today's timing/runner tools. Do not demand future capabilities
+            # from that source; partial current capabilities still fail closed.
+            scripts = [name for name in scripts if name not in additions]
+        elif not all(script_presence + source_presence):
+            raise ValueError("Incomplete installation-maintenance capability")
     if not (root / timing_script).is_file():
         raise ValueError("Missing timing entry point: " + str(timing_script))
     for script in scripts:
