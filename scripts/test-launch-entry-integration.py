@@ -219,7 +219,15 @@ def execute(root, config, applications, host):
         for action, app in [("disable", new), ("stop", None), ("clear-preferences", new)]:
             try: control(action, app)
             except Exception as error: cleanup["errors"].append(str(error))
+        try:
+            registered_paths = {str(Path(path)) for path in control("registered-paths")["paths"]}
+        except Exception as error:
+            cleanup["errors"].append(str(error))
+            registered_paths = {str(app) for app in applications}
         for app in applications:
+            if str(app) not in registered_paths:
+                logs.append({"unregisterExactPath": str(app), "skipped": "not registered in LaunchServices"})
+                continue
             result = command([LSREGISTER, "-u", app], check=False)
             logs.append({"unregisterExactPath": str(app), "status": result.returncode, "output": result.stdout + result.stderr})
             if result.returncode: cleanup["errors"].append("Cannot unregister exact fixture path: " + str(app))
@@ -234,7 +242,7 @@ def execute(root, config, applications, host):
             cleanup["registeredPathsRemoved"] = False
             cleanup["errors"].append(str(error))
         cleanup["ownedHostChildrenReaped"] = all(process.poll() is not None for process in hosts)
-        cleanup["passed"] = not cleanup["errors"] and cleanup["testLabelMissing"] and not cleanup.get("remainingFixtureApplications") and cleanup["ownedHostChildrenReaped"]
+        cleanup["passed"] = not cleanup["errors"] and cleanup["registeredPathsRemoved"] and cleanup["testLabelMissing"] and not cleanup.get("remainingFixtureApplications") and cleanup["ownedHostChildrenReaped"]
         (root / "cleanup.json").write_text(json.dumps(cleanup, indent=2) + "\n")
         (root / "control-evidence.json").write_text(json.dumps(logs, indent=2) + "\n")
         (root / "checks.json").write_text(json.dumps(checks, indent=2) + "\n")

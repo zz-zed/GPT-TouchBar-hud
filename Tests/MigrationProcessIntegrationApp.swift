@@ -23,6 +23,26 @@ final class IntegrationDelegate: NSObject, NSApplicationDelegate {
         FileHandle.standardError.write(Data("Migration process integration entered main; pid=\(getpid()) args=\(CommandLine.arguments)\n".utf8))
         guard !AppInstallationMigrationPolicy.automaticMigrationEnabled else { fatalError("Production migration policy changed") }
         let config = MigrationProcessIntegrationConfiguration.self
+        if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--preferences-contract" {
+            let defaults = try AppMigrationMacOSDriver.launchPreferencesDefaults()
+            let preferences = HostAutoLaunchPreferences(defaults: defaults)
+            switch CommandLine.arguments[2] {
+            case "clear": defaults.removePersistentDomain(forName: AppIdentity.bundleIdentifier)
+            case "set-false": preferences.saveEnabled(false)
+            case "read": break
+            default: throw AppMigrationError.invalidState
+            }
+            _ = defaults.synchronize()
+            let stored = defaults.persistentDomain(forName: AppIdentity.bundleIdentifier) ?? [:]
+            let record: [String: Any] = ["contextBundleID": Bundle.main.bundleIdentifier ?? "nil",
+                "stableDomain": AppIdentity.bundleIdentifier, "key": HostAutoLaunchPreferences.enabledKey,
+                "branch": defaults === UserDefaults.standard ? "standard" : "suite",
+                "storedKeyPresent": stored[HostAutoLaunchPreferences.enabledKey] != nil,
+                "value": preferences.isEnabled]
+            let data = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys])
+            print(String(decoding: data, as: UTF8.self))
+            return
+        }
         if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--diagnose-workspace-launch" {
             let target = URL(fileURLWithPath: CommandLine.arguments[2]).standardizedFileURL
             guard target.path.hasPrefix(config.root.path + "/") else { throw AppMigrationError.invalidState }
@@ -55,8 +75,9 @@ final class IntegrationDelegate: NSObject, NSApplicationDelegate {
             return
         }
         if CommandLine.arguments.dropFirst().first == "--probe-registrations" {
-            let urls = LSCopyApplicationURLsForBundleIdentifier(AppIdentity.bundleIdentifier as CFString, nil)?
-                .takeRetainedValue() as? [URL] ?? []
+            let urls = [AppIdentity.bundleIdentifier, AppIdentity.bundleIdentifier + ".controller"].flatMap { identifier in
+                LSCopyApplicationURLsForBundleIdentifier(identifier as CFString, nil)?.takeRetainedValue() as? [URL] ?? []
+            }
             let paths = urls.filter { $0.path.hasPrefix(config.root.path + "/") }.map(\.path)
             let data = try JSONSerialization.data(withJSONObject: paths, options: [.sortedKeys])
             print(String(decoding: data, as: UTF8.self))
@@ -84,7 +105,7 @@ final class IntegrationDelegate: NSObject, NSApplicationDelegate {
         }
         // Same ordering as product main: helper, application lock, handoff, core.
         config.event("main-entered", additional: ["arguments": CommandLine.arguments], includeLaunchIdentity: false)
-        guard let defaults = UserDefaults(suiteName: AppIdentity.bundleIdentifier) else { fatalError("Missing fixture defaults") }
+        let defaults = try AppMigrationMacOSDriver.launchPreferencesDefaults()
         HostAutoLaunchPreferences(defaults: defaults).saveEnabled(config.values["autoLaunchEnabled"] == "true")
         _ = defaults.synchronize() // Publish the isolated test preference before cross-process handoff.
         if AppMigrationRuntime.runHelperIfRequested() { return }

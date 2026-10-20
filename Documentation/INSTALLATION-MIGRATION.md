@@ -22,7 +22,7 @@
 2. 助手按 PID 加启动时间等待原进程结束；跨 boot 不把复用的同 PID 当作原进程。取独立维护锁后再次预检。
 3. 隐藏复制候选并验签，以排他改名发布新目标；目标即使同 Bundle ID 也不能覆盖。先持久化候选 inode 证明，覆盖发布后日志未写的恢复窗口。
 4. 明确新路径启动，并等待私有事务 nonce、目标、版本/签名身份、实际进程路径及启动时间的就绪回执。`open`返回成功本身不够。恢复时重新检查当前进程，不能复用上一 boot 的存活推断。
-5. 只刷新精确认领的 LaunchAgent；裸助手显式读取稳定 Bundle 偏好域，保留 disabled 和 manual quit。候选启动不提前重写注册或清除退出标记。
+5. 只刷新精确认领的 LaunchAgent；完整签名助手与主应用同 Bundle ID，使用标准偏好域，其他上下文才显式读取该 Bundle 域，保留 disabled 和 manual quit。候选启动不提前重写注册或清除退出标记。
 6. 新路径就绪、启动指向处理完成后，旧副本按源 inode 和签名身份归档到事务专属隐藏目录，最后 commit。备份不自动删除。
 
 若助手失败，在当前 boot 延期并保留可用副本；不杀可能已启动的候选、不把不确定状态当作成功。旧路径启动不会因预期延期条件反复退出。若 Finder 书签跟随已归档的旧 inode，受控入口通过同一私有助手等待该进程退出、释放应用锁后，才向已验证的新目标转交，不在备份目录初始化服务；真实书签转交仍待实机验证。外部 Dock/alias/第三方启动器是否跟随不作保证，也不改 Dock 私有偏好或普遍创建旧名 symlink。
@@ -61,6 +61,8 @@ bash scripts/test-launch-entry-integration.sh --run
 这两个入口单独编译 `Tests/MigrationProcessIntegrationIdentity.swift`，使用每次随机的测试 Bundle ID、LaunchAgent label、目录和偏好域；正式 `AppIdentity.swift` 不参与测试应用编译。`MIGRATION_PROCESS_INTEGRATION` 只在测试编译命令中启用，正式构建不含该定义，也没有运行时环境开关。正式 `automaticMigrationEnabled` 始终为 `false`，路径白名单不变。
 
 进程集成复用实际 runtime、文件 driver、签名助手、单实例锁、维护锁、`open` 和真实应用写出的就绪回执。测试核心是独立的最小 NSApplication，调用正式 `didFinishCoreStartup`；它不运行完整 HUD/AppDelegate。矩阵覆盖正常交接、七个持久阶段杀死真实助手再恢复、候选进程中断、维护锁竞争和归档入口转发。对真实就绪消息的 PID、启动时间、目标、nonce 和 boot 变异只用于拒绝测试，不制造成功 ACK，也不声称强制触发过内核 PID 复用。就绪回执须同时满足当前 boot、实际 PID/启动时间、精确路径和事务身份。
+
+完整助手必须按真实 Bundle 上下文选择偏好对象。Apple 明确要求 [init(suiteName:)](https://developer.apple.com/documentation/foundation/userdefaults/init(suitename:)) 不传应用自身 Bundle ID；当前上下文与持久身份相同时使用 `.standard`，避免同名 suite 返回 nil。这里保留原偏好域与键，不迁移偏好文件。
 
 启动入口集成使用真实 HostAutoLaunchManager、launchctl、pgrep、defaults 和 open。测试只精确渲染启动脚本的身份/路径常量及临时 HOME；逆变换必须还原原脚本全文，并记录源摘要。验证 RunAtLoad、宿主启动/退出、更新注册路径、退出标记、关闭自启动和显式 URL 启动；退出标记是测试文件，不代表完整菜单退出流程。[测试入口说明](../Tests/LaunchEntryIntegrationREADME.md) 列出隔离与清理范围。
 

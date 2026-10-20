@@ -115,17 +115,24 @@ def cleanup(root, identity):
         except Exception as error:
             evidence["errors"].append(str(error))
     apps = list(root.rglob("*.app"))
-    for app in apps:
-        result = run([LSREGISTER, "-u", app], check=False)
-        evidence["unregister"].append({"path": str(app), "exit": result.returncode,
-                                       "stdout": result.stdout, "stderr": result.stderr})
-        if result.returncode:
-            evidence["errors"].append("Cannot unregister exact fixture path: " + str(app))
     try:
         probe = next(app / "Contents/MacOS" / EXECUTABLE for app in apps
                      if (app / "Contents/MacOS" / EXECUTABLE).is_file())
         def registered_paths():
             return json.loads(run([probe, "--probe-registrations"]).stdout)
+        registered = sorted(set(registered_paths()))
+        evidence["registeredPathsBeforeCleanup"] = registered
+        evidence["unregisteredBundlePathsSkipped"] = sorted(str(app) for app in apps if str(app) not in registered)
+        for path in registered:
+            # The signed query is already restricted to our unique identities
+            # and root. Recheck the exact root boundary before unregistering.
+            require(path.startswith(str(root) + "/") and Path(path).suffix == ".app",
+                    "Refusing to unregister an unrelated application URL")
+            result = run([LSREGISTER, "-u", path], check=False)
+            evidence["unregister"].append({"path": path, "exit": result.returncode,
+                                           "stdout": result.stdout, "stderr": result.stderr})
+            if result.returncode:
+                evidence["errors"].append("Cannot unregister known fixture URL: " + path)
         wait_for(lambda: not registered_paths(), "exact fixture LaunchServices registrations removed", timeout=10)
         evidence["remainingRegisteredPaths"] = registered_paths()
     except Exception as error:
@@ -181,6 +188,47 @@ def make_case(output, name, binary):
     run(["/usr/bin/codesign", "--force", "--sign", "-", app], log=root / "codesign.json")
     run(["/usr/bin/codesign", "--verify", "--deep", "--strict", app])
     return root, app, identity, boot
+
+
+def preferences_contract(root, app, identity):
+    """Exercise the real selector in two independently signed bundle contexts."""
+    controller = root / "controller/Preferences Controller.app"
+    controller.parent.mkdir()
+    run(["/usr/bin/ditto", app, controller])
+    info_path = controller / "Contents/Info.plist"
+    info = plistlib.loads(info_path.read_bytes())
+    info["CFBundleIdentifier"] = identity + ".controller"
+    info["CFBundleName"] = "Isolated preferences controller"
+    info_path.write_bytes(plistlib.dumps(info))
+    run(["/usr/bin/codesign", "--force", "--sign", "-", controller], log=root / "preferences-controller-signing.json")
+    run(["/usr/bin/codesign", "--verify", "--deep", "--strict", controller])
+    records = []
+    def call(context, action):
+        result = run([context / "Contents/MacOS" / EXECUTABLE, "--preferences-contract", action])
+        value = json.loads(result.stdout)
+        records.append({"action": action, "context": str(context), "result": value, "stderr": result.stderr})
+        require(value["stableDomain"] == identity and value["key"] == "hostAutoLaunchEnabled", "Preference domain/key changed")
+        return value
+    try:
+        call(controller, "clear")
+        own = call(app, "read")
+        other = call(controller, "read")
+        require(own["contextBundleID"] == identity and own["branch"] == "standard", "Own app did not select standard defaults")
+        require(other["contextBundleID"] == identity + ".controller" and other["branch"] == "suite", "Other identity did not select stable suite")
+        require(own["value"] and other["value"] and not own["storedKeyPresent"] and not other["storedKeyPresent"],
+                "Missing auto-launch preference did not default to true in both real contexts")
+        stored = call(controller, "set-false")
+        read_back = call(app, "read")
+        require(stored["storedKeyPresent"] and not stored["value"] and read_back["storedKeyPresent"] and not read_back["value"],
+                "Controller suite write did not reach original app standard domain across processes")
+        result = {"passed": True, "identity": identity, "controllerIdentity": identity + ".controller",
+                  "realSelector": "AppMigrationMacOSDriver.launchPreferencesDefaults", "records": records}
+    except Exception as error:
+        result = {"passed": False, "error": str(error), "records": records}
+        raise
+    finally:
+        (root / "preferences-contract.json").write_text(json.dumps(result, indent=2) + "\n")
+    return result
 
 
 def launch(app, log):
@@ -275,6 +323,8 @@ def run_case(output, name, binary):
     recovery = None
     case_started = time.time()
     try:
+        if name == "normal":
+            result["preferencesContract"] = preferences_contract(root, app, identity)
         journal, initial = pending(root, app)
         started = time.time()
         if name.startswith("helper-killed-"):

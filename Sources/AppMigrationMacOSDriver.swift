@@ -255,10 +255,20 @@ struct AppMigrationMacOSDriver: AppMigrationDriving {
         throw AppMigrationError.deferred("candidateNotConfirmed")
     }
     func ownsPublishedTarget(_ transaction: AppMigrationTransaction) throws -> Bool { try ownsTarget(transaction) }
+    /// The app and its copied private helper share the persisted application
+    /// domain. Foundation rejects creating a suite with one's own bundle ID.
+    /// Only a differently identified caller needs an explicit domain lookup.
+    static func launchPreferencesDefaults() throws -> UserDefaults {
+        if Bundle.main.bundleIdentifier == AppIdentity.bundleIdentifier { return .standard }
+        guard let defaults = UserDefaults(suiteName: AppIdentity.bundleIdentifier) else {
+            throw AppMigrationError.deferred("preferencesUnavailable")
+        }
+        return defaults
+    }
     func refreshLaunchReferences(_ transaction: AppMigrationTransaction) throws {
         guard try ownsTarget(transaction) else { throw AppMigrationError.invalidState }
         if let refreshReferences { try refreshReferences(transaction); return }
-        guard let defaults = UserDefaults(suiteName: AppIdentity.bundleIdentifier) else { throw AppMigrationError.deferred("preferencesUnavailable") }
+        let defaults = try Self.launchPreferencesDefaults()
         let preferences = HostAutoLaunchPreferences(defaults: defaults)
         if preferences.isEnabled {
             let directory = home.appendingPathComponent("Library/LaunchAgents")
