@@ -390,12 +390,43 @@ def run_case(output, name, binary):
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             wait_for(lambda: event(root, "maintenance-holder-ready", after=started), "real maintenance holder")
             launch(app, root / "contended-open.json")
-            wait_for(lambda: event(root, "startup-handed-off", after=started, bundle=app), "source handoff under contention")
-            time.sleep(1)
+            source = wait_for(lambda: event(root, "startup-handed-off", after=started, bundle=app), "source handoff under contention")
+            busy = wait_for(lambda: event(root, "helper-maintenance-busy", after=started), "actual helper rejected by held maintenance lock")
+            wait_for(lambda: not running(source["pid"]) and not running(busy["pid"]),
+                     "contended source and busy helper kernel exit")
             require(read_json(journal)["phase"] == "pending" and app.exists(), "Busy maintenance changed installation")
             kill_owned(root, holder.pid); holder.wait(timeout=10)
-            launch(app, root / "post-contention-open.json")
+            observations = []
+            def departed(pids, ignored=()):
+                live = [pid for pid in pids if running(pid)]
+                applications = json.loads(run([executable, "--probe-running"]).stdout)
+                remaining = [item for item in applications if item["pid"] not in ignored]
+                observations.append({"time": time.time(), "liveKernelPIDs": live, "applications": applications,
+                                     "ignoredCurrentHelperPIDs": list(ignored)})
+                return not live and not remaining
+            try:
+                # Kernel exit and release of flock do not prove LaunchServices
+                # has removed every previous actor from its running-app list.
+                wait_for(lambda: departed([holder.pid, source["pid"], busy["pid"]]),
+                         "prior contention actors gone from kernel and LaunchServices", timeout=20)
+                # Keep the next real helper at its existing test checkpoint
+                # until its just-exited owner is absent from the same LS list
+                # used by production safeToMigrate. No safety check is replaced.
+                (root / "pause-phase").write_text("helper-lock-acquired\n")
+                resumed = time.time()
+                launch(app, root / "post-contention-open.json")
+                next_source = wait_for(lambda: event(root, "startup-handed-off", after=resumed, bundle=app),
+                                       "source handoff after maintenance release")
+                next_helper = wait_for(lambda: event(root, "checkpoint", after=resumed, phase="helper-lock-acquired"),
+                                       "real recovery helper owns maintenance lock")
+                wait_for(lambda: departed([next_source["pid"]], ignored=(next_helper["pid"],)),
+                         "recovery source gone from kernel and LaunchServices", timeout=20)
+                (root / "pause-phase").unlink()
+            finally:
+                (root / "maintenance-exit-barrier.json").write_text(json.dumps({"observations": observations}, indent=2) + "\n")
             result["maintenanceContentionPreservedSource"] = True
+            result["maintenanceKernelAndLaunchServicesExitBarrier"] = True
+            result["contentionRetryIsTestOrchestrated"] = True
         else:
             launch(app, root / "migration-open.json")
         transaction, ready = verify_commit(root, journal, initial, after=started)

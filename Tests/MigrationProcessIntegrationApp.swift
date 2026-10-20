@@ -23,6 +23,19 @@ final class IntegrationDelegate: NSObject, NSApplicationDelegate {
         FileHandle.standardError.write(Data("Migration process integration entered main; pid=\(getpid()) args=\(CommandLine.arguments)\n".utf8))
         guard !AppInstallationMigrationPolicy.automaticMigrationEnabled else { fatalError("Production migration policy changed") }
         let config = MigrationProcessIntegrationConfiguration.self
+        if CommandLine.arguments.dropFirst().first == "--probe-running" {
+            let applications = NSRunningApplication.runningApplications(withBundleIdentifier: AppIdentity.bundleIdentifier)
+                .filter { $0.processIdentifier != getpid() }.map { application -> [String: Any] in
+                    ["pid": application.processIdentifier, "bundleID": application.bundleIdentifier ?? "nil",
+                     "bundleURL": application.bundleURL?.path ?? "nil",
+                     "executableURL": application.executableURL?.path ?? "nil",
+                     "launchDate": application.launchDate?.timeIntervalSince1970 ?? -1,
+                     "isTerminated": application.isTerminated]
+                }
+            let data = try JSONSerialization.data(withJSONObject: applications, options: [.sortedKeys])
+            print(String(decoding: data, as: UTF8.self))
+            return
+        }
         if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--preferences-contract" {
             let defaults = try AppMigrationMacOSDriver.launchPreferencesDefaults()
             let preferences = HostAutoLaunchPreferences(defaults: defaults)

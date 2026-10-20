@@ -35,6 +35,16 @@ and LaunchServices opens the candidate again to produce a fresh real receipt.
 The normal case reopens the archived entry and verifies it forwards to the live
 canonical target without initializing an archived core.
 
+The normal case exercises the first handoff without a test pause or exit
+barrier. The contention case explicitly waits for its old actors to disappear
+from both the kernel and LaunchServices before orchestrating a test retry. It
+also holds the new helper at the existing test checkpoint until its owner has
+disappeared from those lists. Production waits for the parent's process identity
+to exit, then independently rejects any remaining source/other entry reported
+by LaunchServices; lagging LS state can safely defer migration for that boot.
+The contention retry does not prove automatic retry or completion in the same
+boot. Its real observations are retained in `maintenance-exit-barrier.json`.
+
 Readiness mutation checks start from the genuine running candidate's message:
 changed launch date with the original live PID, another live PID, changed exact
 path and changed nonce must be rejected. A changed simulated boot while the
