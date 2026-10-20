@@ -268,7 +268,7 @@ final class AppUpdateNotificationController {
     private func deliver(_ candidate: AvailableVersion, generation revision: Int) {
         guard enabled, generation == revision, available?.version == candidate.version, !suppressCurrent else { return }
         let payload = AppUpdateNotificationPayload(identifier: candidate.identifier, version: candidate.tag,
-            title: "GPT TouchBar HUD 有新版本 \(candidate.tag)",
+            title: "\(AppIdentity.productName) 有新版本 \(candidate.tag)",
             body: "点击查看版本说明，可选择安装、稍后或跳过此版本。")
         channel.add(payload) { [weak self] _ in
             guard let self else { return }

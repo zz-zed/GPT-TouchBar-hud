@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="$ROOT_DIR/build/GPT TouchBar HUD.app"
-DIST_DIR="$ROOT_DIR/dist"
+APP_DIR="${HUD_APP_DIR:-$ROOT_DIR/build/GPT TouchBar HUD.app}"
+DIST_DIR="${HUD_DIST_DIR:-$ROOT_DIR/dist}"
 STAGING_DIR="$DIST_DIR/dmg-stage"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT_DIR/Resources/Info.plist")"
 DMG_NAME="GPT-TouchBar-HUD-${VERSION}.dmg"
@@ -29,7 +29,7 @@ bash -n "$STAGING_DIR/首次打开助手.command"
 
 rm -f "$DMG_PATH"
 hdiutil create \
-    -volname "GPT TouchBar HUD" \
+    -volname "GPT HUD" \
     -srcfolder "$STAGING_DIR" \
     -ov \
     -format UDZO \

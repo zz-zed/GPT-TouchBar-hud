@@ -1,0 +1,94 @@
+name: Validate GPT HUD Intel package
+run-name: Validate GPT HUD Intel ${{ github.sha }}
+
+on:
+  push:
+    branches:
+      - validation/gpt-hud-intel-20261020
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-gpt-hud-intel-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Intel package validation (no publication)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/validation/gpt-hud-intel-20261020'
+    runs-on: macos-15-intel
+    timeout-minutes: 40
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify immutable validation source and Intel toolchain
+        run: |
+          test "$GITHUB_EVENT_NAME" = push
+          test "$GITHUB_REF" = refs/heads/validation/gpt-hud-intel-20261020
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(uname -m)" = x86_64
+          xcodebuild -version
+          test "$(xcodebuild -version | head -n 1)" = "Xcode 26.3"
+          swiftc --version
+          test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" -ge 26
+
+      - name: Build and package current source
+        run: |
+          bash scripts/package-dmg.sh
+          mv dist/GPT-TouchBar-HUD-0.1.45.dmg dist/GPT-TouchBar-HUD-0.1.45-x86_64.dmg
+
+      - name: Run isolated migration and update regressions
+        run: |
+          bash scripts/test-app-migration.sh
+          bash scripts/test-app-update.sh
+          bash scripts/test-app-update-notifications.sh
+          bash scripts/test-app-update-progress.sh
+
+      - name: Verify first-open helper with disposable app copy
+        run: bash scripts/test-first-open.sh
+
+      - name: Verify mounted package and record validation provenance
+        run: |
+          python3 - <<'PY'
+          import hashlib, importlib.util, json, os, pathlib, sys
+          sys.path.insert(0, 'scripts')
+          spec = importlib.util.spec_from_file_location('package_verify', 'scripts/verify-public-release.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          output = pathlib.Path('build/intel-validation')
+          output.mkdir(parents=True)
+          source = pathlib.Path('dist/GPT-TouchBar-HUD-0.1.45-x86_64.dmg')
+          check = module.verify_dmg(source, 'x86_64', '0.1.45', '48', product_name='GPT HUD')
+          assert check['executable'] == 'GPTTouchBarHUD'
+          target = output / source.name
+          target.write_bytes(source.read_bytes())
+          digest = hashlib.sha256(target.read_bytes()).hexdigest()
+          (output / 'SHA256SUMS.txt').write_text(f'{digest}  {target.name}\n')
+          report = {'source_sha': os.environ['GITHUB_SHA'], 'package': check,
+                    'scope': 'Native Intel build, packaging and isolated regressions; no full application launch or publication.'}
+          (output / 'verification.json').write_text(json.dumps(report, indent=2) + '\n')
+          manifest = {'schema_version': 1, 'kind': 'non-publishing-intel-validation',
+                      'repository': os.environ['GITHUB_REPOSITORY'], 'source_sha': os.environ['GITHUB_SHA'],
+                      'workflow_sha': os.environ['GITHUB_SHA'], 'workflow_path': '.github/workflows/validate-gpt-hud-intel.yml',
+                      'event': os.environ['GITHUB_EVENT_NAME'], 'ref': os.environ['GITHUB_REF'],
+                      'run_id': int(os.environ['GITHUB_RUN_ID']), 'run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+                      'version': '0.1.45', 'build': '48', 'architecture': 'x86_64', 'files': {}}
+          for path in output.iterdir():
+              manifest['files'][path.name] = {'sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'size': path.stat().st_size}
+          (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          print(json.dumps(report, indent=2))
+          PY
+
+      - name: Upload validation evidence only
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpt-hud-intel-validation-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/intel-validation
+          if-no-files-found: error
+          retention-days: 30

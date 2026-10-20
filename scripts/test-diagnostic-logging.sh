@@ -14,7 +14,7 @@ ci_time execute environment .build/diagnostic-tests/environment
 swiftc "${flags[@]}" "${core[@]}" Tests/DiagnosticRecorderTests.swift -o .build/diagnostic-tests/recorder
 ci_time execute recorder .build/diagnostic-tests/recorder
 swiftc "${flags[@]}" "${HOOK_CORE_SWIFT_FLAGS[@]}" "${core[@]}" \
-    Sources/DiagnosticEnvironment.swift Sources/DiagnosticTaskTraceCoverage.swift Sources/DiagnosticExport.swift Sources/ConnectionDiagnostics.swift Sources/ConnectionDiagnosticsWindowController.swift \
+    Sources/DiagnosticEnvironment.swift Sources/DiagnosticTaskTraceCoverage.swift Sources/AppIdentity.swift Sources/DiagnosticExport.swift Sources/ConnectionDiagnostics.swift Sources/ConnectionDiagnosticsWindowController.swift \
     Sources/DiagnosticTaskPresentation.swift Sources/LimitModels.swift Sources/CodexAppServerClient.swift Sources/AccountTokenUsage.swift \
     Tests/DiagnosticExportTests.swift -o .build/diagnostic-tests/export
 ci_time execute export .build/diagnostic-tests/export

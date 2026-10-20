@@ -75,7 +75,7 @@ final class PreferencesWindowController: NSWindowController {
         self.touchBarHardware = touchBarHardware
         preview = CompactQuotaHUDView(initialAppearance: appearance, onRefresh: {}, onClose: {}, contextMenuProvider: { NSMenu() })
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 560), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "设置 · GPT TouchBar HUD"
+        window.title = "设置 · \(AppIdentity.productName)"
         window.isReleasedWhenClosed = false
         super.init(window: window)
         window.center()

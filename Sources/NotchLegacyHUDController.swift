@@ -14,7 +14,7 @@ private final class NotchPanel: NSPanel {
         // This borderless, nonresizable panel never offers its own full-screen action.
         collectionBehavior = [.canJoinAllSpaces, .fullScreenPrimary, .fullScreenDisallowsTiling, .stationary, .ignoresCycle]
         appearance = NSAppearance(named: .darkAqua)
-        title = "GPT HUD · 刘海融合"
+        title = "\(AppIdentity.productName) · 刘海融合"
     }
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
@@ -132,7 +132,7 @@ final class NotchHUDView: NSView {
         hideButton.setAccessibilityIdentifier("notch.hide")
         settings.setAccessibilityIdentifier("notch.settings")
         collapseButton.setAccessibilityIdentifier("notch.collapse")
-        setAccessibilityLabel("GPT HUD")
+        setAccessibilityLabel(AppIdentity.productName)
         update(.initial, expanded: false)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

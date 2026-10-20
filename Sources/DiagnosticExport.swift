@@ -77,7 +77,7 @@ struct DiagnosticExportSnapshot {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "GPT-TouchBar-HUD-diagnostics-\(formatter.string(from: createdAt))-\(id.uuidString.prefix(8)).zip"
+        return "GPT-HUD-diagnostics-\(formatter.string(from: createdAt))-\(id.uuidString.prefix(8)).zip"
     }
 }
 
@@ -307,7 +307,7 @@ final class DiagnosticExportCoordinator {
             globalRecordingGap: partial || (dropped ?? 0) > 0 || store?.issues.contains(.retentionLimit) == true
                 || store?.issues.contains(.recordingDisabled) == true)
         let formatter = ISO8601DateFormatter()
-        var summary = ["GPT TouchBar HUD 本地诊断包", "快照时间：\(formatter.string(from: request.createdAt))",
+        var summary = ["\(AppIdentity.productName) 本地诊断包", "快照时间：\(formatter.string(from: request.createdAt))",
                        "请求范围：\(request.range.title)",
                        "实际事件覆盖：\(earliest.map(formatter.string(from:)) ?? "无可用记录") → \(latest.map(formatter.string(from:)) ?? "无可用记录")",
                        "覆盖不足：\(incomplete ? "是" : "否")；丢弃事件：\(dropped.map(String.init) ?? "未知")；采集部分失败：\(partial ? "是" : "否")",

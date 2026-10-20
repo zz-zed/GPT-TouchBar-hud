@@ -164,7 +164,7 @@ struct ConnectionDiagnosticsReport {
         let os = environment.operatingSystem
         let formatter = ISO8601DateFormatter()
         var lines = [
-            "GPT TouchBar HUD 连接诊断",
+            "\(AppIdentity.productName) 连接诊断",
             "App 版本：\(environment.appVersion)",
             "系统：macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion)",
             "架构：\(environment.architecture.rawValue)",

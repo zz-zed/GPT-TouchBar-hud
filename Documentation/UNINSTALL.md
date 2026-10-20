@@ -34,7 +34,7 @@
 ~/Library/LaunchAgents/io.github.zz-zed.GPTTouchBarHUD.CodexLauncher.plist
 ```
 
-可先在终端进行**只读查看**，确认 `Label` 和启动命令属于 GPT TouchBar HUD：
+可先在终端进行**只读查看**，确认 `Label` 和启动命令属于 GPT HUD：
 
 ```bash
 plutil -p "$HOME/Library/LaunchAgents/io.github.zz-zed.GPTTouchBarHUD.CodexLauncher.plist"

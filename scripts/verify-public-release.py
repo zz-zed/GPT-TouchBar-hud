@@ -130,7 +130,7 @@ def verify_build_run(repository, selection):
     return run.get("html_url")
 
 
-def verify_dmg(path, arch, version, build):
+def verify_dmg(path, arch, version, build, product_name=None):
     command("hdiutil", "verify", str(path))
     with tempfile.TemporaryDirectory(prefix="hud-public-mount-") as temporary:
         mount = Path(temporary) / "mount"
@@ -149,6 +149,9 @@ def verify_dmg(path, arch, version, build):
                     and info.get("CFBundleIdentifier") == BUNDLE_ID
                     and info.get("LSMinimumSystemVersion") == EXPECTED_MIN_OS,
                     f"Bundle identity or minimum system mismatch: {arch}")
+            require(product_name is None or (info.get("CFBundleName") == product_name
+                    and info.get("CFBundleDisplayName") == product_name),
+                    f"Product display name mismatch: {arch}")
             for binary in (executable, helper):
                 require(command("lipo", "-archs", str(binary)).decode().split() == [arch],
                         f"Binary architecture mismatch: {binary.name}")
@@ -157,6 +160,11 @@ def verify_dmg(path, arch, version, build):
                         f"Mach-O minimum system mismatch: {binary.name}")
             command("codesign", "--verify", "--deep", "--strict", str(app))
             command("codesign", "--verify", "--all-architectures", "--strict", str(helper))
+            if product_name is not None:
+                helper_signature = subprocess.run(["codesign", "-dvvv", str(helper)], stdout=subprocess.PIPE,
+                                                  stderr=subprocess.PIPE, check=True).stderr.decode("utf-8", "replace")
+                require("Identifier=com.gpt-touchbar-hud.hook-emitter" in helper_signature,
+                        f"Helper signing identity mismatch: {arch}")
             signature = subprocess.run(["codesign", "-dvvv", str(app)], stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE, check=True).stderr.decode("utf-8", "replace")
             match = re.search(r"^CDHash=([0-9a-f]{40})$", signature, re.MULTILINE)
@@ -166,7 +174,10 @@ def verify_dmg(path, arch, version, build):
                     f"First-open helper CDHash mismatch: {arch}")
             command("bash", "-n", str(first_open))
             return {"architecture": arch, "cdhash": match.group(1), "readOnlyMount": True,
-                    "minimumSystem": EXPECTED_MIN_OS}
+                    "minimumSystem": EXPECTED_MIN_OS, "appFileName": APP_NAME,
+                    "bundleName": info.get("CFBundleName"), "displayName": info.get("CFBundleDisplayName"),
+                    "bundleIdentifier": info.get("CFBundleIdentifier"),
+                    "executable": info.get("CFBundleExecutable"), "version": version, "build": build}
         finally:
             command("hdiutil", "detach", str(mount))
 
