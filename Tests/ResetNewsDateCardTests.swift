@@ -191,6 +191,17 @@ enum ResetNewsDateCardTests {
             "A cached empty forecast describes its fetch limitation instead of declaring no new forecast")
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/ResetNews")
+        let alertSnapshot = try ResetForecastSnapshotDecoder().decode(Data(contentsOf: fixtureRoot.appendingPathComponent("forecast-active-watch-20261022.json")))
+        let alertReply = ResetForecastTimingReply.decodeFeed(try Data(contentsOf: fixtureRoot.appendingPathComponent("feed-timing-reply-20261022.json")))!
+        let alertNow = ISO8601DateFormatter().date(from: "2026-10-22T07:30:00Z")!
+        let alertItem = alertSnapshot.supplementingTiming(with: alertReply).item(now: alertNow, calendar: calendar)!
+        let pendingAlertItem = alertSnapshot.item(now: alertNow, calendar: calendar)!
+        let alertState = ResetNewsViewState(enabled: true, status: .success, items: [alertItem], forecastAvailability: .current)
+        let alertPresentation = ForecastPresentation(alertState, context: PresentationContext(now: alertNow, calendar: calendar))
+        check(alertPresentation.value == "预计明天 02:00 前" && alertPresentation.compactValue == "02:00 前",
+            "Menu and shared cards keep the announced PST deadline")
+        check(alertPresentation.detail.contains("尚未确认"), "The pending monitor state remains explicit")
         let relativePublication = ISO8601DateFormatter().date(from: "2026-10-15T04:56:07Z")!
         let relativeSignal = ResetForecastSignal(sourceID: "2110595554036400151",
             sourceURL: URL(string: "https://x.com/thsottiaux/status/2110595554036400151")!,
@@ -223,6 +234,11 @@ enum ResetNewsDateCardTests {
             let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)!
             NSApp.appearance = appearance
             let mode = dark ? "dark" : "light"
+            try cardSnapshot(item: alertItem, appearance: appearance, dark: dark, name: "active-alert-deadline-340-\(mode)",
+                now: alertNow, calendar: calendar)
+            try cardSnapshot(item: pendingAlertItem, appearance: appearance, dark: dark, name: "active-alert-pending-340-\(mode)",
+                now: alertNow, calendar: calendar)
+            try popoverSnapshot(item: alertItem, appearance: appearance, name: "active-alert-popup-\(mode)")
             try popoverSnapshot(item: dateOnly, appearance: appearance, name: "date-only-popup-\(mode)")
             try popoverSnapshot(item: exact, appearance: appearance, name: "exact-popup-\(mode)")
             try listSnapshot(item: dateOnly, appearance: appearance, dark: dark, name: "notch-width-date-only-\(mode)")
