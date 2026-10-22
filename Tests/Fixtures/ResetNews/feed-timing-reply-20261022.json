@@ -1,0 +1,33 @@
+{
+  "fetched_at": "2026-10-22T07:26:12.979Z",
+  "source_scope": "timeline",
+  "stale": false,
+  "profile": {
+    "handle": "thsottiaux"
+  },
+  "signal": {
+    "tweet_id": "2113162413008884099",
+    "summary": "Lands tomorrow before 10am PST.",
+    "at": "2026-10-22T06:55:54.000Z",
+    "url": "https://x.com/thsottiaux/status/2113162413008884099",
+    "kind": "signal",
+    "is_reply": true,
+    "replying_to": "thsottiaux",
+    "active": true,
+    "localized_summary": "明天上午 10 点 PST 前到达。",
+    "translation_status": "translated"
+  },
+  "tweets": [
+    {
+      "id": "2113162413008884099",
+      "url": "https://x.com/thsottiaux/status/2113162413008884099",
+      "text": "Lands tomorrow before 10am PST.",
+      "at": "2026-10-22T06:55:54.000Z",
+      "is_reply": true,
+      "replying_to": "thsottiaux",
+      "in_reply_to_tweet_id": "2113162277688070445",
+      "conversation_id": "2113162277688070445",
+      "kind": "signal"
+    }
+  ]
+}

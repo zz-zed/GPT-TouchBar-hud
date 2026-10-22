@@ -1,0 +1,17 @@
+{
+  "updated_at": "2026-10-22T07:29:51.904Z",
+  "last_reset_at": "2026-10-20T06:33:48.000Z",
+  "official_signal": null,
+  "latest_alert": {
+    "id": "2113162277688070445",
+    "kind": "watch",
+    "state": "active",
+    "source_at": "2026-10-22T06:55:22.000Z",
+    "summary": "Day 17/ Bet you thought we forgot, but no, it’s reset day today.",
+    "url": "https://x.com/thsottiaux/status/2113162277688070445",
+    "score": null,
+    "window": null,
+    "pending": "on_its_way",
+    "corrected": false
+  }
+}

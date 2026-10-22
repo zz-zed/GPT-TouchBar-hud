@@ -98,6 +98,7 @@ struct ResetNewsEndpointResult: Equatable {
     var metadata: ResetNewsHTTPMetadata
     let error: ResetNewsFetchError?
     var forecast: ResetForecastSnapshot? = nil
+    var timingReply: ResetForecastTimingReply? = nil
 
     var succeeded: Bool { error == nil }
 }
@@ -167,6 +168,12 @@ final class ResetNewsFeedClient: ResetNewsFetching {
                             guard !gate.isCancelled else { return }
                             results.append(decoded)
                             if results.count == sources.count {
+                                if let feed = results.first(where: { $0.source == .feed }),
+                                   feed.succeeded, !feed.metadata.isStale(at: self.now()), let reply = feed.timingReply,
+                                   let index = results.firstIndex(where: { $0.source == .forecast }),
+                                   let snapshot = results[index].forecast {
+                                    results[index].forecast = snapshot.supplementingTiming(with: reply)
+                                }
                                 completion(ResetNewsFetchResult(endpoints: results.sorted { $0.source.rawValue < $1.source.rawValue }))
                             }
                         }
@@ -203,7 +210,8 @@ final class ResetNewsFeedClient: ResetNewsFetching {
             }
             metadata.stale = batch.stale
             metadata.rejectedIdentityCount = batch.rejectedIdentityCount
-            return .init(source: source, items: batch.items, metadata: metadata, error: nil)
+            return .init(source: source, items: batch.items, metadata: metadata, error: nil,
+                         timingReply: source == .feed ? ResetForecastTimingReply.decodeFeed(data) : nil)
         } catch ResetForecastDecodingError.invalidIdentity {
             return failure(.identity("当前预告的官方消息身份不匹配"))
         } catch let error as ResetNewsDecodingError {

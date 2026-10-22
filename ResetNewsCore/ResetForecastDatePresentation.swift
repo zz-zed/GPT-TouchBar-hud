@@ -49,7 +49,7 @@ public struct ResetForecastDatePresentation: Equatable, Sendable {
                 let zone = timing.sourceZone ?? ""
                 basisText = chinese ? "EOD 按 \(zone) 当天结束换算，非确定重置时刻"
                     : "EOD interpreted as the end of the day in \(zone), not an exact reset time"
-            } else if timing.inferredFromPublication {
+            } else if timing.isRelativeDuration {
                 basisText = chinese ? "按公告发布时间和公告时长推算，非确定重置时刻"
                     : "Derived from the publication time and announced duration, not an exact reset time"
             } else {
