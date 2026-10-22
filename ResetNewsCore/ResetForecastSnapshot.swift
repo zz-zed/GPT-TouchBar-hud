@@ -28,21 +28,25 @@ public struct ResetForecastSignal: Codable, Equatable, Sendable {
     public var publishedAt: Date
     public var officialWindow: ResetNewsOfficialWindow?
     public var effectiveAt: Date?
+    public var pendingClaim: ResetForecastPendingClaim?
+    public var timingReply: ResetForecastTimingReply?
 
     public init(sourceID: String, sourceURL: URL, originalText: String, publishedAt: Date,
-                officialWindow: ResetNewsOfficialWindow? = nil, effectiveAt: Date? = nil) {
+                officialWindow: ResetNewsOfficialWindow? = nil, effectiveAt: Date? = nil,
+                pendingClaim: ResetForecastPendingClaim? = nil) {
         self.sourceID = sourceID
         self.sourceURL = sourceURL
         self.originalText = originalText
         self.publishedAt = publishedAt
         self.officialWindow = officialWindow
         self.effectiveAt = effectiveAt
+        self.pendingClaim = pendingClaim
     }
 
     public func item(now: Date, calendar: Calendar = .current) -> ResetNewsItem? {
         guard Self.validIdentity(sourceID, url: sourceURL), publishedAt.timeIntervalSince1970.isFinite,
               publishedAt <= now, !originalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !ResetNewsRuleEngine().lastResetActionIsTerminal(in: originalText) else { return nil }
+              (pendingClaim != nil || !ResetNewsRuleEngine().lastResetActionIsTerminal(in: originalText)) else { return nil }
         if let end = expiresAt(calendar: calendar), now >= end { return nil }
         return evidenceItem(calendar: calendar)
     }
@@ -50,13 +54,14 @@ public struct ResetForecastSignal: Codable, Equatable, Sendable {
     /// Historical evidence remains readable after the current-preview window has ended.
     public func evidenceItem(calendar: Calendar = .current) -> ResetNewsItem {
         ResetNewsItem(id: "post:\(sourceID)", sources: [.forecast], sourceURL: sourceURL,
-            originalText: originalText, facts: [forecastFact], publishedAt: publishedAt, firstSeenAt: publishedAt)
+            originalText: originalText + (timingReply.map { "\n\n" + $0.originalText } ?? ""),
+            facts: [forecastFact], publishedAt: timingPublishedAt, firstSeenAt: publishedAt)
     }
 
     /// Ends display eligibility, without claiming that the announced reset was completed.
     public func expiresAt(calendar: Calendar = .current) -> Date? {
         let fact = forecastFact
-        let timing = ResetForecastTiming.resolve(fact, publishedAt: publishedAt, calendar: calendar)
+        let timing = ResetForecastTiming.resolve(fact, publishedAt: timingPublishedAt, calendar: calendar)
         var candidates: [Date] = []
         if let timing, timing.precision == .exact || timing.precision == .deadline { candidates.append(timing.date) }
         if let end = officialWindow?.endAt { candidates.append(end) }
@@ -79,7 +84,7 @@ public struct ResetForecastSignal: Codable, Equatable, Sendable {
             // Relative source dates depend on publication, never on the latest snapshot time.
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = fact.sourceTimeZone.flatMap(ResetForecastTiming.timeZone) ?? TimeZone(secondsFromGMT: 0)!
-            if let timing = ResetForecastTiming.resolve(fact, publishedAt: publishedAt, calendar: calendar) {
+            if let timing = ResetForecastTiming.resolve(fact, publishedAt: timingPublishedAt, calendar: calendar) {
                 fields.append(String(timing.date.timeIntervalSince1970))
                 fields.append(timing.dayEnd.map { String($0.timeIntervalSince1970) } ?? "")
             }
@@ -88,8 +93,20 @@ public struct ResetForecastSignal: Codable, Equatable, Sendable {
         return "forecast:post:\(sourceID):\(ResetNewsText.digest(material))"
     }
 
+    private var timingPublishedAt: Date { timingReply?.publishedAt ?? publishedAt }
+
     private var forecastFact: ResetNewsFact {
         let engine = ResetNewsRuleEngine()
+        // Pending completion claims have no announced window. Do not turn their
+        // prose ("today", "done") into a deadline. A verified direct timing reply
+        // can supply the missing arrangement, with its own publication anchor.
+        if pendingClaim != nil {
+            let timing = timingReply.map { engine.timingDetails($0.originalText) }
+            return ResetNewsFact(kind: .upcomingReset, scope: engine.audience(in: originalText),
+                effectiveAt: timing?.effective, effectiveAtPrecision: timing?.effective == nil ? nil : .exact,
+                timingText: timing?.text, evidence: timingReply?.originalText ?? originalText,
+                awaitingResetConfirmation: true)
+        }
         let evidence = engine.upcomingResetEvidence(in: originalText) ?? originalText
         let originalTiming = engine.timingDetails(evidence)
         var timingWindow = officialWindow
@@ -142,6 +159,16 @@ public struct ResetForecastSnapshotDecoder: Sendable {
         let lastResetAt = try optionalDate(root, key: "last_reset_at")
         if let lastResetAt, lastResetAt > updatedAt { throw ResetForecastDecodingError.invalidField("last_reset_at") }
         guard let rawSignal = root["official_signal"] else { throw ResetForecastDecodingError.missingField("official_signal") }
+        // latest_alert is canonical and retains expired/confirmed entries. Only
+        // an active Watch is eligible; a terminal entry must clear an old preview.
+        if let alert = root["latest_alert"] {
+            if alert is NSNull {
+                return ResetForecastSnapshot(updatedAt: updatedAt, lastResetAt: lastResetAt, officialSignal: nil)
+            }
+            guard let record = alert as? [String: Any] else { throw ResetForecastDecodingError.invalidField("latest_alert") }
+            return ResetForecastSnapshot(updatedAt: updatedAt, lastResetAt: lastResetAt,
+                officialSignal: try activeAlert(record, updatedAt: updatedAt))
+        }
         let signal: ResetForecastSignal?
         if rawSignal is NSNull { signal = nil }
         else {
@@ -159,6 +186,40 @@ public struct ResetForecastSnapshotDecoder: Sendable {
                 officialWindow: try window(record["window"], originalText: text, publishedAt: publishedAt))
         }
         return ResetForecastSnapshot(updatedAt: updatedAt, lastResetAt: lastResetAt, officialSignal: signal)
+    }
+
+    private func activeAlert(_ record: [String: Any], updatedAt: Date) throws -> ResetForecastSignal? {
+        let kind = try requiredString(record, key: "kind")
+        let state = try requiredString(record, key: "state")
+        switch (kind, state) {
+        case ("watch", "active"), ("watch", "expired"), ("reset", "confirmed"): break
+        default: throw ResetForecastDecodingError.invalidField("latest_alert.state")
+        }
+        let id = try requiredString(record, key: "id")
+        guard id.allSatisfy(\.isNumber) else { throw ResetForecastDecodingError.invalidIdentity }
+        let rawURL = try optionalString(record, key: "url")
+        let url = rawURL.flatMap(URL.init(string:))
+        if rawURL != nil, url.map({ ResetForecastSignal.validIdentity(id, url: $0) }) != true {
+            throw ResetForecastDecodingError.invalidIdentity
+        }
+        let publishedAt = try requiredDate(record, key: "source_at")
+        guard publishedAt <= updatedAt else { throw ResetForecastDecodingError.invalidField("source_at") }
+        let text = try requiredString(record, key: "summary")
+        guard kind == "watch", state == "active" else { return nil }
+        guard let url else { throw ResetForecastDecodingError.invalidIdentity }
+        let pending: ResetForecastPendingClaim?
+        if let value = try optionalString(record, key: "pending") {
+            guard let claim = ResetForecastPendingClaim(rawValue: value) else {
+                throw ResetForecastDecodingError.invalidField("pending")
+            }
+            pending = claim
+        } else { pending = nil }
+        // The published contract gives pending claims null score/window.
+        if pending != nil, let window = record["window"], !(window is NSNull) {
+            throw ResetForecastDecodingError.invalidField("window")
+        }
+        return ResetForecastSignal(sourceID: id, sourceURL: url, originalText: text, publishedAt: publishedAt,
+            officialWindow: try window(record["window"], originalText: text, publishedAt: publishedAt), pendingClaim: pending)
     }
 
     private func requiredString(_ object: [String: Any], key: String) throws -> String {

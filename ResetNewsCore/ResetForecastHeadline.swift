@@ -18,18 +18,22 @@ public struct ResetForecastHeadline: Equatable, Sendable {
     public let basisText: String?
     public let summary: String
     public let hasClock: Bool
+    public let confirmationNote: String?
 
     public init(fact: ResetNewsFact, publishedAt: Date?, now: Date = Date(),
                 calendar: Calendar = .current, locale: Locale = Locale(identifier: "zh_CN")) {
         let chinese = locale.identifier.lowercased().hasPrefix("zh")
+        confirmationNote = fact.awaitingResetConfirmation == true
+            ? (chinese ? "来源监测尚未确认重置落地" : "The source's monitor has not confirmed the reset") : nil
         let detail = ResetForecastDatePresentation(fact: fact, publishedAt: publishedAt,
             now: now, calendar: calendar, locale: locale)
         guard let timing = ResetForecastTiming.resolve(fact, publishedAt: publishedAt, calendar: calendar) else {
             kind = .unknown; day = nil; spansMultipleDays = false
-            compactValue = chinese ? "时间待定" : "Time TBD"
-            compactDetail = chinese ? "已有公开预告" : "Public forecast available"
+            compactValue = confirmationNote != nil ? (chinese ? "待确认" : "Unconfirmed") : (chinese ? "时间待定" : "Time TBD")
+            compactDetail = confirmationNote ?? (chinese ? "已有公开预告" : "Public forecast available")
             shoulderQualifier = nil
-            lead = nil; headline = chinese ? "时间待定" : "Time not announced"
+            lead = nil; headline = confirmationNote != nil ? (chinese ? "重置待确认" : "Reset awaiting confirmation")
+                : (chinese ? "时间待定" : "Time not announced")
             dateText = nil; zoneText = nil; basisText = nil; summary = headline; hasClock = false
             return
         }
@@ -46,7 +50,7 @@ public struct ResetForecastHeadline: Equatable, Sendable {
         day = resolvedDay
 
         var basis = detail.basisText
-        if timing.precision == .deadline, timing.inferredFromPublication, !timing.isEndOfDay, let publishedAt {
+        if timing.precision == .deadline, timing.isRelativeDuration, let publishedAt {
             let seconds = timing.date.timeIntervalSince(publishedAt)
             let amount: Double
             let unit: String
