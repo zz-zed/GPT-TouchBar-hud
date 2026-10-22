@@ -48,7 +48,7 @@ struct ForecastPresentation: Equatable {
             value = schedule.summary
             detail = kind == .cached
                 ? context.text("上次预告 · ", "Cached · ") + (state.forecastCheckedAt.map { context.date($0) } ?? context.text("时间未知", "time unknown"))
-                : context.text("查看当前安排", "View forecast")
+                : schedule.confirmationNote ?? context.text("查看当前安排", "View forecast")
             compactValue = schedule.compactValue
             compactDetail = schedule.compactDetail
             canRetry = kind == .cached && [.failure, .partial, .stale].contains(state.status)

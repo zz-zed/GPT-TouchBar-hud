@@ -12,6 +12,7 @@ enum ResetForecastTiming {
         var assumedTimeZone: Bool = false
         var unresolvedClock: Bool = false
         var isEndOfDay: Bool = false
+        var isRelativeDuration: Bool = false
     }
 
     private static let dayPattern = #"(?:later\s+today|tomorrow|tonight|today|next\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|\d{4}-\d{2}-\d{2}|明天|今晚|今天)"#
@@ -41,7 +42,7 @@ enum ResetForecastTiming {
             guard !ResetNewsText.matches(durationContinuationPattern, in: continuation) else { return nil }
             if relativeDuration(deadline) != nil { return deadline }
         }
-        return ResetNewsText.capture("(?<![A-Za-z0-9])(\(dayPattern)(?:\\s+(?:at\\s+)?\(clockPattern)(?:\\s*\(zonePattern))?)?)(?![A-Za-z0-9])", in: text)
+        return ResetNewsText.capture("(?<![A-Za-z0-9])(\(dayPattern)(?:\\s+(?:(?:at|before|by)\\s+)?\(clockPattern)(?:\\s*\(zonePattern))?)?)(?![A-Za-z0-9])", in: text)
     }
 
     /// A declared source zone is material only when it actually supplies the zone used to resolve
@@ -55,7 +56,7 @@ enum ResetForecastTiming {
         if let endOfDay = endOfDayDetails(text) {
             return endOfDay.zone == nil ? zone.identifier : nil
         }
-        let pattern = "^(\(dayPattern))(?:\\s+(?:at\\s+)?(\(clockPattern))(?:\\s*(\(zonePattern)))?)?$"
+        let pattern = "^(\(dayPattern))(?:\\s+(?:(?:at|before|by)\\s+)?(\(clockPattern))(?:\\s*(\(zonePattern)))?)?$"
         guard ResetNewsText.matches(pattern, in: text),
               ResetNewsText.capture(pattern, in: text, group: 3) == nil else { return nil }
         let day = ResetNewsText.capture(pattern, in: text) ?? ""
@@ -82,7 +83,7 @@ enum ResetForecastTiming {
             guard let publishedAt, publishedAt.timeIntervalSince1970.isFinite else { return nil }
             let deadline = publishedAt.addingTimeInterval(duration)
             guard deadline.timeIntervalSince1970.isFinite else { return nil }
-            return Resolved(date: deadline, precision: .deadline, inferredFromPublication: true)
+            return Resolved(date: deadline, precision: .deadline, inferredFromPublication: true, isRelativeDuration: true)
         }
         if let endOfDay = endOfDayDetails(text) {
             // Never anchor an unspecified/ambiguous source zone to the viewer's local day.
@@ -96,7 +97,7 @@ enum ResetForecastTiming {
                             inferredFromPublication: !ResetNewsText.matches(#"^\d{4}-\d{2}-\d{2}$"#, in: endOfDay.day),
                             isEndOfDay: true)
         }
-        let pattern = "^(\(dayPattern))(?:\\s+(?:at\\s+)?(\(clockPattern))(?:\\s*(\(zonePattern)))?)?$"
+        let pattern = "^(\(dayPattern))(?:\\s+(?:(?:at|before|by)\\s+)?(\(clockPattern))(?:\\s*(\(zonePattern)))?)?$"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let dayRange = Range(match.range(at: 1), in: text) else { return nil }
@@ -114,7 +115,8 @@ enum ResetForecastTiming {
         // With no trustworthy timezone, an announced clock cannot be converted into an exact instant.
         if let clockText, zone != nil, let clock = clock(clockText),
            let instant = exactDate(on: sourceDay, hour: clock.hour, minute: clock.minute, calendar: sourceCalendar) {
-            return Resolved(date: instant, precision: .exact, sourceZone: declaredZone,
+            let isDeadline = ResetNewsText.matches(#"\b(?:before|by)\s+"#, in: text)
+            return Resolved(date: instant, precision: isDeadline ? .deadline : .exact, sourceZone: declaredZone,
                             inferredFromPublication: inferred)
         }
         let dayEnd = sourceCalendar.date(byAdding: .day, value: 1, to: sourceDay)

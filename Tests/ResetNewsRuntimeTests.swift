@@ -189,6 +189,7 @@ private final class RuntimeHarness {
         try observationsAreValidEmptyResponses()
         try officialIdentityFailuresRemainVisible()
         try passedClockDoesNotNotifyOnDiscoveryOrRecovery()
+        try capturedActiveAlertAndTimingReply()
         try authorityNullCannotPromoteHistoricalCandidates()
         try authorityFailureAndMissingFieldsKeepCache()
         try authorityExpiryIsLocalAndDoesNotClaimCompletion()
@@ -942,6 +943,114 @@ private final class RuntimeHarness {
                "An observation-only payload cannot bypass the feed root profile validation")
         if case .identity = wrong.failures.first?.error { expect(true, "Wrong root profile remains an identity failure") }
         else { expect(false, "Wrong root profile remains an identity failure") }
+    }
+
+
+    static func capturedActiveAlertAndTimingReply() throws {
+        let h = try RuntimeHarness()
+        h.clock.date = ISO8601DateFormatter().date(from: "2026-10-22T07:20:00Z")!
+        h.clock.calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        h.activate()
+        h.client.complete(h.result([]))
+        let forecastData = try JSONSerialization.data(withJSONObject: fixture("forecast-active-watch-20261022"))
+        let feedData = try JSONSerialization.data(withJSONObject: fixture("feed-timing-reply-20261022"))
+        let plain = try ResetForecastSnapshotDecoder().decode(forecastData)
+        let http = FakeNewsHTTP()
+        h.clock.date = ISO8601DateFormatter().date(from: "2026-10-22T07:30:00Z")!
+        let client = ResetNewsFeedClient(transport: http, now: { h.clock.date })
+        var fetched: ResetNewsFetchResult?
+        _ = client.fetch { fetched = $0 }
+        http.respond(2, body: String(decoding: forecastData, as: UTF8.self))
+        http.respond(1, body: "{\"events\":[]}")
+        http.respond(0, body: String(decoding: feedData, as: UTF8.self))
+        pump { fetched != nil }
+        guard var timed = fetched?.endpoints.first(where: { $0.source == .forecast })?.forecast else {
+            preconditionFailure("Captured forecast must decode through the HTTP client")
+        }
+        expect(timed.officialSignal?.timingReply?.sourceID == "2113162413008884099", "HTTP assembly attaches only the active direct timing reply")
+        h.monitor.checkNow()
+        h.client.complete(h.result([], forecast: timed))
+        expect(h.monitor.state.forecastCount == 1 && h.channel.payloads.count == 1, "A new canonical active Watch displays and notifies once")
+        expect(h.channel.payloads.last?.title == "重置预告：预计明天 02:00 前", "Notification keeps the reply's PST deadline and never claims completion")
+        expect(h.repository.state.items.first?.publishedAt == timed.officialSignal?.timingReply?.publishedAt,
+               "Persisted evidence uses the same publication anchor as the current forecast")
+
+
+        // Upgrade from the exact same already-seen legacy post: enrich silently.
+        let upgraded = try RuntimeHarness()
+        upgraded.clock.date = h.clock.date
+        upgraded.clock.calendar = h.clock.calendar
+        var legacy = plain
+        legacy.officialSignal?.pendingClaim = nil
+        legacy.updatedAt = plain.updatedAt
+        let legacyID = legacy.officialSignal!.evidenceItem().id
+        var saved = ResetNewsStoredState()
+        saved.forecast = legacy
+        saved.forecastBaselineEstablished = true
+        saved.forecastFetchedAt = upgraded.clock.date
+        saved.forecastExpiresAt = upgraded.clock.date.addingTimeInterval(3600)
+        saved.baselineSources = [.feed, .timeline, .forecast]
+        saved.readIDs = [legacyID]
+        saved.notified = [.init(key: legacy.notificationKey!, recordedAt: upgraded.clock.date)]
+        upgraded.repository.replace(saved, now: upgraded.clock.date) { _ in }
+        upgraded.flush()
+        upgraded.activate()
+        upgraded.client.complete(upgraded.result([], forecast: timed))
+        expect(upgraded.monitor.state.forecastCount == 1 && upgraded.monitor.state.items.first?.facts.first?.timingText != nil,
+               "Legacy upgrade adds the verified reply to the already-known source post")
+        expect(upgraded.channel.payloads.isEmpty && upgraded.monitor.state.readIDs.contains(legacyID),
+               "Schema upgrade preserves read state and does not replay the existing post")
+        expect(upgraded.repository.state.notifiedKeys.contains(timed.notificationKey!), "The enriched notification key is durably consumed")
+        // Same authority version, context failure: retain its previously verified deadline.
+        var missingContext = h.result([], forecast: plain)
+        missingContext = .init(endpoints: missingContext.endpoints.map {
+            $0.source == .feed ? .init(source: .feed, items: [], metadata: .init(), error: .network("offline")) : $0
+        })
+        h.next(missingContext)
+        expect(h.monitor.state.items.first?.facts.first?.timingText == "tomorrow before 10am PST", "A transient feed failure retains the verified timing")
+        expect(h.channel.payloads.count == 1, "Context failure does not replay the Watch")
+
+        // A fresh feed with no active reply may withdraw context; it cannot notify a new reset.
+        var withdrawn = plain
+        withdrawn.updatedAt = h.clock.date.addingTimeInterval(120)
+        h.next(h.result([], forecast: withdrawn))
+        expect(h.monitor.state.items.first?.facts.first?.timingText == nil, "A fresh context withdrawal removes the unconfirmed deadline")
+        expect(h.channel.payloads.count == 1, "Losing timing context does not issue another reset notification")
+        timed.updatedAt = h.clock.date.addingTimeInterval(120)
+        h.next(h.result([], forecast: timed))
+        expect(h.channel.payloads.count == 1, "The same restored deadline remains consumed")
+
+        // A newer direct reply is allowed to change the arrangement; a delayed older one is not.
+        var newerFeed = try fixture("feed-timing-reply-20261022")
+        var newTweet = (newerFeed["tweets"] as! [[String: Any]])[0]
+        var newSignal = newerFeed["signal"] as! [String: Any]
+        newTweet["id"] = "2113162413008884100"
+        newTweet["url"] = "https://x.com/thsottiaux/status/2113162413008884100"
+        newTweet["at"] = "2026-10-22T07:00:00Z"
+        newTweet["text"] = "Lands tomorrow before 11am PST."
+        for (signalKey, tweetKey) in [("tweet_id", "id"), ("url", "url"), ("at", "at")] { newSignal[signalKey] = newTweet[tweetKey] }
+        newerFeed["tweets"] = [newTweet]; newerFeed["signal"] = newSignal
+        let newerReply = ResetForecastTimingReply.decodeFeed(try JSONSerialization.data(withJSONObject: newerFeed))!
+        var newer = plain.supplementingTiming(with: newerReply)
+        newer.updatedAt = h.clock.date.addingTimeInterval(120)
+        h.next(h.result([], forecast: newer))
+        expect(h.channel.payloads.count == 2, "A new direct reply changing the deadline can notify once")
+        timed.updatedAt = h.clock.date.addingTimeInterval(120)
+        h.next(h.result([], forecast: timed))
+        expect(h.repository.state.forecast?.officialSignal?.timingReply == newerReply, "Delayed feed cannot replace the newer reply")
+        expect(h.channel.payloads.count == 2, "Delayed feed cannot replay the older arrangement")
+
+        var terminal = try fixture("forecast-active-watch-20261022")
+        var alert = terminal["latest_alert"] as! [String: Any]
+        alert["kind"] = "reset"; alert["state"] = "confirmed"
+        terminal["latest_alert"] = alert
+        terminal["updated_at"] = ISO8601DateFormatter().string(from: h.clock.date.addingTimeInterval(120))
+        let cleared = try ResetForecastSnapshotDecoder().decode(JSONSerialization.data(withJSONObject: terminal))
+        h.next(h.result([], forecast: cleared))
+        expect(h.monitor.state.forecastCount == 0 && h.channel.payloads.count == 2, "Confirmed reset clears the preview without another forecast reminder")
+        h.flush()
+        let persisted = try JSONDecoder().decode(ResetNewsStoredState.self, from: Data(contentsOf: h.repository.fileURL))
+        expect(persisted.forecast?.officialSignal == nil, "Canonical terminal state survives persistence")
     }
 
     static func authorityNullCannotPromoteHistoricalCandidates() throws {

@@ -233,13 +233,36 @@ final class ResetNewsMonitor {
             var incoming = successful.filter { $0.source != .forecast }.flatMap(\.items)
             var next = previous
             var reminder: ResetForecastSnapshot?
-            if let endpoint = successful.first(where: { $0.source == .forecast }), let snapshot = endpoint.forecast {
+            var timingWithdrawn = false
+            var refinesLegacyClaim = false
+            if let endpoint = successful.first(where: { $0.source == .forecast }), var snapshot = endpoint.forecast {
+                // A failed or stale context fetch cannot erase a verified timing reply.
+                // Only retain it for the same unchanged active claim; terminal source
+                // states and changed claims still replace the cached arrangement.
+                let sameClaim = snapshot.hasSameClaim(as: previous.forecast)
+                refinesLegacyClaim = snapshot.refinesLegacyClaim(previous.forecast)
+                let feedUnavailable = !successful.contains { $0.source == .feed && !$0.metadata.isStale(at: date) }
+                if sameClaim, feedUnavailable, snapshot.officialSignal?.timingReply == nil,
+                   let reply = previous.forecast?.officialSignal?.timingReply {
+                    snapshot = snapshot.supplementingTiming(with: reply)
+                }
+                if sameClaim, let previousReply = previous.forecast?.officialSignal?.timingReply,
+                   let incomingReply = snapshot.officialSignal?.timingReply {
+                    if incomingReply.publishedAt < previousReply.publishedAt {
+                        snapshot.officialSignal?.timingReply = previousReply
+                    } else if incomingReply.publishedAt == previousReply.publishedAt && incomingReply != previousReply {
+                        snapshot.officialSignal?.timingReply = previousReply
+                        forecastIssue = "补充时间副本冲突，保留上次安排"
+                    }
+                }
+                timingWithdrawn = sameClaim && previous.forecast?.officialSignal?.timingReply != nil
+                    && snapshot.officialSignal?.timingReply == nil
                 // A cached or delayed response cannot undo a more recent current-signal decision.
                 let expires = endpoint.metadata.publishedExpiresAt ?? snapshot.updatedAt.addingTimeInterval(180)
                 let outOfOrder = previous.forecast.map { snapshot.updatedAt < $0.updatedAt } ?? false
                 let conflictingVersion = previous.forecast.map {
                     snapshot.updatedAt == $0.updatedAt
-                        && (snapshot.notificationKey != $0.notificationKey || snapshot.lastResetAt != $0.lastResetAt)
+                        && ((!sameClaim && !refinesLegacyClaim && snapshot.notificationKey != $0.notificationKey) || snapshot.lastResetAt != $0.lastResetAt)
                 } ?? false
                 let futureDated = snapshot.updatedAt > date.addingTimeInterval(60)
                 let expired = endpoint.metadata.isStale(at: date) || expires <= date
@@ -265,10 +288,10 @@ final class ResetNewsMonitor {
                         if let signal = snapshot.officialSignal {
                             let evidence = signal.evidenceItem(calendar: calendar())
                             incoming.append(ResetNewsSourceItem(source: .forecast, sourceID: signal.sourceID,
-                                url: signal.sourceURL, body: signal.originalText, publishedAt: signal.publishedAt,
+                                url: signal.sourceURL, body: evidence.originalText, publishedAt: evidence.publishedAt,
                                 structuredFacts: evidence.facts))
                         }
-                        if previous.forecastBaselineEstablished == true, unseen, !unchangedSignal { reminder = snapshot }
+                        if previous.forecastBaselineEstablished == true, unseen, !unchangedSignal, !timingWithdrawn, !refinesLegacyClaim { reminder = snapshot }
                     }
                 }
             } else if !result.failures.contains(where: { $0.source == .forecast }) {
@@ -296,7 +319,7 @@ final class ResetNewsMonitor {
                 if previous.forecastBaselineEstablished != true {
                     next.readIDs.insert(item.id)
                 } else if let key = snapshot.notificationKey, !previous.notifiedKeys.contains(key),
-                          key != previous.forecast?.notificationKey {
+                          key != previous.forecast?.notificationKey, !timingWithdrawn, !refinesLegacyClaim {
                     next.readIDs.remove(item.id)
                 } else if previous.readIDs.contains(item.id) {
                     next.readIDs.insert(item.id)

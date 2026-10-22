@@ -255,6 +255,10 @@ struct ResetNewsCard: View {
                         .foregroundColor(cached ? NotchStyle.secondary : .white)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("resetNews.forecastTime")
+                    if let note = date.confirmationNote {
+                        Text(note).font(.system(size: 10)).foregroundColor(NotchStyle.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if let day = date.dateText {
                         Text(day + (date.zoneText.map { " · " + $0 } ?? ""))
                             .font(.system(size: 10)).foregroundColor(NotchStyle.secondary)
@@ -293,6 +297,10 @@ struct ResetNewsCard: View {
                     Text(date.headline).font(.system(size: date.hasClock ? 30 : 22, weight: .semibold).monospacedDigit())
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("resetNews.forecastTime")
+                    if let note = date.confirmationNote {
+                        Text(note).font(.system(size: 12)).foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if date.hasClock, let day = date.dateText {
                         Text(day + (date.zoneText.map { " · " + $0 } ?? ""))
                             .font(.system(size: 12)).foregroundColor(.secondary)

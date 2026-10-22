@@ -114,13 +114,15 @@ public struct ResetNewsFact: Codable, Equatable, Sendable {
     /// Source window and timezone are presentation provenance, not an exact reset time.
     public var officialWindow: ResetNewsOfficialWindow?
     public var sourceTimeZone: String?
+    /// An active source Watch has not yet been confirmed by the source's monitor.
+    public var awaitingResetConfirmation: Bool?
 
     public init(kind: ResetNewsFactKind, scope: String? = nil, count: Int? = nil,
                 effectiveAt: Date? = nil, effectiveAtPrecision: ResetNewsTimePrecision? = nil,
                 timingText: String? = nil, expiresAt: Date? = nil,
                 validityText: String? = nil, confidence: ResetNewsConfidence = .explicit,
                 evidence: String = "", officialWindow: ResetNewsOfficialWindow? = nil,
-                sourceTimeZone: String? = nil) {
+                sourceTimeZone: String? = nil, awaitingResetConfirmation: Bool? = nil) {
         self.kind = kind
         self.scope = scope
         self.count = count
@@ -133,6 +135,7 @@ public struct ResetNewsFact: Codable, Equatable, Sendable {
         self.evidence = evidence
         self.officialWindow = officialWindow
         self.sourceTimeZone = sourceTimeZone
+        self.awaitingResetConfirmation = awaitingResetConfirmation
     }
 
     var materialKey: String {
@@ -144,6 +147,7 @@ public struct ResetNewsFact: Codable, Equatable, Sendable {
                       expiresAt == nil ? ResetNewsText.normalized(validityText ?? "") : "",
                       confidence.rawValue]
         if let zone = ResetForecastTiming.materialSourceTimeZone(for: self) { fields.append("source-time-zone:\(zone)") }
+        if awaitingResetConfirmation == true { fields.append("awaiting-reset-confirmation") }
         return fields.map { "\($0.utf8.count):\($0)" }.joined()
     }
 }
