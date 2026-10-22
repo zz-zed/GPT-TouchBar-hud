@@ -509,23 +509,14 @@ private final class MenuMetricView: NSView {
 }
 
 private final class MenuMetricButton: NSButton {
-    private var tracking: NSTrackingArea?
-    private var hovered = false
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
-        addTrackingArea(area); tracking = area
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .pointingHand)
     }
-    override func mouseEntered(with event: NSEvent) { hovered = true; needsDisplay = true }
-    override func mouseExited(with event: NSEvent) { hovered = false; needsDisplay = true }
     override func draw(_ dirtyRect: NSRect) {
-        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 4, yRadius: 4)
-        if hovered || isHighlighted {
-            NSColor.controlAccentColor.withAlphaComponent(0.10).setFill()
-            path.fill()
-        }
+        // Keep the summary transparent; the chevron and cursor identify the action.
         if window?.firstResponder === self {
+            let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 4, yRadius: 4)
             NSColor.controlAccentColor.setStroke()
             path.lineWidth = 1.5
             path.stroke()
