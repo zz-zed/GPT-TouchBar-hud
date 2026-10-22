@@ -6,9 +6,9 @@
 
 **[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
-> 当前版本：v0.1.46 / Build 49。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.46)。
+> 当前版本：v0.1.47 / Build 50。安装包、SHA-256 校验文件及构建清单见 [Release 页面](https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.47)。
 
-> 本版将产品名称统一为 GPT HUD；安装文件名和已有数据路径继续保留，以兼容旧版更新。
+> 本版修复公开重置预告遗漏及补充时间未显示的问题；安装文件名和已有数据路径继续保留，以兼容旧版更新。
 
 ## 界面与使用场景
 
