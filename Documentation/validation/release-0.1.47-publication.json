@@ -1,0 +1,106 @@
+{
+  "tag": "v0.1.47",
+  "version": "0.1.47",
+  "build": "50",
+  "sourceCommit": "190579f7d2a10b3f64a05fada703873439d2ca97",
+  "releaseURL": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.47",
+  "publishedAt": "2026-10-22T08:35:44Z",
+  "verifiedAtUTC": "2026-10-22T08:36:26.806000+00:00",
+  "latestVerified": true,
+  "releaseNotesMatch": true,
+  "mainCI": {
+    "id": 39746178777,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/39746178777",
+    "conclusion": "success",
+    "attempt": 1
+  },
+  "assets": [
+    {
+      "name": "build-manifest.json",
+      "bytes": 4010,
+      "sha256": "6e654c8ccfd07cb9adaa0bf12ef831628490a96956e9b58cac0111b20f047cae"
+    },
+    {
+      "name": "GPT-TouchBar-HUD-0.1.47-arm64.dmg",
+      "bytes": 4947170,
+      "sha256": "9b6bd2cd5a1db0328da276fa1f28e34ebc031f01faa3e6bc7392c9d40e6ac04b"
+    },
+    {
+      "name": "GPT-TouchBar-HUD-0.1.47-x86_64.dmg",
+      "bytes": 5148628,
+      "sha256": "611dfc7b0d76cdb3750a8c396d429883dc8af48402301518ef13375f816025cc"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 201,
+      "sha256": "63b22822ed0bfee7076ea46708371a3445c6363e912d33396d9b23dccc5fe0a3"
+    }
+  ],
+  "dmgChecks": [
+    {
+      "architecture": "arm64",
+      "cdhash": "4d6c65dcbb9c0cc54c1447b054b40c2913e7d4cc",
+      "readOnlyMount": true,
+      "minimumSystem": "11.0",
+      "appFileName": "GPT TouchBar HUD.app",
+      "bundleName": "GPT HUD",
+      "displayName": "GPT HUD",
+      "bundleIdentifier": "io.github.zz-zed.GPTTouchBarHUD",
+      "executable": "GPTTouchBarHUD",
+      "version": "0.1.47",
+      "build": "50"
+    },
+    {
+      "architecture": "x86_64",
+      "cdhash": "88f70f40383af023f5aad05be486407a9571ed30",
+      "readOnlyMount": true,
+      "minimumSystem": "11.0",
+      "appFileName": "GPT TouchBar HUD.app",
+      "bundleName": "GPT HUD",
+      "displayName": "GPT HUD",
+      "bundleIdentifier": "io.github.zz-zed.GPTTouchBarHUD",
+      "executable": "GPTTouchBarHUD",
+      "version": "0.1.47",
+      "build": "50"
+    }
+  ],
+  "installedAppModifiedDuringVerification": false,
+  "releaseCI": {
+    "id": 39748830423,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/39748830423",
+    "conclusion": "success"
+  },
+  "migrationExclusion": {
+    "baseline": "29de50f258eef6d2011c1410aa19960ed27a6109",
+    "excludedCommit": "4f8d0b8",
+    "excludedCommitIsAncestor": false,
+    "migrationPathsChecked": 55,
+    "migrationPathsChangedFromBaseline": 0
+  },
+  "localInstallation": {
+    "version": "0.1.47",
+    "build": "50",
+    "architecture": "arm64",
+    "publicCDHashMatched": true,
+    "sourceDigest": "e1c82be6d275cf750e501de2625858a2694e309ff68b83d5ce8d092fe0fa9516",
+    "oneNewProcessVerified": true,
+    "previousAppBackedUp": true,
+    "settingsAndCacheNotReplaced": true,
+    "method": "Verified public DMG copied with backup, then relaunched; not an in-app updater installation."
+  },
+  "menuHoverValidation": {
+    "existingMenuChecksPassed": 388,
+    "nativeScenePreviews": "28 Chinese and 10 English scenes",
+    "additionalPreviews": [
+      "cached-forecast light idle/hover/focus",
+      "cached-forecast dark idle/hover/focus"
+    ],
+    "hoverMatchesIdleInBothThemes": true,
+    "keyboardFocusOutlineRetained": true
+  },
+  "limits": [
+    "Actual macOS 11 and physical Touch Bar/notch hardware were not tested.",
+    "Menu hover visuals were inspected with native fixture rendering; this is not a live installed-menu screenshot.",
+    "The installed app was updated from the verified public DMG; the actual in-app automatic installation chain was not exercised."
+  ]
+}
