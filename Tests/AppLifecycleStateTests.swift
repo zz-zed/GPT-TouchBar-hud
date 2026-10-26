@@ -1,3 +1,6 @@
+#if HUD_SHARED_CORE_TESTS
+@testable import HUDCoreTestSupport
+#endif
 @main
 enum AppLifecycleStateTests {
     private static var checks = 0

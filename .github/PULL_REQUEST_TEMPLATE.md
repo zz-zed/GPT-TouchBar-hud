@@ -20,8 +20,9 @@
 
 <!-- 勾选已执行的检查。未执行的相关检查请说明原因。 -->
 
-- [ ] `scripts/build-app.sh`
-- [ ] `scripts/package-dmg.sh`
+- [ ] `make check`
+- [ ] `make package` / `make verify`（涉及安装包或更新）
+- [ ] `make full` 或相关专项回归
 - [ ] `bash scripts/test-app-migration.sh`
 - [ ] `bash scripts/test-account-token-usage.sh`
 - [ ] `bash scripts/test-token-usage.sh`

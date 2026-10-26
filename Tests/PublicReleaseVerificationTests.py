@@ -93,16 +93,42 @@ class PublicReleaseVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(verifier.ReleaseError, "attachments"):
             verifier.validate_release_metadata(release, {"tag_name": TAG}, TAG)
 
-    def test_public_and_publisher_share_stable_annotated_tag_policy(self):
+    def test_public_and_publisher_accept_existing_stable_version_tags(self):
         with mock.patch.object(verifier, "github_json", side_effect=[
                 {"object": {"type": "tag", "sha": "f" * 40}},
                 {"object": {"type": "commit", "sha": SOURCE}}]):
             self.assertEqual(verifier.tag_commit(REPOSITORY, TAG), SOURCE)
         with mock.patch.object(verifier, "github_json", return_value={"object": {"type": "commit", "sha": SOURCE}}):
-            with self.assertRaisesRegex(verifier.ReleaseError, "must be annotated"):
-                verifier.tag_commit(REPOSITORY, TAG)
+            self.assertEqual(verifier.tag_commit(REPOSITORY, TAG), SOURCE)
         with self.assertRaisesRegex(verifier.ReleaseError, "stable"):
             verifier.validate_release_metadata({}, {}, "v0.1.43-beta.1")
+
+    def replace_manifest(self, manifest):
+        data = json.dumps(manifest).encode()
+        (self.directory / "build-manifest.json").write_bytes(data)
+        asset = next(entry for entry in self.assets if entry["name"] == "build-manifest.json")
+        asset.update(size=len(data), digest="sha256:" + digest(data))
+
+    def test_current_manifest_remains_verifiable_without_actions_history(self):
+        manifest = {"schema_version": 2, "tag": TAG, "version": VERSION, "build": "39",
+                    "repository": REPOSITORY, "source_sha": SOURCE, "run_id": 123, "artifacts": {}}
+        for arch, old in self.manifest["manifests"].items():
+            name, record = next(iter(old["files"].items()))
+            manifest["artifacts"][arch] = {"name": name, **record}
+        self.replace_manifest(manifest)
+        with mock.patch.object(verifier, "github_json", side_effect=AssertionError("No CI history lookup")):
+            verified, _ = verifier.verify_public_files(self.directory, self.release, VERSION, TAG, SOURCE, REPOSITORY)
+        self.assertEqual(verified, manifest)
+        manifest["artifacts"]["arm64"]["sha256"] = "0" * 64
+        self.replace_manifest(manifest)
+        with self.assertRaisesRegex(verifier.ReleaseError, "DMG record mismatch"):
+            verifier.verify_public_files(self.directory, self.release, VERSION, TAG, SOURCE, REPOSITORY)
+
+    def test_unknown_manifest_schema_is_rejected(self):
+        self.manifest["schema_version"] = 99
+        self.replace_manifest(self.manifest)
+        with self.assertRaisesRegex(verifier.ReleaseError, "Unsupported"):
+            verifier.verify_public_files(self.directory, self.release, VERSION, TAG, SOURCE, REPOSITORY)
 
 
 if __name__ == "__main__":

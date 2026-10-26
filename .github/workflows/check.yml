@@ -1,0 +1,51 @@
+name: Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "Documentation/**"
+      - "Marketing/**"
+      - "LICENSE"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "Documentation/**"
+      - "Marketing/**"
+      - "LICENSE"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Core tests and production App (arm64)
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Select the supported SDK
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" -ge 26
+          test "$(uname -m)" = arm64
+      - name: Test release helpers
+        run: bash scripts/test-release-workflows.sh
+      - name: Core tests
+        run: bash scripts/test-core.sh
+      - name: Build production App
+        env:
+          HUD_BUILD_ARCHS: arm64
+        run: bash scripts/build-app.sh
+      - name: Verify App
+        run: bash scripts/verify-app.sh

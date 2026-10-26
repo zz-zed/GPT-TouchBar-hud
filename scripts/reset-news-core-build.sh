@@ -10,29 +10,26 @@ reset_news_core_build() {
     local library="$output_dir/libResetNewsCore.a"
     local module="$output_dir/ResetNewsCore.swiftmodule"
     local configuration="$output_dir/ResetNewsCore.build-configuration"
-    local expected_configuration="$sdk_path|$target"
-    local rebuild=0
-
+    local compiler module_cache expected_configuration
+    compiler="$(type -P swiftc)"
+    module_cache="$(swift_module_cache_path "$target" "$sdk_path")"
+    local flags=(-swift-version 5 -sdk "$sdk_path" -target "$target" -O -parse-as-library
+        -emit-module -emit-library -static -module-name ResetNewsCore -module-cache-path "$module_cache")
+    expected_configuration="$(python3 scripts/core_library_build_key.py --compiler "$compiler" \
+        --sdk "$sdk_path" --helper scripts/reset-news-core-build.sh --sources ResetNewsCore/*.swift \
+        -- "${flags[@]}")"
     mkdir -p "$output_dir"
-    [[ -f "$library" && -f "$module" && -f "$configuration" ]] || rebuild=1
-    if [[ "$rebuild" == 0 && "$(<"$configuration")" != "$expected_configuration" ]]; then
-        rebuild=1
-    fi
-    for source in ResetNewsCore/*.swift scripts/reset-news-core-build.sh; do
-        [[ "$source" -nt "$library" ]] && rebuild=1
-    done
-
-    if [[ "$rebuild" == 1 ]]; then
-        local module_cache
-        module_cache="$(swift_module_cache_path "$target" "$sdk_path")"
-        swiftc -swift-version 5 -sdk "$sdk_path" -target "$target" -O -parse-as-library \
-            -emit-module -emit-library -static -module-name ResetNewsCore \
-            -module-cache-path "$module_cache" ResetNewsCore/*.swift \
-            -emit-module-path "$module" -o "$library"
-        printf '%s\n' "$expected_configuration" > "$configuration"
-    else
+    if [[ -s "$library" && -s "$module" && -f "$configuration" ]] &&
+       [[ "$(<"$configuration")" == "$expected_configuration" ]]; then
         ci_time dependency-reuse ResetNewsCore true
+        echo "Reusing optimized ResetNewsCore ($target)" >&2
+        return
     fi
+    rm -f "$configuration"
+    swiftc "${flags[@]}" ResetNewsCore/*.swift \
+        -emit-module-path "$module" -o "$library" || return
+    [[ -s "$library" && -s "$module" ]] || return 1
+    printf '%s\n' "$expected_configuration" > "$configuration"
 }
 
 if [[ "${RESET_NEWS_CORE_BUILD_DEFERRED:-0}" != 1 ]]; then

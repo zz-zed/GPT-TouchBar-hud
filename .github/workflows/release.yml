@@ -1,14 +1,13 @@
-name: Publish verified macOS release
-run-name: Publish ${{ inputs.tag || github.ref_name }} from verified main artifacts
+name: Release
+run-name: Release ${{ inputs.tag || github.ref_name }}
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag to retry without rebuilding
+        description: Existing version tag to build or recover (run from main)
         required: true
         type: string
 
@@ -20,92 +19,139 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
-    name: Verify trusted same-commit build artifacts
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
+  build:
+    name: Build and verify (${{ matrix.arch }})
+    if: github.event.deleted != true
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 13
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
     outputs:
-      source_sha: ${{ steps.tag.outputs.source_sha }}
-      version: ${{ steps.tag.outputs.version }}
-      build: ${{ steps.tag.outputs.build }}
-      tag: ${{ steps.tag.outputs.tag }}
-      tools_sha: ${{ steps.tag.outputs.tools_sha }}
-      stage_artifact: ${{ steps.stage.outputs.name }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      version: ${{ steps.source.outputs.version }}
+      tag: ${{ steps.source.outputs.tag }}
     steps:
-      - name: Check out trusted main verification code
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Resolve tag to immutable main-ancestor commit
-        id: tag
+      - name: Resolve source and release version
+        id: source
         env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-          TAG_PUSH_DELETED: ${{ github.event.deleted }}
-        run: python3 scripts/release_artifacts.py resolve-tag --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
-
-      - name: Check out immutable tag source for version and notes only
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ steps.tag.outputs.source_sha }}
-          path: release-source
-          persist-credentials: false
-
-      - name: Download and verify one trusted build (no compile, no fallback)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
-          SOURCE_SHA: ${{ steps.tag.outputs.source_sha }}
+          RELEASE_TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
         run: |
-          python3 scripts/release_artifacts.py prepare-release \
-            --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA" \
-            --source release-source --output release-stage
-
-      - name: Bind verified files to the verification attempt
-        id: stage
-        run: echo "name=verified-release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
-
-      - name: Transfer verified files to the narrowly privileged publish job
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" != refs/heads/main ]]; then
+            echo 'Manual release recovery must run from main.' >&2
+            exit 1
+          fi
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch ]]; then
+            test "$SOURCE_SHA" = "$GITHUB_SHA"
+          fi
+          test -n "$RELEASE_TAG"
+          python3 scripts/release_metadata.py resolve --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$SOURCE_SHA"
+      - name: Select the supported native SDK
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" -ge 26
+          test "$(uname -m)" = "$EXPECTED_ARCH"
+      - name: Test release helpers
+        if: matrix.arch == 'arm64'
+        run: bash scripts/test-release-workflows.sh
+      - name: Core tests
+        if: matrix.arch == 'arm64'
+        run: bash scripts/test-core.sh
+      - name: Build production App once
+        env:
+          HUD_BUILD_ARCHS: ${{ matrix.arch }}
+        run: bash scripts/build-app.sh
+      - name: Native smoke tests
+        run: bash scripts/test-core.sh --smoke
+      - name: Package the built App
+        env:
+          HUD_PACKAGE_ARCH: ${{ matrix.arch }}
+        run: bash scripts/package-dmg.sh
+      - name: Record this run's artifact
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          VERSION: ${{ steps.source.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          python3 scripts/release_metadata.py create \
+            --source . --source-sha "$SOURCE_SHA" --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" --arch "$ARCH" \
+            --dmg "dist/GPT-TouchBar-HUD-$VERSION-$ARCH.dmg" \
+            --output build/release-payload
+      - name: Verify actual DMG and retained upgrade paths
+        env:
+          VERSION: ${{ steps.source.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          bash scripts/verify-package.sh --arch "$ARCH" \
+            --dmg "build/release-payload/GPT-TouchBar-HUD-$VERSION-$ARCH.dmg" \
+            --checksums build/release-payload/SHA256SUMS.txt \
+            --output "build/package-verification/$ARCH"
+      - name: Upload verified architecture payload
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.stage.outputs.name }}
-          path: release-stage
+          name: release-${{ steps.source.outputs.source_sha }}-${{ matrix.arch }}
+          path: build/release-payload
           if-no-files-found: error
-          retention-days: 1
+          overwrite: true
+          retention-days: 30
+      - name: Upload verification failure evidence
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: verification-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/package-verification/**/*.json
+            build/package-verification/**/*.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   publish:
-    name: Publish or safely resume matching draft
-    needs: verify
+    name: Assemble and publish
+    needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     permissions:
-      actions: read
       contents: write
     steps:
-      - name: Check out the same trusted verification code
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.verify.outputs.tools_sha }}
+          ref: ${{ needs.build.outputs.source_sha }}
+          fetch-depth: 0
           persist-credentials: false
-
-      # A failed-publish-only rerun retains the successful verify job's outputs.
-      - name: Download the verification job's files
+      - name: Download ARM payload from this run
         uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.verify.outputs.stage_artifact }}
-          path: release-stage
-
-      - name: Reverify provenance and publish without clobbering public releases
+          name: release-${{ needs.build.outputs.source_sha }}-arm64
+          path: downloads/arm64
+      - name: Download Intel payload from this run
+        uses: actions/download-artifact@v8
+        with:
+          name: release-${{ needs.build.outputs.source_sha }}-x86_64
+          path: downloads/x86_64
+      - name: Verify, assemble and publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
-          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
-          VERSION: ${{ needs.verify.outputs.version }}
-          BUILD_NUMBER: ${{ needs.verify.outputs.build }}
+          SOURCE_SHA: ${{ needs.build.outputs.source_sha }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
         run: |
-          python3 scripts/release_artifacts.py publish-release \
-            --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA" \
-            --version "$VERSION" --build "$BUILD_NUMBER" --directory release-stage
+          python3 scripts/publish-release.py \
+            --source . --source-sha "$SOURCE_SHA" --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" --artifacts downloads --output release-stage \
+            --tag "$RELEASE_TAG" --publish

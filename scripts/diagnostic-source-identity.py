@@ -6,7 +6,10 @@ from pathlib import Path
 import sys
 
 root = Path(__file__).resolve().parent.parent
-files = [root / 'Package.swift', root / 'scripts/build-app.sh', Path(__file__).resolve()]
+files = [root / 'Package.swift', Path(__file__).resolve()]
+files += [root / 'scripts' / name for name in
+          ('build-app.sh', 'hook-core-build.sh', 'reset-news-core-build.sh',
+           'core_library_build_key.py', 'swift-module-cache.sh')]
 for folder in ('Sources', 'HookCore', 'ResetNewsCore', 'HookHelper', 'Resources'):
     files += [p for p in (root / folder).rglob('*') if p.is_file() and not p.is_symlink()]
 entries = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(files))}

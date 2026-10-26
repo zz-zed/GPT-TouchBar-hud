@@ -21,7 +21,7 @@
 1. Fork 仓库，并从最新 `main` 创建分支。
 2. 使用范围清晰的分支名，例如 `fix/token-format`、`feat/menu-setting` 或 `docs/install-guide`。
 3. 只修改解决当前问题所需的文件，避免混入无关格式化或重构。
-4. 日常先运行改动直接相关的回归；提交 PR 前完成与改动风险相匹配的验证，完整跨模块回归由 CI 执行。
+4. 日常运行 `make check`；按改动补充 `make full` 或定向回归，涉及真实 UI/硬件的项目另行验证。
 5. 向本仓库的 `main` 分支提交 PR，并完整填写 PR 模板。
 
 对外产品名为 GPT HUD；为兼容旧版更新，本地构建和安装文件名仍为 `GPT TouchBar HUD.app`，可执行文件与内部标识也保持不变。
@@ -29,14 +29,14 @@
 本地构建：
 
 ```bash
-scripts/build-app.sh
+make check
 open "build/GPT TouchBar HUD.app"
 ```
 
 生成当前机器架构的 DMG：
 
 ```bash
-scripts/package-dmg.sh
+make package
 ```
 
 独立 `swiftc` 测试与本地打包复用 `.build/module-cache/` 中的缓存，并按 Swift 工具链、SDK 和编译目标隔离。测试可执行文件仍保留在各自的 `.build/*-tests/` 目录。检查缓存占用：
@@ -77,9 +77,9 @@ bash scripts/test-account-token-usage.sh --live
 bash scripts/test-touchbar.sh --smoke-system
 ```
 
-涉及应用、资源或构建脚本的 PR，GitHub Actions 会分别构建和校验 Apple Silicon 与 Intel 安装包。远端检查通过不能替代实体 Touch Bar 的目视验证。
+PR 和 main 代码变更执行 ARM 核心快测与生产 App 检查；正式 tag 在 Apple Silicon 和 Intel 上并行构建并验证实际 DMG、历史升级和回滚。远端检查通过不能替代实体 Touch Bar 的目视验证。
 
-发布采用“构建一次，验证后发布同一份产物”，PR 产物不可用于正式发布。维护者操作与失败恢复见[发布流程](Documentation/RELEASING.md)。
+发布在 tag 工作流内构建并验证同一份产物，不查找此前 main/PR 候选包。维护者操作与失败恢复见[发布流程](Documentation/RELEASING.md)。
 
 正式版本说明遵循[发布说明规范](Documentation/RELEASING.md#正式发布说明规范)，仅包含本次新增功能、优化和注意事项；不包含方案选择、讨论过程或内部验证结论。
 
