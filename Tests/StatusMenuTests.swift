@@ -322,6 +322,13 @@ struct StatusMenuTests {
     }
 
     static func checkWholeMenu() throws {
+        let anchor = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 400, height: 600),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        anchor.title = "Status menu regression fixture"
+        anchor.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        defer { anchor.orderOut(nil) }
         let now = ISO8601DateFormatter().date(from: "2026-10-26T04:00:00Z")!
         var state = RateLimitDisplayState.initial
         state.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: .init(usedPercent: 38, windowDurationMins: 300, resetsAt: now.addingTimeInterval(3600).timeIntervalSince1970))
@@ -426,7 +433,9 @@ struct StatusMenuTests {
                     menu.cancelTracking()
                 }
                 RunLoop.main.add(timer, forMode: .eventTracking)
-                menu.popUp(positioning: nil, at: NSPoint(x: 100, y: 700), in: nil)
+                logTracking("snapshot \(language) \(appearance.rawValue) begin")
+                menu.popUp(positioning: nil, at: NSPoint(x: 20, y: 550), in: anchor.contentView)
+                logTracking("snapshot \(language) \(appearance.rawValue) end")
                 timer.invalidate()
                 if let snapshotError { throw snapshotError }
                 check(captured, "The full direct-action native menu was captured")
@@ -444,7 +453,9 @@ struct StatusMenuTests {
                         characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)!, atStart: false)
                 }
                 RunLoop.main.add(timer, forMode: .eventTracking)
-                menu.popUp(positioning: native, at: NSPoint(x: 100, y: 700), in: nil)
+                logTracking("return \(language) \(native.action.map(NSStringFromSelector) ?? "nil") begin")
+                menu.popUp(positioning: native, at: NSPoint(x: 20, y: 550), in: anchor.contentView)
+                logTracking("return \(language) \(native.action.map(NSStringFromSelector) ?? "nil") end")
                 timer.invalidate(); RunLoop.main.run(until: Date().addingTimeInterval(0.1))
                 let correct = native === hud ? toggles == beforeToggles + 1 : fetcher.requests == beforeRequests + 1
                 check(selected === native && correct, "Return directly executes HUD or update action in real NSMenu tracking")
@@ -457,9 +468,27 @@ struct StatusMenuTests {
         NSApp.appearance = nil
     }
 
-    static func main() throws {
+    static func logTracking(_ phase: String) {
+        FileHandle.standardError.write(Data(("MENU TRACKING \(phase); running=\(NSApp.isRunning) active=\(NSApp.isActive)\n").utf8))
+    }
+
+    static func main() {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
+        // Native menus need the application's normal event loop, including on CI.
+        DispatchQueue.main.async {
+            do { try runChecks(); exit(0) }
+            catch {
+                FileHandle.standardError.write(Data(("Status menu tests failed: \(error)\n").utf8))
+                exit(1)
+            }
+        }
+        NSApp.run()
+        FileHandle.standardError.write(Data("Status menu application loop ended before checks completed\n".utf8))
+        exit(1)
+    }
+
+    static func runChecks() throws {
         let suite = "StatusMenuTests." + UUID().uuidString
         DisplayLanguage.defaults = UserDefaults(suiteName: suite)!
         defer { DisplayLanguage.defaults.removePersistentDomain(forName: suite) }

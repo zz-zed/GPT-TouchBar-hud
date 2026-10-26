@@ -13,4 +13,4 @@ SWIFT_MODULE_CACHE="$(swift_module_cache_path)"
 swiftc -whole-module-optimization "${HOOK_CORE_SWIFT_FLAGS[@]}" "${RESET_NEWS_CORE_SWIFT_FLAGS[@]}" \
     -module-cache-path "$SWIFT_MODULE_CACHE" \
     "${sources[@]}" Tests/StatusMenuTests.swift Tests/AppLifecycleCoordinatorChecks.swift -o .build/status-menu/StatusMenuTests
-.build/status-menu/StatusMenuTests
+python3 Tests/run_status_menu_tests.py .build/status-menu/StatusMenuTests
