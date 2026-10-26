@@ -50,6 +50,15 @@ struct ResetNewsListView: View {
                                     }.padding(.vertical, 8)
                                 }
                             }
+                            if state.forecastAvailability == .cached && !state.items.isEmpty {
+                                Text(context.text("尚未获取最新预告，当前显示已保存的安排", "Latest forecast unavailable; showing the saved schedule"))
+                                    .font(.system(size: 12)).foregroundColor(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let checked = state.forecastCheckedAt {
+                                    Text(context.text("上次成功获取 ", "Last successful fetch ") + context.date(checked))
+                                        .font(.system(size: 11)).foregroundColor(.secondary)
+                                }
+                            }
                             ForEach(state.items) { item in
                                 ResetNewsCard(item: item, unread: !state.readIDs.contains(item.id),
                                     compactForNotch: density == .notch,

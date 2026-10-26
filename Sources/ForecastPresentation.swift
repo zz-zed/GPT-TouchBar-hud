@@ -35,7 +35,7 @@ struct ForecastPresentation: Equatable {
             cached: state.forecastAvailability == .cached, language: context.language)
         help = Self.statusLabel(state.status, context: context)
             + (state.detail.map { " · " + ResetNewsDisplayText.hidingAddresses(in: $0) } ?? "")
-            + (state.forecastCheckedAt.map { "\n" + context.text("预告数据更新于 ", "Forecast checked ") + context.date($0) } ?? "")
+            + (state.forecastCheckedAt.map { "\n" + context.text("上次成功获取 ", "Last successful fetch ") + context.date($0) } ?? "")
         guard state.enabled else {
             kind = .hidden; headline = nil; value = context.text("预告已关闭", "Forecasts off")
             detail = context.text("可在设置中开启", "Enable in settings")
@@ -47,7 +47,7 @@ struct ForecastPresentation: Equatable {
             kind = state.forecastAvailability == .cached ? .cached : .announced
             value = schedule.summary
             detail = kind == .cached
-                ? context.text("上次预告 · ", "Cached · ") + (state.forecastCheckedAt.map { context.date($0) } ?? context.text("时间未知", "time unknown"))
+                ? context.text("尚未获取最新预告，当前显示已保存的安排", "Latest forecast unavailable; showing the saved schedule")
                 : schedule.confirmationNote ?? context.text("查看当前安排", "View forecast")
             compactValue = schedule.compactValue
             compactDetail = schedule.compactDetail
