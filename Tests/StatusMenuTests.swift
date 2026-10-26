@@ -7,6 +7,10 @@ private final class MenuTestFetcher: AppReleaseFetching {
     func fetchLatest(completion: @escaping (Result<AppRelease, AppUpdateFetchFailure>) -> Void) { requests += 1 }
 }
 
+private final class MenuFixtureView: NSView {
+    override var isFlipped: Bool { true }
+}
+
 @main
 struct StatusMenuTests {
     static var checks = 0
@@ -322,13 +326,6 @@ struct StatusMenuTests {
     }
 
     static func checkWholeMenu() throws {
-        let anchor = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 400, height: 600),
-            styleMask: [.titled], backing: .buffered, defer: false)
-        anchor.title = "Status menu regression fixture"
-        anchor.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
-        defer { anchor.orderOut(nil) }
         let now = ISO8601DateFormatter().date(from: "2026-10-26T04:00:00Z")!
         var state = RateLimitDisplayState.initial
         state.fiveHour = LimitMeter(title: "5h", shortTitle: "5h", window: .init(usedPercent: 38, windowDurationMins: 300, resetsAt: now.addingTimeInterval(3600).timeIntervalSince1970))
@@ -404,60 +401,74 @@ struct StatusMenuTests {
             menu.performActionForItem(at: menu.index(of: collapse))
             check(collapses == 1, "Native collapse action dispatches independently")
             configuration.notchExpanded = false; controller.updateMenuState()
+            // Render and mutate geometry outside AppKit's synchronous menu-tracking loop.
+            let fixture = MenuFixtureView(frame: NSRect(x: 0, y: 0, width: 344, height: 376))
+            let fixtureSummary = StatusSummaryView(state: state)
+            fixtureSummary.update(state, news: news, context: context)
+            fixture.addSubview(fixtureSummary)
+            for (index, item) in [hud, preferences, update].enumerated() {
+                let label = NSTextField(labelWithString: item.title)
+                label.font = .menuFont(ofSize: 13)
+                label.frame = NSRect(x: 14, y: 294 + index * 24, width: 316, height: 20)
+                fixture.addSubview(label)
+            }
+            let fixtureWindow = NSWindow(contentRect: fixture.bounds, styleMask: [.borderless], backing: .buffered, defer: false)
+            fixtureWindow.contentView = fixture
+            defer { fixtureWindow.orderOut(nil) }
             for appearance in [NSAppearance.Name.aqua, .darkAqua] {
                 NSApp.appearance = NSAppearance(named: appearance)
-                var snapshotError: Error?
-                var captured = false
-                let timer = Timer(timeInterval: 0.25, repeats: false) { _ in
-                    if let content = summary.window?.contentView {
-                        let tokenFields = descendants(summary).compactMap { $0 as? MenuTokenUsageField }
-                        check(tokenFields.count == 2 && summary.toolTip == nil, "Only the two Token labels own bounded usage tooltips")
-                        for field in tokenFields {
-                            let inside = field.convert(NSPoint(x: field.bounds.midX, y: field.bounds.midY), to: nil)
-                            check(field.toolTip == nil && field.tooltipText(atWindowPoint: inside)?.contains("Token") == true,
-                                "Token information remains available inside its actual label")
-                            // These points sit below the summary in the native HUD/preferences/update rows.
-                            for y: CGFloat in [300, 324, 348] {
-                                let outside = summary.convert(NSPoint(x: field.frame.midX, y: y), to: nil)
-                                check(field.tooltipText(atWindowPoint: outside) == nil, "Token tooltip rejects each native action row")
-                            }
-                            let oldPoint = inside
-                            let originalFrame = field.frame
-                            field.frame.origin.y -= 40; field.refreshTooltipRegion()
-                            check(field.tooltipText(atWindowPoint: oldPoint) == nil, "Moved labels reject callbacks at their previous rect")
-                            field.frame = originalFrame; field.refreshTooltipRegion()
-                        }
-                        do { try snapshot(content, name: "v8-direct-full-\(language)-\(appearance.rawValue)"); captured = true }
-                        catch { snapshotError = error }
+                let tokenFields = descendants(fixtureSummary).compactMap { $0 as? MenuTokenUsageField }
+                check(tokenFields.count == 2 && fixtureSummary.toolTip == nil, "Only the two Token labels own bounded usage tooltips")
+                for field in tokenFields {
+                    let inside = field.convert(NSPoint(x: field.bounds.midX, y: field.bounds.midY), to: nil)
+                    check(field.toolTip == nil && field.tooltipText(atWindowPoint: inside)?.contains("Token") == true,
+                        "Token information remains available inside its actual label")
+                    for y: CGFloat in [300, 324, 348] {
+                        let outside = fixtureSummary.convert(NSPoint(x: field.frame.midX, y: y), to: nil)
+                        check(field.tooltipText(atWindowPoint: outside) == nil, "Token tooltip rejects each native action row")
                     }
-                    menu.cancelTracking()
+                    let oldPoint = inside
+                    let originalFrame = field.frame
+                    field.frame.origin.y -= 40; field.refreshTooltipRegion()
+                    check(field.tooltipText(atWindowPoint: oldPoint) == nil, "Moved labels reject callbacks at their previous rect")
+                    field.frame = originalFrame; field.refreshTooltipRegion()
                 }
-                RunLoop.main.add(timer, forMode: .eventTracking)
-                logTracking("snapshot \(language) \(appearance.rawValue) begin")
-                menu.popUp(positioning: nil, at: NSPoint(x: 20, y: 550), in: anchor.contentView)
-                logTracking("snapshot \(language) \(appearance.rawValue) end")
-                timer.invalidate()
-                if let snapshotError { throw snapshotError }
-                check(captured, "The full direct-action native menu was captured")
+                try snapshot(fixture, name: "v8-direct-fixture-\(language)-\(appearance.rawValue)")
+                check(fixture.window === fixtureWindow, "The complete isolated menu fixture was captured in its window")
             }
-            for native in [hud, update] {
+            for selector in ["toggleHUDWindow:", "performCompactAppUpdate"] {
+                let directController = StatusMenuController(touchBarHardware: .absent, appUpdater: updater)
+                defer { directController.stop(); NSStatusBar.system.removeStatusItem(directController.statusItem) }
+                directController.configurationProvider = { configuration }
+                directController.onToggleHUD = { toggles += 1 }
+                directController.update(AppDisplaySnapshot(state: state, news: news, context: context))
+                directController.configureStatusItem()
+                let directMenu = directController.statusItem.menu!
+                let native = directMenu.items.first { $0.action == NSSelectorFromString(selector) }!
+                let anchor = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 400, height: 600),
+                    styleMask: [.titled], backing: .buffered, defer: false)
+                anchor.title = "Status menu keyboard fixture"
+                anchor.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+                defer { anchor.orderOut(nil) }
                 var step = 0
                 var selected: NSMenuItem?
                 let beforeToggles = toggles, beforeRequests = fetcher.requests
                 let timer = Timer(timeInterval: 0.3, repeats: true) { timer in
                     step += 1
-                    guard step == 1 else { menu.cancelTracking(); timer.invalidate(); return }
-                    selected = menu.highlightedItem
+                    guard step == 1 else { directMenu.cancelTracking(); timer.invalidate(); return }
+                    selected = directMenu.highlightedItem
                     NSApp.postEvent(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
                         timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0, context: nil,
                         characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)!, atStart: false)
                 }
                 RunLoop.main.add(timer, forMode: .eventTracking)
                 logTracking("return \(language) \(native.action.map(NSStringFromSelector) ?? "nil") begin")
-                menu.popUp(positioning: native, at: NSPoint(x: 20, y: 550), in: anchor.contentView)
+                directMenu.popUp(positioning: native, at: NSPoint(x: 20, y: 550), in: anchor.contentView)
                 logTracking("return \(language) \(native.action.map(NSStringFromSelector) ?? "nil") end")
                 timer.invalidate(); RunLoop.main.run(until: Date().addingTimeInterval(0.1))
-                let correct = native === hud ? toggles == beforeToggles + 1 : fetcher.requests == beforeRequests + 1
+                let correct = selector == "toggleHUDWindow:" ? toggles == beforeToggles + 1 : fetcher.requests == beforeRequests + 1
                 check(selected === native && correct, "Return directly executes HUD or update action in real NSMenu tracking")
                 FileHandle.standardError.write(Data(("DIRECT RETURN \(language) \(native.action.map(NSStringFromSelector) ?? "nil"): passed\n").utf8))
             }
