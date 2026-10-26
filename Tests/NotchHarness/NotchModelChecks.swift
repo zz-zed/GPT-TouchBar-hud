@@ -1,3 +1,6 @@
+#if HUD_SHARED_CORE_TESTS
+@testable import HUDCoreTestSupport
+#endif
 import AppKit
 import Combine
 import HookCore

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$ROOT/build/GPT TouchBar HUD.app"
+APP="${HUD_APP_DIR:-$ROOT/build/GPT TouchBar HUD.app}"
 [[ -d "$APP" ]] || { echo 'Run scripts/build-app.sh first' >&2; exit 1; }
 TEST_DIR="$(mktemp -d /tmp/gpt-hud-first-open.XXXXXX)"
 trap 'rm -rf "$TEST_DIR"' EXIT
