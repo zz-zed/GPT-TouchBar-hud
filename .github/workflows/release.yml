@@ -4,8 +4,6 @@ run-name: Release ${{ inputs.tag || github.ref_name }}
 on:
   push:
     tags: ["v*"]
-    # Run the complete migration on real runners before merging; no publication.
-    branches: [ci/simplify-check-release]
   workflow_dispatch:
     inputs:
       tag:
@@ -57,14 +55,9 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch ]]; then
             test "$SOURCE_SHA" = "$GITHUB_SHA"
           fi
-          if [[ -n "$RELEASE_TAG" ]]; then
-            python3 scripts/release_metadata.py resolve --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
-            test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$SOURCE_SHA"
-          else
-            echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
-            echo "version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)" >> "$GITHUB_OUTPUT"
-            echo 'tag=' >> "$GITHUB_OUTPUT"
-          fi
+          test -n "$RELEASE_TAG"
+          python3 scripts/release_metadata.py resolve --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$SOURCE_SHA"
       - name: Select the supported native SDK
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
@@ -152,26 +145,13 @@ jobs:
         with:
           name: release-${{ needs.build.outputs.source_sha }}-x86_64
           path: downloads/x86_64
-      - name: Verify, assemble and optionally publish
+      - name: Verify, assemble and publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SOURCE_SHA: ${{ needs.build.outputs.source_sha }}
           RELEASE_TAG: ${{ needs.build.outputs.tag }}
         run: |
-          args=(--source . --source-sha "$SOURCE_SHA" --repository "$GITHUB_REPOSITORY"
-                --run-id "$GITHUB_RUN_ID" --artifacts downloads --output release-stage)
-          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/tags/v* ]] ||
-             [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]]; then
-            test -n "$RELEASE_TAG"
-            args+=(--tag "$RELEASE_TAG" --publish)
-          fi
-          python3 scripts/publish-release.py "${args[@]}"
-      - name: Keep migration validation output
-        if: github.event_name == 'push' && github.ref == 'refs/heads/ci/simplify-check-release'
-        uses: actions/upload-artifact@v7
-        with:
-          name: validated-release-${{ needs.build.outputs.source_sha }}
-          path: release-stage
-          if-no-files-found: error
-          overwrite: true
-          retention-days: 7
+          python3 scripts/publish-release.py \
+            --source . --source-sha "$SOURCE_SHA" --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" --artifacts downloads --output release-stage \
+            --tag "$RELEASE_TAG" --publish
