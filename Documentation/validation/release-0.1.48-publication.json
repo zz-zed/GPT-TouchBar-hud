@@ -1,0 +1,204 @@
+{
+  "tag": "v0.1.48",
+  "version": "0.1.48",
+  "build": "51",
+  "sourceCommit": "a4f8da3320f639033c73b32d790a811c6936ba0a",
+  "releaseURL": "https://github.com/zz-zed/GPT-TouchBar-hud/releases/tag/v0.1.48",
+  "publishedAt": "2026-10-26T10:36:28Z",
+  "verifiedAtUTC": "2026-10-26T10:37:39.865017+00:00",
+  "latestVerified": true,
+  "releaseNotesMatch": true,
+  "mainCI": {
+    "id": 40305486108,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/40305486108",
+    "conclusion": "success"
+  },
+  "assets": [
+    {
+      "name": "build-manifest.json",
+      "bytes": 4010,
+      "sha256": "77be647f00384987454d5a2d476660b39c78616529b4c75738cc685861c8a504"
+    },
+    {
+      "name": "GPT-TouchBar-HUD-0.1.48-arm64.dmg",
+      "bytes": 4974902,
+      "sha256": "3e8306eb4609ee90854cab6a480bc40293659af123075ef7900a7e1eb04800b0"
+    },
+    {
+      "name": "GPT-TouchBar-HUD-0.1.48-x86_64.dmg",
+      "bytes": 5161105,
+      "sha256": "b91e24071842e77b31821bcb8df38b279eac08eb2305d6cce8e628c78fe6d5af"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 201,
+      "sha256": "e731eb7c9861ca1ffc67746ff67e52d4616483d1fa60317b86b18a56aeb77d41"
+    }
+  ],
+  "dmgChecks": [
+    {
+      "architecture": "arm64",
+      "cdhash": "88436e7eac24fd407fc22171d3a0d8115fb9d7de",
+      "readOnlyMount": true,
+      "minimumSystem": "11.0",
+      "appFileName": "GPT TouchBar HUD.app",
+      "bundleName": "GPT HUD",
+      "displayName": "GPT HUD",
+      "bundleIdentifier": "io.github.zz-zed.GPTTouchBarHUD",
+      "executable": "GPTTouchBarHUD",
+      "version": "0.1.48",
+      "build": "51"
+    },
+    {
+      "architecture": "x86_64",
+      "cdhash": "2e64c6e4159cb5ff93da1add9d9f567cfc9746f3",
+      "readOnlyMount": true,
+      "minimumSystem": "11.0",
+      "appFileName": "GPT TouchBar HUD.app",
+      "bundleName": "GPT HUD",
+      "displayName": "GPT HUD",
+      "bundleIdentifier": "io.github.zz-zed.GPTTouchBarHUD",
+      "executable": "GPTTouchBarHUD",
+      "version": "0.1.48",
+      "build": "51"
+    }
+  ],
+  "installedAppModifiedDuringVerification": false,
+  "mainCIEvidence": {
+    "sourceCommit": "a4f8da3320f639033c73b32d790a811c6936ba0a",
+    "runID": 40305486108,
+    "attempt": 1,
+    "event": "push",
+    "branch": "main",
+    "conclusion": "success",
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/40305486108",
+    "jobs": [
+      {
+        "id": 121513426774,
+        "name": "Validate source revision",
+        "run_attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-26T10:11:49Z",
+        "completed_at": "2026-10-26T10:11:59Z"
+      },
+      {
+        "id": 121513518194,
+        "name": "Regression (arm64, interface)",
+        "run_attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-26T10:12:02Z",
+        "completed_at": "2026-10-26T10:18:06Z"
+      },
+      {
+        "id": 121513518221,
+        "name": "Build DMG (x86_64)",
+        "run_attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-26T10:12:02Z",
+        "completed_at": "2026-10-26T10:21:00Z"
+      },
+      {
+        "id": 121513518282,
+        "name": "Regression (x86_64, data)",
+        "run_attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-26T10:12:02Z",
+        "completed_at": "2026-10-26T10:28:21Z"
+      },
+      {
+        "id": 121513518393,
+        "name": "Regression (x86_64, interface)",
+        "run_attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-26T10:17:08Z",
+        "completed_at": "2026-10-26T10:28:31Z"
+      },
+      {
+        "id": 121513518429,
+        "name": "Regression (arm64, data)",
+        "run_attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-26T10:12:02Z",
+        "completed_at": "2026-10-26T10:23:18Z"
+      },
+      {
+        "id": 121513518460,
+        "name": "Build DMG (arm64)",
+        "run_attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-26T10:12:02Z",
+        "completed_at": "2026-10-26T10:17:05Z"
+      },
+      {
+        "id": 121520779272,
+        "name": "CI Gate",
+        "run_attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-26T10:28:34Z",
+        "completed_at": "2026-10-26T10:28:38Z"
+      }
+    ],
+    "artifacts": [
+      {
+        "id": 12643335353,
+        "name": "release-a4f8da3320f639033c73b32d790a811c6936ba0a-arm64-40305486108-1",
+        "expired": false,
+        "size_in_bytes": 4935631
+      },
+      {
+        "id": 12643266204,
+        "name": "release-a4f8da3320f639033c73b32d790a811c6936ba0a-x86_64-40305486108-1",
+        "expired": false,
+        "size_in_bytes": 5142219
+      }
+    ]
+  },
+  "publicationWorkflow": {
+    "id": 40308653690,
+    "attempt": 1,
+    "url": "https://github.com/zz-zed/GPT-TouchBar-hud/actions/runs/40308653690",
+    "conclusion": "success",
+    "sourceCommit": "a4f8da3320f639033c73b32d790a811c6936ba0a"
+  },
+  "menuValidation": {
+    "checksPerArchitecture": 863,
+    "architectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "realReturnCases": [
+      "Chinese HUD",
+      "Chinese update",
+      "English HUD",
+      "English update"
+    ],
+    "tooltipAndLayoutContext": "isolated NSWindow containing the real StatusSummaryView and synthetic action-row labels",
+    "physicalPointerHoverVerified": false
+  },
+  "earlierUnpublishableRuns": [
+    {
+      "id": 40299126034,
+      "attempt": 1,
+      "sourceCommit": "201f5a70c026aedcf0edc06c24a2414b5b9633d5",
+      "result": "cancelled; CI Gate failed",
+      "evidence": "StatusMenuTests compiled successfully, then remained executing until cancellation; no independent deadline."
+    },
+    {
+      "id": 40303632350,
+      "attempt": 1,
+      "sourceCommit": "8d11e31a1689ba70d5bef94f31f642aa3a35982b",
+      "result": "interface jobs failed with watchdog exit 124; remaining jobs cancelled; CI Gate failed",
+      "evidence": "Both architectures completed Aqua tracking, began DarkAqua snapshot tracking, then reached the independent 60-second deadline."
+    }
+  ],
+  "installedAppModifiedDuringReleaseTask": false,
+  "localInstallationRecordsAndBackupsPublished": false
+}
