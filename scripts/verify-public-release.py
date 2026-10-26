@@ -16,14 +16,16 @@ import re
 import subprocess
 import tempfile
 
-from release_artifacts import (ARCHES, WORKFLOW_PATH, ReleaseError, annotated_tag_commit,
-                               require, sha, validate_tag)
+from release_metadata import (ARCHES, ReleaseError, require, sha, tag_reference_commit,
+                              validate_tag)
 
 
 REPOSITORY = "zz-zed/GPT-TouchBar-hud"
 APP_NAME = "GPT TouchBar HUD.app"
 BUNDLE_ID = "io.github.zz-zed.GPTTouchBarHUD"
 EXPECTED_MIN_OS = "11.0"
+# Read-only compatibility for releases already published with the old manifest.
+WORKFLOW_PATH = ".github/workflows/build-dmg.yml"
 
 
 def command(*args):
@@ -46,7 +48,7 @@ def file_record(path):
 
 def tag_commit(repository, tag):
     ref = github_json(repository, f"git/ref/tags/{tag}")
-    return annotated_tag_commit(ref, lambda object_sha: github_json(repository, f"git/tags/{object_sha}"))
+    return tag_reference_commit(ref, lambda object_sha: github_json(repository, f"git/tags/{object_sha}"))
 
 
 def validate_release_metadata(release, latest, tag, allow_not_latest=False):
@@ -89,6 +91,22 @@ def verify_public_files(directory, release, version, tag, source_sha, repository
     require(manifest.get("source_sha") == source_sha, "Public manifest source commit mismatch")
     build = manifest.get("build")
     require(isinstance(build, str) and build.isdecimal(), "Public manifest build number is invalid")
+    if manifest.get("schema_version") == 2:
+        require(manifest.get("repository") == repository, "Public manifest repository mismatch")
+        require(isinstance(manifest.get("run_id"), int) and manifest["run_id"] > 0,
+                "Public manifest build run is invalid")
+        require(set(manifest.get("artifacts", {})) == set(ARCHES), "Public manifest architectures mismatch")
+        expected_sums = []
+        for arch in ARCHES:
+            name = f"GPT-TouchBar-HUD-{version}-{arch}.dmg"
+            record = records[name]
+            require(manifest["artifacts"][arch] == {"name": name, "sha256": record["sha256"], "size": record["bytes"]},
+                    f"Public manifest DMG record mismatch: {arch}")
+            expected_sums.append(f"{record['sha256']}  {name}\n")
+        require((directory / "SHA256SUMS.txt").read_text(encoding="utf-8") == "".join(expected_sums),
+                "Combined public checksums mismatch")
+        return manifest, records
+    require(manifest.get("schema_version") in (None, 1), "Unsupported public manifest schema")
     selection = manifest.get("selection", {})
     require(selection.get("repository") == repository and selection.get("source_sha") == source_sha,
             "Public manifest selection source mismatch")
@@ -118,16 +136,6 @@ def verify_public_files(directory, release, version, tag, source_sha, repository
     require((directory / "SHA256SUMS.txt").read_text(encoding="utf-8") == "".join(expected_sums),
             "Combined public checksums mismatch")
     return manifest, records
-
-
-def verify_build_run(repository, selection):
-    run = github_json(repository, f"actions/runs/{selection['run_id']}/attempts/{selection['run_attempt']}")
-    require(run.get("run_attempt") == selection["run_attempt"]
-            and run.get("status") == "completed" and run.get("conclusion") == "success"
-            and run.get("head_branch") == "main" and run.get("event") == selection["event"]
-            and run.get("head_sha") == selection["workflow_sha"],
-            "Selected main build is not a successful matching run")
-    return run.get("html_url")
 
 
 def verify_dmg(path, arch, version, build, product_name=None):
@@ -214,7 +222,9 @@ def main():
         output.mkdir(parents=True, exist_ok=True)
         command("gh", "release", "download", args.tag, "--repo", args.repo, "--dir", str(output))
     manifest, records = verify_public_files(output, release, version, args.tag, source_sha, args.repo)
-    run_url = verify_build_run(args.repo, manifest["selection"])
+    # Published bytes and their manifest remain verifiable after CI history expires.
+    run_id = manifest.get("run_id", manifest.get("selection", {}).get("run_id"))
+    run_url = f"https://github.com/{args.repo}/actions/runs/{run_id}"
     checks = [verify_dmg(output / f"GPT-TouchBar-HUD-{version}-{arch}.dmg", arch, version,
                          manifest["build"]) for arch in ARCHES]
     report = {
@@ -222,7 +232,7 @@ def main():
         "sourceCommit": source_sha, "releaseURL": release.get("html_url"),
         "publishedAt": release["published_at"], "verifiedAtUTC": datetime.now(timezone.utc).isoformat(),
         "latestVerified": is_latest, "releaseNotesMatch": notes_match,
-        "mainCI": {"id": manifest["selection"]["run_id"], "url": run_url, "conclusion": "success"},
+        "buildRun": {"id": run_id, "url": run_url, "manifestVerified": True},
         "assets": [records[entry["name"]] for entry in release["assets"]],
         "dmgChecks": checks, "installedAppModifiedDuringVerification": False,
     }
