@@ -1,22 +1,26 @@
 # 构建与正式发布
 
-后续版本采用“构建一次，验证通过后发布同一份产物”。构建与发布在 GitHub Actions 云端完成，正式发布不重新编译，也不需要将安装包下载到维护者电脑中转。v0.1.32 已发布资产及标签不受本次工作流调整影响。
+日常检查一个 ARM job；正式 tag 在 ARM、Intel 上并行构建并验证，再直接发布本次运行的产物。无需提前生成或查找 main 候选包。
 
-## 日常构建
+## 日常检查
 
-`build-dmg.yml` 负责测试以及 Apple Silicon、Intel 两架构打包。相关 main 推送和 PR 会触发完整门禁；数据与策略回归、界面回归和两架构打包作为独立作业并行执行，整个工作流成功后产物才可发布。PR 产物仅供验证，不能作为正式发布来源。
+PR 和 main 代码变更运行 `check.yml`：核心快测、生产 App 与 Helper 编译、签名、架构、版本和最低系统目标检查。正常目标 4～6 分钟。纯文档处理见 [CI 说明](CI-AND-RELEASE.md)。
 
-每份可发布产物保存 DMG、`SHA256SUMS.txt` 与 `manifest.json`，将实际源码提交 SHA、工作流 SHA、版本、Build、架构、构建 run ID 和 attempt 关联起来。安装包生成并通过检查后上传，保留 30 天，发布时复用这些原始字节。仅修改 `Documentation/` 等非构建输入的 main 推送只执行轻量来源检查；版本元数据、`RELEASE_NOTES.md`、源码、测试、资源、脚本或工作流变更仍执行完整门禁。变更范围无法确定时也执行完整门禁。纯文档提交没有可发布产物，不得将标签指向该提交；版本文件与说明须和功能代码一起进入待发布提交。
+本地使用 `make check`；打包使用 `make package`；已有 DMG 使用 `make verify`；专项完整回归使用 `make full`。构建、打包与验包职责分开，打包及验包不会再次编译生产 App。
 
-## 发布前检查
+## 正式发布
 
-1. 将版本号、功能与版本说明放在同一待发布提交中，合入 main 并等待两架构构建全部通过。
-2. 固定该提交的完整 SHA；发布标签必须指向这个提交，不能因为 main 后续变化而改用新提交。
-3. 获得正式发布授权后推送版本标签。`release.yml` 只选择该标签提交对应的可信成功构建，下载并校验原产物，然后创建 GitHub Release。
+1. 将版本、功能代码与用户发布说明合入 main。版本以 Resources/Info.plist 为准，说明来自该提交的 RELEASE_NOTES.md。
+2. 固定待发布提交的完整 SHA，创建稳定版本 tag：`vMAJOR.MINOR.PATCH`。建议沿用附注 tag；轻量 tag 也可接受，嵌套 tag 和预发布版本不进入稳定发布链。
+3. 在获得该版本发布授权后推送 tag。Release 工作流立即构建并验证这个提交的两个架构，不依赖另一条工作流的候选包。
+4. 两个架构通过后，Ubuntu job 校验同一源码与摘要、上传草稿附件，完整后自动公开。
+5. 首次迁移后的实际公开发布记录完整关键路径耗时；日后按需运行独立公开验包。
 
-开发阶段先运行与改动直接相关的本地测试；完整双架构回归由 CI 承担。合并前检查待发布提交只包含本版范围，不混入未完成的工作区改动。CI 失败时先定位失败作业；修复后以新的 main 提交重新执行完整门禁。
+发布目标 10～12 分钟，完整成功执行上限 15 分钟；所有 runner 排队时间排除。按 `max(ARM, Intel) + publish` 计算，包含产物传输及实际公开。预算达标必须由真实运行证明，超时退出不算成功。
 
-发布说明从标签对应提交的 `RELEASE_NOTES.md` 读取。说明只面向用户，包含新增功能、优化与注意事项；测试日志、故障诊断及实现讨论保留在验证记录中。
+tag 必须指向 main 历史中的提交，版本与 Info.plist 一致，首次解析及公开前确认 tag 未移动。源码固定到 SHA，不在执行中跟随 main 前进。
+
+两个原生 job 保留实际 DMG、架构、签名、最低系统目标、v0.1.22 早期更新契约和 v0.1.38 代表性安装替换/回滚验证。应用文件名、Bundle ID、DMG 命名与 SHA256SUMS.txt 协议继续兼容旧更新器。
 
 ## 正式发布说明规范
 
@@ -39,7 +43,7 @@
 写作要求：
 
 - 只写本版本实际交付、用户可感知的内容，每条直接说明功能或变化，简洁表达。
-- Release 名称填写 `GPT HUD v版本号`；正文从二级栏目开始，不重复名称。发布校验拒绝正文中的一级标题。
+- Release 名称填写 `GPT HUD v版本号`；正文从二级栏目开始，不重复名称。
 - 修复归入“优化”；必要的风险、限制及升级操作归入“注意事项”，不得为精简说明而隐去影响使用的信息。
 - 不写迭代方案名称或编号、方案对比与选择、讨论与决策过程、评审结论、实现推导或调试经过。
 - 不写测试项数、CI 运行结果、重试过程、提交 SHA、本地路径、构建进度或“已验收”等内部结论。
@@ -51,48 +55,49 @@
 
 已发布版本如需修正文案，须获得明确授权，仅编辑 Release 正文并同步本地说明；不移动标签、不替换安装包，也不重新运行发布来覆盖公开版本。这类授权后的文案更正可以与标签提交中的原始说明不同。
 
-## 强制校验
+## 来源与产物
 
-- 构建来自当前仓库的指定构建工作流和可信 main 上下文；拒绝 PR、其他分支及其他仓库的构建。
-- 两架构实际源码 SHA 与标签提交完全一致，版本与标签一致，不能将不同 run、attempt 或提交的包拼在一起。
-- 两个架构都成功，DMG、校验和及清单齐全，产物未过期；文件名、清单字段与内容哈希全部匹配。
-- 选择对应构建后，任何缺失、过期或校验失败都停止，不尝试用较旧或不同提交的产物替代。
-- 已公开版本不覆盖；草稿也不能静默替换不匹配的资产。
+每个架构 artifact 只包含 DMG、SHA256SUMS.txt、manifest.json 三个根文件。元数据记录 schema_version、仓库、源码 SHA、版本、Build、架构、run ID 及文件大小/摘要；不记录 attempt，也不读取历史工作流资格。
 
-## 失败处理
+发布只接受本工作流本次运行、相同源码和版本的两个架构，不拼接其他运行、提交或仓库的包。正式附件是两个 DMG、合并的 SHA256SUMS.txt 和 build-manifest.json。
 
-构建测试失败、编译或打包失败，需要先阅读对应日志。真实代码问题应修复并重新构建，不得通过跳过验证或复用别的包掩盖。
+原生构建只有 contents 读权限，publish 才有 contents 写权限；checkout 不保留凭据。使用 GITHUB_TOKEN，不增加个人 PAT。发布脚本默认只整理文件；必须显式 `--publish`，并满足版本 tag push 或 main 手动恢复上下文，才允许远程写入。
 
-找不到匹配构建、产物过期或不完整时，重新构建标签对应的原始提交，再重试发布。恢复入口必须验证源码属于 main 历史，不能接受任意外部分支代码。
+## 失败恢复
 
-在 GitHub Actions 的 **Build macOS DMG → Run workflow** 中选择 `main`，将 `source_sha` 填为标签对应的完整 40 位提交 SHA。等双架构成功后，在 **Publish verified macOS release → Run workflow** 中选择 `main`，将 `tag` 填为已有版本标签。等价 CLI 操作为：
+优先使用 GitHub Actions 的 **Re-run failed jobs**。一个架构成功、另一个失败时，沿用同一源码的成功 artifact；只有发布失败时，只恢复发布 job。固定 artifact 名称不含 attempt，重跑对应架构可以替换中间 artifact，不能替换已公开附件。
+
+artifact 保留 30 天。如果成功产物过期或缺失，需要重建相应架构；完整恢复可从 Release 手动入口选择 main，填写已有 tag：
 
 ```bash
-gh workflow run build-dmg.yml --ref main -f source_sha=完整40位提交SHA
-# 等该次构建的两架构全部通过后，再执行：
 gh workflow run release.yml --ref main -f tag=v版本号
 ```
 
-这些命令会触发远端构建或正式发布，只在相应授权下执行。恢复入口使用 main 上的校验工具，但产品构建源码仍固定为指定 SHA；清单分别记录两者。
+手动入口适用于包含本次迁移代码的 tag。旧的已公开版本不需要重建；历史公开附件继续支持独立验包。
 
-若使用 GitHub 的重跑功能，选择 **Re-run all jobs**，不要只重跑失败架构：产物名称包含 attempt，只重跑部分任务会因两架构轮次不一致而被拒绝。发布任务失败也建议使用上面的 `release.yml` 手动入口或完整重跑，让只读验证和发布阶段使用同一轮校验结果。
+草稿中摘要一致的文件跳过，缺失补传，冲突停止。若重新构建导致 DMG 字节变化，先核查并明确重置未公开草稿再恢复，不能混合新旧附件。正式发布请求成功但响应丢失时，再次运行会核对公开附件，相同即可确认完成。
 
-上传、权限、网络或 Release 创建失败属于发布阶段故障；修复对应问题后重试发布，不必重新编译仍然有效且完整的同一份产物。公开版本已有资产发生冲突时停止并人工核查，不改写已发布版本。
+公开资产冲突时拒绝覆盖。Latest 使用 GitHub `make_latest: legacy`，补发旧版本不强制抢占 Latest。
 
-发布工作流先以只读权限选择并校验云端产物，再将验证结果交给最小写权限的发布 job。后者重新校验来源、哈希、标签和说明，先上传草稿，确认附件齐全后公开并设为 Latest。正式附件包括两个 DMG、合并校验文件及 `build-manifest.json`；中间验证产物保留 1 天。
+## 独立公开验包
 
-公开后，从 Release 重新下载四份附件并独立复核来源、大小、SHA-256、只读挂载、版本、架构、最低系统标记、严格签名和首次打开助手的 CDHash 绑定：
+在 macOS 下载四份公开附件并验证摘要、版本、架构、最低系统目标、签名与首次打开助手绑定：
 
 ```bash
 python3 scripts/verify-public-release.py v版本号
 ```
 
-命令将下载文件与机器可读结果写入 `build/release-evidence/public-v版本号/`。它只读取公开 Release，不替换或启动已安装应用；真实 macOS 11、实体 Touch Bar / 刘海及安装升级仍需另行验收并记录。
-
-v0.1.32 及更早构建没有新格式清单，不会被直接复用。已公开版本不重新发布；后续未公开标签若需恢复，必须先用新构建入口生成匹配清单。
+结果保存在 build/release-evidence 下。历史版本可用 `--allow-not-latest`。工具兼容此前公开清单和当前精简清单，不依赖已过期的 Actions artifact；它不修改或启动已安装 App。
 
 ## 验证边界
 
-本地离线测试可以验证筛选、哈希、版本、失败保护和工作流结构，不能替代 GitHub Actions 的权限与产物下载集成检查。远端执行及新版本发布需明确授权；修改工作流本身不会重新发布旧标签。
+本地 Python 测试覆盖版本、来源、文件集合、摘要、草稿恢复和拒绝覆盖等规则：
 
-本地运行 `bash scripts/test-release-workflows.sh`；可用 `actionlint .github/workflows/build-dmg.yml .github/workflows/release.yml` 检查工作流结构。API 字段与恢复约束参考 GitHub 官方的[工作流运行 API](https://docs.github.com/en/rest/actions/workflow-runs)、[产物 API](https://docs.github.com/en/rest/actions/artifacts)及[重跑说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)。
+```bash
+bash scripts/test-release-workflows.sh
+actionlint .github/workflows/check.yml .github/workflows/release.yml
+```
+
+Linux 检查不能证明 macOS 构建、DMG 或安装器成功，必须取得两个原生 runner 的结果。分支迁移验证只准备产物，不公开 Release；公开写权限、上传和最终发布行为仍以正式运行结果为准。实际 macOS 11、真实 App 启动、实体 Touch Bar/刘海、多屏及休眠仍需相应设备验证。
+
+参考：[工作流重跑](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)、[发布 API](https://docs.github.com/en/rest/releases/releases)。

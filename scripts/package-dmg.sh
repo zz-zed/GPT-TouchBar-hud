@@ -23,7 +23,7 @@ DMG_PATH="$DIST_DIR/$DMG_NAME"
 cd "$ROOT_DIR"
 
 # Packaging consumes this exact existing app. It never invokes a compiler.
-HUD_APP_DIR="$APP_DIR" HUD_BUILD_ARCHS="$EXPECTED_ARCHES" bash "$ROOT_DIR/scripts/verify-app.sh"
+HUD_APP_DIR="$APP_DIR" HUD_BUILD_ARCHS="$EXPECTED_ARCHES" bash "$ROOT_DIR/scripts/verify-app.sh" >&2
 
 mkdir -p "$DIST_DIR"
 STAGING_DIR="$(mktemp -d "$DIST_DIR/dmg-stage.XXXXXX")"

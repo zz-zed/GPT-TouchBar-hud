@@ -69,11 +69,6 @@ class MemoryGitHub:
             raise metadata.ReleaseError("Publication response lost")
         return self.current
 
-    def download(self, tag, directory):
-        for name, content in self.blobs.items():
-            (Path(directory) / name).write_bytes(content)
-
-
 class ReleasePublishTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="release-publish-tests-")
@@ -169,6 +164,14 @@ class ReleasePublishTests(unittest.TestCase):
         self.assertEqual(publisher.publish(api, report, self.output)["status"], "already-published")
         self.assertEqual(api.writes, before)
 
+    def test_publication_response_must_confirm_a_complete_public_release(self):
+        report, api = self.prepare(), MemoryGitHub()
+        for response in ({"draft": True}, {"draft": False, "assets": []}):
+            with self.subTest(response=response), mock.patch.object(
+                    api, "api", side_effect=lambda *args, **kwargs: {**api.current, **response}):
+                with self.assertRaisesRegex(metadata.ReleaseError, "does not confirm a complete public release"):
+                    publisher.publish(api, report, self.output)
+
     def test_conflicting_draft_or_public_asset_is_never_modified(self):
         report, api = self.prepare(), MemoryGitHub()
         api.create(TAG, self.output / "RELEASE_NOTES.md")
@@ -203,16 +206,6 @@ class ReleasePublishTests(unittest.TestCase):
             publisher.publish(api, report, self.output)
         self.assertEqual(api.writes, [])
 
-    def test_already_published_preflight_verifies_public_bytes_without_rebuilding(self):
-        report, api = self.prepare(), MemoryGitHub()
-        publisher.publish(api, report, self.output)
-        before = list(api.writes)
-        self.assertTrue(publisher.already_published(api, self.source, SOURCE, TAG))
-        self.assertEqual(api.writes, before)
-        api.blobs[metadata.asset_name(VERSION, "arm64")] = b"tampered download"
-        with self.assertRaisesRegex(metadata.ReleaseError, "digest mismatch"):
-            publisher.already_published(api, self.source, SOURCE, TAG)
-
     def test_tag_resolver_locks_existing_main_ancestor_and_matching_version(self):
         def git(*args):
             return subprocess.run(["git", *args], cwd=self.source, check=True, text=True, capture_output=True).stdout.strip()
@@ -224,6 +217,15 @@ class ReleasePublishTests(unittest.TestCase):
         commit = git("rev-parse", "HEAD")
         git("update-ref", "refs/remotes/origin/main", commit)
         git("tag", "-a", TAG, "-m", "fixture")
+        self.assertEqual(metadata.resolve_tag(self.source, TAG, commit)["source_sha"], commit)
+        git("tag", "-a", "v0.1.51", TAG, "-m", "nested tag")
+        with self.assertRaisesRegex(metadata.ReleaseError, "directly to a commit"):
+            metadata.resolve_tag(self.source, "v0.1.51")
+        nested = {"object": {"type": "tag", "sha": "b" * 40}}
+        with self.assertRaisesRegex(metadata.ReleaseError, "point to a commit"):
+            metadata.tag_reference_commit(nested, lambda _: nested)
+        git("tag", "-d", TAG)
+        git("tag", TAG)
         self.assertEqual(metadata.resolve_tag(self.source, TAG, commit)["source_sha"], commit)
         with self.assertRaisesRegex(metadata.ReleaseError, "Tag moved"):
             metadata.resolve_tag(self.source, TAG, "b" * 40)

@@ -54,7 +54,13 @@ def source_metadata(source):
 
 def resolve_tag(source, tag, expected_sha=None):
     validate_tag(tag, tag.removeprefix("v"))
-    commit = sha(git("rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}", cwd=source))
+    reference = f"refs/tags/{tag}"
+    kind = git("cat-file", "-t", reference, cwd=source)
+    require(kind in ("commit", "tag"), "Release tag must point to a commit")
+    if kind == "tag":
+        header = git("cat-file", "-p", reference, cwd=source).split("\n\n", 1)[0].splitlines()
+        require("type commit" in header, "Release tag must point directly to a commit")
+    commit = sha(git("rev-parse", "--verify", reference + "^{commit}", cwd=source))
     if expected_sha:
         require(commit == sha(expected_sha), "Tag moved since the triggering push")
     git("merge-base", "--is-ancestor", commit, "origin/main", cwd=source)

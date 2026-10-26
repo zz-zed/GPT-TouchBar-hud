@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Prepare this run's release files; remote publication requires explicit --publish."""
 import argparse
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -9,9 +8,8 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 
-from release_metadata import (ARCHES, ReleaseError, asset_name, file_record, git, github_output,
+from release_metadata import (ARCHES, ReleaseError, asset_name, file_record, git,
                               require, resolve_tag, sha, source_metadata, tag_reference_commit,
                               validate_tag, write_json)
 
@@ -60,10 +58,6 @@ class GitHub:
     def upload(self, tag, path):
         # No --clobber: a concurrent or conflicting upload must fail safely.
         self.command("release", "upload", tag, str(path), "--repo", self.repository)
-
-    def download(self, tag, directory):
-        self.command("release", "download", tag, "--repo", self.repository, "--dir", str(directory))
-
 
 def prepare(source, source_sha, repository, run_id, artifacts, output, tag=None):
     require(git("rev-parse", "HEAD", cwd=source) == sha(source_sha), "Source checkout does not match the locked SHA")
@@ -151,27 +145,10 @@ def publish(api, report, directory):
     require(release.get("draft") is True, "Release changed during upload; retry verification")
     require(api.source(tag) == source_sha, "Tag moved during upload; leaving the draft unpublished")
     result = api.api(f"releases/{release['id']}", method="PATCH", payload={"draft": False, "make_latest": "legacy"})
+    remaining = missing_assets(result, expected, tag, notes)
+    require(result.get("draft") is False and not remaining,
+            "GitHub response does not confirm a complete public release; retry verification")
     return {"status": "published", "url": result.get("html_url")}
-
-
-def already_published(api, source, source_sha, tag):
-    version, build = source_metadata(source)
-    validate_tag(tag, version)
-    release = api.release(tag)
-    if release is None or release.get("draft") is True:
-        return False
-    require(api.source(tag) == sha(source_sha), "Published release tag moved")
-    require(release.get("body") == (Path(source) / "RELEASE_NOTES.md").read_text(encoding="utf-8"),
-            "Published release notes conflict")
-    spec = importlib.util.spec_from_file_location("public_release", Path(__file__).with_name("verify-public-release.py"))
-    verifier = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(verifier)
-    verifier.validate_release_metadata(release, {"tag_name": tag}, tag)
-    with tempfile.TemporaryDirectory(prefix="published-release-") as temporary:
-        api.download(tag, temporary)
-        manifest, _ = verifier.verify_public_files(Path(temporary), release, version, tag, source_sha, api.repository)
-    require(manifest["build"] == build, "Published release build number conflicts")
-    return True
 
 
 def main():
@@ -179,25 +156,18 @@ def main():
     parser.add_argument("--source", type=Path, default=Path("."))
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--repository", required=True)
-    parser.add_argument("--run-id", type=int)
+    parser.add_argument("--run-id", type=int, required=True)
     parser.add_argument("--tag")
     parser.add_argument("--artifacts", type=Path, default=Path("artifacts"))
     parser.add_argument("--output", type=Path, default=Path("release-stage"))
-    parser.add_argument("--github-output")
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--publish", action="store_true")
-    modes.add_argument("--check-published", action="store_true")
     modes.add_argument("--prepare-only", action="store_true", help="Default: local verification, no remote writes")
     args = parser.parse_args()
     version, _ = source_metadata(args.source)
     tag = args.tag or f"v{version}"
     validate_tag(tag, version)
     require(git("rev-parse", "HEAD", cwd=args.source) == sha(args.source_sha), "Source checkout does not match the locked SHA")
-    if args.check_published:
-        result = already_published(GitHub(args.repository), args.source, args.source_sha, tag)
-        github_output(args.github_output, {"already_published": str(result).lower()})
-        print(json.dumps({"already_published": result}))
-        return
     if args.publish:
         event, ref = os.environ.get("GITHUB_EVENT_NAME"), os.environ.get("GITHUB_REF")
         require((event == "push" and ref == f"refs/tags/{tag}")

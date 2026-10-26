@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
 # Source once from test-core.sh. Production sources are compiled once for this
 # invocation; each existing fixture is still linked and run as its own process.
-# This is a disposable test library, never a production or cross-run cache.
+# The application test library is disposable. Only its two optimized production
+# core dependencies share this job's distribution directory with build-app.sh.
+core_native_arch="$(uname -m)"
+core_sdk="${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}"
+core_deployment_target="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' Resources/Info.plist)"
+HOOK_CORE_DIR="$PWD/.build/distribution/$core_native_arch"
+RESET_NEWS_CORE_DIR="$HOOK_CORE_DIR"
+HOOK_CORE_SDK_PATH="$core_sdk"
+RESET_NEWS_CORE_SDK_PATH="$core_sdk"
+HOOK_CORE_TARGET="$core_native_arch-apple-macosx$core_deployment_target"
+RESET_NEWS_CORE_TARGET="$HOOK_CORE_TARGET"
 source scripts/hook-core-build.sh
 source scripts/reset-news-core-build.sh
 

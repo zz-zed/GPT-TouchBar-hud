@@ -10,6 +10,7 @@ help:
 	@echo "make full     Run the complete native regression suite (manual, longer)"
 
 check:
+	bash scripts/test-release-workflows.sh
 	bash scripts/test-core.sh
 	bash scripts/build-app.sh
 	bash scripts/verify-app.sh

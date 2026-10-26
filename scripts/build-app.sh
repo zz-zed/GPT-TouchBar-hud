@@ -12,6 +12,7 @@ DEPLOYMENT_TARGET="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' 
 read -r -a BUILD_ARCHS <<< "${HUD_BUILD_ARCHS:-$(uname -m)}"
 cd "$ROOT_DIR"
 source scripts/swift-module-cache.sh
+HOOK_CORE_BUILD_DEFERRED=1 source scripts/hook-core-build.sh
 RESET_NEWS_CORE_BUILD_DEFERRED=1 source scripts/reset-news-core-build.sh
 app_slices=()
 helper_slices=()
@@ -23,8 +24,7 @@ for build_arch in "${BUILD_ARCHS[@]}"; do
     # Explicit SDK and target apply to compilation AND linking. Swift 6.4 swiftbuild currently
     # emits macOS 12 for this macOS 11 package; do not patch Mach-O version metadata afterwards.
     common=(-O -sdk "$SDK_PATH" -target "${build_arch}-apple-macosx${DEPLOYMENT_TARGET}" -module-cache-path "$module_cache")
-    swiftc "${common[@]}" -parse-as-library -emit-module -emit-library -static -module-name HookCore \
-        HookCore/*.swift -emit-module-path "$output_dir/HookCore.swiftmodule" -o "$output_dir/libHookCore.a"
+    hook_core_build "$output_dir" "$SDK_PATH" "${build_arch}-apple-macosx${DEPLOYMENT_TARGET}"
     reset_news_core_build "$output_dir" "$SDK_PATH" "${build_arch}-apple-macosx${DEPLOYMENT_TARGET}"
     swiftc "${common[@]}" -I "$output_dir" -L "$output_dir" -lHookCore -lResetNewsCore \
         Sources/*.swift -o "$output_dir/GPTTouchBarHUD"
