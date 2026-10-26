@@ -30,9 +30,10 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
     private var acceptsActions = true
     private var hudVisibilityMenuItem: NSMenuItem?
     private var persistentTouchBarMenuItem: NSMenuItem?
-    private var availableUpdateMenuItem: NSMenuItem?
-    private var checkUpdatesMenuItem: NSMenuItem?
-    private var updateProgressMenuItem: NSMenuItem?
+    private var recheckUpdatesMenuItem: NSMenuItem?
+    private var compactUpdateMenuItem: NSMenuItem?
+    private var displayPreferencesMenuItem: NSMenuItem?
+    private var quitMenuItem: NSMenuItem?
     private var summaryMenuItem: NSMenuItem?
     private var collapseDetailsMenuItem: NSMenuItem?
     var configurationProvider: (() -> StatusMenuConfiguration)?
@@ -65,7 +66,7 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         guard acceptsActions else { return }
         statusMenuOpen = true
         onWillOpen?()
-        collapseDetailsMenuItem?.isHidden = !configuration.notchExpanded
+        updateUpdateMenuItems()
         (summaryMenuItem?.view as? StatusSummaryView)?.update(snapshot.state, news: snapshot.news, forecast: snapshot.forecast, context: snapshot.context)
     }
     func menuDidClose(_ menu: NSMenu) { statusMenuOpen = false }
@@ -130,15 +131,16 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         forecastShortcut.isHidden = true
         forecastShortcut.allowsKeyEquivalentWhenHidden = true
         menu.addItem(forecastShortcut)
-        let visibility = menuAction("显示浮窗", #selector(toggleHUDWindow(_:)))
-        hudVisibilityMenuItem = visibility
-        menu.addItem(visibility)
-        let collapse = menuAction("收起详情", #selector(collapseNotch(_:)))
+        let visibility = menuAction("显示状态面板", #selector(toggleHUDWindow(_:)))
+        hudVisibilityMenuItem = visibility; menu.addItem(visibility)
+        let collapse = menuAction("收起详情", #selector(collapseNotch(_:)), key: "h")
+        collapse.keyEquivalentModifierMask = [.command, .shift]
         collapse.isHidden = !configuration.notchExpanded
-        collapseDetailsMenuItem = collapse
-        menu.addItem(collapse)
-        let displayPreferences = NSMenuItem(title: "显示与偏好", action: nil, keyEquivalent: "")
+        collapseDetailsMenuItem = collapse; menu.addItem(collapse)
+        updateCompactVisibilityRow()
+        let displayPreferences = NSMenuItem(title: snapshot.context.text("显示与偏好", "Display & Preferences"), action: nil, keyEquivalent: "")
         let preferencesMenu = NSMenu()
+        displayPreferencesMenuItem = displayPreferences
         displayPreferences.submenu = preferencesMenu
         let forms = NSMenuItem(title: "显示形式", action: nil, keyEquivalent: "")
         forms.submenu = NSMenu()
@@ -165,7 +167,8 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         preferencesMenu.addItem(menuAction("设置…", #selector(openPreferences(_:)), key: ","))
         menu.addItem(displayPreferences)
         addUpdateMenuItems(to: menu)
-        menu.addItem(menuAction("退出", #selector(quitFromMenu(_:)), key: "q"))
+        let quit = menuAction(snapshot.context.text("退出", "Quit"), #selector(quitFromMenu(_:)), key: "q")
+        quitMenuItem = quit; menu.addItem(quit)
         return menu
     }
 
@@ -213,8 +216,9 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         }
         if menuItem.action == #selector(checkForAppUpdates(_:)) {
             updateUpdateMenuItems()
-            return appUpdater.canCheck
+            return appUpdater.canCheck && !appUpdater.isChecking
         }
+        if menuItem.action == #selector(performCompactAppUpdate) { return compactUpdateMenuItem?.isEnabled == true }
         if menuItem.action == #selector(viewAppUpdateProgress(_:)) { return appUpdater.viewState.progress != nil }
         if menuItem.action == #selector(viewAvailableAppUpdate(_:)) {
             guard let version = appUpdater.viewState.availableVersion else { return false }
@@ -229,24 +233,33 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
     }
 
     func addUpdateMenuItems(to menu: NSMenu) {
-        menu.addItem(.separator())
-        let available = menuAction("", #selector(viewAvailableAppUpdate(_:)))
-        availableUpdateMenuItem = available
-        menu.addItem(available)
-        let progress = NSMenuItem(title: "查看更新进度…", action: #selector(viewAppUpdateProgress(_:)), keyEquivalent: "")
-        progress.target = self
-        updateProgressMenuItem = progress
-        menu.addItem(progress)
-        let check = NSMenuItem(title: "检查更新…", action: #selector(checkForAppUpdates(_:)), keyEquivalent: "")
-        check.target = self
-        check.toolTip = AppUpdater.versionLabel
-        checkUpdatesMenuItem = check
-        menu.addItem(check)
+        let item = menuAction("检查更新…", #selector(performCompactAppUpdate))
+        compactUpdateMenuItem = item; menu.addItem(item)
+        let recheck = menuAction("重新检查更新", #selector(checkForAppUpdates(_:)), key: "u")
+        recheck.keyEquivalentModifierMask = [.command, .shift]
+        recheckUpdatesMenuItem = recheck; menu.addItem(recheck)
         updateUpdateMenuItems()
         menu.addItem(.separator())
     }
 
-    @objc func checkForAppUpdates(_ sender: AnyObject?) { guard acceptsActions else { return }; appUpdater.check() }
+    private func updateCompactVisibilityRow() {
+        let language = snapshot.context.language
+        hudVisibilityMenuItem?.title = hudRequestedVisible
+            ? language.text("隐藏状态面板", "Hide status panel") : language.text("显示状态面板", "Show status panel")
+        collapseDetailsMenuItem?.title = language.text("收起详情", "Collapse details")
+        collapseDetailsMenuItem?.isHidden = !configuration.notchExpanded
+    }
+
+    @objc private func performCompactAppUpdate() {
+        guard acceptsActions else { return }
+        let state = appUpdater.viewState
+        statusItem.menu?.cancelTracking()
+        if state.progress != nil { appUpdater.presentInstallationProgress() }
+        else if state.availableVersion != nil { appUpdater.presentAvailableUpdate() }
+        else if !state.isChecking && !state.isInstalling { appUpdater.check() }
+    }
+
+    @objc func checkForAppUpdates(_ sender: AnyObject?) { guard acceptsActions, !appUpdater.isChecking, appUpdater.canCheck else { return }; appUpdater.check() }
 
     @objc func viewAppUpdateProgress(_ sender: AnyObject?) { guard acceptsActions else { return }; appUpdater.presentInstallationProgress() }
 
@@ -308,26 +321,44 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         updateUpdateMenuItems()
     }
 
-    func updateUpdateMenuItems() {
-        let state = appUpdater.viewState
-        availableUpdateMenuItem?.isHidden = state.availableVersion == nil
-        if let version = state.availableVersion {
-            AppUpdateMenuPresentation.apply(to: availableUpdateMenuItem, version: version, enabled: !state.isInstalling)
+    func updateUpdateMenuItems() { updateUpdateMenuItems(appUpdater.viewState) }
+
+    func updateUpdateMenuItems(_ state: AppUpdateViewState) {
+        let language = snapshot.context.language
+        let canCheck = !state.isChecking && !state.isInstalling
+        guard let item = compactUpdateMenuItem else { return }
+        item.attributedTitle = nil
+        if let progress = state.progress {
+            item.title = language == .chinese ? progress.menuTitle : Self.englishProgressTitle(progress)
+            item.isEnabled = true
+        } else if let version = state.availableVersion {
+            item.title = language.text("新版本 \(version) · 查看说明", "Version \(version) · Details")
+            item.isEnabled = !state.isInstalling
+        } else {
+            let title = state.isChecking ? language.text("正在检查更新…", "Checking updates…") : language.text("检查更新…", "Check for updates…")
+            item.title = title + "   " + AppUpdater.version
+            let attributed = NSMutableAttributedString(string: title)
+            attributed.append(NSAttributedString(string: "   " + AppUpdater.version, attributes: [
+                .font: NSFont.menuFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor]))
+            item.attributedTitle = attributed
+            item.isEnabled = canCheck
         }
-        updateProgressMenuItem?.isHidden = state.progress == nil
-        updateProgressMenuItem?.title = state.progress?.menuTitle ?? "查看更新进度…"
-        updateProgressMenuItem?.isEnabled = state.progress != nil
-        let actionTitle = state.isChecking ? "正在检查更新…" : "检查更新…"
-        if let check = checkUpdatesMenuItem {
-            let title = NSMutableAttributedString(string: actionTitle)
-            title.append(NSAttributedString(string: "   \(AppUpdater.version)", attributes: [
-                .font: NSFont.menuFont(ofSize: 11),
-                .foregroundColor: NSColor.secondaryLabelColor
-            ]))
-            check.title = "\(actionTitle)  \(AppUpdater.version)"
-            check.attributedTitle = title
-            check.toolTip = AppUpdater.versionLabel
-            check.isEnabled = !state.isInstalling
+        item.toolTip = AppUpdater.versionLabel
+        recheckUpdatesMenuItem?.title = language.text("重新检查更新", "Check again")
+        recheckUpdatesMenuItem?.isHidden = !canCheck || (state.progress == nil && state.availableVersion == nil)
+        recheckUpdatesMenuItem?.isEnabled = canCheck
+        displayPreferencesMenuItem?.title = language.text("显示与偏好", "Display & Preferences")
+        quitMenuItem?.title = language.text("退出", "Quit")
+        updateCompactVisibilityRow()
+    }
+    private static func englishProgressTitle(_ progress: AppUpdateProgress) -> String {
+        if let fraction = progress.downloadFraction { return "Downloading \(Int(fraction * 100))% · Progress" }
+        switch progress.phase {
+        case .failed: return "Update failed · Details"
+        case .canceled: return "Download canceled · Details"
+        case .succeeded: return "Update complete · Details"
+        case .launchUnconfirmed: return "Launch unconfirmed · Details"
+        default: return "Updating · View progress"
         }
     }
 
