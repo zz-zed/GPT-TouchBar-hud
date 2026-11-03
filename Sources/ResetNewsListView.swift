@@ -112,7 +112,9 @@ struct ResetNewsListView: View {
                     Button(context.text("刷新预告", "Refresh forecast"), action: onCheck)
                         .disabled(!state.enabled || [.checking, .codexNotRunning, .idle].contains(state.status))
                         .accessibilityIdentifier("resetNews.check")
-                    Button(context.text("设置", "Settings"), action: onSettings)
+                    Button(density == .notch
+                        ? context.text("预告设置", "Forecast settings")
+                        : context.text("设置", "Settings"), action: onSettings)
                         .accessibilityIdentifier("resetNews.settings")
                 }.font(.system(size: 11)).buttonStyle(PlainButtonStyle()).foregroundColor(.accentColor)
             }.help(state.statusText)
