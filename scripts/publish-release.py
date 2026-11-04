@@ -8,10 +8,22 @@ import re
 import shutil
 import subprocess
 import sys
+import time
+from urllib.parse import quote
 
 from release_metadata import (ARCHES, ReleaseError, asset_name, file_record, git,
                               require, resolve_tag, sha, source_metadata, tag_reference_commit,
                               validate_tag, write_json)
+
+
+READ_BACKOFF_SECONDS = (0, 1, 2, 4, 8)
+
+
+def release_identifier(release):
+    require(isinstance(release, dict), "Release response is invalid")
+    identifier = release.get("id")
+    require(type(identifier) is int and identifier > 0, "Release ID is invalid")
+    return identifier
 
 
 class GitHub:
@@ -28,7 +40,7 @@ class GitHub:
         return result.stdout
 
     def api(self, path, method="GET", payload=None, missing_ok=False, paginate=False):
-        args = ["api", "--method", method, f"repos/{self.repository}/{path}"]
+        args = ["api", "--hostname", "github.com", "--method", method, f"repos/{self.repository}/{path}"]
         if paginate:
             args += ["--paginate", "--slurp"]
         if payload is not None:
@@ -37,27 +49,63 @@ class GitHub:
         return None if result is None else json.loads(result)
 
     def release(self, tag):
-        release = self.api(f"releases/tags/{tag}", missing_ok=True)
-        if release is not None:
-            return release
-        # Authenticated listings include drafts if the tag lookup does not.
-        matches = [entry for page in self.api("releases?per_page=100", paginate=True)
-                   for entry in page if entry.get("tag_name") == tag]
-        require(len(matches) <= 1, "Multiple releases have the same tag")
-        return matches[0] if matches else None
+        # Like gh release view, resolve draft pending tags through GraphQL.
+        # An empty REST tag/list lookup does not establish that a draft is absent.
+        owner, name = self.repository.split("/")
+        query = """query ReleaseForPublication($owner: String!, $name: String!, $tag: String!) {
+          repository(owner: $owner, name: $name) {
+            nameWithOwner
+            release(tagName: $tag) { databaseId tagName isDraft isPrerelease }
+          }
+        }"""
+        response = json.loads(self.command("api", "--hostname", "github.com", "graphql",
+            "-f", f"query={query}", "-f", f"owner={owner}", "-f", f"name={name}", "-f", f"tag={tag}"))
+        require(isinstance(response, dict), "Release lookup response is invalid")
+        errors = response.get("errors")
+        require(errors is None or (isinstance(errors, list) and not errors), "Release lookup returned GraphQL errors")
+        data = response.get("data")
+        require(isinstance(data, dict), "Release lookup data is missing")
+        repository = data.get("repository")
+        require(isinstance(repository, dict)
+                and isinstance(repository.get("nameWithOwner"), str)
+                and repository["nameWithOwner"].casefold() == self.repository.casefold()
+                and "release" in repository, "Release lookup repository is unavailable or mismatched")
+        release = repository["release"]
+        if release is None:
+            return None
+        require(isinstance(release, dict) and release.get("tagName") == tag
+                and type(release.get("isDraft")) is bool and type(release.get("isPrerelease")) is bool,
+                "Release lookup identity is invalid")
+        result = {"id": release.get("databaseId"), "tag_name": release["tagName"],
+                  "draft": release["isDraft"], "prerelease": release["isPrerelease"]}
+        release_identifier(result)
+        return result
+
+    def by_id(self, identifier):
+        release_identifier({"id": identifier})
+        return self.api(f"releases/{identifier}", missing_ok=True)
 
     def source(self, tag):
         reference = self.api(f"git/ref/tags/{tag}")
         require(reference.get("ref") == f"refs/tags/{tag}", "Release tag is missing")
         return tag_reference_commit(reference, lambda value: self.api(f"git/tags/{value}"))
 
-    def create(self, tag, notes):
-        self.command("release", "create", tag, "--repo", self.repository, "--draft", "--verify-tag",
-                     "--title", f"GPT HUD {tag}", "--notes-file", str(notes))
+    def create(self, tag, notes, source_sha):
+        # Preserve --verify-tag semantics: never create a missing or moved tag.
+        require(self.source(tag) == sha(source_sha), "Tag moved before draft creation")
+        return self.api("releases", method="POST", payload={
+            "tag_name": tag, "target_commitish": source_sha, "name": f"GPT HUD {tag}",
+            "body": Path(notes).read_text(encoding="utf-8"), "draft": True, "prerelease": False})
 
-    def upload(self, tag, path):
-        # No --clobber: a concurrent or conflicting upload must fail safely.
-        self.command("release", "upload", tag, str(path), "--repo", self.repository)
+    def upload(self, release, path):
+        identifier, path = release_identifier(release), Path(path)
+        # Use the validated ID on a fixed GitHub host, never a response-provided URL.
+        # No overwrite or write retries: uncertain uploads are reconciled on rerun.
+        url = (f"https://uploads.github.com/repos/{self.repository}/releases/{identifier}/assets"
+               f"?name={quote(path.name, safe='')}")
+        self.command("api", "--hostname", "github.com", "--method", "POST", url,
+                     "--header", "Content-Type: application/octet-stream",
+                     "--header", f"Content-Length: {path.stat().st_size}", "--input", str(path))
 
 def prepare(source, source_sha, repository, run_id, artifacts, output, tag=None):
     require(git("rev-parse", "HEAD", cwd=source) == sha(source_sha), "Source checkout does not match the locked SHA")
@@ -101,10 +149,14 @@ def prepare(source, source_sha, repository, run_id, artifacts, output, tag=None)
 
 def missing_assets(release, expected, tag, notes):
     require(isinstance(release, dict), "Release is unavailable; retry verification")
+    release_identifier(release)
     require(release.get("tag_name") == tag and release.get("prerelease") is False, "Release tag or channel conflicts")
+    require(type(release.get("draft")) is bool, "Release draft state is missing")
     require(release.get("body") == notes, "Release notes conflict; refusing to overwrite")
+    require(isinstance(release.get("assets"), list), "Release assets response is invalid")
     seen = set()
-    for asset in release.get("assets", []):
+    for asset in release["assets"]:
+        require(isinstance(asset, dict), "Release asset response is invalid")
         name = asset.get("name")
         require(name in expected and name not in seen, "Unexpected or duplicate release asset")
         seen.add(name)
@@ -112,6 +164,24 @@ def missing_assets(release, expected, tag, notes):
                 and asset.get("digest") == f"sha256:{expected[name]['sha256']}",
                 f"Release asset conflicts: {name}; reset the unpublished draft explicitly, never clobber")
     return sorted(set(expected) - seen)
+
+
+def read_release(api, identifier, expected, tag, notes, complete=False):
+    """Retry read visibility only; identity, content and channel conflicts fail immediately."""
+    for delay in READ_BACKOFF_SECONDS:
+        if delay:
+            time.sleep(delay)
+        release = api.by_id(identifier)
+        if release is None:
+            continue
+        require(release_identifier(release) == identifier, "Release ID changed during read-back")
+        missing = missing_assets(release, expected, tag, notes)
+        if complete and missing:
+            require(release["draft"] is True, "Published release is incomplete; refusing all changes")
+            continue
+        return release
+    raise ReleaseError("Release read-back is unavailable or incomplete after bounded retries; "
+                       "leaving draft unpublished; retry this publish job")
 
 
 def publish(api, report, directory):
@@ -130,21 +200,24 @@ def publish(api, report, directory):
     notes = (directory / "RELEASE_NOTES.md").read_text(encoding="utf-8")
     release = api.release(tag)
     if release is None:
-        api.create(tag, directory / "RELEASE_NOTES.md")
-        release = api.release(tag)
-        require(release is not None, "Created draft is unavailable; retry this publish job")
+        release = api.create(tag, directory / "RELEASE_NOTES.md", source_sha)
+        missing_assets(release, expected, tag, notes)
+        require(release["draft"] is True, "Create response does not confirm a draft")
+    identifier = release_identifier(release)
+    release = read_release(api, identifier, expected, tag, notes)
     missing = missing_assets(release, expected, tag, notes)
     if release.get("draft") is False:
         require(not missing, "Published release is incomplete; refusing all changes")
         return {"status": "already-published", "url": release.get("html_url")}
     require(release.get("draft") is True, "Release draft state is missing")
     for name in missing:
-        api.upload(tag, directory / name)
-    release = api.release(tag)
+        api.upload(release, directory / name)
+    release = read_release(api, identifier, expected, tag, notes, complete=True)
     require(not missing_assets(release, expected, tag, notes), "Draft is incomplete; leaving it unpublished")
     require(release.get("draft") is True, "Release changed during upload; retry verification")
     require(api.source(tag) == source_sha, "Tag moved during upload; leaving the draft unpublished")
     result = api.api(f"releases/{release['id']}", method="PATCH", payload={"draft": False, "make_latest": "legacy"})
+    require(release_identifier(result) == identifier, "Publication response has a different release ID")
     remaining = missing_assets(result, expected, tag, notes)
     require(result.get("draft") is False and not remaining,
             "GitHub response does not confirm a complete public release; retry verification")

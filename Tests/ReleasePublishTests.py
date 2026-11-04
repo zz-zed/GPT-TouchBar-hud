@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline release identity, interrupted upload, and immutable publication tests."""
+import copy
 import hashlib
 import importlib.util
 import json
@@ -30,6 +31,8 @@ class MemoryGitHub:
         self.current = None
         self.blobs = {}
         self.writes = []
+        self.reads = []
+        self.id_responses = []
         self.sources = [SOURCE]
         self.lose_upload_response = False
         self.lose_publish_response = False
@@ -38,14 +41,26 @@ class MemoryGitHub:
         return self.sources.pop(0) if len(self.sources) > 1 else self.sources[0]
 
     def release(self, tag):
-        return self.current
+        self.reads.append(("tag", tag))
+        return None if self.current is None else {
+            key: self.current[key] for key in ("id", "tag_name", "draft", "prerelease")}
 
-    def create(self, tag, notes):
+    def by_id(self, release_id):
+        self.reads.append(("id", release_id))
+        if self.id_responses:
+            response = self.id_responses.pop(0)
+            return copy.deepcopy(response(self.current) if callable(response) else response)
+        return copy.deepcopy(self.current)
+
+    def create(self, tag, notes, source_sha):
+        assert source_sha == SOURCE
         self.writes.append("create")
         self.current = {"id": 42, "tag_name": tag, "body": Path(notes).read_text(),
                         "draft": True, "prerelease": False, "assets": [], "html_url": "https://example.test/release"}
+        return copy.deepcopy(self.current)
 
-    def upload(self, tag, path):
+    def upload(self, release, path):
+        assert release["id"] == self.current["id"] == 42
         path = Path(path)
         self.writes.append("upload:" + path.name)
         if path.name in self.blobs:
@@ -67,7 +82,7 @@ class MemoryGitHub:
         if self.lose_publish_response:
             self.lose_publish_response = False
             raise metadata.ReleaseError("Publication response lost")
-        return self.current
+        return copy.deepcopy(self.current)
 
 class ReleasePublishTests(unittest.TestCase):
     def setUp(self):
@@ -144,6 +159,136 @@ class ReleasePublishTests(unittest.TestCase):
         self.assertEqual(api.writes[-1], "publish")
         self.assertEqual(len(api.blobs), 4)
 
+    def test_new_draft_uses_creation_id_when_tag_lookup_stays_invisible(self):
+        report, api = self.prepare(), MemoryGitHub()
+        with mock.patch.object(api, "release", return_value=None) as lookup:
+            result = publisher.publish(api, report, self.output)
+        self.assertEqual(result["status"], "published")
+        lookup.assert_called_once_with(TAG)
+        self.assertIn(("id", 42), api.reads)
+        self.assertEqual(api.writes.count("create"), 1)
+        self.assertEqual(len(api.blobs), 4)
+
+    def test_new_draft_waits_for_id_readback_without_recreating(self):
+        report, api = self.prepare(), MemoryGitHub()
+        api.id_responses = [None, None]
+        with mock.patch.object(publisher.time, "sleep") as sleep:
+            self.assertEqual(publisher.publish(api, report, self.output)["status"], "published")
+        self.assertEqual(sleep.call_args_list, [mock.call(1), mock.call(2)])
+        self.assertEqual(api.writes.count("create"), 1)
+        self.assertEqual(len(api.blobs), 4)
+        self.assertEqual({release_id for kind, release_id in api.reads if kind == "id"}, {42})
+
+    def test_new_draft_readback_timeout_keeps_one_recoverable_unpublished_draft(self):
+        report, api = self.prepare(), MemoryGitHub()
+        api.id_responses = [None] * 5
+        with mock.patch.object(publisher.time, "sleep") as sleep:
+            with self.assertRaises(metadata.ReleaseError):
+                publisher.publish(api, report, self.output)
+        self.assertEqual(sleep.call_args_list, [mock.call(1), mock.call(2), mock.call(4), mock.call(8)])
+        self.assertEqual(api.writes, ["create"])
+        self.assertEqual(len([read for read in api.reads if read[0] == "id"]), 5)
+        self.assertTrue(api.current["draft"])
+        self.assertEqual(api.blobs, {})
+        self.assertEqual(publisher.publish(api, report, self.output)["status"], "published")
+        self.assertEqual(api.writes.count("create"), 1)
+
+    def test_uploaded_assets_wait_for_complete_id_snapshot_without_reuploading(self):
+        report, api = self.prepare(), MemoryGitHub()
+        api.id_responses = [lambda current: current,
+                            lambda current: {**current, "assets": []},
+                            lambda current: {**current, "assets": current["assets"][:2]}]
+        with mock.patch.object(publisher.time, "sleep") as sleep:
+            self.assertEqual(publisher.publish(api, report, self.output)["status"], "published")
+        self.assertEqual(sleep.call_args_list, [mock.call(1), mock.call(2)])
+        self.assertEqual(len(api.blobs), 4)
+        self.assertEqual(api.writes.count("create"), 1)
+        self.assertTrue(all(api.writes.count("upload:" + name) == 1 for name in api.blobs))
+
+    def test_uploaded_asset_readback_timeout_leaves_bytes_for_safe_resume(self):
+        report, api = self.prepare(), MemoryGitHub()
+        api.id_responses = [lambda current: current] + [lambda current: {**current, "assets": []}] * 5
+        with mock.patch.object(publisher.time, "sleep") as sleep:
+            with self.assertRaises(metadata.ReleaseError):
+                publisher.publish(api, report, self.output)
+        self.assertEqual(sleep.call_args_list, [mock.call(1), mock.call(2), mock.call(4), mock.call(8)])
+        self.assertTrue(api.current["draft"])
+        self.assertEqual(len(api.blobs), 4)
+        self.assertNotIn("publish", api.writes)
+        self.assertEqual(publisher.publish(api, report, self.output)["status"], "published")
+        self.assertEqual(api.writes.count("create"), 1)
+        self.assertTrue(all(api.writes.count("upload:" + name) == 1 for name in api.blobs))
+
+    def test_conflicting_creation_response_stops_before_upload(self):
+        report = self.prepare()
+        for change in ({"id": None}, {"id": 0}, {"id": True}, {"tag_name": "v9.9.9"},
+                       {"body": "Different notes"}, {"prerelease": True}, {"draft": False}):
+            with self.subTest(change=change):
+                api = MemoryGitHub()
+                create = api.create
+                def conflict(tag, notes, source_sha):
+                    return {**create(tag, notes, source_sha), **change}
+                with mock.patch.object(api, "create", side_effect=conflict), \
+                        mock.patch.object(publisher.time, "sleep") as sleep:
+                    with self.assertRaises(metadata.ReleaseError):
+                        publisher.publish(api, report, self.output)
+                sleep.assert_not_called()
+                self.assertEqual(api.writes, ["create"])
+                self.assertTrue(api.current["draft"])
+                self.assertEqual(api.blobs, {})
+
+    def test_identity_notes_and_asset_conflicts_on_id_readback_are_not_retried(self):
+        report = self.prepare()
+        bad_asset = {"name": "SHA256SUMS.txt", "state": "uploaded",
+                     "size": (self.output / "SHA256SUMS.txt").stat().st_size,
+                     "digest": "sha256:" + "0" * 64}
+        for change in ({"id": 43}, {"tag_name": "v9.9.9"}, {"body": "Different notes"},
+                       {"prerelease": True}, {"draft": None}, {"assets": None}, {"assets": [bad_asset]}):
+            with self.subTest(change=change):
+                api = MemoryGitHub()
+                api.id_responses = [lambda current: {**current, **change}]
+                with mock.patch.object(publisher.time, "sleep") as sleep:
+                    with self.assertRaises(metadata.ReleaseError):
+                        publisher.publish(api, report, self.output)
+                sleep.assert_not_called()
+                self.assertEqual(api.writes, ["create"])
+                self.assertEqual(api.blobs, {})
+
+    def test_id_readback_errors_are_not_retried_as_missing_drafts(self):
+        report, api = self.prepare(), MemoryGitHub()
+        with mock.patch.object(api, "by_id", side_effect=metadata.ReleaseError("Forbidden")) as read, \
+                mock.patch.object(publisher.time, "sleep") as sleep:
+            with self.assertRaisesRegex(metadata.ReleaseError, "Forbidden"):
+                publisher.publish(api, report, self.output)
+        read.assert_called_once_with(42)
+        sleep.assert_not_called()
+        self.assertEqual(api.writes, ["create"])
+
+    def test_post_upload_digest_conflict_is_not_retried_or_published(self):
+        report, api = self.prepare(), MemoryGitHub()
+        def corrupt_asset(current):
+            result = copy.deepcopy(current)
+            result["assets"][0]["digest"] = "sha256:" + "0" * 64
+            return result
+        api.id_responses = [lambda current: current, corrupt_asset]
+        with mock.patch.object(publisher.time, "sleep") as sleep:
+            with self.assertRaisesRegex(metadata.ReleaseError, "asset conflicts"):
+                publisher.publish(api, report, self.output)
+        sleep.assert_not_called()
+        self.assertTrue(api.current["draft"])
+        self.assertEqual(len(api.blobs), 4)
+        self.assertNotIn("publish", api.writes)
+
+    def test_incomplete_published_readback_fails_without_retry_or_repair(self):
+        report, api = self.prepare(), MemoryGitHub()
+        api.id_responses = [lambda current: current, lambda current: {**current, "draft": False, "assets": []}]
+        with mock.patch.object(publisher.time, "sleep") as sleep:
+            with self.assertRaises(metadata.ReleaseError):
+                publisher.publish(api, report, self.output)
+        sleep.assert_not_called()
+        self.assertEqual(len(api.blobs), 4)
+        self.assertNotIn("publish", api.writes)
+
     def test_lost_upload_response_resumes_without_overwriting_acknowledged_bytes(self):
         report, api = self.prepare(), MemoryGitHub()
         api.lose_upload_response = True
@@ -174,8 +319,8 @@ class ReleasePublishTests(unittest.TestCase):
 
     def test_conflicting_draft_or_public_asset_is_never_modified(self):
         report, api = self.prepare(), MemoryGitHub()
-        api.create(TAG, self.output / "RELEASE_NOTES.md")
-        api.upload(TAG, self.output / "SHA256SUMS.txt")
+        api.create(TAG, self.output / "RELEASE_NOTES.md", SOURCE)
+        api.upload(api.current, self.output / "SHA256SUMS.txt")
         api.current["assets"][0]["digest"] = "sha256:" + "0" * 64
         for draft in (True, False):
             with self.subTest(draft=draft):
@@ -187,7 +332,7 @@ class ReleasePublishTests(unittest.TestCase):
 
     def test_notes_conflict_and_moved_tag_prevent_publication(self):
         report, api = self.prepare(), MemoryGitHub()
-        api.create(TAG, self.output / "RELEASE_NOTES.md")
+        api.create(TAG, self.output / "RELEASE_NOTES.md", SOURCE)
         api.current["body"] = "Someone edited this draft"
         with self.assertRaisesRegex(metadata.ReleaseError, "notes conflict"):
             publisher.publish(api, report, self.output)
