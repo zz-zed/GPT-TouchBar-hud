@@ -1,23 +1,37 @@
-.build/
-.swiftpm/
-build/
-backups/
-DerivedData/
-dist/
-Design/
+# SwiftPM, application builds and local packaging output (repository root only).
+/.build/
+/.swiftpm/
+/build/
+/DerivedData/
+/dist/
+
+# Local recovery copies and design working output; keep reviewed evidence in Documentation/.
+/backups/
+/Design/
 xcuserdata/
+
+# OS/editor files and machine-specific artifact preview sessions.
 .DS_Store
+*.swp
+*.swo
+*~
+.artifact-server.json
+
+# Local credentials; sanitized setup templates remain versionable.
 .env
 .env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Runtime logs are local. Reviewed historical validation evidence is intentional.
+*.log
+!/Documentation/validation/**/*.log
 
 # Temporary checkouts and staging used by the release workflows.
 /.release-tools/
 /release-source/
 /release-stage/
-
-# Superseded README artwork kept locally for design reference.
-Marketing/readme-hero-gpt-touchbar-hud.png
-Marketing/readme-touchbar-gpt-touchbar-hud.png
 
 # Rebuildable Python bytecode.
 __pycache__/

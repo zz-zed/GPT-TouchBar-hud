@@ -16,6 +16,8 @@
 - 运行真实额度检查时，需要在 `/Applications` 中安装并登录 ChatGPT、Codex 或 GPT；普通构建和大部分回归测试不要求登录。
 - Touch Bar 不是普通构建的必要条件，但常驻显示和系统控制条共存仍需要实体设备验收。
 
+目录职责和历史资料入口见[项目文件与文档导航](Documentation/README.md)。
+
 ## 建议工作流
 
 1. Fork 仓库，并从最新 `main` 创建分支。
