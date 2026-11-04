@@ -466,7 +466,7 @@ private final class MenuMetricView: NSView {
         text.append(NSAttributedString(string: metric.unit, attributes: [.font: NSFont.systemFont(ofSize: 11)]))
         value.attributedStringValue = text
         value.textColor = metric.style == .hint || metric.style == .quietCredit || metric.value == "0"
-            ? .secondaryLabelColor : metric.style == .quota && (metric.progress ?? 100) <= 20 ? .systemRed : moduleColor
+            ? .secondaryLabelColor : metric.style == .quota ? HUDModulePalette.quotaRemaining(metric.progress) : moduleColor
         detail.stringValue = metric.detail
         detail.font = .systemFont(ofSize: metric.style == .quota || metric.id == "reset" ? 13 : 10, weight: .medium)
         detail.textColor = metric.style == .quota || metric.id == "reset" ? moduleColor : .secondaryLabelColor
@@ -539,7 +539,7 @@ private final class MenuMetricView: NSView {
         NSColor.separatorColor.setFill()
         NSBezierPath(roundedRect: rect, xRadius: 1.5, yRadius: 1.5).fill()
         if let percent = metric.progress {
-            (percent <= 20 ? NSColor.systemRed : HUDModulePalette.quota).setFill()
+            HUDModulePalette.quotaRemaining(percent).setFill()
             NSBezierPath(roundedRect: NSRect(x: 0, y: 60, width: bounds.width * CGFloat(percent / 100), height: 3),
                 xRadius: 1.5, yRadius: 1.5).fill()
         }

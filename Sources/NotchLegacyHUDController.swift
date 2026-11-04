@@ -25,7 +25,7 @@ private final class NotchProgressView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         NSColor(calibratedWhite: 0.16, alpha: 1).setFill()
         NSBezierPath(roundedRect: bounds, xRadius: 2, yRadius: 2).fill()
-        DesignTokens.accent.setFill()
+        HUDModulePalette.quotaRemaining(percent).setFill()
         NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: bounds.width * max(0, min(100, percent)) / 100, height: bounds.height), xRadius: 2, yRadius: 2).fill()
     }
 }
@@ -190,8 +190,9 @@ final class NotchHUDView: NSView {
             append((title.length > 0 ? "  " : "") + values, font: strip.font!, color: .white)
         } else {
             for row in rows {
-                append((title.length > 0 ? "   " : "") + (abbreviateLabels && row.percent == nil ? context.text("卡", "R") : row.compactTitle) + " ", font: .systemFont(ofSize: 10), color: .lightGray)
-                append(row.value, font: strip.font!, color: DesignTokens.accent)
+                let moduleColor = row.percent == nil ? HUDModulePalette.resets : HUDModulePalette.quota
+                append((title.length > 0 ? "   " : "") + (abbreviateLabels && row.percent == nil ? context.text("卡", "R") : row.compactTitle) + " ", font: .systemFont(ofSize: 10), color: moduleColor)
+                append(row.value, font: strip.font!, color: row.percent.map { HUDModulePalette.quotaRemaining($0) } ?? moduleColor)
             }
         }
         if state.errorMessage != nil { append("  !", font: strip.font!, color: .systemOrange) }
@@ -217,8 +218,12 @@ final class NotchHUDView: NSView {
             guard index < rows.count else { continue }
             let row = rows[index]
             views.0.stringValue = row.title
+            let moduleColor = row.percent == nil ? HUDModulePalette.resets : HUDModulePalette.quota
+            views.0.textColor = moduleColor
             views.1.stringValue = row.value
+            views.1.textColor = row.percent.map { HUDModulePalette.quotaRemaining($0) } ?? moduleColor
             views.2.stringValue = row.date
+            views.2.textColor = moduleColor
             views.2.toolTip = row.date
             views.3.percent = row.percent ?? 0
         }

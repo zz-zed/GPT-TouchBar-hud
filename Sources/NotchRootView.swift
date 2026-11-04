@@ -88,8 +88,13 @@ struct NotchRootView: View {
         let direction: CGFloat = left ? -1 : 1
         let usesResetCredits = left && model.content.state.fiveHour == nil && (model.content.state.resetCredits?.availableCount ?? 0) > 0
         let color = usesResetCredits ? NotchStyle.reset : NotchStyle.quota
+        let meter = left ? model.content.state.fiveHour : model.content.state.weekly
+        let value = meter.map {
+            Text((left ? "5h" : model.presentationContext.text("周", "7d")) + " ").foregroundColor(NotchStyle.quota)
+                + Text($0.remainingText).foregroundColor(NotchStyle.quotaRemaining($0.remainingPercent))
+        } ?? Text(info.value).foregroundColor(color)
         let content = VStack(spacing: 0) {
-            Text(info.value).font(.system(size: 11, weight: .semibold, design: .monospaced)).foregroundColor(color)
+            value.font(.system(size: 11, weight: .semibold, design: .monospaced))
             Text(info.detail).font(.system(size: 9)).foregroundColor(color)
         }
         .lineLimit(1).minimumScaleFactor(0.65)

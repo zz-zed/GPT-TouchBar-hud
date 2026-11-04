@@ -14,6 +14,10 @@ enum NotchStyle {
     static let api = Color(red: 174 / 255, green: 209 / 255, blue: 161 / 255)
     static let accent = quota
     static let secondary = Color(white: 0.72)
+
+    static func quotaRemaining(_ percent: Double?) -> Color {
+        Color(HUDModulePalette.quotaRemaining(percent))
+    }
 }
 
 struct NotchMaterialHalo: NSViewRepresentable {

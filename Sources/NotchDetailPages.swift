@@ -131,11 +131,12 @@ struct NotchDetailPages: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(row.title).font(.system(size: 11, weight: .medium))
                             Text(row.meter.remainingText).font(.system(size: 30, weight: .semibold, design: .monospaced))
+                                .foregroundColor(NotchStyle.quotaRemaining(row.meter.remainingPercent))
                                 .lineLimit(1).minimumScaleFactor(0.7)
                             GeometryReader { proxy in
                                 ZStack(alignment: .leading) {
                                     Capsule().fill(NotchStyle.quota.opacity(0.18))
-                                    Capsule().fill(NotchStyle.quota)
+                                    Capsule().fill(NotchStyle.quotaRemaining(row.meter.remainingPercent))
                                         .frame(width: proxy.size.width * CGFloat(max(0, min(100, row.meter.remainingPercent))) / 100)
                                 }
                             }.frame(height: 3).accessibilityHidden(true)
