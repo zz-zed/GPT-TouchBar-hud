@@ -21,43 +21,67 @@ struct NotchDetailPages: View {
         .padding(.top, max(layout.visualBarHeight, layout.physicalTopInset) + 10)
         .foregroundColor(.white)
     }
+    private var usesTwoHeaderRows: Bool {
+        layout.expandedSize.width < 500 || model.presentationContext.language == .english
+    }
+    private var navigationHeight: CGFloat { model.usesGroupedControls ? 32 : 26 }
+    private var headerRowHeight: CGFloat { model.usesGroupedControls ? 32 : 28 }
     private var header: some View {
-        HStack(spacing: 8) {
-            if layout.expandedSize.width >= 500 {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
                 Text(AppIdentity.productName).font(.system(size: 13, weight: .semibold))
+                    .fixedSize()
+                if !usesTwoHeaderRows { navigation }
                 Spacer(minLength: 4)
+                refreshControls
+            }.frame(height: headerRowHeight)
+            if usesTwoHeaderRows {
+                navigation.frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: navigationHeight)
             }
-            HStack(spacing: model.usesGroupedControls ? 2 : 8) {
-                ForEach(model.visiblePages, id: \.rawValue) { page in
-                    Button { model.selectPage(page) } label: {
-                        Text(page.title(language: model.presentationContext.language) + (page == .messages && model.resetNews.forecastCount > 0 ? " \(ResetForecastIndicator.countText(model.resetNews.forecastCount))" : "")).font(.system(size: 12, weight: .medium))
-                            .lineLimit(1).minimumScaleFactor(0.6)
-                            .foregroundColor(model.page == page || model.increaseContrast ? .white : NotchStyle.secondary)
-                            .padding(.horizontal, 6).padding(.vertical, 4)
-                            .background(model.page == page ? Color.white.opacity(0.12) : .clear).cornerRadius(model.usesGroupedControls ? 12 : 5)
-                    }.buttonStyle(PlainButtonStyle()).accessibilityIdentifier("notch.page.\(page.rawValue)")
-                }
+        }.frame(height: headerRowHeight + (usesTwoHeaderRows ? navigationHeight + 4 : 0))
+    }
+    private var navigation: some View {
+        HStack(spacing: model.usesGroupedControls ? 2 : 4) {
+            ForEach(model.visiblePages, id: \.rawValue) { page in
+                Button { model.selectPage(page) } label: {
+                    Text(pageTitle(page) + (page == .messages && model.resetNews.forecastCount > 0 ? " \(ResetForecastIndicator.countText(model.resetNews.forecastCount))" : "")).font(.system(size: 12, weight: .medium))
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .foregroundColor(model.page == page || model.increaseContrast ? .white : NotchStyle.secondary)
+                        .padding(.horizontal, 6).padding(.vertical, 4)
+                        .background(model.page == page ? Color.white.opacity(0.12) : .clear).cornerRadius(model.usesGroupedControls ? 12 : 5)
+                }.buttonStyle(PlainButtonStyle()).accessibilityIdentifier("notch.page.\(page.rawValue)")
             }
-            .padding(model.usesGroupedControls ? 3 : 0)
-            .modifier(NotchControlSurface(surface: model.controlSurface))
-        }.frame(height: model.usesGroupedControls ? 32 : 26)
+        }
+        .padding(model.usesGroupedControls ? 3 : 0)
+        .modifier(NotchControlSurface(surface: model.controlSurface))
+    }
+    private var refreshControls: some View {
+        HStack(spacing: 6) {
+            lastUpdated
+            NotchAction(title: model.refreshingAll ? model.presentationContext.text("刷新中…", "Refreshing…") : model.presentationContext.text("刷新全部", "Refresh all"), identifier: "notch.refresh", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onRefreshAll?() }
+                .disabled(model.refreshingAll)
+                .padding(model.usesGroupedControls ? 2 : 0)
+                .modifier(NotchControlSurface(surface: model.controlSurface))
+        }.fixedSize(horizontal: true, vertical: false)
+    }
+    private func pageTitle(_ page: NotchDetailPage) -> String {
+        page == .messages ? model.presentationContext.text("预告", "Forecasts") : page.title(language: model.presentationContext.language)
     }
     private var footer: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if layout.expandedSize.width < 500 { updateLabel }
-            footerActions
-        }.frame(height: layout.expandedSize.width < 500 ? 45 : 28)
+        footerActions
+            .overlay(Rectangle().fill(Color.white.opacity(0.12)).frame(height: 0.5), alignment: .top)
     }
-    private var updateLabel: some View {
-        Text(model.content.updated).font(.system(size: 10)).foregroundColor(NotchStyle.secondary).lineLimit(1)
+    private var lastUpdated: some View {
+        Text(model.lastSuccessfulUpdateText)
+            .font(.system(size: 10)).foregroundColor(NotchStyle.secondary)
+            .lineLimit(1).minimumScaleFactor(0.8)
+            .accessibilityIdentifier("notch.lastUpdated")
     }
     private var footerActions: some View {
         HStack(spacing: 6) {
-            if layout.expandedSize.width >= 500 { updateLabel }
             Spacer(minLength: 4)
             HStack(spacing: model.usesGroupedControls ? 2 : 6) {
-                NotchAction(title: model.presentationContext.text("刷新额度", "Refresh quota"), identifier: "notch.refresh", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onRefresh?() }
-                    .disabled(model.content.isRefreshing)
                 NotchAction(title: model.presentationContext.text("设置", "Settings"), identifier: "notch.settings", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onSettings?() }
                 NotchAction(title: model.presentationContext.text("隐藏", "Hide"), identifier: "notch.hide", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.onHide?() }
                 NotchAction(title: model.presentationContext.text("收起", "Collapse"), identifier: "notch.collapse", reduceMotion: model.reduceMotion, grouped: model.usesGroupedControls, increaseContrast: model.increaseContrast) { model.collapse() }
@@ -98,74 +122,105 @@ struct NotchDetailPages: View {
             .accessibilityIdentifier("notch.content.3")
     }
     private var quota: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if quotaMetrics.isEmpty {
+        VStack(alignment: .leading, spacing: 9) {
+            if quotaMeters.isEmpty {
                 Text(model.presentationContext.text("暂无额度数据", "No quota data")).font(.system(size: 18, weight: .semibold))
             } else {
-                HStack(alignment: .top, spacing: 18) {
-                    ForEach(Array(quotaMetrics.enumerated()), id: \.offset) { _, metric in
+                HStack(alignment: .top, spacing: 22) {
+                    ForEach(Array(quotaMeters.enumerated()), id: \.offset) { _, row in
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(metric.title).font(.system(size: 10, weight: .medium)).foregroundColor(NotchStyle.secondary)
-                            Text(metric.value).font(.system(size: 34, weight: .semibold, design: .monospaced))
-                                .foregroundColor(NotchStyle.accent).lineLimit(1).minimumScaleFactor(0.45)
-                            if let percent = metric.percent {
-                                GeometryReader { proxy in
-                                    ZStack(alignment: .leading) {
-                                        Capsule().fill(Color.white.opacity(0.12))
-                                        Capsule().fill(NotchStyle.accent).frame(width: proxy.size.width * CGFloat(max(0, min(100, percent))) / 100)
-                                    }
-                                }.frame(height: 4).accessibilityHidden(true)
-                            }
-                            Text(metric.date).font(.system(size: 10)).foregroundColor(NotchStyle.secondary)
+                            Text(row.title).font(.system(size: 11, weight: .medium))
+                            Text(row.meter.remainingText).font(.system(size: 30, weight: .semibold, design: .monospaced))
                                 .lineLimit(1).minimumScaleFactor(0.7)
-                        }.frame(maxWidth: .infinity, alignment: .leading)
+                            GeometryReader { proxy in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(NotchStyle.quota.opacity(0.18))
+                                    Capsule().fill(NotchStyle.quota)
+                                        .frame(width: proxy.size.width * CGFloat(max(0, min(100, row.meter.remainingPercent))) / 100)
+                                }
+                            }.frame(height: 3).accessibilityHidden(true)
+                            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                                Text(model.presentationContext.text("重置", "Resets"))
+                                    .font(.system(size: 10)).fixedSize()
+                                Text(businessTime(row.meter.resetDate, expiration: false))
+                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }.foregroundColor(NotchStyle.quota)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
             resetAndForecast
         }
     }
-    private var quotaMetrics: [HUDMetric] { model.content.metrics.filter { $0.percent != nil } }
+    private var quotaMeters: [(title: String, meter: LimitMeter)] {
+        var rows: [(title: String, meter: LimitMeter)] = []
+        if let five = model.content.state.fiveHour {
+            rows.append((model.presentationContext.text("5 小时额度剩余", "5-hour remaining"), five))
+        }
+        if let weekly = model.content.state.weekly {
+            rows.append((model.presentationContext.text("周额度剩余", "Weekly remaining"), weekly))
+        }
+        return rows
+    }
     private var forecastHeadline: ResetForecastHeadline? {
         model.showsForecastShoulder ? model.forecast.headline : nil
     }
-    @ViewBuilder private var resetAndForecast: some View {
-        if model.content.state.resetCredits != nil || forecastHeadline != nil {
-            HStack(alignment: .top, spacing: 16) {
+    private var resetAndForecast: some View {
+        HStack(alignment: .top, spacing: 22) {
+            VStack(alignment: .leading, spacing: 3) {
                 if let credits = model.content.state.resetCredits {
-                    VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(model.presentationContext.text(credits.availableCount > 0 ? "可用完整重置" : "可用重置", "Available resets"))
-                            .font(.system(size: 10, weight: .medium)).foregroundColor(NotchStyle.secondary)
-                        HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            Text(model.presentationContext.text("\(credits.availableCount) 次", "\(credits.availableCount) left"))
-                                .font(.system(size: credits.availableCount > 0 ? 16 : 11,
-                                              weight: credits.availableCount > 0 ? .semibold : .regular, design: .monospaced))
-                                .foregroundColor(credits.availableCount > 0 ? .white : NotchStyle.secondary)
-                            if let date = credits.earliestExpirationDate {
-                                Text(earliestExpiry(date)).font(.system(size: 10)).foregroundColor(NotchStyle.secondary)
-                                    .lineLimit(1).minimumScaleFactor(0.65)
-                            }
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if let headline = forecastHeadline {
-                    Button(action: model.openResetForecasts) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(forecastLabel(headline)).font(.system(size: 11, weight: .medium))
-                                .foregroundColor(NotchStyle.secondary).lineLimit(1).minimumScaleFactor(0.65)
-                            Text(headline.headline).font(.system(size: 16, weight: .semibold).monospacedDigit())
-                                .foregroundColor(model.resetNews.forecastAvailability == .cached ? NotchStyle.secondary : .white)
-                                .lineLimit(1).minimumScaleFactor(0.65)
-                        }.frame(maxWidth: .infinity, alignment: .leading)
+                            .font(.system(size: 11, weight: .medium))
+                        Text(model.presentationContext.text("\(credits.availableCount) 次", "\(credits.availableCount) left"))
+                            .font(.system(size: 19, weight: .semibold, design: .monospaced))
+                            .lineLimit(1).minimumScaleFactor(0.75)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .accessibilityIdentifier("notch.forecastSummary")
-                    .accessibilityLabel((model.resetNews.forecastAvailability == .cached
-                        ? model.presentationContext.text("上次重置预告 · ", "Last reset forecast · ")
-                        : model.presentationContext.text("公开重置预告 · ", "Public reset forecast · ")) + headline.summary)
+                    if credits.availableCount > 0 {
+                        HStack(alignment: .firstTextBaseline, spacing: 5) {
+                            Text(model.presentationContext.text("最早到期", "Earliest expiry"))
+                                .font(.system(size: 10)).fixedSize()
+                            Text(businessTime(credits.earliestExpirationDate, expiration: true))
+                                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                        }
+                    } else {
+                        Text(model.presentationContext.text("当前无可用次数", "No resets available"))
+                            .font(.system(size: 11))
+                    }
+                } else {
+                    Text(model.presentationContext.text("可用重置", "Available resets"))
+                        .font(.system(size: 11, weight: .medium))
+                    Text(model.presentationContext.text("次数待获取", "Count pending"))
+                        .font(.system(size: 13, weight: .medium))
                 }
+            }.foregroundColor(NotchStyle.reset)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if model.resetNews.enabled {
+                Button { model.selectPage(.messages) } label: {
+                    HStack(alignment: .center, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(forecastHeadline.map(forecastLabel) ?? model.presentationContext.text("公开重置预告", "Public reset forecast"))
+                                .font(.system(size: 11, weight: .medium)).lineLimit(2)
+                            Text(forecastHeadline?.headline ?? model.forecast.value)
+                                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "chevron.right").font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundColor(NotchStyle.forecast.opacity(model.resetNews.forecastAvailability == .cached ? 0.75 : 1))
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
+                .accessibilityIdentifier("notch.forecastSummary")
+                .accessibilityLabel(model.presentationContext.text("查看公开重置预告，", "View public reset forecasts, ") + (forecastHeadline?.summary ?? model.forecast.value))
             }
         }
+        .padding(.top, 7)
+        .overlay(Rectangle().fill(Color.white.opacity(0.12)).frame(height: 0.5), alignment: .top)
     }
     private func forecastLabel(_ headline: ResetForecastHeadline) -> String {
         let prefix = model.resetNews.forecastAvailability == .cached
@@ -174,8 +229,21 @@ struct NotchDetailPages: View {
         return prefix + (headline.shoulderQualifier.map { " · " + $0 } ?? "")
     }
 
-    private func earliestExpiry(_ date: Date) -> String {
-        model.presentationContext.text("最早到期 ", "Expires ") + model.presentationContext.date(date)
+    private func businessTime(_ date: Date?, expiration: Bool) -> String {
+        let context = model.presentationContext
+        guard let date, date.timeIntervalSince1970.isFinite else {
+            return context.text("时间未提供", "Time not provided")
+        }
+        guard date > context.now else {
+            return expiration
+                ? context.text("已到到期时间 · 待确认", "Expiry reached · Pending confirmation")
+                : context.text("已到计划时间 · 待确认", "Scheduled time reached · Pending confirmation")
+        }
+        if context.calendar.isDate(date, inSameDayAs: context.now) {
+            return context.text("今天 ", "Today ") + context.date(date, format: "HH:mm")
+        }
+        let sameYear = context.calendar.component(.year, from: date) == context.calendar.component(.year, from: context.now)
+        return context.date(date, format: sameYear ? "MM/dd HH:mm" : "yyyy/MM/dd HH:mm")
     }
     private var activity: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -189,18 +257,80 @@ struct NotchDetailPages: View {
         }
     }
     private var usage: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let usage = model.content.state.tokenUsage {
-                Text(usage.yesterdayText(language: model.presentationContext.language) + "  ·  " + usage.cumulativeText(language: model.presentationContext.language))
-                    .font(.system(size: 18, weight: .semibold, design: .monospaced)).fixedSize(horizontal: false, vertical: true)
-                if usage.isStale { Text(model.presentationContext.text("* 为上次统计，当前数据尚未更新。", "* Last known totals; current data is not available.")).foregroundColor(.orange) }
-                if let status = usage.status { Text(status).foregroundColor(NotchStyle.secondary) }
-            } else { Text(model.presentationContext.text("Token 用量暂无数据", "Token usage unavailable")) }
-            Text(model.content.state.creditBalance.map {
-                model.presentationContext.language == .chinese ? $0.displayText : $0.displayText.replacingOccurrences(of: "还剩点数：", with: "Credits: ")
-            } ?? model.presentationContext.text("点数余额暂无数据", "Credit balance unavailable"))
-            Text(model.presentationContext.text("当前数据未提供历史用量曲线。", "Historical usage charts are not available from this snapshot."))
-                .foregroundColor(NotchStyle.secondary)
+        HStack(alignment: .top, spacing: 22) {
+            tokenUsage.frame(maxWidth: .infinity, alignment: .leading)
+            if model.apiCosts.visible {
+                apiUsage.frame(maxWidth: .infinity, alignment: .leading)
+            }
         }.font(.system(size: 11, weight: .medium))
     }
+
+    private var tokenUsage: some View {
+        let context = model.presentationContext
+        let usage = model.content.state.tokenUsage
+        let yesterday = context.text("昨日 ", "Yday ")
+        let cumulative = context.text("累计 ", "Total ")
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(context.text("Token 用量", "Token usage"))
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Text(context.text("昨日", "Yesterday"))
+                Text(tokenValue(usage?.yesterdayText(language: context.language) ?? yesterday + "—", prefix: yesterday))
+                    .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Text(context.text("累计", "Total"))
+                Text(tokenValue(usage?.cumulativeText(language: context.language) ?? cumulative + "—", prefix: cumulative))
+                    .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
+            if usage?.isStale == true {
+                Text(context.text("* 为上次统计 · 尚未更新", "* Previous totals · Not updated"))
+                    .font(.system(size: 10)).foregroundColor(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(model.content.state.creditBalance.map {
+                context.language == .chinese ? $0.displayText : $0.displayText.replacingOccurrences(of: "还剩点数：", with: "Credits: ")
+            } ?? context.text("账号点数余额未提供", "Account credit balance not provided"))
+                .font(.system(size: 10)).foregroundColor(NotchStyle.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }.foregroundColor(NotchStyle.token)
+    }
+
+    private func tokenValue(_ text: String, prefix: String) -> String {
+        text.hasPrefix(prefix) ? String(text.dropFirst(prefix.count)) : text
+    }
+
+    private var apiUsage: some View {
+        let context = model.presentationContext
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(context.text("本月 API 消费", "API spend this month"))
+            Text(model.apiCosts.amountText(language: context.language))
+                .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                .lineLimit(2).minimumScaleFactor(0.7)
+                .accessibilityIdentifier("notch.apiCosts.amount")
+            Text(model.apiCosts.period.title)
+            if model.apiCosts.refreshing {
+                Text(context.text("消费仍在刷新…", "Costs still refreshing…"))
+                    .foregroundColor(NotchStyle.secondary)
+            } else if let recovery = model.apiCosts.recoveryTitle(language: context.language) {
+                Button {
+                    if model.apiCosts.error?.requiresRepair == true { model.onAPICostSettings?() }
+                    else { model.onRefreshAPICosts?() }
+                } label: {
+                    Text(recovery).fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+                }
+                .buttonStyle(PlainButtonStyle()).foregroundColor(.orange)
+                .disabled(model.apiCosts.error?.requiresRepair != true && !model.apiCosts.canRefresh)
+                .accessibilityIdentifier(model.apiCosts.error?.requiresRepair == true ? "notch.apiCosts.settings" : "notch.apiCosts.refresh")
+            } else if model.apiCosts.isStale {
+                Button(context.text("统计待更新 · 刷新消费", "Totals out of date · Refresh costs")) { model.onRefreshAPICosts?() }
+                    .buttonStyle(PlainButtonStyle()).foregroundColor(.orange)
+                    .disabled(!model.apiCosts.canRefresh)
+                    .accessibilityIdentifier("notch.apiCosts.refresh")
+            }
+        }.foregroundColor(NotchStyle.api)
+    }
+
 }

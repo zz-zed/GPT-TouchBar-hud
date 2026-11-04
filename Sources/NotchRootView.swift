@@ -64,8 +64,10 @@ struct NotchRootView: View {
                     .resizable().frame(width: 16, height: 16)
                 Text(ResetForecastIndicator.countText(count))
                     .font(.system(size: 9, weight: .semibold, design: .monospaced)).fixedSize()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 6, weight: .semibold))
             }
-            .foregroundColor(cached ? Color.white.opacity(0.6) : NotchStyle.accent)
+            .foregroundColor(NotchStyle.forecast.opacity(cached ? 0.75 : 1))
             .frame(width: 38, height: layout.visualBarHeight)
             .contentShape(Rectangle())
         }
@@ -84,9 +86,11 @@ struct NotchRootView: View {
     private func pill(left: Bool, layout: NotchLayout) -> some View {
         let info = model.content.peek(left: left)
         let direction: CGFloat = left ? -1 : 1
+        let usesResetCredits = left && model.content.state.fiveHour == nil && (model.content.state.resetCredits?.availableCount ?? 0) > 0
+        let color = usesResetCredits ? NotchStyle.reset : NotchStyle.quota
         let content = VStack(spacing: 0) {
-            Text(info.value).font(.system(size: 11, weight: .semibold, design: .monospaced)).foregroundColor(NotchStyle.accent)
-            Text(info.detail).font(.system(size: left ? 8 : 9)).foregroundColor(NotchStyle.secondary)
+            Text(info.value).font(.system(size: 11, weight: .semibold, design: .monospaced)).foregroundColor(color)
+            Text(info.detail).font(.system(size: 9)).foregroundColor(color)
         }
         .lineLimit(1).minimumScaleFactor(0.65)
         .frame(width: max(0, layout.pillSlotWidth - 8), height: layout.visualBarHeight)

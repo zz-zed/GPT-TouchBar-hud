@@ -11,6 +11,7 @@ final class AppDisplayCoordinator {
     private var latestTaskStatus: TaskStatusSummary?
     private var latestTaskDiagnosticSnapshot: DiagnosticTaskSnapshotReference?
     private var latestResetNewsState = ResetNewsViewState()
+    private var apiCostState = APICostViewState()
     private(set) var displaySnapshot = AppDisplaySnapshot(state: .initial, news: ResetNewsViewState())
     var taskStatusEnabled: Bool { UserDefaults.standard.object(forKey: "taskStatusEnabled") as? Bool ?? true }
     private var hudPreferences = HUDPresentationPreferences()
@@ -27,6 +28,8 @@ final class AppDisplayCoordinator {
     private var sessionSuspended = false
     private(set) var hudAppearance = HUDAppearance.load()
     var onRefreshQuota: (() -> Void)?
+    var onRefreshAPICosts: (() -> Void)?
+    var onAPICostSettings: (() -> Void)?
     var onCheckResetNews: (() -> Void)?
     var onMarkAllRead: (() -> Void)?
     var onVisibleMessage: ((String) -> Void)?
@@ -53,7 +56,10 @@ final class AppDisplayCoordinator {
     }()
     private lazy var notchHUD: NotchHUDController = {
         let controller = NotchHUDController(diagnostics: DiagnosticRuntimeRecorder.shared)
+        controller.onRefreshAPICosts = { [weak self] in self?.onRefreshAPICosts?() }
+        controller.onAPICostSettings = { [weak self] in self?.notchHUD.collapse(animated: false); self?.onAPICostSettings?() }
         controller.onRefresh = { [weak self] in self?.onRefreshQuota?() }
+        controller.onRefreshAll = { [weak self] in self?.refreshAll() }
         controller.onSettings = { [weak self] in self?.onOpenPreferences?() }
         controller.onHide = { [weak self] in self?.closeHUD() }
         controller.onVisibilityChanged = { [weak self] in self?.renderDisplayState() }
@@ -79,11 +85,10 @@ final class AppDisplayCoordinator {
         self.menu = menu; self.persistentTouchBar = persistentTouchBar
         menu.configurationProvider = { [weak self] in self?.menuConfiguration ?? StatusMenuConfiguration() }
         menu.onWillOpen = { [weak self] in self?.notchHUD.collapse(); self?.renderDisplayState() }
+        menu.onAPICostSettings = { [weak self] in self?.onAPICostSettings?() }
+        menu.onRefreshAPICosts = { [weak self] in self?.onRefreshAPICosts?() }
         menu.onRefreshQuota = { [weak self] in self?.onRefreshQuota?() }
-        menu.onRefreshAll = { [weak self] in
-            self?.onRefreshQuota?()
-            if self?.latestResetNewsState.enabled == true { self?.onCheckResetNews?() }
-        }
+        menu.onRefreshAll = { [weak self] in self?.refreshAll() }
         menu.onForecast = { [weak self] in self?.openMenuForecast() }
         menu.onForecastRetry = { [weak self] in self?.onCheckResetNews?() }
         menu.onForecastFromContext = { [weak self] anchor in self?.openResetNews(relativeTo: anchor) }
@@ -114,6 +119,18 @@ final class AppDisplayCoordinator {
         hudPreferences.applyStartupVisibility(hasGeometry: !DisplayTargetResolver.candidates().isEmpty)
         recordDisplayPreference(); menu.configureStatusItem()
     }
+    func receiveAPICosts(_ state: APICostViewState) {
+        guard !isStopped else { return }
+        apiCostState = state
+        menu.updateAPICosts(state)
+        notchHUD.updateAPICosts(state)
+    }
+    private func refreshAll() {
+        guard !isStopped else { return }
+        if !latestQuotaState.isRefreshing { onRefreshQuota?() }
+        if apiCostState.canRefresh { onRefreshAPICosts?() }
+        if latestResetNewsState.enabled, latestResetNewsState.status != .checking { onCheckResetNews?() }
+    }
     func receiveQuota(_ state: RateLimitDisplayState) { guard !isStopped else { return }; latestQuotaState = state; renderDisplayState(reason: .quotaRefresh) }
     func receiveTask(_ status: TaskStatusSummary?) {
         guard !isStopped else { return }
@@ -141,6 +158,8 @@ final class AppDisplayCoordinator {
         let state = displaySnapshot.state
         mainTaskTrace.record(state, action: reason == .completionFeedbackExpired ? .presentationRevised : .received)
         menu.update(displaySnapshot)
+        menu.updateAPICosts(apiCostState)
+        notchHUD.updateAPICosts(apiCostState)
         hudController.update(with: state, context: displaySnapshot.context)
         notchHUD.update(state, taskDisplayEnabled: taskStatusEnabled, metrics: displaySnapshot.metrics, context: displaySnapshot.context)
         persistentTouchBar.update(with: state, context: displaySnapshot.context)

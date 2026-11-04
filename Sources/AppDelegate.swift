@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
     private let touchBarHardware = TouchBarHardware.current
     private let store = RateLimitStore(diagnostics: DiagnosticRuntimeRecorder.shared)
     private let appUpdater = AppUpdater()
+    private let apiCosts = APICostStore()
     private let taskMonitor = TaskMonitoringCoordinator(diagnostics: DiagnosticRuntimeRecorder.shared)
     private let lifecycleMonitor = HostLifecycleMonitor()
     private let persistentTouchBar = PersistentTouchBarController(diagnostics: DiagnosticRuntimeRecorder.shared)
@@ -13,7 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
     private lazy var menu = StatusMenuController(touchBarHardware: touchBarHardware, appUpdater: appUpdater)
     private lazy var display = AppDisplayCoordinator(menu: menu, persistentTouchBar: persistentTouchBar)
     private lazy var preferences = PreferencesCoordinator(touchBarHardware: touchBarHardware, appUpdater: appUpdater,
-        resetNewsMonitor: resetNewsMonitor, quotaAlerts: quotaAlerts)
+        resetNewsMonitor: resetNewsMonitor, quotaAlerts: quotaAlerts, apiCosts: apiCosts)
     private lazy var lifecycle = AppLifecycleCoordinator(store: store, appUpdater: appUpdater,
         taskMonitor: taskMonitor, hostMonitor: lifecycleMonitor, resetNewsMonitor: resetNewsMonitor,
         quotaAlerts: quotaAlerts, persistentTouchBar: persistentTouchBar)
@@ -43,13 +44,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
     }
     private func connectCallbacks() {
         store.delegate = self
+        apiCosts.onChange = { [weak self] state in
+            self?.preferences.updateAPICosts(state)
+            self?.display.receiveAPICosts(state)
+        }
+        display.onRefreshAPICosts = { [weak self] in self?.apiCosts.refresh() }
+        display.onAPICostSettings = { [weak self] in self?.preferences.openAPICosts() }
         lifecycle.taskStatusEnabled = { [weak self] in self?.display.taskStatusEnabled ?? false }
-        lifecycle.onStartPresentation = { [weak self] in self?.preferences.start(); self?.display.start() }
+        lifecycle.onStartPresentation = { [weak self] in self?.preferences.start(); self?.display.start(); self?.apiCosts.start() }
         lifecycle.onResetCompletion = { [weak self] in self?.display.resetCompletionFeedback() }
         lifecycle.onHostStarted = { [weak self] in self?.display.hostDidStart() }
         lifecycle.onHostAbsentAtLaunch = { [weak self] in self?.display.environmentChanged() }
-        lifecycle.onSessionSuspended = { [weak self] in self?.display.setSessionSuspended($0) }
-        lifecycle.onStopPresentation = { [weak self] in self?.display.stop(); self?.preferences.stop() }
+        lifecycle.onSessionSuspended = { [weak self] in self?.display.setSessionSuspended($0); self?.apiCosts.setSuspended($0); if $0 { self?.preferences.suspendAPICostEditing() } }
+        lifecycle.onStopPresentation = { [weak self] in self?.apiCosts.stop(); self?.display.stop(); self?.preferences.stop() }
         display.onRefreshQuota = { [weak self] in self?.lifecycle.refreshQuota() }
         display.onCheckResetNews = { [weak self] in self?.resetNewsMonitor.checkNow() }
         display.onMarkAllRead = { [weak self] in self?.resetNewsMonitor.markAllRead() }

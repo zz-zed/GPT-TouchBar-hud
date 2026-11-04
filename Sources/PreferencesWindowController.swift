@@ -1,8 +1,30 @@
 import AppKit
 
+/// Menu-bar apps have no Edit menu to route standard field-editor shortcuts.
+final class PreferencesWindow: NSWindow {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+              let editor = firstResponder as? NSTextView,
+              editor.isFieldEditor, editor.isEditable,
+              let contentView, hasSecureEditor(editor, in: contentView) else {
+            return super.performKeyEquivalent(with: event)
+        }
+        switch event.charactersIgnoringModifiers?.lowercased() {
+        case "v": editor.paste(nil); return true
+        case "a": editor.selectAll(nil); return true
+        default: return super.performKeyEquivalent(with: event)
+        }
+    }
+    private func hasSecureEditor(_ editor: NSTextView, in view: NSView) -> Bool {
+        if let field = view as? NSSecureTextField, field.currentEditor() === editor { return true }
+        return view.subviews.contains { hasSecureEditor(editor, in: $0) }
+    }
+}
+
 final class PreferencesWindowController: NSWindowController {
     private enum TabIdentifier: String {
-        case general, appearance, touchBar, experiments, updates, resetNews, quotaAlerts
+        case general, appearance, touchBar, experiments, updates, resetNews, quotaAlerts, apiCosts
     }
 
     var onQuit: (() -> Void)?
@@ -36,6 +58,7 @@ final class PreferencesWindowController: NSWindowController {
     private let quotaThresholds = [10, 20, 30, 50]
     private let touchBarHardware: TouchBarHardware
     private let tabs = NSTabView()
+    let apiCostPanel = APICostPreferencesView(frame: .zero)
     private let resetNewsEnabled = NSButton(checkboxWithTitle: "启用重置预告", target: nil, action: nil)
     private let resetNewsSound = NSButton(checkboxWithTitle: "预告提示音", target: nil, action: nil)
     private let resetNewsStatus = NSTextField(wrappingLabelWithString: "重置预告已关闭")
@@ -74,14 +97,21 @@ final class PreferencesWindowController: NSWindowController {
         self.appearance = appearance
         self.touchBarHardware = touchBarHardware
         preview = CompactQuotaHUDView(initialAppearance: appearance, onRefresh: {}, onClose: {}, contextMenuProvider: { NSMenu() })
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 560), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let window = PreferencesWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 560), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "设置 · \(AppIdentity.productName)"
         window.isReleasedWhenClosed = false
         super.init(window: window)
         window.center()
         configure()
+        NotificationCenter.default.addObserver(self, selector: #selector(clearAPICostEditor), name: NSWindow.willCloseNotification, object: window)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func showAPICostsTab() {
+        tabs.selectTabViewItem(withIdentifier: TabIdentifier.apiCosts.rawValue)
+    }
+
+    override func close() { apiCostPanel.clearEditor(); super.close() }
 
     func showResetNewsTab() {
         tabs.selectTabViewItem(withIdentifier: TabIdentifier.resetNews.rawValue)
@@ -316,7 +346,7 @@ final class PreferencesWindowController: NSWindowController {
         }
         panels += [(.experiments, "实验", experiments), (.updates, "更新", updates),
                    (.resetNews, DisplayLanguage.text("重置预告", "Reset forecasts"), resetNews),
-                   (.quotaAlerts, "额度提醒", alerts)]
+                   (.quotaAlerts, "额度提醒", alerts), (.apiCosts, "API 消费", apiCostPanel)]
         for (identifier, title, view) in panels {
             let item = NSTabViewItem(identifier: identifier.rawValue)
             item.label = title
@@ -341,6 +371,7 @@ final class PreferencesWindowController: NSWindowController {
         content.addSubview(caption)
         NSLayoutConstraint.activate([caption.centerXAnchor.constraint(equalTo: content.centerXAnchor), caption.topAnchor.constraint(equalTo: preview.bottomAnchor, constant: 10)])
     }
+    @objc private func clearAPICostEditor() { apiCostPanel.clearEditor() }
     @objc private func quitClicked() { onQuit?() }
     @objc private func openHookExperiment() { onHookExperiment?() }
     @objc private func checkResetNewsClicked() { onCheckResetNews?() }

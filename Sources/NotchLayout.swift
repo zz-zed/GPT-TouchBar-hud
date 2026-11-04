@@ -29,7 +29,7 @@ struct NotchLayout: Equatable {
         // Keep shadow inside the carrier; narrow displays shrink slots before overflowing.
         let surfaceWidth = min(width, max(notchWidth + 76, min(520, width - 48)))
         let footerAllowance: CGFloat = surfaceWidth < 500 ? 17 : 0
-        let detailHeight = max(physicalTopInset, visualBarHeight) + 218 + footerAllowance
+        let detailHeight = max(physicalTopInset, visualBarHeight) + 250 + footerAllowance
         expandedSize = CGSize(width: surfaceWidth, height: min(height - 36, detailHeight))
         pillSlotWidth = max(0, min(96, (expandedSize.width - notchWidth - 76) / 2))
     }

@@ -43,6 +43,17 @@ final class NotchPresentationModel: ObservableObject {
     @Published private(set) var sweepFeedbackVisible = false
     @Published private(set) var content = NotchContentAdapter(.initial, tasksEnabled: true)
     @Published private(set) var resetNews = ResetNewsViewState()
+    @Published private(set) var apiCosts = APICostViewState()
+    var onRefreshAPICosts: (() -> Void)?
+    var onAPICostSettings: (() -> Void)?
+    var onRefreshAll: (() -> Void)?
+    var refreshingAll: Bool {
+        content.isRefreshing || resetNews.status == .checking || apiCosts.refreshing
+    }
+    var lastSuccessfulUpdateText: String {
+        HUDDataFreshness.text(account: content.state, news: resetNews, costs: apiCosts, context: presentationContext)
+    }
+    func updateAPICosts(_ state: APICostViewState) { if apiCosts != state { apiCosts = state } }
     @Published private(set) var forecast = ForecastPresentation(ResetNewsViewState())
     private(set) var presentationContext = PresentationContext()
     var visiblePages: [NotchDetailPage] {

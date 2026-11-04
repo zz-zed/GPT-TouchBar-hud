@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 # The list is also the execution plan: --list needs no Swift/macOS installation.
 core_fixtures=(
     TaskStatusTests TokenUsageScannerTests AccountTokenUsageTests VerifiedQuotaTests
-    QuotaAlertTests HostAutoLauncherTests HostLifecycleMonitorTests AppLifecycleStateTests
+    QuotaAlertTests APICostTests APICostUITests HostAutoLauncherTests HostLifecycleMonitorTests AppLifecycleStateTests
     AppUpdateTests GitHubReleaseFallbackTests AppUpdateNotificationTests AppMigrationTests
 )
 [[ $# -le 1 ]] || { echo 'Only one option is accepted' >&2; exit 2; }
@@ -80,6 +80,8 @@ for fixture in "${core_fixtures[@]}"; do
     echo "Running $fixture"
     if [[ "$fixture" == HostAutoLauncherTests ]]; then
         run_bounded 30 "$executable" "$PWD/Resources/gpt-touchbar-hud-launcher.sh"
+    elif [[ "$fixture" == APICostUITests ]]; then
+        python3 Tests/run_status_menu_tests.py --timeout-seconds 60 "$executable"
     else
         run_bounded 30 "$executable"
     fi

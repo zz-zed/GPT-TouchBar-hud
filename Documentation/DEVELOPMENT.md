@@ -46,6 +46,7 @@ dist/GPT-TouchBar-HUD-<版本号>.dmg
 ```bash
 bash scripts/test-app-migration.sh
 bash scripts/test-account-token-usage.sh
+bash scripts/test-api-costs.sh
 bash scripts/test-token-usage.sh
 bash scripts/test-task-status.sh
 bash scripts/test-app-update.sh

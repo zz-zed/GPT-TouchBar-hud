@@ -7,7 +7,12 @@ private typealias NotchLocalState<Value> = SwiftUI.State<Value>
 
 enum NotchStyle {
     static let cobalt = Color(red: 0, green: 71 / 255, blue: 171 / 255)
-    static let accent = Color(red: 90 / 255, green: 168 / 255, blue: 240 / 255)
+    static let quota = Color(red: 139 / 255, green: 184 / 255, blue: 255 / 255)
+    static let reset = Color(red: 234 / 255, green: 193 / 255, blue: 139 / 255)
+    static let forecast = Color(red: 198 / 255, green: 174 / 255, blue: 242 / 255)
+    static let token = Color(red: 131 / 255, green: 210 / 255, blue: 213 / 255)
+    static let api = Color(red: 174 / 255, green: 209 / 255, blue: 161 / 255)
+    static let accent = quota
     static let secondary = Color(white: 0.72)
 }
 

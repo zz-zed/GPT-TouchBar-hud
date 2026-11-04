@@ -7,6 +7,10 @@ final class NotchHUDController {
     private let diagnostics: DiagnosticRecording
     private var lastShowResult: Bool?
     private var lastLegacyVisibility: Bool?
+    var onRefreshAPICosts: (() -> Void)? { didSet { island?.model.onRefreshAPICosts = onRefreshAPICosts } }
+    var onRefreshAll: (() -> Void)? { didSet { island?.model.onRefreshAll = onRefreshAll } }
+    var onAPICostSettings: (() -> Void)? { didSet { island?.model.onAPICostSettings = onAPICostSettings } }
+    func updateAPICosts(_ state: APICostViewState) { island?.model.updateAPICosts(state) }
     var onRefresh: (() -> Void)? { didSet { island?.model.onRefresh = onRefresh; legacy?.onRefresh = onRefresh } }
     var onSettings: (() -> Void)? { didSet { island?.onSettings = onSettings; legacy?.onSettings = onSettings } }
     var onHide: (() -> Void)? { didSet { island?.model.onHide = onHide; legacy?.onHide = onHide } }

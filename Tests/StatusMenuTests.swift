@@ -64,13 +64,20 @@ struct StatusMenuTests {
                 }
                 retry.performClick(nil)
                 check(retries == 1, "Credits-only and timestamp-only retry reaches the account callback")
+                let previousUpdate = view.lastSuccessfulUpdateText
                 state.isRefreshing = true
                 view.update(state, context: context)
-                check(text(view).contains(context.text("正在刷新 · 保留上次数据", "Refreshing · Showing last data")), "Refreshing preserves the previous account data")
+                let refresh = find("menu.refresh", in: view) as! NSButton
+                check(!refresh.isEnabled && refresh.title == context.text("刷新中…", "Refreshing…")
+                      && view.lastSuccessfulUpdateText == previousUpdate, "Refreshing preserves the previous successful timestamp and exposes busy state")
                 state.errorMessage = nil; state.isRefreshing = false
                 view.update(state, context: context)
                 check(retry.isHidden && !text(view).contains(notePrefix), "Successful recovery removes failure and retry")
-                check(text(view).contains(context.text("账号数据 · 04:00", "Account data · 04:00")), "Successful recovery restores the account timestamp")
+                check(view.lastSuccessfulUpdateText.contains("04:00"), "Successful recovery retains the latest account timestamp")
+                let timestamp = find("menu.updated", in: view) as! NSTextField
+                check(!timestamp.isHidden && timestamp.stringValue == view.lastSuccessfulUpdateText,
+                    "Successful recovery displays its single update timestamp")
+                check(!text(view).contains(context.text("账号数据 · ", "Account data · ")), "Normal account metadata stays out of the primary summary")
                 state.errorMessage = "failed again"
                 view.update(state, context: context)
                 check(!retry.isHidden && view.bounds.contains(retry.frame), "Reentering failure relays out the retry row")
@@ -300,8 +307,10 @@ struct StatusMenuTests {
                     summary.appearance = NSAppearance(named: appearance)
                     summary.update(state, news: news, context: context)
                     let taskView = find("menu.task", in: summary)!
-                    check(taskView.frame.maxY < 32 && taskView.frame.maxX < find("menu.refresh", in: summary)!.frame.minX,
-                        "Task is retained in the header without refresh overlap")
+                    let refresh = find("menu.refresh", in: summary)!
+                    let timestamp = find("menu.updated", in: summary)!
+                    check(taskView.frame.maxY <= refresh.frame.maxY && taskView.frame.maxX <= timestamp.frame.minX,
+                        "Task is retained without overlapping the timestamp and refresh group")
                     check(find("menu.forecast", in: summary)!.frame.minY == find("menu.reset", in: summary)!.frame.minY,
                         "Cached cross-year forecast stays beside resets")
                     let button = find("menu.forecast.open", in: summary) as! NSButton
@@ -317,7 +326,8 @@ struct StatusMenuTests {
             }
             state.lastUpdated = nil; state.errorMessage = "fixture"
             summary.update(state, news: news, context: context)
-            check(text(summary).contains(context.text("账号未更新 · —", "Account not updated · —")), "Missing account timestamp is never replaced with now")
+            check(text(summary).contains(context.text("账号未更新 · 显示上次数据", "Account not updated · Showing last data"))
+                  && summary.lastSuccessfulUpdateText == context.text("更新于 ", "Updated ") + context.date(now, format: "HH:mm"), "Missing account timestamp preserves the valid forecast success time")
             news.enabled = false
             summary.update(state, news: news, context: context)
             check(text(summary).contains(context.text("预告已关闭", "Forecasts off")) && !text(summary).contains("2026/12/31"), "Disabled forecast never exposes retained cache dates")
@@ -372,7 +382,10 @@ struct StatusMenuTests {
                 let refresh = find("menu.refresh", in: summary) as! NSButton
                 check(refresh.imageHugsTitle && refresh.frame.maxX == 330, "Refresh icon hugs its title and the group stays right aligned")
                 check(refresh.frame.width <= ceil(refresh.cell!.cellSize.width) + 1 && refresh.frame.width > 20, "Refresh uses its intrinsic width in both languages and states")
-                check(find("menu.task", in: summary)!.frame.maxX < refresh.frame.minX, "Task text does not overlap the compact refresh group")
+                let timestamp = find("menu.updated", in: summary)!
+                check(find("menu.task", in: summary)!.frame.maxX <= timestamp.frame.minX, "Task text does not overlap the timestamp and refresh group")
+                check(timestamp.frame.maxX <= refresh.frame.minX && abs(timestamp.frame.midY - refresh.frame.midY) <= 0.5,
+                    "Update time and refresh stay adjacent on one top-right centerline")
             }
             summary.update(state, news: news, context: context)
             let variants: [(String, AppUpdateViewState)] = [
@@ -576,6 +589,16 @@ struct StatusMenuTests {
         let initialReset = find("menu.reset", in: summary)!
         check(initialForecast.frame.minY == initialReset.frame.minY && initialForecast.frame.minX > initialReset.frame.minX,
             "Active forecast and reset credits share a row")
+        check(initialForecast.frame.height == initialReset.frame.height && summary.bounds.contains(initialReset.frame),
+            "Reset and forecast groups share contained geometry")
+        let resetDetail = find("menu.reset.detail", in: summary) as! NSTextField
+        let quotaDetail = find("menu.fiveHour.detail", in: summary) as! NSTextField
+        check(resetDetail.font!.pointSize >= 13 && quotaDetail.font!.pointSize >= 13,
+            "Reset and earliest-expiry times share the stronger business-time hierarchy")
+        check(initialReset.bounds.contains(resetDetail.frame), "Earliest-expiry detail fits its reset group")
+        let timestamp = find("menu.updated", in: summary) as! NSTextField
+        check(!timestamp.isHidden && timestamp.stringValue == summary.lastSuccessfulUpdateText,
+            "One directly visible timestamp retains update metadata")
         check(find("menu.forecast.open", in: summary) != nil, "A valid forecast is actionable")
         var opens = 0, retries = 0, refreshes = 0, quotaRetries = 0
         summary.onForecast = { opens += 1 }; summary.onForecastRetry = { retries += 1 }
@@ -595,8 +618,8 @@ struct StatusMenuTests {
         try scene(5, weeklyOnly, empty)
         check(summary.frame.height == emptyHeight, "One quota does not expand a quiet reset row")
         try scene(6, noCredit, empty)
-        check(find("menu.reset", in: summary)!.frame.height == 88 && text(summary).contains("0 次"),
-            "Zero credits retain the fixed paired row")
+        check(find("menu.reset", in: summary)!.frame.height == find("menu.forecast", in: summary)!.frame.height
+            && text(summary).contains("0 次"), "Zero credits retain the paired row")
         try scene(7, unknownCredit, empty)
         check(text(summary).contains("次数待获取") && !text(summary).contains("最早到期 —"),
             "Unknown count never invents a unit or expiry")
@@ -661,7 +684,8 @@ struct StatusMenuTests {
         check(text(summary).contains("Token 用量尚未读取") && text(summary).contains("昨日 —"),
             "Unknown token usage preserves explicit missing values")
         try scene(28, noCredit, disabled)
-        check(find("menu.forecast", in: summary) != nil && find("menu.reset", in: summary)!.frame.height == 88
+        check(find("menu.forecast", in: summary) != nil
+            && find("menu.reset", in: summary)!.frame.height == find("menu.forecast", in: summary)!.frame.height
             && text(summary).contains("0 次"),
             "Disabled forecast and zero credits remain compact")
         summary.appearance = NSAppearance(named: .darkAqua)

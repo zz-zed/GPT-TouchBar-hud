@@ -38,6 +38,13 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
     private var collapseDetailsMenuItem: NSMenuItem?
     var configurationProvider: (() -> StatusMenuConfiguration)?
     var onWillOpen: (() -> Void)?
+    var onAPICostSettings: (() -> Void)?
+    var onRefreshAPICosts: (() -> Void)?
+    private var apiCostState = APICostViewState()
+    func updateAPICosts(_ state: APICostViewState) {
+        apiCostState = state
+        if statusMenuOpen { (summaryMenuItem?.view as? StatusSummaryView)?.updateAPICosts(state, context: snapshot.context) }
+    }
     var onRefreshQuota: (() -> Void)?
     var onRefreshAll: (() -> Void)?
     var onForecast: (() -> Void)?
@@ -66,6 +73,7 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         guard acceptsActions else { return }
         statusMenuOpen = true
         onWillOpen?()
+        (summaryMenuItem?.view as? StatusSummaryView)?.updateAPICosts(apiCostState, context: snapshot.context)
         updateUpdateMenuItems()
         (summaryMenuItem?.view as? StatusSummaryView)?.update(snapshot.state, news: snapshot.news, forecast: snapshot.forecast, context: snapshot.context)
     }
@@ -117,6 +125,13 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         summaryView.onQuotaRetry = { [weak self] in
             guard let self, self.acceptsActions else { return }; self.onRefreshQuota?()
         }
+        summaryView.updateAPICosts(apiCostState, context: snapshot.context)
+        summaryView.onRefreshAPICosts = { [weak self] in self?.onRefreshAPICosts?() }
+        summaryView.onAPICostSettings = { [weak self] in
+            guard let self, self.acceptsActions else { return }
+            self.statusItem.menu?.cancelTracking()
+            self.onAPICostSettings?()
+        }
         summary.view = summaryView
         summaryMenuItem = summary
         menu.addItem(summary)
@@ -164,6 +179,7 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
             preferencesMenu.addItem(persistent)
         }
         preferencesMenu.addItem(.separator())
+        preferencesMenu.addItem(menuAction(snapshot.context.text("API 消费设置…", "API cost settings…"), #selector(openAPICostPreferences)))
         preferencesMenu.addItem(menuAction("设置…", #selector(openPreferences(_:)), key: ","))
         menu.addItem(displayPreferences)
         addUpdateMenuItems(to: menu)
@@ -210,9 +226,9 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
             return configuration.notchExpanded
         }
         if menuItem.action == #selector(refreshDataFromMenu(_:)) {
-            menuItem.title = latestQuotaState.isRefreshing || latestResetNewsState.status == .checking
+            menuItem.title = latestQuotaState.isRefreshing || latestResetNewsState.status == .checking || apiCostState.refreshing
                 ? "正在刷新…" : "刷新数据"
-            return !latestQuotaState.isRefreshing && latestResetNewsState.status != .checking
+            return !latestQuotaState.isRefreshing && latestResetNewsState.status != .checking && !apiCostState.refreshing
         }
         if menuItem.action == #selector(checkForAppUpdates(_:)) {
             updateUpdateMenuItems()
@@ -379,6 +395,11 @@ final class StatusMenuController: NSObject, NSMenuItemValidation, NSMenuDelegate
         onSelectMenuMode?(MenuBarDisplayMode.allCases[sender.tag])
     }
     @objc private func togglePersistentTouchBar(_ sender: NSMenuItem) { guard acceptsActions else { return }; onTogglePersistent?() }
+    @objc private func openAPICostPreferences() {
+        guard acceptsActions else { return }
+        statusItem.menu?.cancelTracking()
+        onAPICostSettings?()
+    }
     @objc private func refreshDataFromMenu(_ sender: AnyObject?) { guard acceptsActions else { return }; onRefreshAll?() }
     @objc private func refreshQuotaFromMenu(_ sender: AnyObject?) { guard acceptsActions else { return }; onRefreshQuota?() }
     @objc private func openPreferences(_ sender: AnyObject?) { guard acceptsActions else { return }; onPreferences?() }

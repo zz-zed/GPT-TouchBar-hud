@@ -55,13 +55,21 @@ private struct MenuMetric: Equatable {
     var language: DisplayLanguage = .current
 }
 
-/// Compact native summary matching the approved V8 layout.
+/// Native summary with module colors and distinct business-time hierarchy.
 final class StatusSummaryView: NSView {
     override var isFlipped: Bool { true }
     var onRefresh: (() -> Void)?
     var onForecast: (() -> Void)?
     var onForecastRetry: (() -> Void)?
     var onQuotaRetry: (() -> Void)?
+    var onRefreshAPICosts: (() -> Void)?
+    var onAPICostSettings: (() -> Void)?
+    private var apiCostState = APICostViewState()
+    private let apiCostTitle = NSTextField(labelWithString: "")
+    private let apiCostAmount = NSTextField(labelWithString: "")
+    private let apiRecovery = NSButton(title: "", target: nil, action: nil)
+    private var accountState = RateLimitDisplayState.initial
+    private var displayContext = PresentationContext()
     private let heading = NSTextField(labelWithString: AppIdentity.productName)
     private let refresh = NSButton(title: "刷新数据", target: nil, action: nil)
     private let quotaMessage = NSTextField(labelWithString: "")
@@ -96,7 +104,6 @@ final class StatusSummaryView: NSView {
         var tokenHelp: String
         var tokenNote: String
         var tokenUnknown: Bool
-        var status: String
         var refreshing: Bool
     }
 
@@ -107,6 +114,13 @@ final class StatusSummaryView: NSView {
         refresh.image = Self.symbol("arrow.clockwise"); refresh.imagePosition = .imageLeft; refresh.imageHugsTitle = true
         refresh.target = self; refresh.action = #selector(refreshPressed)
         refresh.toolTip = "刷新数据 ⌘R"; refresh.setAccessibilityIdentifier("menu.refresh")
+        apiRecovery.isBordered = false; apiRecovery.font = .systemFont(ofSize: 10)
+        apiRecovery.alignment = .left
+        apiRecovery.contentTintColor = .systemOrange
+        apiRecovery.target = self; apiRecovery.action = #selector(recoverAPICosts)
+        apiRecovery.setAccessibilityIdentifier("menu.apiCosts.recovery")
+        apiRecovery.isHidden = true
+        addSubview(apiRecovery)
         for label in [quotaMessage, quotaHint, quotaNote, updated, tokens, tokenTotal, tokenHeading, tokenNote] {
             label.lineBreakMode = .byTruncatingTail
         }
@@ -123,17 +137,31 @@ final class StatusSummaryView: NSView {
         tokenIcon.image = Self.symbol("cpu"); tokenIcon.contentTintColor = .secondaryLabelColor
         tokens.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
         tokenTotal.font = tokens.font
+        tokenHeading.textColor = HUDModulePalette.tokens
+        tokenIcon.contentTintColor = HUDModulePalette.tokens
+        tokens.textColor = HUDModulePalette.tokens; tokenTotal.textColor = HUDModulePalette.tokens
         updated.font = .systemFont(ofSize: 10); updated.textColor = .secondaryLabelColor
+        updated.setAccessibilityIdentifier("menu.updated")
+        updated.toolTip = "最近一次成功获取的数据时间"
         tokenNote.font = .systemFont(ofSize: 10); tokenNote.textColor = .systemOrange
         for view in [heading, refresh, quotaMessage, quotaHint, quotaNote, quotaRetry,
                      tokenIcon, tokenHeading, tokens, tokenTotal, tokenNote, updated] { addSubview(view) }
+        apiCostTitle.font = .systemFont(ofSize: 11, weight: .medium)
+        apiCostTitle.textColor = HUDModulePalette.api
+        apiCostAmount.font = .monospacedDigitSystemFont(ofSize: 13, weight: .semibold)
+        apiCostAmount.alignment = .right
+        apiCostAmount.textColor = HUDModulePalette.api
+        apiCostAmount.setAccessibilityIdentifier("menu.apiCosts.amount")
+        for view in apiCostViews { view.isHidden = true; addSubview(view) }
         update(state)
     }
 
     func update(_ state: RateLimitDisplayState, news: ResetNewsViewState? = nil, forecast presentation: ForecastPresentation? = nil,
                 context: PresentationContext = PresentationContext()) {
+        accountState = state; displayContext = context
         func date(_ value: Date?) -> String { value.map { context.date($0) } ?? "—" }
         if let news { self.news = news }
+        updateTimestamp()
         let forecast = presentation.map(MenuForecastPresentation.init) ?? MenuForecastPresentation(ForecastPresentation(self.news, context: context))
         let hasQuota = state.fiveHour != nil || state.weekly != nil
         let firstLoad = !hasQuota && state.lastUpdated == nil && state.resetCredits == nil
@@ -141,7 +169,9 @@ final class StatusSummaryView: NSView {
         func quota(_ meter: LimitMeter, id: String, title: String) -> MenuMetric {
             MenuMetric(id: id, title: title, symbol: "gauge.medium", value: meter.remainingText,
                 detail: (meter.remainingPercent == 0 ? context.text("已耗尽 · ", "Exhausted · ") : "")
-                    + context.text("重置 ", "Resets ") + date(meter.resetDate),
+                    + (meter.resetDate.map { context.text("重置 ", "Resets ") + date($0)
+                        + ($0 <= context.now ? context.text("\n待更新确认", "\nAwaiting update") : "") }
+                        ?? context.text("重置时间未提供", "Reset time unavailable")),
                 style: .quota, progress: meter.remainingPercent)
         }
         if let five = state.fiveHour {
@@ -156,7 +186,8 @@ final class StatusSummaryView: NSView {
                 metrics.append(MenuMetric(id: "reset", title: context.text("可用完整重置", "Full resets available"),
                     symbol: "arrow.counterclockwise", value: "\(credits.availableCount)",
                     detail: credits.availableCount > 0
-                        ? (credits.earliestExpirationDate.map { context.text("最早到期\n", "Earliest expiry\n") + date($0) } ?? context.text("到期未提供", "Expiry unavailable")) : context.text("当前无可用次数", "No resets available"),
+                        ? (credits.earliestExpirationDate.map { context.text("最早到期\n", "Earliest expiry\n") + date($0)
+                            + ($0 <= context.now ? context.text(" · 待确认", " · Pending") : "") } ?? context.text("到期时间未提供", "Expiry unavailable")) : context.text("当前无可用次数", "No resets available"),
                     style: .credit,
                     unit: context.language == .chinese ? " 次" : " left"))
             } else {
@@ -185,16 +216,8 @@ final class StatusSummaryView: NSView {
             ? context.text("重置次数与 Token 用量也在获取中", "Resets and token usage are loading")
             : context.text("请确认 Codex 已启动后重试", "Check that Codex is running, then retry")) : ""
         let staleAccount = state.errorMessage != nil && !firstLoad
-        let note = staleAccount && !state.isRefreshing ? context.text("账号未更新 · ", "Account not updated · ")
-            + (state.lastUpdated.map { context.date($0, format: "HH:mm") } ?? "—") : ""
-        let status: String
-        if firstLoad { status = "" }
-        else if state.isRefreshing { status = context.text("正在刷新 · 保留上次数据", "Refreshing · Showing last data") }
-        else if staleAccount { status = "" }
-        else if let lastUpdated = state.lastUpdated {
-            status = context.text("账号数据 · ", "Account data · ") + context.date(lastUpdated, format: "HH:mm")
-        }
-        else { status = "" }
+        let note = staleAccount && !state.isRefreshing
+            ? context.text("账号未更新 · 显示上次数据", "Account not updated · Showing last data") : ""
         metrics = metrics.map { var metric = $0; metric.language = context.language; return metric }
         let next = Presentation(metrics: metrics, quotaCount: quotaCount, quotaMessage: quotaMessage,
             quotaHint: quotaHint, quotaNote: note, quotaFailed: firstLoad && state.errorMessage != nil,
@@ -204,8 +227,8 @@ final class StatusSummaryView: NSView {
             tokens: "\(usage?.yesterdayText(language: context.language) ?? context.text("昨日 —", "Yday —"))     \(usage?.cumulativeText(language: context.language) ?? context.text("累计 —", "Total —"))",
             tokenHelp: usage?.toolTip(context: context) ?? context.text("账号 Token 统计尚未读取", "Account token usage not loaded"),
             tokenNote: usage?.isStale == true
-                ? context.text("* 已保存数值 · Token 暂未更新", "* Saved values · Token update failed") : (tokenUnknown ? context.text("Token 用量尚未读取", "Token usage not received") : context.text("账号 Token 统计", "Account token usage")),
-            tokenUnknown: tokenUnknown, status: status,
+                ? context.text("* 已保存数值 · Token 暂未更新", "* Saved values · Token update failed") : (tokenUnknown ? context.text("Token 用量尚未读取", "Token usage not received") : ""),
+            tokenUnknown: tokenUnknown,
             refreshing: state.isRefreshing || self.news.status == .checking)
         guard lastPresentation != next else { return }
         lastPresentation = next; layoutUpdateCount += 1
@@ -230,10 +253,58 @@ final class StatusSummaryView: NSView {
         tokenTotal.stringValue = tokenParts.last ?? ""; tokenTotal.usageHelp = next.tokenHelp
         tokenNote.stringValue = next.tokenNote
         tokenNote.textColor = usage?.isStale == true ? .systemOrange : .secondaryLabelColor
-        updated.stringValue = next.status
-        refresh.isEnabled = !next.refreshing
-        refresh.title = next.refreshing ? context.text("刷新中…", "Refreshing…") : context.text("刷新", "Refresh")
+        updateTimestamp()
+        updateRefreshControl()
         layoutContent()
+    }
+
+    private var apiCostViews: [NSView] { [apiCostTitle, apiCostAmount] }
+    func updateAPICosts(_ state: APICostViewState, context: PresentationContext = PresentationContext()) {
+        apiCostState = state
+        displayContext = context
+        for view in apiCostViews { view.isHidden = !state.visible }
+        var title = context.text("本月 API 消费", "Monthly API spend")
+        if state.refreshing { title += context.text(" · 刷新中", " · Refreshing") }
+        else if state.isStale && state.error == nil { title += context.text(" · 待更新", " · Stale") }
+        apiCostTitle.stringValue = title
+        apiCostTitle.textColor = HUDModulePalette.api
+        apiRecovery.isHidden = !state.visible || state.error == nil || state.refreshing
+        apiRecovery.title = state.recoveryTitle(language: context.language) ?? ""
+        apiRecovery.isEnabled = state.error?.requiresRepair == true || state.canRefresh
+        apiRecovery.toolTip = state.error?.message(language: context.language)
+        apiCostAmount.stringValue = state.amountText(language: context.language)
+        let help = state.detail(language: context.language) + "\n" + state.status(language: context.language)
+        for label in [apiCostTitle, apiCostAmount] {
+            label.toolTip = help
+            label.setAccessibilityHelp(help)
+        }
+        updateTimestamp()
+        updateRefreshControl()
+        layoutContent()
+    }
+
+    private func updateRefreshControl() {
+        let busy = (lastPresentation?.refreshing ?? false) || apiCostState.refreshing
+        refresh.isEnabled = !busy
+        refresh.title = displayContext.text(busy ? "刷新中…" : "刷新", busy ? "Refreshing…" : "Refresh")
+    }
+
+    var lastSuccessfulUpdateText: String {
+        HUDDataFreshness.text(account: accountState, news: news, costs: apiCostState, context: displayContext)
+    }
+
+    private func updateTimestamp() {
+        let text = lastSuccessfulUpdateText
+        if updated.stringValue != text {
+            updated.stringValue = text
+            if lastPresentation != nil { layoutContent() }
+        }
+        updated.toolTip = displayContext.text("当前已启用数据源中最近一次成功获取的时间。", "Most recent successful fetch among enabled data sources.")
+    }
+
+    @objc private func recoverAPICosts() {
+        if apiCostState.error?.requiresRepair == true { onAPICostSettings?() }
+        else if apiCostState.canRefresh { onRefreshAPICosts?() }
     }
 
     private func updateOptional(_ field: inout NSTextField?, text: String?, color: NSColor) {
@@ -249,7 +320,12 @@ final class StatusSummaryView: NSView {
         refresh.sizeToFit()
         let refreshWidth = ceil(refresh.frame.width)
         refresh.frame = NSRect(x: 330 - refreshWidth, y: 5, width: refreshWidth, height: 24)
-        taskLabel?.frame = NSRect(x: 79, y: 9, width: max(0, refresh.frame.minX - 83), height: 17)
+        let timestampTextWidth = (updated.stringValue as NSString).size(withAttributes: [.font: updated.font ?? NSFont.systemFont(ofSize: 10)]).width
+        let timestampWidth = min(120, ceil(timestampTextWidth) + 6)
+        let timestampHeight = ceil(updated.intrinsicContentSize.height)
+        updated.frame = NSRect(x: refresh.frame.minX - 8 - timestampWidth, y: refresh.frame.midY - timestampHeight / 2,
+                               width: timestampWidth, height: timestampHeight)
+        taskLabel?.frame = NSRect(x: 79, y: 9, width: max(0, updated.frame.minX - 83), height: 17)
         taskLabel?.setAccessibilityIdentifier("menu.task")
         separators = []
         quotaMessage.isHidden = presentation.quotaMessage.isEmpty
@@ -260,47 +336,65 @@ final class StatusSummaryView: NSView {
         quotaHint.frame = NSRect(x: left, y: 66, width: 316, height: 17)
         for index in 0..<presentation.quotaCount {
             cards[index].frame = NSRect(x: left + CGFloat(index) * 165, y: 32,
-                width: presentation.quotaCount == 1 ? 316 : column, height: 76)
+                width: presentation.quotaCount == 1 ? 316 : column, height: 104)
             cards[index].layoutContent()
         }
-        if presentation.quotaCount == 2 { separators.append(NSRect(x: 172, y: 37, width: 0.5, height: 68)) }
-        updated.isHidden = !presentation.quotaNote.isEmpty || presentation.status.isEmpty
-        updated.frame = NSRect(x: left, y: 110, width: 270, height: 16)
-        quotaNote.frame = NSRect(x: left, y: 110, width: 270, height: 16)
-        quotaRetry.frame = NSRect(x: 292, y: 107, width: 38, height: 20)
-        separator(y: 128, width: width, left: left)
+        if presentation.quotaCount == 2 { separators.append(NSRect(x: 172, y: 37, width: 0.5, height: 94)) }
+        updated.isHidden = false
+        let accountWarningHeight: CGFloat = presentation.quotaNote.isEmpty ? 0 : 18
+        quotaNote.frame = NSRect(x: left, y: 136, width: 270, height: 16)
+        quotaRetry.frame = NSRect(x: 292, y: presentation.quotaFailed ? 88 : 134, width: 38, height: 20)
+        let resetY: CGFloat = 140 + accountWarningHeight
+        separator(y: resetY, width: width, left: left)
         for (id, x) in [("reset", left), ("forecast", left + 165)] {
             if let card = cards.first(where: { $0.metricID == id }) {
-                card.frame = NSRect(x: x, y: 128, width: column, height: 88)
+                card.frame = NSRect(x: x, y: resetY, width: column, height: 100)
                 card.layoutContent()
             }
         }
-        separators.append(NSRect(x: 172, y: 135, width: 0.5, height: 74))
-        separator(y: 216, width: width, left: left)
-        tokenIcon.frame = NSRect(x: left, y: 222, width: 13, height: 14)
-        tokenHeading.frame = NSRect(x: left + 18, y: 221, width: 90, height: 16)
-        balanceLabel?.frame = NSRect(x: 126, y: 222, width: 204, height: 16)
+        separators.append(NSRect(x: 172, y: resetY + 8, width: 0.5, height: 84))
+        let tokenY = resetY + 100
+        separator(y: tokenY, width: width, left: left)
+        tokenIcon.frame = NSRect(x: left, y: tokenY + 8, width: 13, height: 14)
+        tokenHeading.frame = NSRect(x: left + 18, y: tokenY + 7, width: 90, height: 16)
+        balanceLabel?.frame = NSRect(x: 126, y: tokenY + 8, width: 204, height: 16)
         balanceLabel?.alignment = .right
         balanceLabel?.font = .systemFont(ofSize: 10)
-        tokens.frame = NSRect(x: left, y: 240, width: 151, height: 19)
-        tokenTotal.frame = NSRect(x: 179, y: 240, width: 151, height: 19)
-        tokenNote.frame = NSRect(x: left, y: 260, width: 316, height: 15)
-        tokens.isHidden = false; tokenNote.isHidden = false
-        frame.size = NSSize(width: width, height: 280)
-        // Register after the flipped summary and its labels have their final geometry.
+        tokens.frame = NSRect(x: left, y: tokenY + 28, width: 151, height: 19)
+        tokenTotal.frame = NSRect(x: 179, y: tokenY + 28, width: 151, height: 19)
+        tokenNote.isHidden = presentation.tokenNote.isEmpty
+        tokenNote.frame = NSRect(x: left, y: tokenY + 50, width: 316, height: 15)
+        tokens.isHidden = false
+        let tokenBottom = tokenY + (tokenNote.isHidden ? 54 : 70)
+        var height = tokenBottom + 6
+        if apiCostState.visible {
+            let rowTop = tokenBottom + 6
+            let rowHeight: CGFloat = apiRecovery.isHidden ? 36 : 56
+            separator(y: rowTop, width: width, left: left)
+            let centerY = rowTop + (rowHeight + 6) / 2
+            let titleHeight = apiCostTitle.intrinsicContentSize.height
+            let amountHeight = apiCostAmount.intrinsicContentSize.height
+            apiCostTitle.frame = NSRect(x: left, y: apiRecovery.isHidden ? centerY - titleHeight / 2 : rowTop + 8, width: 180, height: titleHeight)
+            apiCostAmount.frame = NSRect(x: 194, y: apiRecovery.isHidden ? centerY - amountHeight / 2 : rowTop + 7, width: 136, height: amountHeight)
+            apiRecovery.frame = NSRect(x: left, y: rowTop + 27, width: 316, height: 22)
+            height = rowTop + rowHeight
+        }
+        frame.size = NSSize(width: width, height: height)
         tokens.refreshTooltipRegion(); tokenTotal.refreshTooltipRegion()
         var order: [NSView] = [heading]
         if let taskLabel { order.append(taskLabel) }
-        order.append(refresh)
+        order += [updated, refresh]
         if !quotaMessage.isHidden { order += [quotaMessage, quotaHint] }
         order += Array(cards.prefix(presentation.quotaCount))
         if !quotaNote.isHidden { order.append(quotaNote) }
-        if !updated.isHidden { order.append(updated) }
         if !quotaRetry.isHidden { order.append(quotaRetry) }
         order += Array(cards.dropFirst(presentation.quotaCount))
         order.append(tokenHeading)
         if let balanceLabel { order.append(balanceLabel) }
-        order += [tokens, tokenTotal, tokenNote]
+        order += [tokens, tokenTotal]
+        if !tokenNote.isHidden { order.append(tokenNote) }
+        if apiCostState.visible { order += apiCostViews }
+        if !apiRecovery.isHidden { order.append(apiRecovery) }
         setAccessibilityChildren(order)
         needsDisplay = true
     }
@@ -338,7 +432,7 @@ private final class MenuMetricView: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
         for view in [icon, title, value, detail, arrow, badge] { addSubview(view) }
-        title.font = .systemFont(ofSize: 10, weight: .medium)
+        title.font = .systemFont(ofSize: 11, weight: .medium)
         badge.font = .systemFont(ofSize: 9, weight: .medium); badge.textColor = .systemOrange
         for field in [value, detail] {
             field.lineBreakMode = .byWordWrapping; field.maximumNumberOfLines = 2
@@ -350,15 +444,19 @@ private final class MenuMetricView: NSView {
     }
     func update(_ metric: MenuMetric) {
         self.metric = metric
+        let moduleColor: NSColor = metric.id == "reset" ? HUDModulePalette.resets
+            : metric.id == "forecast" ? HUDModulePalette.forecast : HUDModulePalette.quota
         title.stringValue = metric.title
+        title.textColor = moduleColor
         title.isHidden = false
         badge.stringValue = metric.language.text("待更新", "Not updated"); badge.isHidden = !metric.isCached
         icon.image = StatusSummaryView.symbol(metric.symbol)
-        icon.contentTintColor = .secondaryLabelColor
+        icon.contentTintColor = moduleColor
+        arrow.contentTintColor = HUDModulePalette.forecast
         let font: NSFont
         switch metric.style {
-        case .quota: font = .monospacedDigitSystemFont(ofSize: 27, weight: .semibold)
-        case .credit: font = .monospacedDigitSystemFont(ofSize: 21, weight: metric.value == "0" ? .regular : .semibold)
+        case .quota: font = .monospacedDigitSystemFont(ofSize: 30, weight: .semibold)
+        case .credit: font = .monospacedDigitSystemFont(ofSize: 24, weight: metric.value == "0" ? .regular : .semibold)
         case .forecast: font = .systemFont(ofSize: 16, weight: .semibold)
         case .wideForecast: font = .monospacedDigitSystemFont(ofSize: 16, weight: .semibold)
         case .quietCredit, .hint: font = .systemFont(ofSize: 11, weight: .regular)
@@ -368,9 +466,18 @@ private final class MenuMetricView: NSView {
         text.append(NSAttributedString(string: metric.unit, attributes: [.font: NSFont.systemFont(ofSize: 11)]))
         value.attributedStringValue = text
         value.textColor = metric.style == .hint || metric.style == .quietCredit || metric.value == "0"
-            ? .secondaryLabelColor : metric.style == .forecast ? .systemBlue : metric.style == .quota && (metric.progress ?? 100) <= 20 ? .systemRed : .labelColor
+            ? .secondaryLabelColor : metric.style == .quota && (metric.progress ?? 100) <= 20 ? .systemRed : moduleColor
         detail.stringValue = metric.detail
-        detail.textColor = .secondaryLabelColor
+        detail.font = .systemFont(ofSize: metric.style == .quota || metric.id == "reset" ? 13 : 10, weight: .medium)
+        detail.textColor = metric.style == .quota || metric.id == "reset" ? moduleColor : .secondaryLabelColor
+        detail.setAccessibilityIdentifier("menu.\(metric.id).detail")
+        detail.toolTip = metric.detail
+        if metric.id == "reset", let newline = metric.detail.firstIndex(of: "\n") {
+            let text = NSMutableAttributedString(string: metric.detail, attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .semibold), .foregroundColor: moduleColor])
+            let labelLength = metric.detail[..<newline].utf16.count
+            text.addAttribute(.font, value: NSFont.systemFont(ofSize: 10), range: NSRange(location: 0, length: labelLength))
+            detail.attributedStringValue = text
+        }
         arrow.isHidden = !metric.actionable
         let label = "\(metric.title) \(metric.value)\(metric.unit)\(metric.detail.isEmpty ? "" : "，" + metric.detail)"
             + (metric.isCached ? metric.language.text("，待更新；尚未获取最新预告，当前显示已保存的安排", "; not updated; latest forecast unavailable, showing the saved schedule") : "")
@@ -403,15 +510,15 @@ private final class MenuMetricView: NSView {
     func layoutContent() {
         guard let metric else { return }
         icon.frame = NSRect(x: 0, y: 6, width: 12, height: 14)
-        title.frame = NSRect(x: 16, y: 5, width: bounds.width - 22, height: 13)
+        title.frame = NSRect(x: 16, y: 5, width: bounds.width - 22, height: 15)
         arrow.frame = NSRect(x: bounds.width - 6, y: 8, width: 6, height: 9)
         detail.isHidden = metric.detail.isEmpty
         if metric.style == .quota {
-            value.frame = NSRect(x: 0, y: 21, width: bounds.width, height: 32)
-            detail.frame = NSRect(x: 0, y: 60, width: bounds.width, height: 16)
+            value.frame = NSRect(x: 0, y: 23, width: bounds.width, height: 35)
+            detail.frame = NSRect(x: 0, y: 66, width: bounds.width, height: 34)
         } else if metric.id == "reset" {
-            value.frame = NSRect(x: 0, y: 27, width: bounds.width, height: 27)
-            detail.frame = NSRect(x: 0, y: 55, width: bounds.width, height: 30)
+            value.frame = NSRect(x: 0, y: 27, width: bounds.width, height: 29)
+            detail.frame = NSRect(x: 0, y: 58, width: bounds.width, height: 38)
         } else {
             value.frame = NSRect(x: 0, y: 29, width: bounds.width, height: 38)
             // Cached state occupies the spare line directly under the title.
@@ -428,12 +535,12 @@ private final class MenuMetricView: NSView {
     }
     override func draw(_ dirtyRect: NSRect) {
         guard let metric, metric.style == .quota else { return }
-        let rect = NSRect(x: 0, y: 55, width: bounds.width, height: 3)
+        let rect = NSRect(x: 0, y: 60, width: bounds.width, height: 3)
         NSColor.separatorColor.setFill()
         NSBezierPath(roundedRect: rect, xRadius: 1.5, yRadius: 1.5).fill()
         if let percent = metric.progress {
-            (percent <= 20 ? NSColor.systemRed : NSColor.controlAccentColor.withAlphaComponent(0.7)).setFill()
-            NSBezierPath(roundedRect: NSRect(x: 0, y: 55, width: bounds.width * CGFloat(percent / 100), height: 3),
+            (percent <= 20 ? NSColor.systemRed : HUDModulePalette.quota).setFill()
+            NSBezierPath(roundedRect: NSRect(x: 0, y: 60, width: bounds.width * CGFloat(percent / 100), height: 3),
                 xRadius: 1.5, yRadius: 1.5).fill()
         }
     }

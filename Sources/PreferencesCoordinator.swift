@@ -5,6 +5,7 @@ final class PreferencesCoordinator {
     private let appUpdater: AppUpdater
     private let resetNewsMonitor: ResetNewsMonitor
     private let quotaAlerts: QuotaAlertMonitor
+    private let apiCosts: APICostStore?
     private var isStopped = false
     private var preferences: PreferencesWindowController?
     private var hookPreferences: HookExperimentPreferencesController?
@@ -26,9 +27,9 @@ final class PreferencesCoordinator {
     var onNeedsDisplayRefresh: (() -> Void)?
 
     init(touchBarHardware: TouchBarHardware, appUpdater: AppUpdater,
-         resetNewsMonitor: ResetNewsMonitor, quotaAlerts: QuotaAlertMonitor) {
+         resetNewsMonitor: ResetNewsMonitor, quotaAlerts: QuotaAlertMonitor, apiCosts: APICostStore? = nil) {
         self.touchBarHardware = touchBarHardware; self.appUpdater = appUpdater
-        self.resetNewsMonitor = resetNewsMonitor; self.quotaAlerts = quotaAlerts
+        self.resetNewsMonitor = resetNewsMonitor; self.quotaAlerts = quotaAlerts; self.apiCosts = apiCosts
     }
     func start() { isStopped = false }
     func stop() {
@@ -45,6 +46,9 @@ final class PreferencesCoordinator {
         updateQuotaAlertPreferences()
     }
     func updateAppUpdate() { preferences?.updateAppUpdate(appUpdater.viewState); updateUpdateNotificationPreferences() }
+    func suspendAPICostEditing() { preferences?.apiCostPanel.clearEditor() }
+    func updateAPICosts(_ state: APICostViewState) { preferences?.apiCostPanel.update(state) }
+    func openAPICosts() { guard !isStopped else { return }; openPreferences(nil); preferences?.showAPICostsTab() }
     func openResetNews() { guard !isStopped else { return }; openPreferences(nil); preferences?.showResetNewsTab() }
     func openQuotaAlerts() { guard !isStopped else { return }; openPreferences(nil); preferences?.showQuotaAlertsTab() }
     func openPreferences(_ sender: AnyObject?) {
@@ -103,9 +107,18 @@ final class PreferencesCoordinator {
                 if self.connectionDiagnostics == nil { self.connectionDiagnostics = ConnectionDiagnosticsWindowController() }
                 self.connectionDiagnostics?.showAndCheck()
             }
+            controller.apiCostPanel.onValidate = { [weak self] key, completion in
+                guard let self, !self.isStopped, let store = self.apiCosts else { completion(false); return }
+                store.validateAndConnect(key, completion: completion)
+            }
+            controller.apiCostPanel.onCancelValidation = { [weak self] in self?.apiCosts?.cancelValidation() }
+            controller.apiCostPanel.onEnabled = { [weak self] in self?.apiCosts?.setEnabled($0) }
+            controller.apiCostPanel.onRefresh = { [weak self] in self?.apiCosts?.refresh() }
+            controller.apiCostPanel.onDisconnect = { [weak self] in self?.apiCosts?.disconnect() }
             preferences = controller
         }
         onNeedsDisplayRefresh?()
+        if let apiCosts { updateAPICosts(apiCosts.state) }
         quotaAlerts.refreshPermission()
         appUpdater.refreshNotificationPermission()
         updateUpdateNotificationPreferences()
