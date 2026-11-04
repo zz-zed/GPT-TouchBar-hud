@@ -220,7 +220,7 @@ Expanded：点击后展开详情。
 | [更新说明](Documentation/UPDATING.md) | 更新、安装与失败恢复。 |
 | [卸载说明](Documentation/UNINSTALL.md) | 自动启动项、偏好与实验配置的清理。 |
 | [Hooks 实验](Documentation/HOOKS-EXPERIMENT.md) | 可选任务监测实验及覆盖范围。 |
-| [项目目录与文档导航](Documentation/README.md) | 源码、测试、素材与历史资料的归类。 |
+| [项目目录与文档导航](Documentation/README.md) | 源码、测试、素材与维护文档的入口。 |
 | [开发说明](Documentation/DEVELOPMENT.md) | 工作原理、构建与验证。 |
 | [发布记录](https://github.com/zz-zed/GPT-TouchBar-hud/releases) | 正式安装包、变更说明与校验文件。 |
 

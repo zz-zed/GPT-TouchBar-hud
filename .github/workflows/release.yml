@@ -40,7 +40,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
-          fetch-depth: 0
+          fetch-depth: 1
+          fetch-tags: false
           persist-credentials: false
       - name: Resolve source and release version
         id: source
@@ -55,7 +56,16 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch ]]; then
             test "$SOURCE_SHA" = "$GITHUB_SHA"
           fi
-          test -n "$RELEASE_TAG"
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          depth_args=()
+          if [[ "$(git rev-parse --is-shallow-repository)" == true ]]; then
+            depth_args=(--unshallow)
+          fi
+          git fetch --no-tags "${depth_args[@]}" origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG" \
+            +refs/tags/v0.1.22:refs/tags/v0.1.22 \
+            +refs/tags/v0.1.38:refs/tags/v0.1.38
           python3 scripts/release_metadata.py resolve --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
           test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$SOURCE_SHA"
       - name: Select the supported native SDK
@@ -133,7 +143,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.build.outputs.source_sha }}
-          fetch-depth: 0
+          fetch-depth: 1
+          fetch-tags: false
           persist-credentials: false
       - name: Download ARM payload from this run
         uses: actions/download-artifact@v8
@@ -151,6 +162,14 @@ jobs:
           SOURCE_SHA: ${{ needs.build.outputs.source_sha }}
           RELEASE_TAG: ${{ needs.build.outputs.tag }}
         run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          depth_args=()
+          if [[ "$(git rev-parse --is-shallow-repository)" == true ]]; then
+            depth_args=(--unshallow)
+          fi
+          git fetch --no-tags "${depth_args[@]}" origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
           python3 scripts/publish-release.py \
             --source . --source-sha "$SOURCE_SHA" --repository "$GITHUB_REPOSITORY" \
             --run-id "$GITHUB_RUN_ID" --artifacts downloads --output release-stage \

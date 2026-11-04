@@ -5,9 +5,10 @@
 /DerivedData/
 /dist/
 
-# Local recovery copies and design working output; keep reviewed evidence in Documentation/.
+# Local recovery copies and working output.
 /backups/
 /Design/
+/.local/
 xcuserdata/
 
 # OS/editor files and machine-specific artifact preview sessions.
@@ -24,9 +25,11 @@ xcuserdata/
 !.env.sample
 !.env.template
 
-# Runtime logs are local. Reviewed historical validation evidence is intentional.
+# Runtime logs and raw validation records stay local.
 *.log
-!/Documentation/validation/**/*.log
+/Documentation/validation/
+/Documentation/**/evidence/
+/Documentation/archive/
 
 # Temporary checkouts and staging used by the release workflows.
 /.release-tools/

@@ -51,6 +51,6 @@ API 消费是可选功能，默认关闭。设置沿用原有顶部标签页，�
 
 离线检查入口：`bash scripts/test-api-costs.sh`，也纳入 `scripts/test-core.sh`。使用合成 HTTP 响应、内存凭据替身与隔离偏好，不读取真实密钥、不连接真实账号。原生预览输出到 `.build/api-cost-ui-preview/`。
 
-真实 Admin API key 权限、真实费用延迟、钥匙串系统授权行为和实体刘海显示仍需单独验收。离线测试通过不代表这些检查已完成。
+离线测试验证响应处理与显示契约；真实账号权限、费用入账延迟、钥匙串系统授权和实体显示行为需要在对应环境验证。
 
 依据：[Costs API](https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/costs)、[Admin APIs](https://developers.openai.com/api/docs/guides/admin-apis)。

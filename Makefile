@@ -1,15 +1,19 @@
 SHELL := /bin/bash
 
-.PHONY: check build package verify full help
+.PHONY: public-content check build package verify full help
 .DEFAULT_GOAL := help
 
 help:
+	@echo "make public-content  Check public documentation and assets"
 	@echo "make check    Fast core checks, production app build and basic verification"
 	@echo "make package  Build once and package a native DMG"
 	@echo "make verify   Verify an existing native DMG, including historical upgrade/rollback"
 	@echo "make full     Run the complete native regression suite (manual, longer)"
 
-check:
+public-content:
+	python3 scripts/check-public-content.py
+
+check: public-content
 	bash scripts/test-release-workflows.sh
 	bash scripts/test-core.sh
 	bash scripts/build-app.sh

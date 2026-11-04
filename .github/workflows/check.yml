@@ -3,18 +3,8 @@ name: Check
 on:
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "**/*.md"
-      - "Documentation/**"
-      - "Marketing/**"
-      - "LICENSE"
   push:
     branches: [main]
-    paths-ignore:
-      - "**/*.md"
-      - "Documentation/**"
-      - "Marketing/**"
-      - "LICENSE"
   workflow_dispatch:
 
 permissions:
@@ -25,8 +15,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  public_content:
+    name: Public content
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      build_required: ${{ steps.scope.outputs.build_required }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Check public documentation and assets
+        run: python3 scripts/check-public-content.py
+      - name: Select build scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          build_required=true
+          if [[ "$EVENT_NAME" != workflow_dispatch && "$BASE_SHA" =~ ^[0-9a-f]{40}$ && "$BASE_SHA" != 0000000000000000000000000000000000000000 ]]; then
+            if { git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null || timeout 20s git fetch --quiet --no-tags --depth=1 origin "$BASE_SHA"; } && git diff --name-only -z "$BASE_SHA" HEAD > "$RUNNER_TEMP/check-paths"; then
+              if python3 - "$RUNNER_TEMP/check-paths" <<'PY'
+          import sys
+          from pathlib import Path
+          paths = [p for p in Path(sys.argv[1]).read_bytes().split(b"\0") if p]
+          docs_only = all(p.endswith(b".md") or p.startswith((b"Documentation/", b"Marketing/")) or p == b"LICENSE" for p in paths)
+          raise SystemExit(0 if docs_only else 1)
+          PY
+              then
+                build_required=false
+              fi
+            fi
+          fi
+          echo "build_required=$build_required" >> "$GITHUB_OUTPUT"
   check:
     name: Core tests and production App (arm64)
+    needs: public_content
+    if: needs.public_content.outputs.build_required == 'true'
     runs-on: macos-15
     timeout-minutes: 10
     steps:

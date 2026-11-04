@@ -6,7 +6,7 @@
 
 ## 构建应用
 
-需要 Xcode Command Line Tools 和支持 Swift 5.8 的工具链。此分支的 Liquid Glass 实现需要 Xcode 26 及以上 SDK；旧工具链编译经典回退外观。分发 CI 显式选择 Xcode 26.3，最低运行目标仍为 macOS 11。
+需要 Xcode Command Line Tools 和支持 Swift 5.8 的工具链。Liquid Glass 实现需要 Xcode 26 及以上 SDK；旧工具链编译经典回退外观。分发 CI 显式选择 Xcode 26.3，最低运行目标仍为 macOS 11。
 
 ```bash
 git clone https://github.com/zz-zed/GPT-TouchBar-hud.git
@@ -87,7 +87,7 @@ bash scripts/test-notch-presentation.sh --preview --compact --debug-regions
 
 ## Liquid Glass 原生预览
 
-本分支的材质适配尚未发布。预览使用正式的浮窗与刘海视图，所有数据均为演示，不创建账号连接、Hooks 或更新服务：
+预览使用应用中的浮窗与刘海视图，所有数据均为演示，不创建账号连接、Hooks 或更新服务：
 
 ```bash
 bash scripts/test-hud-material.sh --preview
@@ -95,6 +95,7 @@ bash scripts/test-hud-material.sh --preview
 
 可切换系统 / 经典材质、明暗外观、中英文、窄屏和刘海实色回退，并打开外观设置预览。“真实浮窗”使用正式透明 NSPanel；在浮窗上右键可返回预览。退出预览后删除隔离的测试偏好域。`--preview` 生成独立标识的 `Liquid Glass Preview.app`，不替换已安装应用。
 
+材质回退见 [HUDAppearance.swift](../Sources/HUDAppearance.swift)；真实系统材质、刘海接缝、多屏与辅助功能行为需按运行环境验证。
 
 ## Touch Bar 冒烟检查
 
@@ -108,9 +109,10 @@ bash scripts/test-touchbar.sh --smoke-system
 
 ## 发布与文档维护
 
+发布步骤、产物校验和恢复方式见[发布流程](RELEASING.md)。双架构构建及签名检查不等于 Apple 公证，也不能替代最低系统版本和完整自动更新链路的实机验证。
 
 `scripts/publish-release.py` 通过 GraphQL 按标签识别草稿，创建草稿后保留返回的 release ID，后续按 ID 读取和上传附件。仅对暂不可见的读取和附件列表尚未完整的情况进行最多 5 次读取，间隔为 1、2、4、8 秒；权限、身份、说明或附件冲突会立即停止，创建、上传和公开发布的写请求不自动重试。重跑时先核对已有附件，避免重复创建或覆盖。发布流程回归使用 `bash scripts/test-release-workflows.sh`，全部为离线合成数据检查。
 
-README 应描述已发布、可供普通用户使用的能力；仅源码可用的功能需要明确标注，不应混入默认安装体验。版本专属变化放在 Release 与发布记录，避免在首页重复维护构建号和历史迁移细节。
+README 应描述已发布、可供普通用户使用的能力；仅源码可用的功能需要明确标注，不应混入默认安装体验。版本专属变化放在 Release 与 `RELEASE_NOTES.md`，避免在首页重复维护构建号和历史迁移细节。
 
 修改默认值时，同时核对首次运行、已有偏好、隐藏状态和截图说明。移动文档时检查相对链接、标题锚点、图片引用和代码块；更改文档不代表重新执行了应用测试。

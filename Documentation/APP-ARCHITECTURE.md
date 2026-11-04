@@ -1,6 +1,6 @@
 # 应用生命周期与呈现职责
 
-应用保留 macOS 11 部署目标、SwiftPM 5.8 清单，以及现有额度、任务和公共重置预告的数据来源与计算规则。入口仍由 `main.swift` 在创建 AppDelegate、服务和界面之前取得单实例锁。
+应用保留 macOS 11 部署目标、SwiftPM 5.8 清单，以及现有额度、任务和公共重置预告的数据来源与计算规则。入口由 `main.swift` 在创建 AppDelegate、服务和界面之前取得单实例锁。
 
 | 对象 | 职责 |
 | --- | --- |
@@ -10,18 +10,18 @@
 | `AppDisplayCoordinator` | 保存最新域状态与诊断引用，管理完成反馈，生成显示快照，分发到各表面，处理面板模式、显隐和预告弹窗路由。 |
 | `StatusMenuController` | 状态按钮和菜单创建、菜单 validation、动作转发、更新条目；摘要内容与尺寸决策仍由 `StatusSummaryView` 管理。 |
 | `PreferencesCoordinator` | 设置、Hook 实验和连接诊断窗口，连接设置动作；更新、预告、提醒和自启动设置仍调用各自现有服务。 |
-| 原有服务与界面控制器 | `RateLimitStore`、`TaskMonitoringCoordinator`、`ResetNewsMonitor`、`AppUpdater` 等维持业务职责；Notch 控制器保留几何、动画、页面和可见性判断。 |
+| 领域服务与界面控制器 | `RateLimitStore`、`TaskMonitoringCoordinator`、`ResetNewsMonitor`、`AppUpdater` 等维持业务职责；Notch 控制器保留几何、动画、页面和可见性判断。 |
 
 ## 单向状态流
 
 ```mermaid
-flowchart LR
-    A[现有域服务] --> B[AppDisplayCoordinator 最新值]
+flowchart TD
+    A["领域服务"] --> B["AppDisplayCoordinator 最新值"]
     B --> C[AppDisplaySnapshot]
-    D[一次捕获 PresentationContext] --> C
-    C --> E[HUDMetric / ForecastPresentation]
-    E --> F[菜单 / Touch Bar / 浮窗 / Notch / 预告列表]
-    F --> G[明确的用户动作回调]
+    D["一次捕获 PresentationContext"] --> C
+    C --> E["HUDMetric / ForecastPresentation"]
+    E --> F["菜单 / Touch Bar / 浮窗 / Notch / 预告列表"]
+    F --> G["用户动作回调"]
     G --> A
 ```
 
@@ -51,13 +51,27 @@ flowchart LR
 
 锁屏、系统睡眠、会话 inactive 分别记为暂停原因。只有最后一个原因解除时才恢复任务监测和允许相应提醒/预告工作；宿主重启或任务设置变化也不能绕过尚未解除的暂停原因。start/stop 幂等；停止先关闭 runtime gate，再停止服务与显示，迟到通知不能重新启用它们。
 
-手工、更新及宿主退出都先检查更新安装的 `canQuit`。安装拒绝退出时，显示安装进度并保留 runtime 与显示；宿主/Codex 事实和相关门禁仍更新。这修正了原先宿主退出在 AppKit 检查安装保护之前先停服的顺序。允许退出后，旧菜单动作、延迟弹窗与设置窗口入口被关闭。
+手工、更新及宿主退出都先检查更新安装的 `canQuit`。安装拒绝退出时，显示安装进度并保留 runtime 与显示；宿主/Codex 事实和相关门禁仍更新。允许退出后，旧菜单动作、延迟弹窗与设置窗口入口被关闭。
 
 AppKit 退出桥接保留三秒 deadline、预告缓存 flush、诊断退出原因及 `MainRunLoopCompletion`。后者在主 run loop 上 exactly-once 回复 `reply(toApplicationShouldTerminate:)`；重复请求继续返回 `terminateLater`。
 
-## 验证与边界
+## 验证入口与边界
 
-自动化检查覆盖生命周期、共享呈现、显示状态与退出协调。对应版本的测试入口定义实际执行范围。
+日常检查与相关专项入口：
 
-合成几何、注入焦点与视图断言不能替代实体 Touch Bar、真实刘海、物理多屏、最低系统版本和另一架构的运行验证；辅助文本断言也不代表所有原生辅助功能节点已经可以读取。
+```sh
+make check
+bash scripts/test-app-lifecycle-state.sh
+bash scripts/test-host-lifecycle.sh
+bash scripts/test-app-termination.sh
+bash scripts/test-status-menu.sh
+bash scripts/test-unified-diagnostic-task-trace.sh
+bash scripts/test-reset-news-date-card.sh
+bash scripts/test-reset-news-popover.sh
+```
 
+生命周期检查覆盖重复与迟到事件、重叠暂停、安装期间的退出保护和异步退出回执。呈现检查覆盖共享上下文、各显示端的状态映射、预告列表与弹窗门禁。具体范围见[测试覆盖清单](CI_TEST_COVERAGE.md)。
+
+注入焦点事实的测试可以验证 delegate、窗口显示和读取门禁清理，但不能证明系统真实焦点通知的投递顺序或阅读曝光。原生透明窗口的鼠标路由、弹窗关闭与重开、多屏切换、全屏及唤醒需在真实图形环境验证；单屏结果不代表外接屏场景通过。
+
+合成几何和视图断言不替代实体 Touch Bar、真实刘海、最低系统版本和另一架构的运行验证。辅助功能文本断言也不等同于原生辅助功能树可读取性；相关改动需单独检查实际控件。

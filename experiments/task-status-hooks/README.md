@@ -1,14 +1,12 @@
 # 任务状态 Hooks 接入原型
 
-这是隔离的可行性验证，不是已上线的任务状态实现。不会被 Swift Package 编译或 DMG 打包；脚本不会自动修改当前 HUD、用户配置、Hook 信任记录，也不会启动模型任务。原型使用 Node.js 内置模块；这不意味着正式应用将新增 Node.js 依赖。
+这是独立的协议验证原型，不参与正式应用构建或 DMG 打包。它使用 Node.js 内置模块，不会自动修改应用、宿主配置或信任设置，也不会启动模型任务。
 
-## 实验语义
+Hooks 只能提供事件线索。提交可能被其他 Hook 阻止，停止事件可能伴随继续执行，宿主退出和事件丢失也会造成覆盖缺口。因此原型输出候选状态，并将 `authoritativeRunningCount` 保持为 `null`，不能把候选数量当作桌面任务的权威总数。
 
-Hooks 通知只能提供候选任务线索，不能单独证明完整的运行任务数量。提交提示后，其他 Hook 可能阻止执行；收到 Stop 后也可能续跑。中途接入、宿主崩溃和上报丢失需要额外校准来源。
+正式应用的可选原生接入见 [Hooks 说明](../../Documentation/HOOKS-EXPERIMENT.md)。
 
-原型输出 `submittedCandidates`，将 `authoritativeRunningCount` 保持为 `null`；候选数不能直接作为正式 UI 的权威运行数量。
-
-## 结构与边界
+## 结构与行为
 
 `Hook → 有时限的本地发送器 → Unix socket 接收器 → 元数据快照`
 
@@ -49,7 +47,7 @@ node experiments/task-status-hooks/probe-runtime.mjs
 bash scripts/test-task-status.sh
 ```
 
-自行启用项目配置后，可用下列只读命令检查配置发现及信任状态：
+已有项目级配置时，可用下列只读命令核对配置发现及信任状态：
 
 ```bash
 node experiments/task-status-hooks/probe-runtime.mjs --project
@@ -76,11 +74,7 @@ node experiments/task-status-hooks/bridge.mjs config /tmp/hud-hook-probe.EXAMPLE
 
 生成配置包含当前 Node 和脚本的绝对路径，只适用于本机试验。不要将个人路径作为公共默认配置提交；不要直接覆盖已有 `hooks.json`。启用前应合并并检查已有定义，在宿主提供的 Hook 界面审阅并信任。不得使用跳过信任检查的参数。
 
+
 ## 验证边界
 
-旧会话热加载、任务中途接入、多个任务来源、中断、接收器重启、宿主异常退出与休眠恢复均需独立验证。缺少覆盖证据时维持候选或未知语义。临时接收器不会安装登录项。
-
-## 官方依据
-
-- [Hooks](https://learn.chatgpt.com/docs/hooks)：事件、信任流程、输出契约、Stop 续跑语义。
-- [App Server](https://learn.chatgpt.com/docs/app-server)：`hooks/list`、运行状态事件和已加载任务接口。独立实例不代表桌面宿主的内存状态。
+合成事件测试覆盖去重、乱序、终态保留、重启恢复和 socket 传输。宿主事件身份、配置生效时机、阻止或续跑语义、休眠和异常退出等行为需要针对受支持版本单独验证。没有新的有效证据时，不把恢复缓存当作实时运行状态。
