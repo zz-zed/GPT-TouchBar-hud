@@ -67,7 +67,6 @@ def scan_png(candidate, path):
     if not data.startswith(b"\x89PNG\r\n\x1a\n"):
         return invalid
     offset = 8
-    found_provenance = False
     found_pixels = False
     text_fields = {}
     text_size = 0
@@ -85,7 +84,6 @@ def scan_png(candidate, path):
         if zlib.crc32(kind + payload) != expected_crc:
             return invalid
         first = False
-        found_provenance |= kind == b"caBX"
         found_pixels |= kind == b"IDAT"
         if kind in {b"tEXt", b"zTXt", b"iTXt"}:
             try:
@@ -103,8 +101,6 @@ def scan_png(candidate, path):
         if kind == b"IEND":
             if size or end != len(data) or not found_pixels:
                 return invalid
-            if found_provenance:
-                findings.append((0, "publication image contains embedded provenance; choose an approved native interface image and preserve the original source credentials"))
             if prompt_record(json.dumps(text_fields), path.with_suffix(".json")):
                 findings.append((0, "raw generation record in image text metadata"))
             return findings

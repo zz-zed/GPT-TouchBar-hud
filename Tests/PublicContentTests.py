@@ -42,13 +42,12 @@ class PublicContentTests(unittest.TestCase):
         result = self.check_files({"Marketing/interface.png": png(), "README.md": b"/Users/example/project\n"})
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_provenance_in_publication_images_is_flagged_without_echoing(self):
-        marker = b"PRIVATE_METADATA_SENTINEL"
+    def test_publication_images_keep_their_provenance_without_echoing(self):
+        marker = b"ORIGINAL_PROVENANCE_SENTINEL"
         for name in ["Marketing/interface.png", "assets/interface.png"]:
             with self.subTest(name=name):
                 result = self.check_files({name: png(chunk(b"caBX", marker))})
-                self.assertEqual(result.returncode, 1)
-                self.assertIn("embedded provenance", result.stderr)
+                self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertNotIn(marker.decode(), result.stdout + result.stderr)
 
     def test_application_resources_keep_their_provenance(self):
@@ -75,7 +74,7 @@ class PublicContentTests(unittest.TestCase):
                 (b"iTXt", b"Description\0\1\0\0\0" + zlib.compress(value)),
             ]:
                 with self.subTest(kind=kind, value=value[:10]):
-                    result = self.check_files({"Marketing/interface.png": png(chunk(kind, payload))})
+                    result = self.check_files({"Marketing/interface.png": png(chunk(b"caBX", b"original credentials"), chunk(kind, payload))})
                     self.assertEqual(result.returncode, 1)
                     self.assertIn("image text metadata", result.stderr)
                     self.assertNotIn("private-personal-sentinel", result.stdout + result.stderr)
