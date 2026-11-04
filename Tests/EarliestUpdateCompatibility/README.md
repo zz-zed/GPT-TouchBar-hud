@@ -1,6 +1,6 @@
 # Earliest updater model compatibility
 
-`scripts/test-earliest-update-contract.py` extracts the unchanged `Sources/AppUpdateModels.swift` from the pinned v0.1.22 Git commit and compiles it with `main.swift`. It verifies the annotated tag object, peeled commit and model blob before compilation. It uses supplied checksum text and synthetic Release metadata; it makes no network requests and never launches or installs an application.
+`scripts/test-earliest-update-contract.py` compiles the unchanged v0.1.22 `Sources/AppUpdateModels.swift` from `snapshot/` with `main.swift`. The snapshot retains the original source bytes and MIT license. Before compilation, the runner verifies both files against their pinned SHA-256 and Git blob IDs; the original annotated tag object and source commit remain recorded as provenance. It uses supplied checksum text and synthetic Release metadata; it makes no network requests and never launches or installs an application.
 
 Example (choose a new output directory on each run):
 
@@ -10,7 +10,7 @@ python3 scripts/test-earliest-update-contract.py --version 0.1.45 --arch arm64 \
   --output .build/earliest-update-contract/run-1
 ```
 
-`evidence.json` records Git identities, extracted source and harness hashes, compiler version, commands, results and limitations. A missing or changed historical Git object fails instead of fetching or silently substituting current code.
+`evidence.json` records original Git identities, extracted source and harness hashes, compiler version, commands, results and limitations. A shallow checkout or source archive is sufficient. A missing, altered or symlinked snapshot fails instead of fetching or silently substituting current code.
 
 The v0.1.22 model accepts the retained `GPT-TouchBar-HUD-{version}-{architecture}.dmg` and `SHA256SUMS.txt` assets from the original repository. Its actual updater separately verifies DMG SHA256 bytes, mounted application identity/version, strict signature, architecture and minimum macOS, then copies `install-update.sh` from the old running application's `Bundle.main`. The installer targets the existing `GPT TouchBar HUD.app` path and treats `open` success as launch success. Those operations are **not executed by this model test**.
 

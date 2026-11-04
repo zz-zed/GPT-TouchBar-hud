@@ -18,6 +18,8 @@ import threading
 import time
 import uuid
 
+from historical_sources import read_source
+
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "Tests/LegacyUpdateCompatibility"
@@ -37,10 +39,6 @@ def run(command, *, log=None, env=None, check=True, timeout=300):
             return subprocess.run(list(map(str, command)), cwd=ROOT, stdout=stream,
                                   stderr=subprocess.STDOUT, env=env, check=check, timeout=timeout)
     return subprocess.run(list(map(str, command)), cwd=ROOT, check=check, env=env, timeout=timeout)
-
-
-def git(*arguments):
-    return subprocess.check_output(["git", *arguments], cwd=ROOT)
 
 
 def mounted_paths():
@@ -183,19 +181,18 @@ def tree(path):
 
 def extract_sources(output):
     manifest = json.loads((FIXTURE / "manifest.json").read_text())
-    tag_ref = "refs/tags/" + manifest["tag"]
-    require(git("rev-parse", tag_ref).decode().strip() == manifest["tagObject"],
-            "Historical tag object differs from manifest; use a full checkout with original tags")
-    require(git("rev-parse", tag_ref + "^{commit}").decode().strip() == manifest["commit"],
-            "Historical tag does not peel to the pinned source commit")
-    require(git("cat-file", "-t", manifest["tagObject"]).decode().strip() == "tag",
-            "Historical tag must remain the original annotated tag object")
+    require(manifest.get("sourceStorage") == "snapshot", "Unsupported historical source storage")
+    require(set(manifest["files"]) == set(manifest["blobs"]), "Historical source blob inventory mismatch")
+    snapshot = FIXTURE / "snapshot"
+    license_record = manifest["license"]
+    license_data = read_source(snapshot, "LICENSE", license_record["sha256"], license_record["blob"])
+    verified = {path: read_source(snapshot, path, expected, manifest["blobs"][path])
+                for path, expected in manifest["files"].items()}
     source_root = output / "historical"
     source_root.mkdir()
+    (source_root / "LICENSE").write_bytes(license_data)
     sources = []
-    for path, expected in manifest["files"].items():
-        data = git("show", manifest["commit"] + ":" + path)
-        require(hashlib.sha256(data).hexdigest() == expected, "Historical SHA256 mismatch: " + path)
+    for path, data in verified.items():
         destination = source_root / path
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(data)

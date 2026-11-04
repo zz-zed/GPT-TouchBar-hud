@@ -2,11 +2,9 @@
 
 在 Mac 上随手查看 ChatGPT / Codex 的账号额度、重置时间与 Token 用量，无需 Touch Bar。
 
-![GPT HUD：额度与用量，抬眼可见](assets/generated/gpt-hud-promo-01-overview.png)
-
 **[下载最新版本](https://github.com/zz-zed/GPT-TouchBar-hud/releases/latest) · [快速开始](#快速开始) · [选择展示方式](#选择展示方式) · [常见问题](#常见问题) · [反馈问题](https://github.com/zz-zed/GPT-TouchBar-hud/issues)**
 
-> 宣传图为基于界面参考制作的 AI 生成示意，使用演示数据；设备、图标和排版细节以实际应用及下方界面对照为准。
+> 文中界面使用演示数据。刘海面板示例基于合成屏幕几何，具体呈现以当前应用为准。
 
 ## 快速开始
 
@@ -41,14 +39,12 @@
 
 根据设备和使用习惯，选择菜单栏、刘海面板、桌面浮窗或 Touch Bar。刘海面板与桌面浮窗可切换，核心额度功能不依赖 Touch Bar。
 
-![按你的 Mac 选择 GPT HUD 展示方式](assets/generated/gpt-hud-promo-06-devices.png)
-
-<details>
-<summary>查看四种展示位置</summary>
-
-![GPT HUD 的菜单栏、刘海、桌面浮窗与 Touch Bar 展示位置](assets/generated/gpt-hud-promo-07-positions.png)
-
-</details>
+| 展示方式 | 适用设备 | 查看方式 |
+| --- | --- | --- |
+| 菜单栏 | 支持的 Mac | 点击图标查看完整摘要。 |
+| 刘海面板 | 带刘海的 Mac | 两侧预览额度，点击展开详情。 |
+| 桌面浮窗 | 支持的 Mac | 独立胶囊保持可见，可调整颜色与透明度。 |
+| Touch Bar | 配备 Touch Bar 的 Mac | 在键盘上方查看额度与用量。 |
 
 ## 界面与使用场景
 
@@ -56,41 +52,32 @@
 
 点击菜单栏图标，查看 5 小时与每周剩余额度、重置时间、Token 用量，以及账号提供的点数等信息。
 
-![GPT HUD 菜单栏：完整摘要，随手打开](assets/generated/gpt-hud-promo-03-menubar.png)
-
 适用于支持的 Mac。菜单栏内容可在“自动 / 仅图标 / 单额度 / 完整额度”之间选择。
 
-<details>
-<summary>查看菜单栏原生界面（演示数据）</summary>
-
 ![菜单栏原生摘要：额度、重置时间、公开预告与 Token 用量](Marketing/readme-native-menu-summary-v3.png)
-
-</details>
 
 ### 刘海面板：看一眼额度，点击看详情
 
 平时在刘海两侧预览额度和重置时间，点击后展开“额度 / 活动 / 用量”详情。
 
-![GPT HUD 刘海面板：看一眼额度，点击看详情](assets/generated/gpt-hud-promo-02-notch.png)
-
 适用于带刘海的设备。在“设置 → 通用 → 刘海常驻形态”选择 Peek 常驻预览，或 Compact 精简指示器；后者悬停时再预览额度。任务状态变化不会自动展开面板。
 
 <details>
-<summary>查看刘海三种状态（电脑效果模拟／演示数据）</summary>
+<summary>查看刘海三种状态（界面示意／演示数据）</summary>
 
 Peek：常驻预览额度与重置时间。
 
-![刘海 Peek 额度预览态](Marketing/readme-notch-peek-computer.png)
+![刘海 Peek 额度预览态](Marketing/user-guide-notch-peek.png)
 
 Compact：平时只保留精简指示器。
 
-![刘海 Compact 静止态](Marketing/readme-notch-compact-computer.png)
+![刘海 Compact 静止态](Marketing/user-guide-notch-compact.png)
 
 Expanded：点击后展开详情。
 
-![刘海 Expanded 展开态](Marketing/readme-notch-expanded-computer.png)
+![刘海 Expanded 展开态](Marketing/user-guide-notch-expanded.png)
 
-这些电脑图为效果模拟，非实机照片；原生界面参考见[使用指南](Documentation/USER-GUIDE.md#刘海融合面板)。
+这些图片使用合成屏幕几何和演示数据，不代表实体刘海环境已经验收；交互与显示规则见[使用指南](Documentation/USER-GUIDE.md#刘海融合面板)。
 
 </details>
 
@@ -98,31 +85,17 @@ Expanded：点击后展开详情。
 
 将任务提示与额度放在桌面上，以单行胶囊显示，提供刷新入口。
 
-![GPT HUD 桌面浮窗：任务提示与额度单行查看](assets/generated/gpt-hud-promo-04-desktop.png)
-
 适合无刘海设备，或偏好独立浮窗的用户。在“设置 → 通用 → 显示模式”切换到桌面浮窗；颜色和透明度可在“设置 → 外观”调整。本机 Codex 任务提示为实验性功能。
 
-<details>
-<summary>查看桌面浮窗原生界面（演示数据）</summary>
-
 ![桌面浮窗原生截图：执行中任务数、额度与刷新](Marketing/readme-native-quiet.png)
-
-</details>
 
 ### Touch Bar：额度信息，就在键盘上方
 
 在键盘上方查看额度、重置时间、Token 与点数，右侧系统控制条仍保留。
 
-![GPT HUD Touch Bar：在键盘上方查看额度与用量](assets/generated/gpt-hud-promo-05-touchbar.png)
-
 仅适用于配备 Touch Bar 的 Mac。常驻显示会占用其他 App 的左侧 Touch Bar 快捷按钮区域，可在“设置 → Touch Bar”关闭。
 
-<details>
-<summary>查看 Touch Bar 原生界面（演示数据）</summary>
-
 ![Touch Bar 原生截图：重置卡、周额度、Token 与点数](Marketing/readme-native-balanced-reset-alignment.png)
-
-</details>
 
 ## 主要功能
 

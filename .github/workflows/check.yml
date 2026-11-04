@@ -27,7 +27,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 2
       - name: Check public documentation and assets
-        run: python3 scripts/check-public-content.py
+        run: make public-content
       - name: Select build scope
         id: scope
         env:

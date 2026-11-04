@@ -11,6 +11,7 @@ help:
 	@echo "make full     Run the complete native regression suite (manual, longer)"
 
 public-content:
+	python3 Tests/PublicContentTests.py
 	python3 scripts/check-public-content.py
 
 check: public-content

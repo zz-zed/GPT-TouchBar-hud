@@ -12,17 +12,21 @@ python3 scripts/test-legacy-update-compatibility.py \
 Use `--arch x86_64` and that job's actual Intel DMG on a native Intel runner.
 The output directory must not exist. It retains extracted sources, compiler and
 case logs, generated test packages, isolated homes, and `summary.json`; none of
-those generated files belong in Git. CI must use `actions/checkout` with
-`fetch-depth: 0` so the pinned historical tag and objects are available. The test
-does not fetch from the network or fall back to the current updater's sources.
+those generated files belong in Git. The checked-in `snapshot/` contains only
+the historical sources needed by this test and their original MIT license. A
+shallow checkout or source archive is sufficient; the test does not fetch from
+the network or fall back to the current updater's sources.
 
-`manifest.json` pins the original annotated `v0.1.38` tag object
+`manifest.json` records the original annotated `v0.1.38` tag object
 `093cd4d159ad5db443860e01e7ed49c2aac86cf2` and its peeled source commit
-`382f49390ec2cb7b50beceea44307530a862806d`. The runner checks both references,
-extracts each listed file with `git show <commit>:<path>`, and checks the recorded
-SHA-256 before compiling the historical sources without modifications. The tag
-object hash is not a commit hash. To add or change a baseline, review the exact
-historical code and its boundary assumptions before updating this manifest.
+`382f49390ec2cb7b50beceea44307530a862806d` as provenance. Each source snapshot
+retains its original bytes. The runner checks every file's recorded SHA-256 and
+Git blob ID, including the license, before extracting and compiling those bytes
+without modifications. Missing, altered or symlinked files fail immediately.
+The tag object hash is not a commit hash, and the original Git references do not
+need to be present at test runtime. To add or change a baseline, review the exact
+historical code and its boundary assumptions before updating the snapshot and
+manifest together.
 
 The input is the actual DMG built by the current job. Its retained
 `GPT TouchBar HUD.app` filename, `GPT HUD` display identity, bundle identifier,

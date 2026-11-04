@@ -13,5 +13,21 @@
     "Sources/AppUpdateProgressWindowController.swift": "9fa3e82bd6694bb301b443b5ebd47d7f92f88fc4fce36f710fa20d7494acef0c",
     "Resources/install-update.sh": "62609ac39064e90bbc930565d62516510e45ba1fff107ed7546c15dd77cf93e5",
     "Sources/AppUpdateProgressHelper.swift": "6b4739d165ebb17d10ae035e59f5cddc16565577b4337baab5ee0b89edb1ac3e"
+  },
+  "sourceStorage": "snapshot",
+  "blobs": {
+    "Sources/AppUpdateModels.swift": "9b847e2fc143d31b5af5977cade3cb46be345d11",
+    "Sources/AppUpdateScheduler.swift": "5a8f78f89e920043a7014e7af59cf58435e056a5",
+    "Sources/AppIdentity.swift": "7b25e8d3eccbabfa6a2b79ce511315ea5e3ea4ed",
+    "Sources/AppUpdateDownload.swift": "4bf686605a8e92189017805fb59f9cc8f2f80f14",
+    "Sources/AppUpdateInstallation.swift": "0ae659e3438db9361749d746397eb33354d4e9b2",
+    "Sources/AppUpdateProgressChannel.swift": "d1a53e6aaa21f342713b4283353f4b3ed092c22d",
+    "Sources/AppUpdateProgressWindowController.swift": "0ef80a4a5c42b45ac7794a9b601230df2b3415f4",
+    "Resources/install-update.sh": "29d37e0f5b105911ce1c2ae9c5029c73c84bba96",
+    "Sources/AppUpdateProgressHelper.swift": "467cea9dcd6b9b672290252c36fd8c43e5957355"
+  },
+  "license": {
+    "blob": "d7a43ac7cc1aaf62920017793a715d2a34e521f4",
+    "sha256": "de379da7a02965b9a9d1313bf743eed6c3b5bfdd366bfd8735dee9285307321d"
   }
 }

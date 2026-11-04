@@ -63,9 +63,7 @@ jobs:
           fi
           git fetch --no-tags "${depth_args[@]}" origin \
             +refs/heads/main:refs/remotes/origin/main \
-            "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG" \
-            +refs/tags/v0.1.22:refs/tags/v0.1.22 \
-            +refs/tags/v0.1.38:refs/tags/v0.1.38
+            "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
           python3 scripts/release_metadata.py resolve --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
           test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$SOURCE_SHA"
       - name: Select the supported native SDK

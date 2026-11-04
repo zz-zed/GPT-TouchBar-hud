@@ -7,4 +7,5 @@ export PYTHONDONTWRITEBYTECODE=1
 "${RELEASE_TEST_PYTHON:-python3}" Tests/BuildPackageTests.py
 "${RELEASE_TEST_PYTHON:-python3}" Tests/CoreLibraryReuseTests.py
 "${RELEASE_TEST_PYTHON:-python3}" Tests/PublicReleaseVerificationTests.py
+"${RELEASE_TEST_PYTHON:-python3}" Tests/HistoricalSourceFixtureTests.py
 exec "${RELEASE_TEST_PYTHON:-python3}" Tests/UpdateCompatibilityContractTests.py "$@"

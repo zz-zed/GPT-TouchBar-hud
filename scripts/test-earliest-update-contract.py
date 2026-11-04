@@ -10,12 +10,23 @@ import re
 import subprocess
 import sys
 
+from historical_sources import read_source
+
 TAG = "v0.1.22"
 TAG_OBJECT = "df4a1be67085c6fc9763aca737574278ff196922"
 COMMIT = "caf32ecebc1a069c930027cb239fb8bafb8ef1da"
 SOURCE = "Sources/AppUpdateModels.swift"
 BLOB = "8ed62e087f9a070769ef39dbb16ffd1d26a2760f"
+SHA256 = "4f90a3e49e064f15b41f37a1a7e525beb89ab0699fe6e41f52e8405c7be00a69"
+LICENSE_SHA256 = "de379da7a02965b9a9d1313bf743eed6c3b5bfdd366bfd8735dee9285307321d"
+LICENSE_BLOB = "d7a43ac7cc1aaf62920017793a715d2a34e521f4"
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def historical_model():
+    snapshot = ROOT / "Tests/EarliestUpdateCompatibility/snapshot"
+    read_source(snapshot, "LICENSE", LICENSE_SHA256, LICENSE_BLOB)
+    return read_source(snapshot, SOURCE, SHA256, BLOB)
 
 
 def main():
@@ -36,7 +47,8 @@ def main():
     evidence = {
         "status": "failed", "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "historical_source": {"tag": TAG, "tag_object": TAG_OBJECT, "commit": COMMIT,
-                              "path": SOURCE, "blob": BLOB},
+                              "path": SOURCE, "blob": BLOB,
+                              "storage": "byte-identical checked-in source snapshot"},
         "inputs": {"version": args.version, "architecture": args.arch,
                    "checksums_path": str(checksums),
                    "checksums_sha256": hashlib.sha256(checksums.read_bytes()).hexdigest()},
@@ -56,14 +68,9 @@ def main():
         return result.stdout
 
     try:
-        for expression, expected in [(TAG, TAG_OBJECT), (TAG + "^{}", COMMIT),
-                                     (COMMIT + ":" + SOURCE, BLOB)]:
-            actual = run(["git", "rev-parse", expression]).strip()
-            if actual != expected:
-                raise RuntimeError(f"Historical source identity mismatch: {expression}")
-        source = run(["git", "show", COMMIT + ":" + SOURCE])
+        source = historical_model()
         extracted = output / "AppUpdateModels.swift"
-        extracted.write_text(source)
+        extracted.write_bytes(source)
         evidence["historical_source"]["sha256"] = hashlib.sha256(extracted.read_bytes()).hexdigest()
         fixture = ROOT / "Tests/EarliestUpdateCompatibility/main.swift"
         evidence["harness_sha256"] = hashlib.sha256(fixture.read_bytes()).hexdigest()
