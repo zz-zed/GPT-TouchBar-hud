@@ -65,7 +65,7 @@ jobs:
     needs: public_content
     if: needs.public_content.outputs.build_required == 'true'
     runs-on: macos-15
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
