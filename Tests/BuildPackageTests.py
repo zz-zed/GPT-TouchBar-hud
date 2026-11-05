@@ -91,6 +91,11 @@ class PackagingTests(unittest.TestCase):
         for directory in ("scripts", "Resources", "bin", "build/GPT TouchBar HUD.app"):
             (self.root / directory).mkdir(parents=True)
         shutil.copyfile(ROOT / "scripts/package-dmg.sh", self.root / "scripts/package-dmg.sh")
+        shutil.copyfile(ROOT / "scripts/check-public-content.py", self.root / "scripts/check-public-content.py")
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        (self.root / ".github").mkdir()
+        (self.root / ".github/public-content-paths.txt").write_text(".github/public-content-paths.txt\nResources/Info.plist\n")
+        subprocess.run(["git", "add", ".github"], cwd=self.root, check=True)
         for name in ("Info.plist", "first-open.command", "first-open-guide.txt"):
             shutil.copyfile(ROOT / "Resources" / name, self.root / "Resources" / name)
         self.app = self.root / "build/GPT TouchBar HUD.app"
@@ -141,6 +146,14 @@ class PackagingTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("No built app", result.stderr)
         self.assertFalse((self.root / "unexpected-build").exists())
+
+    def test_publication_gate_blocks_package_before_native_tools(self):
+        (self.root / "unexpected.md").write_text("Not an admitted project file")
+        subprocess.run(["git", "add", "unexpected.md"], cwd=self.root, check=True)
+        result = self.package()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("PC007", result.stderr)
+        self.assertFalse((self.root / "dist").exists())
 
     def test_failed_app_verification_prevents_packaging(self):
         self.environment["PACKAGE_VERIFY_FAIL"] = "1"

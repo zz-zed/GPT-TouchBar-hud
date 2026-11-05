@@ -39,3 +39,11 @@ xcuserdata/
 # Rebuildable Python bytecode.
 __pycache__/
 *.pyc
+
+# Development process material belongs outside the repository. These are safeguards.
+**/task_plan.md
+**/execution-log.md
+**/session-transcript.*
+**/raw-prompts.*
+**/.codex/sessions/
+**/.claude/worktrees/

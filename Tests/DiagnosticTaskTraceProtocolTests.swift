@@ -49,7 +49,7 @@ enum DiagnosticTaskTraceProtocolTests {
     }
     static func privacyAndGenerations() throws {
         let capture = TraceCapture(); let trace = DiagnosticTaskTrace(recorder: capture)
-        let rawTask = "/Users/private/raw-task-9aef"
+        let rawTask = "/Users/example/raw-task-9aef"
         let rawTurn = "raw-turn-credential-6dfa"
         let rawFile = rawTask + "-inode-987654"
         let first = identity(trace, rawTask, turn: rawTurn, file: rawFile)
@@ -216,11 +216,11 @@ enum DiagnosticTaskTraceProtocolTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = DiagnosticStore(directory: directory); _ = try store.startSession(UUID())
         let capture = TraceCapture(); let trace = DiagnosticTaskTrace(recorder: capture)
-        _ = identity(trace, "/Users/raw-private-path")
+        _ = identity(trace, "/Users/example")
         var line = try DiagnosticEventEnvelope.encoder().encode(DiagnosticEventEnvelope(timestamp: Date(), sessionID: UUID(),
             sequence: 1, monotonicMilliseconds: 0, event: capture.events[0]))
         var object = try JSONSerialization.jsonObject(with: line) as! [String: Any]
-        object["rawPath"] = "/Users/secret-path"
+        object["rawPath"] = "/Users/example"
         line = try JSONSerialization.data(withJSONObject: object); line.append(10)
         try store.append([line])
         let snapshot = try store.snapshot(since: nil, generation: 1, isEnabled: true)

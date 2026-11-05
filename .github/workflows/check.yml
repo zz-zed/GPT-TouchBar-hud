@@ -3,8 +3,8 @@ name: Check
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
   push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,25 +17,34 @@ concurrency:
 jobs:
   public_content:
     name: Public content
+    if: github.event.deleted != true
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     outputs:
       build_required: ${{ steps.scope.outputs.build_required }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-          fetch-depth: 2
-      - name: Check public documentation and assets
-        run: make public-content
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Test publication checks
+        run: |
+          python3 Tests/PublicContentTests.py
+          python3 Tests/PublicContentGitTests.py
+      - name: Check outgoing history and final PR text
+        run: python3 scripts/public-content-ci.py
       - name: Select build scope
         id: scope
         env:
           EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           build_required=true
-          if [[ "$EVENT_NAME" != workflow_dispatch && "$BASE_SHA" =~ ^[0-9a-f]{40}$ && "$BASE_SHA" != 0000000000000000000000000000000000000000 ]]; then
+          if [[ "$EVENT_NAME" == push && "$GITHUB_REF" != refs/heads/main ]] || [[ "$EVENT_NAME" == pull_request && "$EVENT_ACTION" == edited ]]; then
+            build_required=false
+          elif [[ "$EVENT_NAME" != workflow_dispatch && "$BASE_SHA" =~ ^[0-9a-f]{40}$ && "$BASE_SHA" != 0000000000000000000000000000000000000000 ]]; then
             if { git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null || timeout 20s git fetch --quiet --no-tags --depth=1 origin "$BASE_SHA"; } && git diff --name-only -z "$BASE_SHA" HEAD > "$RUNNER_TEMP/check-paths"; then
               if python3 - "$RUNNER_TEMP/check-paths" <<'PY'
           import sys

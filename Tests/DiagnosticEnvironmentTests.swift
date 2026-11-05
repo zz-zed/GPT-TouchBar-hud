@@ -14,7 +14,7 @@ struct DiagnosticEnvironmentTests {
                 model: value, hardwareArchitecture: .unknown, processArchitecture: .arm64,
                 translated: nil, host: .unknown, hostVersion: value, location: .other)
         }
-        for secret in ["person@example.com", "/Users/private/test", "sk-secret\nhello", "26.1\rsecret", "26.1\n", "Task title", String(repeating: "1", count: 100), "{\"token\": 99}"] {
+        for secret in ["person@example.com", "/Users/example/test", "sk-secret\nhello", "26.1\rsecret", "26.1\n", "Task title", String(repeating: "1", count: 100), "{\"token\": 99}"] {
             let result = snapshot(secret)
             let bytes = try JSONEncoder().encode(result)
             let text = String(decoding: bytes, as: UTF8.self)

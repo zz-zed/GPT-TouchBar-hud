@@ -116,7 +116,7 @@ enum DiagnosticRecorderTests {
         let store = DiagnosticStore(directory: directory, now: clock.now)
         _ = try store.startSession(UUID())
         var object = try JSONSerialization.jsonObject(with: makeLine(clock, .lifecycle(.launch))) as! [String: Any]
-        object["module"] = "/Users/private/sensitive"
+        object["module"] = "/Users/example/sensitive"
         object["severity"] = "credential@example.com"
         object["response"] = "secret-server-body"
         var event = object["event"] as! [String: Any]

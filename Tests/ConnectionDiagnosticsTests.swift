@@ -48,7 +48,7 @@ private final class PrivateError: LocalizedError {
     var descriptionReads = 0
     var errorDescription: String? {
         descriptionReads += 1
-        return "secret@example.com /Users/private-person sk-private-token"
+        return "secret@example.com /Users/example sk-private-token"
     }
 }
 
@@ -123,7 +123,7 @@ enum ConnectionDiagnosticsTests {
               loggedOut.tokenReads == 0 && loggedOut.stops == 1, "Logged-out user gets login guidance without account-data requests")
 
         let partial = FakeDiagnosticClient()
-        partial.quotas = .failure(CodexAppServerError.serverError("secret@example.com /Users/private-person sk-private-token"))
+        partial.quotas = .failure(CodexAppServerError.serverError("secret@example.com /Users/example sk-private-token"))
         let partialRunner = runner(partial)
         var partialReports: [String] = []
         partialRunner.onUpdate = { partialReports.append($0.text) }
@@ -212,7 +212,7 @@ enum ConnectionDiagnosticsTests {
         check(emptyRunner.report?.findings[.rateLimits] == .noData && emptyRunner.report?.findings[.tokenUsage] == .noData,
               "Valid empty responses are distinct from healthy data and connection failure")
 
-        for maliciousVersion in ["1.0\n/Users/private-person", "secret@example.com", "1.2 sk-token", String(repeating: "1", count: 41)] {
+        for maliciousVersion in ["1.0\n/Users/example", "secret@example.com", "1.2 sk-token", String(repeating: "1", count: 41)] {
             let sanitized = ConnectionDiagnosticsEnvironment(appVersion: maliciousVersion,
                 operatingSystem: OperatingSystemVersion(majorVersion: 11, minorVersion: 0, patchVersion: 0),
                 architecture: .arm64, host: .chatGPT, hostVersion: maliciousVersion)

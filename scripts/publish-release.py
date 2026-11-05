@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prepare this run's release files; remote publication requires explicit --publish."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,16 @@ from urllib.parse import quote
 from release_metadata import (ARCHES, ReleaseError, asset_name, file_record, git,
                               require, resolve_tag, sha, source_metadata, tag_reference_commit,
                               validate_tag, write_json)
+
+
+_content_spec = importlib.util.spec_from_file_location("public_content", Path(__file__).with_name("check-public-content.py"))
+public_content = importlib.util.module_from_spec(_content_spec)
+_content_spec.loader.exec_module(public_content)
+
+
+def check_payload(name, data):
+    require(not public_content.scan_content(name, data, force_text=True),
+            "Publication payload failed the public content check; matched values omitted")
 
 
 READ_BACKOFF_SECONDS = (0, 1, 2, 4, 8)
@@ -40,6 +51,8 @@ class GitHub:
         return result.stdout
 
     def api(self, path, method="GET", payload=None, missing_ok=False, paginate=False):
+        if payload is not None and method != "GET":
+            check_payload("payload.json", json.dumps(payload).encode())
         args = ["api", "--hostname", "github.com", "--method", method, f"repos/{self.repository}/{path}"]
         if paginate:
             args += ["--paginate", "--slurp"]
@@ -99,6 +112,8 @@ class GitHub:
 
     def upload(self, release, path):
         identifier, path = release_identifier(release), Path(path)
+        if path.suffix.lower() in {".json", ".txt", ".md"}:
+            check_payload(path.name, path.read_bytes())
         # Use the validated ID on a fixed GitHub host, never a response-provided URL.
         # No overwrite or write retries: uncertain uploads are reconciled on rerun.
         url = (f"https://uploads.github.com/repos/{self.repository}/releases/{identifier}/assets"
@@ -198,6 +213,8 @@ def publish(api, report, directory):
     require((directory / "SHA256SUMS.txt").read_text(encoding="utf-8") == "".join(
         f"{expected[name]['sha256']}  {name}\n" for name in names[:2]), "Prepared checksum file changed")
     notes = (directory / "RELEASE_NOTES.md").read_text(encoding="utf-8")
+    for name in ("RELEASE_NOTES.md", "SHA256SUMS.txt", "build-manifest.json"):
+        check_payload(name, (directory / name).read_bytes())
     release = api.release(tag)
     if release is None:
         release = api.create(tag, directory / "RELEASE_NOTES.md", source_sha)
@@ -248,6 +265,13 @@ def main():
         require(resolve_tag(args.source, tag)["source_sha"] == args.source_sha, "Release tag does not match the locked SHA")
     report = prepare(args.source, args.source_sha, args.repository, args.run_id, args.artifacts, args.output, tag)
     if args.publish:
+        review = public_content.Review(args.source.resolve())
+        try:
+            tag_object = public_content.git(args.source, "rev-parse", "refs/tags/" + tag).decode().strip()
+            review.history([tag_object], [args.source_sha])
+            require(review.report() == 0, "Release source failed the public content check")
+        finally:
+            review.objects.close()
         print(json.dumps(publish(GitHub(args.repository), report, args.output)))
     else:
         print(json.dumps({"status": "prepared", "directory": str(args.output), "manifest": report}, indent=2))
@@ -256,6 +280,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (ReleaseError, OSError, ValueError, KeyError, TypeError) as error:
+    except (ReleaseError, public_content.CheckError, OSError, ValueError, KeyError, TypeError) as error:
         print(f"Release preparation/publication failed: {error}", file=sys.stderr)
         sys.exit(1)

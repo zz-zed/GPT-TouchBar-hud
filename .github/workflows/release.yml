@@ -66,7 +66,14 @@ jobs:
             "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
           python3 scripts/release_metadata.py resolve --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
           test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$SOURCE_SHA"
+      - name: Check the exact release source and tag
+        id: publication
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+        run: python3 scripts/check-public-content.py --ref "refs/tags/$RELEASE_TAG" --exclude "$SOURCE_SHA"
       - name: Select the supported native SDK
+        id: sdk
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
@@ -75,22 +82,28 @@ jobs:
           test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" -ge 26
           test "$(uname -m)" = "$EXPECTED_ARCH"
       - name: Test release helpers
+        id: helpers
         if: matrix.arch == 'arm64'
         run: bash scripts/test-release-workflows.sh
       - name: Core tests
+        id: core
         if: matrix.arch == 'arm64'
         run: bash scripts/test-core.sh
       - name: Build production App once
+        id: build
         env:
           HUD_BUILD_ARCHS: ${{ matrix.arch }}
         run: bash scripts/build-app.sh
       - name: Native smoke tests
+        id: smoke
         run: bash scripts/test-core.sh --smoke
       - name: Package the built App
+        id: package
         env:
           HUD_PACKAGE_ARCH: ${{ matrix.arch }}
         run: bash scripts/package-dmg.sh
       - name: Record this run's artifact
+        id: metadata
         env:
           SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
           VERSION: ${{ steps.source.outputs.version }}
@@ -102,6 +115,7 @@ jobs:
             --dmg "dist/GPT-TouchBar-HUD-$VERSION-$ARCH.dmg" \
             --output build/release-payload
       - name: Verify actual DMG and retained upgrade paths
+        id: verify
         env:
           VERSION: ${{ steps.source.outputs.version }}
           ARCH: ${{ matrix.arch }}
@@ -111,6 +125,7 @@ jobs:
             --checksums build/release-payload/SHA256SUMS.txt \
             --output "build/package-verification/$ARCH"
       - name: Upload verified architecture payload
+        id: payload
         uses: actions/upload-artifact@v7
         with:
           name: release-${{ steps.source.outputs.source_sha }}-${{ matrix.arch }}
@@ -118,15 +133,39 @@ jobs:
           if-no-files-found: error
           overwrite: true
           retention-days: 30
-      - name: Upload verification failure evidence
+      - name: Summarize failure without raw evidence
+        id: failure_summary
         if: failure()
+        env:
+          VERSION: ${{ steps.source.outputs.version }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          ARCH: ${{ matrix.arch }}
+          SOURCE: ${{ steps.source.outcome }}
+          PUBLICATION: ${{ steps.publication.outcome }}
+          SDK: ${{ steps.sdk.outcome }}
+          HELPERS: ${{ steps.helpers.outcome }}
+          CORE: ${{ steps.core.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          PACKAGE: ${{ steps.package.outcome }}
+          METADATA: ${{ steps.metadata.outcome }}
+          VERIFY: ${{ steps.verify.outcome }}
+          PAYLOAD: ${{ steps.payload.outcome }}
+        run: |
+          python3 scripts/public-failure-summary.py --version "$VERSION" --arch "$ARCH" \
+            --source-sha "$SOURCE_SHA" --output build/public-failure-summary.json \
+            --step "source=$SOURCE" --step "publication=$PUBLICATION" --step "sdk=$SDK" --step "helpers=$HELPERS" \
+            --step "core=$CORE" --step "build=$BUILD" --step "smoke=$SMOKE" \
+            --step "package=$PACKAGE" --step "metadata=$METADATA" \
+            --step "verify=$VERIFY" --step "payload=$PAYLOAD"
+          python3 scripts/check-public-content.py --payload build/public-failure-summary.json
+      - name: Upload verification failure summary
+        if: failure() && steps.failure_summary.outcome == 'success'
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: verification-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            build/package-verification/**/*.json
-            build/package-verification/**/*.log
+          path: build/public-failure-summary.json
           if-no-files-found: ignore
           retention-days: 7
 

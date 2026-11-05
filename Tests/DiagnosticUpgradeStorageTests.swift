@@ -139,7 +139,7 @@ enum DiagnosticUpgradeStorageTests {
         var data = try Data(contentsOf: file)
         let first = data.split(separator: 10).first!
         var object = try JSONSerialization.jsonObject(with: Data(first)) as! [String: Any]
-        object["schemaVersion"] = 99; object["unknownPrivatePath"] = "/Users/private-token"
+        object["schemaVersion"] = 99; object["unknownPrivatePath"] = "/Users/example"
         data.append(try JSONSerialization.data(withJSONObject: object)); data.append(10)
         object["schemaVersion"] = 1; object["event"] = ["unknownNewProtocolEvent": ["secret": "do-not-export"]]
         data.append(try JSONSerialization.data(withJSONObject: object)); data.append(10)

@@ -79,6 +79,16 @@ class ReleaseGitHubAdapterTests(unittest.TestCase):
                 self.api.release(TAG)
             self.assertEqual(command.call_count, 1)
 
+    def test_direct_write_checks_exact_final_json_before_network(self):
+        private = "/" + "Users/" + "synthetic-private-marker/project"
+        with mock.patch.object(self.api, "command") as command:
+            with self.assertRaisesRegex(publisher.ReleaseError, "public content"):
+                self.api.api("pulls/1", method="PATCH", payload={"title": "Product fix", "body": private})
+            command.assert_not_called()
+        with mock.patch.object(self.api, "command", return_value="{}") as command:
+            self.api.api("pulls/1", method="PATCH", payload={"title": "Product fix", "body": "Public description"})
+            self.assertEqual(json.loads(command.call_args.kwargs["payload"])["body"], "Public description")
+
     def test_create_returns_post_response_and_keeps_the_existing_tag_source(self):
         with tempfile.TemporaryDirectory() as temporary:
             notes = Path(temporary) / "notes.md"

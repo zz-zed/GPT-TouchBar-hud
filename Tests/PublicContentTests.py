@@ -10,6 +10,8 @@ import unittest
 import zlib
 
 
+PRIVATE_PATH = ("/" + "Users/" + "private-personal-sentinel/project").encode()
+
 CHECK = Path(__file__).resolve().parents[1] / "scripts/check-public-content.py"
 
 
@@ -31,6 +33,8 @@ class PublicContentTests(unittest.TestCase):
                 target = root / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(data)
+            (root / ".github").mkdir(exist_ok=True)
+            (root / ".github/public-content-paths.txt").write_text("\n".join([".github/public-content-paths.txt", *files]) + "\n")
             file_list = root / "tracked-files"
             file_list.write_bytes(b"".join(name.encode() + b"\0" for name in files))
             result = subprocess.run([sys.executable, str(CHECK), "--root", str(root), "--files-from", str(file_list)], capture_output=True, text=True)
@@ -66,7 +70,7 @@ class PublicContentTests(unittest.TestCase):
                 self.assertIn("invalid PNG container", result.stderr)
 
     def test_text_metadata_uses_the_same_privacy_rules(self):
-        for value in [b"/Users/private-personal-sentinel/project", b'{"prompt":"private-personal-sentinel","model":"example"}']:
+        for value in [PRIVATE_PATH, b'{"prompt":"private-personal-sentinel","model":"example"}']:
             for kind, payload in [
                 (b"tEXt", b"Description\0" + value),
                 (b"zTXt", b"Description\0\0" + zlib.compress(value)),
@@ -97,7 +101,7 @@ class PublicContentTests(unittest.TestCase):
             self.assertIn("invalid or oversized text metadata", result.stderr)
 
     def test_international_keyword_translation_is_checked(self):
-        data = png(chunk(b"iTXt", b"Description\0\0\0en\0/Users/private-personal-sentinel/project\0Example"))
+        data = png(chunk(b"iTXt", b"Description\0\0\0en\0" + PRIVATE_PATH + b"\0Example"))
         result = self.check_files({"Marketing/interface.png": data})
         self.assertEqual(result.returncode, 1)
         self.assertNotIn("private-personal-sentinel", result.stdout + result.stderr)
@@ -109,13 +113,13 @@ class PublicContentTests(unittest.TestCase):
         self.assertIn("invalid or oversized text metadata", result.stderr)
 
     def test_personal_paths_are_flagged_without_echoing(self):
-        result = self.check_files({"README.md": b"/Users/private-personal-sentinel/project\n"})
+        result = self.check_files({"README.md": PRIVATE_PATH + b"\n"})
         self.assertEqual(result.returncode, 1)
         self.assertNotIn("private-personal-sentinel", result.stdout + result.stderr)
 
-    def test_functional_test_privacy_sentinels_remain_allowed(self):
-        result = self.check_files({"Tests/sample.json": b'{"path":"/Users/private-personal-sentinel/example"}'})
-        self.assertEqual(result.returncode, 0, result.stderr)
+    def test_tests_are_checked_without_a_directory_bypass(self):
+        result = self.check_files({"Tests/sample.json": b'{"path":"' + PRIVATE_PATH + b'"}'})
+        self.assertEqual(result.returncode, 1, result.stderr)
 
 
 if __name__ == "__main__":

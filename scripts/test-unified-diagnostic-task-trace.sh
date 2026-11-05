@@ -9,6 +9,7 @@ source scripts/reset-news-core-build.sh
 # must not be compiled just to run this integration fixture.
 sources=(
     Sources/AccountTokenUsage.swift
+    Sources/APICostModels.swift
     Sources/AppIdentity.swift
     Sources/AppUpdateModels.swift
     Sources/CodexAppServerClient.swift
@@ -28,6 +29,8 @@ sources=(
     Sources/DiagnosticTaskTraceCoverage.swift
     Sources/ForecastPresentation.swift
     Sources/HUDAppearance.swift
+    Sources/HUDDataFreshness.swift
+    Sources/HUDModulePalette.swift
     Sources/HUDPresentation.swift
     Sources/LimitModels.swift
     Sources/NotchContentAdapter.swift

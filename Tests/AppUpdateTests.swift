@@ -247,7 +247,7 @@ final class FakeReleaseFetcher: AppReleaseFetching {
     }
 
     static func testRuntimeIsolation() {
-        let home = URL(fileURLWithPath: "/Users/tester")
+        let home = URL(fileURLWithPath: "/Users/example")
         check(AppUpdateRuntime.allowsAutomaticChecks(
             bundleURL: URL(fileURLWithPath: "/Applications/GPT TouchBar HUD.app"),
             bundleIdentifier: "io.github.zz-zed.GPTTouchBarHUD",

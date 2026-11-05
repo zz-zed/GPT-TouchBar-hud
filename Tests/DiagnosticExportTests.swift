@@ -11,7 +11,7 @@ private final class DiagnosticTestClock {
 }
 
 private final class ExportPrivacyError: LocalizedError {
-    var errorDescription: String? { "private@example.com /Users/private-person sk-private-token private-task-title" }
+    var errorDescription: String? { "private@example.com /Users/example sk-private-token private-task-title" }
 }
 
 private final class ExportWriteGate {
@@ -151,7 +151,7 @@ enum DiagnosticExportTests {
             do { try DiagnosticZIP.validate(Data(archive.prefix(length)), files: snapshot.files); preconditionFailure("Truncation must fail") }
             catch { check(error as? DiagnosticExportError == .invalidArchive, "Truncated ZIP safely fails bounds checks") }
         }
-        let secret = "private@example.com /Users/private-person sk-private-token private-task-title"
+        let secret = "private@example.com /Users/example sk-private-token private-task-title"
         let described = try preview(exporter, request: DiagnosticExportRequest(createdAt: time, problemDescription: secret, problemTime: time)).get()
         check(file(described, "summary.txt").text.contains(secret), "Explicit user description appears in its own preview")
         check(described.files.filter { $0.name != "summary.txt" }.allSatisfy { !$0.text.contains(secret) }, "User text never enters environment/events/checks/manifest")

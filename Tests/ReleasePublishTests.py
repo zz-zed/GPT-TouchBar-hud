@@ -344,6 +344,13 @@ class ReleasePublishTests(unittest.TestCase):
         self.assertTrue(api.current["draft"])
         self.assertNotIn("publish", api.writes)
 
+    def test_final_notes_are_rechecked_after_preparation_before_any_write(self):
+        report, api = self.prepare(), MemoryGitHub()
+        (self.output / "RELEASE_NOTES.md").write_text("/" + "Users/" + "synthetic-private-marker/project")
+        with self.assertRaisesRegex(publisher.ReleaseError, "public content"):
+            publisher.publish(api, report, self.output)
+        self.assertEqual(api.writes, [])
+
     def test_modified_prepared_payload_never_reaches_release_creation(self):
         report, api = self.prepare(), MemoryGitHub()
         (self.output / metadata.asset_name(VERSION, "arm64")).write_bytes(b"changed after prepare")

@@ -61,6 +61,10 @@ tag 必须指向 main 历史中的提交，版本与 Info.plist 一致，首次�
 
 原生构建只有 contents 读权限，publish 才有 contents 写权限；checkout 不保留凭据。使用 GITHUB_TOKEN，不增加个人 PAT。发布脚本默认只整理文件；必须显式 `--publish`，并满足版本 tag push 或 main 手动恢复上下文，才允许远程写入。
 
+源码、tag 和最终发布正文复用 `scripts/check-public-content.py`。本地打包也先执行检查；新增文件必须进入经过审阅的公开路径清单。使用 API/MCP 单独更正文案时，先检查最终载荷，修改后重新检查。
+
+失败附件只上传固定字段摘要（版本、架构、源码 SHA、检查项状态、失败类别与范围），保留 7 天。摘要从工作流状态生成，不读取原始验证证据，不包含命令参数、标准输出、错误原文或本机路径。已验证的发布 payload 保留 30 天；不上传原始 JSON/log 通配目录。
+
 ## 失败恢复
 
 优先使用 GitHub Actions 的 **Re-run failed jobs**。一个架构成功、另一个失败时，沿用同一源码的成功 artifact；只有发布失败时，只恢复发布 job。固定 artifact 名称不含 attempt，重跑对应架构可以替换中间 artifact，不能替换已公开附件。
