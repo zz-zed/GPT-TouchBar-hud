@@ -18,6 +18,7 @@ import tempfile
 
 from release_metadata import (ARCHES, ReleaseError, require, sha, tag_reference_commit,
                               validate_tag)
+from release_source_map import load_source_map, mapped_build_source, select_mapping
 
 
 REPOSITORY = "zz-zed/GPT-TouchBar-hud"
@@ -46,9 +47,16 @@ def file_record(path):
     return {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
 
 
-def tag_commit(repository, tag):
+def tag_identity(repository, tag):
     ref = github_json(repository, f"git/ref/tags/{tag}")
-    return tag_reference_commit(ref, lambda object_sha: github_json(repository, f"git/tags/{object_sha}"))
+    commit = tag_reference_commit(ref, lambda object_sha: github_json(repository, f"git/tags/{object_sha}"))
+    target = ref.get("object", {})
+    return {"ref": ref.get("ref"), "kind": target.get("type"),
+            "object_sha": sha(target.get("sha")), "commit_sha": commit}
+
+
+def tag_commit(repository, tag):
+    return tag_identity(repository, tag)["commit_sha"]
 
 
 def validate_release_metadata(release, latest, tag, allow_not_latest=False):
@@ -74,7 +82,8 @@ def validate_release_metadata(release, latest, tag, allow_not_latest=False):
     return version, is_latest
 
 
-def verify_public_files(directory, release, version, tag, source_sha, repository):
+def verify_public_files(directory, release, version, tag, source_sha, repository, *,
+                        source_map=None, current_tag=None):
     assets = {entry["name"]: entry for entry in release["assets"]}
     require({path.name for path in directory.iterdir()} == set(assets), "Downloaded file set differs from release")
     records = {}
@@ -86,6 +95,10 @@ def verify_public_files(directory, release, version, tag, source_sha, repository
                 f"Public asset size or GitHub digest mismatch: {name}")
         records[name] = {"name": name, **record}
 
+    if source_map is not None:
+        require(isinstance(current_tag, dict) and current_tag.get("commit_sha") == source_sha,
+                "Source map current source commit mismatch")
+        source_sha = mapped_build_source(source_map, repository, tag, release, current_tag, records)
     manifest = json.loads((directory / "build-manifest.json").read_text(encoding="utf-8"))
     require(manifest.get("tag") == tag and manifest.get("version") == version, "Public manifest version mismatch")
     require(manifest.get("source_sha") == source_sha, "Public manifest source commit mismatch")
@@ -199,13 +212,18 @@ def main():
                         help="Recheck an existing download after a failed verification")
     parser.add_argument("--allow-not-latest", action="store_true", help="Verify a historical release")
     parser.add_argument("--allow-notes-edit", action="store_true", help="Allow an authorized online notes correction")
+    parser.add_argument("--source-map", type=Path,
+                        help="Explicitly trusted source mapping for unchanged historical release assets")
     args = parser.parse_args()
     require(re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repo) is not None, "Invalid repository")
     validate_tag(args.tag, args.tag.removeprefix("v"))
+    source_map = load_source_map(args.source_map) if args.source_map else None
+    mapping = select_mapping(source_map, args.repo, args.tag) if source_map is not None else None
     release = github_json(args.repo, f"releases/tags/{args.tag}")
     latest = github_json(args.repo, "releases/latest")
     version, is_latest = validate_release_metadata(release, latest, args.tag, args.allow_not_latest)
-    source_sha = tag_commit(args.repo, args.tag)
+    current_tag = tag_identity(args.repo, args.tag)
+    source_sha = current_tag["commit_sha"]
     notes = github_json(args.repo, f"contents/RELEASE_NOTES.md?ref={source_sha}")
     require(notes.get("encoding") == "base64", "Tagged release notes unavailable")
     tagged_notes = base64.b64decode(notes["content"]).decode("utf-8")
@@ -221,7 +239,8 @@ def main():
                 "Output directory must be new or empty")
         output.mkdir(parents=True, exist_ok=True)
         command("gh", "release", "download", args.tag, "--repo", args.repo, "--dir", str(output))
-    manifest, records = verify_public_files(output, release, version, args.tag, source_sha, args.repo)
+    manifest, records = verify_public_files(output, release, version, args.tag, source_sha, args.repo,
+                                            source_map=source_map, current_tag=current_tag)
     # Published bytes and their manifest remain verifiable after CI history expires.
     run_id = manifest.get("run_id", manifest.get("selection", {}).get("run_id"))
     run_url = f"https://github.com/{args.repo}/actions/runs/{run_id}"
@@ -229,13 +248,19 @@ def main():
                          manifest["build"]) for arch in ARCHES]
     report = {
         "tag": args.tag, "version": version, "build": manifest["build"],
-        "sourceCommit": source_sha, "releaseURL": release.get("html_url"),
+        "sourceCommit": manifest["source_sha"], "releaseURL": release.get("html_url"),
         "publishedAt": release["published_at"], "verifiedAtUTC": datetime.now(timezone.utc).isoformat(),
         "latestVerified": is_latest, "releaseNotesMatch": notes_match,
         "buildRun": {"id": run_id, "url": run_url, "manifestVerified": True},
         "assets": [records[entry["name"]] for entry in release["assets"]],
         "dmgChecks": checks, "installedAppModifiedDuringVerification": False,
     }
+    if mapping is not None:
+        report["cleanedSourceCommit"] = source_sha
+        report["sourceMapping"] = {
+            "mapSHA256": source_map["sha256"], "originalTagObject": mapping["original_tag_object"],
+            "cleanedTagObject": mapping["rewritten_tag_object"], "inputProof": mapping["input_proof"],
+        }
     report_path = output / "verification.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(report_path)
